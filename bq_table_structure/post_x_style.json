@@ -1,0 +1,16 @@
+[
+    {
+      "name": "postId",
+      "mode": "",
+      "type": "INTEGER",
+      "description": "",
+      "fields": []
+    },
+    {
+      "name": "styleId",
+      "mode": "",
+      "type": "INTEGER",
+      "description": "",
+      "fields": []
+    }
+  ]

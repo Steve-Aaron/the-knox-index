@@ -1,0 +1,16 @@
+[
+    {
+      "name": "id",
+      "mode": "",
+      "type": "INTEGER",
+      "description": "",
+      "fields": []
+    },
+    {
+      "name": "name",
+      "mode": "",
+      "type": "STRING",
+      "description": "",
+      "fields": []
+    }
+  ]

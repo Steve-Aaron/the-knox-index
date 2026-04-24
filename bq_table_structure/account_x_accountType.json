@@ -1,0 +1,23 @@
+[
+    {
+      "name": "id",
+      "mode": "",
+      "type": "INTEGER",
+      "description": "",
+      "fields": []
+    },
+    {
+      "name": "accountId",
+      "mode": "",
+      "type": "INTEGER",
+      "description": "",
+      "fields": []
+    },
+    {
+      "name": "accountTypeId",
+      "mode": "",
+      "type": "INTEGER",
+      "description": "",
+      "fields": []
+    }
+  ]

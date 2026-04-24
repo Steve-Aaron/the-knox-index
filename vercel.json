@@ -1,0 +1,13 @@
+{
+  "buildCommand": "npx expo export --platform web",
+  "outputDirectory": "dist",
+  "installCommand": "npm install",
+  "devCommand": "npx expo start --web",
+  "env": {
+    "EXPO_OFFLINE": "1"
+  },
+  "rewrites": [
+    { "source": "/api/:path*", "destination": "/api/:path*" },
+    { "source": "/(.*)",       "destination": "/" }
+  ]
+}

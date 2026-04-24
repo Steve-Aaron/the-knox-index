@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+
+# Expo
+.expo/
+dist/
+web-build/
+npm-debug.*
+*.orig.*
+
+# Environment — NEVER commit secrets
+.env
+.env.local
+.env*.local
+
+# Service account keys — NEVER commit
+keys/
+*-credentials.json
+*service-account*.json
+
+# Build artefacts
+build/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.idea/
+.vscode/
+*.swp
+
+# Expo generated
+expo-env.d.ts
+ios/
+android/

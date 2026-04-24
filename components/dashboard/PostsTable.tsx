@@ -1,0 +1,946 @@
+import React, { useState, useMemo } from 'react';
+import {
+  View,
+  Text,
+  ScrollView,
+  Pressable,
+  StyleSheet,
+  Platform,
+} from 'react-native';
+import { ShimmerImage } from '@/components/primitives/ShimmerImage';
+import { MotiView } from 'moti';
+import { GlassSurface } from '@/components/primitives/GlassSurface';
+import { DevLabel } from '@/components/primitives/DevLabel';
+import { BoxWhisker } from '@/components/primitives/BoxWhisker';
+import { InfoTip } from '@/components/primitives/InfoTip';
+import { SkeletonBlock } from '@/components/primitives/SkeletonBlock';
+import { VideoModal } from './VideoModal';
+import { neutral, party, glass, accent } from '@/theme/colors';
+import type { PartyKey } from '@/theme/colors';
+import { type, font } from '@/theme/typography';
+import { spacing, radius } from '@/theme/spacing';
+import { formatters } from '@/components/primitives/CountUp';
+import type { PostRecord, PostBenchmarks } from '@/data/types';
+
+/**
+ * PostsTable
+ * -----------
+ * Card-based post feed for the current period.
+ * Filters: political alignment (Left / Right / Independent) + party + active politician.
+ * Leaderboard selection flows in via activePoliticianName.
+ * Each card: large 9:16 cover | identity + caption + tags + stats | AI summary column.
+ * One job: show the full post ledger clearly.
+ */
+
+// ── Political alignment map ────────────────────────────────────────────────────
+
+type Wing = 'left' | 'right' | 'independent';
+
+const WING_MAP: Record<PartyKey, Wing> = {
+  labour:       'left',
+  libdem:       'left',
+  snp:          'left',
+  green:        'left',
+  plaid:        'left',
+  sinnfein:     'left',
+  conservative: 'right',
+  reform:       'right',
+  dup:          'right',
+  independent:  'independent',
+  unknown:      'independent',
+};
+
+const WING_LABELS: Record<Wing, string> = {
+  left:        'Left wing',
+  right:       'Right wing',
+  independent: 'Independent',
+};
+
+// ── Sort options ───────────────────────────────────────────────────────────────
+
+type SortKey = 'views' | 'likes' | 'comments' | 'shares' | 'postDate';
+
+const SORT_OPTIONS: { key: SortKey; label: string }[] = [
+  { key: 'views',    label: 'Views' },
+  { key: 'likes',    label: 'Likes' },
+  { key: 'comments', label: 'Comments' },
+  { key: 'shares',   label: 'Shares' },
+  { key: 'postDate', label: 'Date' },
+];
+
+// ── Party label helper ─────────────────────────────────────────────────────────
+
+function partyLabel(key: PartyKey): string {
+  const labels: Partial<Record<PartyKey, string>> = {
+    labour: 'Labour', conservative: 'Conservative', libdem: 'Lib Dem',
+    snp: 'SNP', green: 'Greens', reform: 'Reform', plaid: 'Plaid',
+    dup: 'DUP', sinnfein: 'Sinn Féin', independent: 'Independent', unknown: 'Unknown',
+  };
+  return labels[key] ?? key;
+}
+
+// ── Component ─────────────────────────────────────────────────────────────────
+
+interface Props {
+  posts:                  PostRecord[];
+  loading:                boolean;
+  rangeLabel?:            string;
+  activePoliticianName?:  string | null;
+  onClearPolitician?:     () => void;
+  benchmarks?:            PostBenchmarks;
+}
+
+export function PostsTable({
+  posts,
+  loading,
+  rangeLabel,
+  activePoliticianName,
+  onClearPolitician,
+  benchmarks,
+}: Props) {
+  const [sortKey, setSortKey]       = useState<SortKey>('views');
+  const [wingFilter, setWingFilter] = useState<Wing | null>(null);
+  const [partyFilter, setPartyFilter] = useState<PartyKey | null>(null);
+  const [selected, setSelected]     = useState<PostRecord | null>(null);
+
+  // Party chips must only show parties that exist within the active wing filter.
+  // Deriving from all posts would let users tap a party that has zero matches
+  // in the current wing, silently returning an empty list.
+  const parties = useMemo<PartyKey[]>(() => {
+    const base = wingFilter ? posts.filter(p => WING_MAP[p.partyKey] === wingFilter) : posts;
+    const seen = new Set<PartyKey>();
+    base.forEach(p => seen.add(p.partyKey));
+    return Array.from(seen).sort();
+  }, [posts, wingFilter]);
+
+  const filtered = useMemo(() => {
+    let base = posts;
+    if (activePoliticianName) {
+      base = base.filter(p => p.politicianName === activePoliticianName);
+    }
+    if (wingFilter) {
+      base = base.filter(p => WING_MAP[p.partyKey] === wingFilter);
+    }
+    if (partyFilter) {
+      base = base.filter(p => p.partyKey === partyFilter);
+    }
+    return [...base].sort((a, b) => {
+      if (sortKey === 'postDate') return b.postDate.localeCompare(a.postDate);
+      return (b[sortKey] as number) - (a[sortKey] as number);
+    });
+  }, [posts, sortKey, wingFilter, partyFilter, activePoliticianName]);
+
+  // Clear party filter when wing changes (avoid empty result from stale combination)
+  const handleWingChange = (w: Wing | null) => {
+    setWingFilter(w);
+    setPartyFilter(null);
+  };
+
+  return (
+    <GlassSurface style={styles.wrap} radius={radius.lg}>
+      <DevLabel name="PostsTable" />
+      <View style={[styles.accentStrip, { backgroundColor: accent.pink }]} />
+
+      <View style={styles.inner}>
+
+        {/* ── Header: title + sort chips ─────────────── */}
+        <View style={styles.header}>
+          <View>
+            <Text style={styles.kicker}>ALL POSTS</Text>
+            <View style={styles.titleRow}>
+              <Text style={styles.title}>
+                Post Feed
+                {rangeLabel ? <Text style={styles.titleRange}> · {rangeLabel}</Text> : null}
+              </Text>
+              {/* Result count — updates immediately so users can see the filter is working */}
+              <View style={styles.countBadge}>
+                <Text style={styles.countText}>{filtered.length}</Text>
+              </View>
+            </View>
+          </View>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.chipRow}
+          >
+            {SORT_OPTIONS.map(s => {
+              const isActive = s.key === sortKey;
+              return (
+                <Pressable
+                  key={s.key}
+                  onPress={() => setSortKey(s.key)}
+                  style={({ pressed }) => [
+                    styles.sortChip,
+                    isActive && styles.sortChipActive,
+                    pressed && { opacity: 0.7 },
+                  ]}
+                >
+                  <Text style={[styles.sortChipText, isActive && styles.sortChipTextActive]}>
+                    {s.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        </View>
+
+        {/* ── Alignment filter ───────────────────────── */}
+        <View style={styles.filterSection}>
+          <View style={styles.filterLabelRow}>
+            <Text style={styles.filterLabel}>ALIGNMENT</Text>
+            <InfoTip text="Filter posts by the political leaning of the party. Left wing includes Labour, Lib Dem, SNP, Greens, Plaid and Sinn Féin. Right wing includes Conservative, Reform and DUP." />
+          </View>
+          <View style={styles.filterChips}>
+            <Pressable
+              onPress={() => handleWingChange(null)}
+              style={({ pressed }) => [
+                styles.alignChip,
+                wingFilter === null && styles.alignChipAll,
+                pressed && { opacity: 0.75 },
+              ]}
+            >
+              <Text style={[styles.alignChipText, wingFilter === null && styles.alignChipTextAll]}>
+                All
+              </Text>
+            </Pressable>
+            {(['left', 'right', 'independent'] as Wing[]).map(w => {
+              const active = wingFilter === w;
+              const tint = w === 'left' ? accent.mint : w === 'right' ? accent.pink : neutral.textMid;
+              return (
+                <Pressable
+                  key={w}
+                  onPress={() => handleWingChange(active ? null : w)}
+                  style={({ pressed }) => [
+                    styles.alignChip,
+                    active && { borderColor: tint, backgroundColor: tint + '20' },
+                    pressed && { opacity: 0.75 },
+                  ]}
+                >
+                  <Text style={[styles.alignChipText, active && { color: tint }]}>
+                    {WING_LABELS[w]}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+
+        {/* ── Party filter ───────────────────────────── */}
+        {parties.length > 1 && (
+          <View style={styles.filterSection}>
+            <View style={styles.filterLabelRow}>
+              <Text style={styles.filterLabel}>PARTY</Text>
+              <InfoTip text="Narrow the feed to posts from a specific political party. Only parties present in the current time period are shown." />
+            </View>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.chipRow}
+            >
+              {parties.map(pk => {
+                const colour = party[pk];
+                const active = partyFilter === pk;
+                return (
+                  <Pressable
+                    key={pk}
+                    onPress={() => setPartyFilter(active ? null : pk)}
+                    style={({ pressed }) => [
+                      styles.partyChip,
+                      active && { borderColor: colour.base, backgroundColor: colour.base + '22' },
+                      pressed && { opacity: 0.75 },
+                    ]}
+                  >
+                    <View style={[styles.partyDot, { backgroundColor: colour.base }]} />
+                    <Text style={[styles.partyChipText, active && { color: colour.glow }]}>
+                      {partyLabel(pk)}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </View>
+        )}
+
+        {/* ── Active politician pill ─────────────────── */}
+        {activePoliticianName ? (
+          <View style={styles.filterSection}>
+            <Text style={styles.filterLabel}>SHOWING</Text>
+            <Pressable
+              onPress={onClearPolitician}
+              style={[styles.polPill]}
+            >
+              <Text style={styles.polPillText}>{activePoliticianName}</Text>
+              <Text style={styles.polPillClose}>×</Text>
+            </Pressable>
+            <Text style={styles.filterHint}>Tap × to show all politicians</Text>
+          </View>
+        ) : null}
+
+        {/* ── Card list — snaps to each card ────────── */}
+        <ScrollView
+          style={styles.list}
+          showsVerticalScrollIndicator={false}
+          nestedScrollEnabled
+          snapToInterval={CARD_H + GAP}
+          decelerationRate="fast"
+          snapToAlignment="start"
+          disableIntervalMomentum
+        >
+          {loading && posts.length === 0 ? (
+            <View style={styles.skeletonList}>
+              {[0, 1, 2].map(i => (
+                <SkeletonBlock key={i} height={CARD_H} borderRadius={14} />
+              ))}
+            </View>
+          ) : filtered.length === 0 ? (
+            <Text style={styles.emptyText}>No posts match the current filters.</Text>
+          ) : (
+            filtered.map((post, i) => (
+              <PostCard
+                key={post.postId}
+                post={post}
+                index={i}
+                benchmarks={benchmarks}
+                onPress={() => setSelected(post)}
+              />
+            ))
+          )}
+        </ScrollView>
+      </View>
+
+      {selected ? (
+        <VideoModal
+          visible
+          videoMp4={selected.videoMp4}
+          coverJpeg={selected.coverJpeg}
+          caption={selected.caption}
+          postUrl={selected.postUrl}
+          onClose={() => setSelected(null)}
+        />
+      ) : null}
+    </GlassSurface>
+  );
+}
+
+// ── PostCard ──────────────────────────────────────────────────────────────────
+
+interface CardProps {
+  post:        PostRecord;
+  index:       number;
+  benchmarks?: PostBenchmarks;
+  onPress:     () => void;
+}
+
+function PostCard({ post, index, benchmarks, onPress }: CardProps) {
+  const colour = party[post.partyKey];
+  const engRate = post.views > 0
+    ? +((post.likes + post.comments + post.shares) / post.views * 100).toFixed(2)
+    : 0;
+
+  // Generated summary — starts from the BQ value, can be updated live
+  const [summary, setSummary]       = useState<string>(post.videoSummary ?? '');
+  const [generating, setGenerating] = useState(false);
+  const [genSource, setGenSource]   = useState<'video' | 'text' | null>(null);
+
+  const generateSummary = async () => {
+    setGenerating(true);
+    try {
+      const res  = await fetch('/api/summarise', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ postId: post.postId }),
+      });
+      const data = await res.json() as { summary?: string; source?: 'video' | 'text'; error?: string };
+      if (data.summary) {
+        setSummary(data.summary);
+        setGenSource(data.source ?? null);
+      }
+    } catch (e) {
+      console.warn('[PostCard] generateSummary failed', e);
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  return (
+    <MotiView
+      from={{ opacity: 0, translateY: 8 }}
+      animate={{ opacity: 1, translateY: 0 }}
+      transition={{ type: 'timing', duration: 240, delay: Math.min(index * 22, 440) }}
+    >
+      <Pressable
+        onPress={onPress}
+        style={({ pressed, hovered }: any) => [
+          styles.card,
+          hovered && { borderColor: colour.base },
+          pressed && { opacity: 0.84 },
+        ]}
+      >
+        {/* ── Cover thumbnail ─────────────────────── */}
+        <View style={styles.coverWrap}>
+          <ShimmerImage
+            uri={post.coverJpeg || undefined}
+            wrapStyle={styles.cover}
+            resizeMode="cover"
+            accentColour={colour.base}
+            fallback={
+              <View style={[styles.cover, styles.coverFallback]}>
+                <Text style={styles.coverPlayIcon}>▶</Text>
+              </View>
+            }
+          />
+          <View style={[styles.partyStripe, { backgroundColor: colour.base }]} />
+          <View style={styles.viewsBadge}>
+            <Text style={styles.viewsNum}>{formatters.compact(post.views)}</Text>
+            <Text style={styles.viewsLbl}> views</Text>
+          </View>
+        </View>
+
+        {/* ── Right column: summary → metrics → info ── */}
+        <View style={styles.rightCol}>
+
+          {/* 1. AI SUMMARY — most prominent, next to video */}
+          <View style={styles.summarySection}>
+            <View style={styles.summaryHeader}>
+              <Text style={styles.summaryKicker}>AI SUMMARY</Text>
+              {genSource ? (
+                <View style={styles.sourceTag}>
+                  <Text style={styles.sourceTagText}>
+                    {genSource === 'video' ? 'from video' : 'from caption'}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
+
+            {summary ? (
+              <Text style={styles.summaryText}>{summary}</Text>
+            ) : generating ? (
+              <Text style={styles.summaryEmpty}>Generating summary…</Text>
+            ) : (
+              <>
+                <Text style={styles.summaryEmpty}>
+                  No summary yet for this post.
+                </Text>
+                <Pressable
+                  onPress={generateSummary}
+                  style={({ pressed }) => [
+                    styles.genBtn,
+                    pressed && { opacity: 0.7 },
+                  ]}
+                >
+                  <Text style={styles.genBtnText}>✦  Generated by Knox</Text>
+                </Pressable>
+              </>
+            )}
+          </View>
+
+          <View style={styles.divider} />
+
+          {/* 2. METRICS — large and readable */}
+          <View style={styles.metricsRow}>
+            <MetricPill value={post.views}    label="Views"    colour={colour.glow} large />
+            <MetricPill value={post.likes}    label="Likes"    colour={colour.glow} />
+            <MetricPill value={post.comments} label="Comments" colour={colour.glow} />
+            <MetricPill value={post.shares}   label="Shares"   colour={colour.glow} />
+          </View>
+
+          <View style={styles.divider} />
+
+          {/* 3. BOX-AND-WHISKER DISTRIBUTIONS — side by side to save vertical space */}
+          {benchmarks ? (
+            <View style={styles.distributionSection}>
+              <View style={styles.distHeader}>
+                <Text style={styles.distKicker}>HOW THIS POST COMPARES</Text>
+                <InfoTip
+                  text="These charts show where this post sits against all other posts we track. The coloured box covers the middle 50% of posts. The vertical line is the median. The dot is this post. Hover each part to learn more."
+                  width={280}
+                />
+              </View>
+              <View style={styles.distRow}>
+                <BoxWhisker
+                  label="Views vs dataset"
+                  value={post.views}
+                  benchmark={benchmarks.views}
+                  colour={colour.glow}
+                  format={formatters.compact}
+                  scaleType="log"
+                />
+                <View style={styles.distDivider} />
+                <BoxWhisker
+                  label="Engagement rate"
+                  value={engRate}
+                  benchmark={benchmarks.engagement}
+                  colour={colour.glow}
+                  format={v => `${v.toFixed(1)}%`}
+                />
+              </View>
+            </View>
+          ) : null}
+
+          <View style={styles.divider} />
+
+          {/* 4. IDENTITY + CAPTION + TAGS — contextual, below the fold */}
+          <View style={styles.infoSection}>
+            <View style={styles.identityRow}>
+              <View style={[styles.partyDotLg, { backgroundColor: colour.base }]} />
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={[styles.politicianName, { color: colour.glow }]} numberOfLines={1}>
+                  {post.politicianName}
+                </Text>
+                <Text style={styles.metaLine} numberOfLines={1}>
+                  {partyLabel(post.partyKey)}
+                  {post.postDate ? ` · ${post.postDate.slice(0, 10)}` : ''}
+                </Text>
+              </View>
+            </View>
+            <Text style={styles.caption} numberOfLines={2}>{post.caption}</Text>
+            <View style={styles.tags}>
+              {post.style ? (
+                <View style={styles.styleTag}>
+                  <Text style={styles.tagText}>{post.style}</Text>
+                </View>
+              ) : null}
+              {post.topics.slice(0, 3).map(t => (
+                <View key={t} style={styles.topicTag}>
+                  <Text style={styles.tagText}>{t}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        </View>
+      </Pressable>
+    </MotiView>
+  );
+}
+
+interface MetricPillProps {
+  value:  number;
+  label:  string;
+  colour: string;
+  large?: boolean;
+}
+
+function MetricPill({ value, label, colour, large }: MetricPillProps) {
+  return (
+    <View style={styles.metricPill}>
+      <Text style={[styles.metricValue, large && styles.metricValueLg, { color: colour }]}>
+        {formatters.compact(value)}
+      </Text>
+      <Text style={styles.metricLabel}>{label.toUpperCase()}</Text>
+    </View>
+  );
+}
+
+// ── Styles ────────────────────────────────────────────────────────────────────
+
+const CARD_H  = 480 ;                              // card height = viewport window
+const COVER_W = Math.round(CARD_H * (9 / 16));   // 405px — exact 9:16 width for CARD_H
+const GAP = 40 ; // set the gap between the snapping elements
+
+const styles = StyleSheet.create({
+  wrap: { overflow: 'hidden' },
+  accentStrip: { height: 3, width: '100%', opacity: 0.7 },
+  inner: { padding: spacing.lg, gap: spacing.md },
+
+  // Header
+  header: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: spacing.md,
+  },
+  kicker: { ...type.caption, color: neutral.textDim, fontSize: 9 },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: 2 },
+  title: { ...type.title, color: neutral.text, fontSize: 18 },
+  titleRange: { ...type.body, color: neutral.textDim, fontSize: 14 },
+  countBadge: {
+    backgroundColor: accent.pink + '22',
+    borderWidth: 1,
+    borderColor: accent.pink + '55',
+    borderRadius: radius.pill,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  countText: {
+    fontFamily: font.mono,
+    fontSize: 11,
+    color: accent.pink,
+  },
+
+  // Sort chips
+  chipRow: { gap: spacing.sm, alignItems: 'center' },
+  sortChip: {
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: glass.border,
+    backgroundColor: glass.fill,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 5,
+    ...Platform.select({ web: { cursor: 'pointer' } as any, default: {} }),
+  },
+  sortChipActive: {
+    borderColor: accent.pink,
+    backgroundColor: 'rgba(255,107,212,0.1)',
+  },
+  sortChipText: { ...type.caption, color: neutral.textMid, fontSize: 10 },
+  sortChipTextActive: { color: accent.pink },
+
+  // Filter rows
+  filterSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    flexWrap: 'wrap',
+  },
+  filterLabel: {
+    ...type.caption,
+    color: neutral.textDim,
+    fontSize: 9,
+    letterSpacing: 0.8,
+  },
+  filterChips: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    flexWrap: 'wrap',
+  },
+  filterHint: {
+    ...type.caption,
+    color: neutral.textDim,
+    fontSize: 9,
+  },
+
+  // Alignment chips
+  alignChip: {
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: glass.border,
+    backgroundColor: glass.fill,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 5,
+    ...Platform.select({
+      web: {
+        cursor: 'pointer',
+        transitionProperty: 'border-color, background-color',
+        transitionDuration: '150ms',
+      } as any,
+      default: {},
+    }),
+  },
+  alignChipAll: {
+    borderColor: neutral.strokeHi,
+    backgroundColor: glass.fillHi,
+  },
+  alignChipText: { ...type.caption, color: neutral.textMid, fontSize: 10 },
+  alignChipTextAll: { color: neutral.text },
+
+  // Party chips
+  partyChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: glass.border,
+    backgroundColor: glass.fill,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 5,
+    ...Platform.select({
+      web: {
+        cursor: 'pointer',
+        transitionProperty: 'border-color, background-color',
+        transitionDuration: '150ms',
+      } as any,
+      default: {},
+    }),
+  },
+  partyDot: { width: 6, height: 6, borderRadius: 3 },
+  partyChipText: { ...type.caption, color: neutral.textMid, fontSize: 10 },
+
+  // Active politician pill
+  polPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: accent.indigo,
+    backgroundColor: 'rgba(124,131,255,0.12)',
+    paddingHorizontal: spacing.md,
+    paddingVertical: 5,
+    ...Platform.select({ web: { cursor: 'pointer' } as any, default: {} }),
+  },
+  polPillText: { ...type.caption, color: accent.indigo, fontSize: 11 },
+  polPillClose: { ...type.caption, color: accent.indigo, fontSize: 13, lineHeight: 14 },
+
+  // List — exactly one card visible at a time; snapping handles navigation
+  list: { height: CARD_H },
+  skeletonList: { gap: spacing.sm, paddingBottom: spacing.sm },
+  emptyText: { ...type.body, color: neutral.textDim, fontSize: 13, textAlign: 'center', padding: spacing.xl },
+
+  // Card — fixed to CARD_H so it fills the list window exactly; one card = one view
+  card: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    height: CARD_H,
+    borderWidth: 1,
+    borderColor: glass.border,
+    borderRadius: radius.md,
+    marginBottom: GAP,
+    overflow: 'hidden',
+    backgroundColor: glass.fill,
+    ...Platform.select({
+      web: {
+        transitionProperty: 'border-color',
+        transitionDuration: '160ms',
+        cursor: 'pointer',
+      } as any,
+      default: {},
+    }),
+  },
+
+  // Cover
+  coverWrap: {
+    width: COVER_W,
+    flexShrink: 0,
+    position: 'relative',
+    backgroundColor: '#111',
+    overflow: 'hidden',
+  },
+  // 9:16 exact — COVER_W = CARD_H * 9/16, so width:height = 9:16 ✓
+  cover: {
+    width: COVER_W,
+    height: CARD_H,
+  },
+  coverFallback: {
+    backgroundColor: '#1a1a2e',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  coverPlayIcon: { fontSize: 24, color: neutral.textDim },
+  partyStripe: {
+    position: 'absolute',
+    left: 0, top: 0, bottom: 0,
+    width: 3,
+  },
+  viewsBadge: {
+    position: 'absolute',
+    bottom: spacing.xs,
+    left: spacing.xs,
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    backgroundColor: 'rgba(0,0,0,0.75)',
+    borderRadius: radius.pill,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+  },
+  viewsNum: {
+    fontFamily: font.mono,
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  viewsLbl: { fontFamily: font.ui, fontSize: 9, color: neutral.textMid, textTransform: 'none' },
+
+  // Right column — stacks summary → metrics → distribution → identity vertically
+  // Height budget at CARD_H=720px:
+  //   metricsRow          ≈  60px  (generous padding)
+  //   distributionSection ≈ 148px  (2 plots SIDE-BY-SIDE)
+  //   infoSection         ≈ 147px  (generous padding)
+  //   dividers × 3        ≈   3px
+  //   summarySection      ≈ 362px  (flex:1, ~16 lines)
+  rightCol: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: 'column',
+  },
+
+  // ── 1. Summary — most prominent, fills remaining height ───────────────────
+  summarySection: {
+    flex: 1,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.lg,
+    gap: spacing.sm,
+    backgroundColor: 'rgba(255,255,255,0.025)',
+    overflow: 'hidden',
+  },
+  summaryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  summaryKicker: {
+    ...type.caption,
+    color: neutral.textDim,
+    fontSize: 9,
+    letterSpacing: 0.8,
+  },
+  sourceTag: {
+    backgroundColor: 'rgba(63,230,177,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(63,230,177,0.3)',
+    borderRadius: radius.pill,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+  },
+  sourceTagText: {
+    fontFamily: font.ui,
+    fontSize: 9,
+    color: accent.mint,
+    textTransform: 'none' as const,
+  },
+  genBtn: {
+    marginTop: spacing.sm,
+    alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderColor: 'rgba(124,131,255,0.45)',
+    backgroundColor: 'rgba(124,131,255,0.10)',
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    ...Platform.select({ web: { cursor: 'pointer' } as any, default: {} }),
+  },
+  genBtnText: {
+    fontFamily: font.bold,
+    fontSize: 11,
+    color: accent.indigo,
+    textTransform: 'none' as const,
+  },
+  summaryText: {
+    fontFamily: font.ui,
+    color: neutral.text,
+    fontSize: 15,
+    lineHeight: 24,
+    flex: 1,
+  },
+  summaryEmpty: {
+    fontFamily: font.ui,
+    color: neutral.textDim,
+    fontSize: 13,
+    lineHeight: 20,
+    fontStyle: 'italic',
+  },
+
+  // ── 2. Metrics — large scannable numbers ─────────────────────────────────
+  metricsRow: {
+    flexDirection: 'row',
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.md,
+    gap: spacing.xl,
+    alignItems: 'flex-start',
+  },
+  metricPill: { gap: 2 },
+  metricValue: {
+    fontFamily: font.mono,
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  metricValueLg: {
+    fontSize: 24,           // views is the headline number
+  },
+  metricLabel: {
+    ...type.caption,
+    color: neutral.textDim,
+    fontSize: 9,
+  },
+
+  // ── 4. Identity + caption + tags — grounding context ────────────────────
+  infoSection: {
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.lg,
+    gap: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: glass.border,
+  },
+  identityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  partyDotLg: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    flexShrink: 0,
+  },
+  politicianName: {
+    fontFamily: font.bold,
+    color: neutral.text,
+    fontSize: 13,
+    letterSpacing: 0.1,
+  },
+  metaLine: {
+    fontFamily: font.ui,
+    color: neutral.textDim,
+    fontSize: 11,
+    textTransform: 'none',
+  },
+  caption: {
+    fontFamily: font.ui,
+    color: neutral.textMid,
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  tags: { flexDirection: 'row', flexWrap: 'wrap', gap: 4 },
+  styleTag: {
+    backgroundColor: 'rgba(124,131,255,0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(124,131,255,0.3)',
+    borderRadius: radius.pill,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  topicTag: {
+    backgroundColor: 'rgba(63,230,177,0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(63,230,177,0.25)',
+    borderRadius: radius.pill,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  tagText: { fontFamily: font.bold, fontSize: 9, color: neutral.textMid },
+
+  // Box-and-whisker distribution section
+  distributionSection: {
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.md,
+    gap: spacing.sm,
+    backgroundColor: 'rgba(255,255,255,0.025)',
+  },
+  distHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  distKicker: {
+    ...type.caption,
+    color: neutral.textDim,
+    fontSize: 9,
+    letterSpacing: 0.8,
+  },
+  // Two plots rendered side-by-side to save vertical space
+  distRow: {
+    flexDirection: 'row',
+    gap: 0,
+  },
+  distDivider: {
+    width: 1,
+    backgroundColor: glass.border,
+    marginHorizontal: spacing.md,
+    alignSelf: 'stretch',
+  },
+  filterLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    minWidth: 72,
+    flexShrink: 0,
+  },
+
+  // Hairline divider between the sections
+  divider: {
+    height: 1,
+    backgroundColor: glass.border,
+  },
+});
