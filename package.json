@@ -7,12 +7,15 @@
     "web": "EXPO_OFFLINE=1 expo start --web",
     "android": "EXPO_OFFLINE=1 expo start --android",
     "ios": "EXPO_OFFLINE=1 expo start --ios",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "vercel-build": "expo export --platform web"
   },
   "dependencies": {
     "@expo-google-fonts/montserrat": "^0.4.2",
+    "@expo/server": "^0.7.5",
     "@google-cloud/bigquery": "^8.1.1",
     "@google-cloud/storage": "^7.19.0",
+    "@vercel/speed-insights": "^2.0.0",
     "expo": "~52.0.0",
     "expo-blur": "~14.0.1",
     "expo-constants": "~17.0.3",

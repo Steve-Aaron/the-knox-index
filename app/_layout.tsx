@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { StyleSheet, View } from 'react-native';
 import { useEffect } from 'react';
 import * as SplashScreen from 'expo-splash-screen';
+import { SpeedInsights } from '@vercel/speed-insights/next';
 import {
   useFonts,
   Montserrat_400Regular,
@@ -44,6 +45,7 @@ export default function RootLayout() {
             animation: 'fade',
           }}
         />
+        <SpeedInsights />
       </View>
     </GestureHandlerRootView>
   );

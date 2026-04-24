@@ -34,3 +34,4 @@ Thumbs.db
 expo-env.d.ts
 ios/
 android/
+.vercel

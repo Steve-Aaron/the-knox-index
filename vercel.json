@@ -1,13 +1,19 @@
 {
   "buildCommand": "npx expo export --platform web",
-  "outputDirectory": "dist",
+  "outputDirectory": "dist/client",
   "installCommand": "npm install",
   "devCommand": "npx expo start --web",
   "env": {
     "EXPO_OFFLINE": "1"
   },
+  "functions": {
+    "api/[...all].ts": {
+      "runtime": "nodejs20.x",
+      "includeFiles": "dist/server/**"
+    }
+  },
   "rewrites": [
-    { "source": "/api/:path*", "destination": "/api/:path*" },
+    { "source": "/api/:path*", "destination": "/api/[...all]" },
     { "source": "/(.*)",       "destination": "/" }
   ]
 }
