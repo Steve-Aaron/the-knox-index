@@ -72,6 +72,9 @@ export default function Root({ children }: PropsWithChildren) {
           }
         `}} />
 
+        {/* Vercel Speed Insights — injected as script so Metro doesn't need to bundle it */}
+        <script defer src="/_vercel/speed-insights/script.js" />
+
         <ScrollViewStyleReset />
       </head>
       <body>{children}</body>
