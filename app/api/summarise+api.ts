@@ -82,6 +82,8 @@ export async function POST(request: Request): Promise<Response> {
     const body = await request.json() as { postId?: string };
     postId = String(body.postId ?? '').trim();
     if (!postId) return Response.json({ error: 'postId required' }, { status: 400 });
+    // Validate numeric-only before interpolating into SQL
+    if (!/^\d+$/.test(postId)) return Response.json({ error: 'Invalid postId' }, { status: 400 });
   } catch {
     return Response.json({ error: 'Invalid JSON body' }, { status: 400 });
   }

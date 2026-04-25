@@ -67,10 +67,14 @@ const POSTS_SQL = (limit: number, since: string | null) => `
   LIMIT ${limit}
 `;
 
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
 export async function GET(request: Request): Promise<Response> {
   const params = new URL(request.url).searchParams;
-  const limit  = Math.min(parseInt(params.get('limit') ?? '200', 10), 500);
-  const since  = params.get('since') ?? null;   // e.g. '2025-04-15'
+  const rawLimit = parseInt(params.get('limit') ?? '200', 10);
+  const limit = Math.min(isNaN(rawLimit) ? 200 : rawLimit, 500);
+  const rawSince = params.get('since') ?? null;
+  const since = rawSince && ISO_DATE.test(rawSince) ? rawSince : null;
 
   try {
     const rows = await query<BQPostRecordRow>(POSTS_SQL(limit, since));

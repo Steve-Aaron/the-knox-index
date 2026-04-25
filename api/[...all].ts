@@ -2,14 +2,15 @@
  * api/[...all].ts
  * ---------------
  * Vercel serverless function entry point.
- * Catches every request to /api/* and delegates it to the Expo Router
- * server bundle (compiled by `expo export --platform web` into dist/server/).
+ * Catches all requests and delegates to the Expo Router server bundle,
+ * which handles both API routes and HTML serving.
  *
- * The @expo/server adapter translates between Vercel's Request/Response
- * contract and Expo Router's internal handler.
+ * `build` must be a path string pointing at the dist/server directory —
+ * NOT a require() call, since dist/server has no index.js entry point.
  */
 import { createRequestHandler } from '@expo/server/adapter/vercel';
+import { join } from 'node:path';
 
 export default createRequestHandler({
-  build: require('../dist/server'),
+  build: join(__dirname, '../dist/server'),
 });
