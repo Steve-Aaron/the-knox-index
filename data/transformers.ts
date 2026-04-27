@@ -60,7 +60,18 @@ export interface BQPostRow {
 // Re-export for backward compat; use toPartyKeyPublic from partyUtils for new code.
 const toPartyKey = toPartyKeyPublic;
 
+/**
+ * Normalise a profile handle: strip a leading '@' and tolerate null / undefined.
+ * BigQuery LTRIM(null, '@') returns null, and some post / account rows can have
+ * a null profile, so a plain string.replace would throw
+ * 'Cannot read properties of null (reading replace)'.
+ */
+function normProfile(p: string | null | undefined): string {
+  return (p ?? '').replace(/^@/, '');
+}
+
 function toInitials(name: string): string {
+  if (!name) return '';
   return name
     .split(/\s+/)
     .filter(Boolean)
@@ -90,7 +101,7 @@ function computeMaxValues(
   let maxAvgViews = 1, maxEngRate = 1, maxPostsThisWeek = 1, maxFollowers = 1;
 
   for (const acc of rows) {
-    const posts      = postsByProfile.get(acc.profile.replace(/^@/, '')) ?? [];
+    const posts      = postsByProfile.get(normProfile(acc.profile)) ?? [];
     const totalViews = posts.reduce((s, p) => s + (p.views ?? 0), 0);
     const avgViews   = posts.length > 0 ? totalViews / posts.length : 0;
     const engViews   = Math.max(acc.totalViews ?? 1, 1);
@@ -163,11 +174,11 @@ export function transformToPoliticians(
   // Group posts by normalised profile handle.
   // account.profile = '@uklabour', post.profile = 'uklabour' — strip the
   // leading '@' on both sides so the lookup always matches.
-  const norm = (p: string) => p.replace(/^@/, '');
-
+  // Skip posts with no profile, they can't link back to an account anyway.
   const postsByProfile = new Map<string, BQPostRow[]>();
   for (const post of postRows) {
-    const key    = norm(post.profile);
+    const key = normProfile(post.profile);
+    if (!key) continue;
     const bucket = postsByProfile.get(key) ?? [];
     bucket.push(post);
     postsByProfile.set(key, bucket);
@@ -176,18 +187,18 @@ export function transformToPoliticians(
   const max = computeMaxValues(accountRows, postsByProfile);
 
   return accountRows.map((acc): Politician => {
-    const posts = (postsByProfile.get(norm(acc.profile)) ?? []).slice(0, 5);
+    const posts = (postsByProfile.get(normProfile(acc.profile)) ?? []).slice(0, 5);
     const scores      = computeScores(acc, posts, max);
 
     return {
       id:             String(acc.id),
-      name:           acc.name,
-      handle:         `${acc.profile}`,
+      name:           acc.name ?? '',
+      handle:         acc.profile ?? '',
       role:           acc.affiliation ?? '',
       partyKey:       toPartyKey(acc.party),
       partyLabel:     acc.party ?? 'Unknown',
       country:        'UK',
-      avatarInitials: toInitials(acc.name),
+      avatarInitials: toInitials(acc.name ?? ''),
       totals: {
         posts:          acc.totalPosts     ?? 0,
         followers:      acc.totalFollowers ?? 0,
