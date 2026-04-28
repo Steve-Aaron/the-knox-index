@@ -17,6 +17,21 @@ import { spacing, radius } from '@/theme/spacing';
 import { type } from '@/theme/typography';
 
 /**
+ * VideoPlayer rendering strategy
+ * -------------------------------
+ * Web: a plain HTML5 <video> element. expo-video's web bridge in the SDK 52
+ * line (v2.0.x) is incomplete and often renders as a black box; the mp4 URLs
+ * we sign return Content-Type video/mp4 so a vanilla <video src=…> plays them
+ * with zero ceremony.
+ *
+ * Native (iOS/Android): expo-video's useVideoPlayer + VideoView, which give
+ * us native controls, picture-in-picture, lifecycle hooks etc.
+ *
+ * Hooks must be called unconditionally per renderer, so we split into two
+ * components and pick one at the top of VideoPlayer.
+ */
+
+/**
  * VideoModal
  * -----------
  * Overlay player for post videos.
@@ -34,6 +49,34 @@ interface Props {
 }
 
 function VideoPlayer({ uri }: { uri: string }) {
+  if (Platform.OS === 'web') return <WebVideoPlayer uri={uri} />;
+  return <NativeVideoPlayer uri={uri} />;
+}
+
+/**
+ * Web renderer: bypass react-native-web styling and emit a real HTML5 video
+ * tag. We use React.createElement because the JSX intrinsic types in a
+ * React Native project don't include 'video' — but the React DOM renderer
+ * underneath react-native-web accepts it just fine.
+ */
+function WebVideoPlayer({ uri }: { uri: string }) {
+  return React.createElement('video', {
+    src:           uri,
+    controls:      true,
+    autoPlay:      true,
+    playsInline:   true,
+    preload:       'metadata',
+    style: {
+      width:           '100%',
+      maxHeight:       '80vh',
+      aspectRatio:     '9 / 16',
+      backgroundColor: '#000',
+      display:         'block',
+    },
+  });
+}
+
+function NativeVideoPlayer({ uri }: { uri: string }) {
   const player = useVideoPlayer(uri, p => { p.loop = false; });
 
   // Play after mount — setup callback fires before the view attaches,
