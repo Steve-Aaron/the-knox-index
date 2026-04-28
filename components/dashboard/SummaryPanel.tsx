@@ -33,8 +33,27 @@ export function SummaryPanel({ politicians, panelHeight }: Props) {
   const [briefError, setBriefError]   = useState<string | null>(null);
 
   useEffect(() => {
+    // Hold the loading state for at least MIN_LOADING_MS so the UI feels
+    // like Gemini is genuinely thinking. The /api/brief response is now
+    // edge-cached for 12h and frequently returns instantly, which made
+    // the previous flash-of-content feel jarring.
+    const MIN_LOADING_MS = 2500;
+    const startedAt = Date.now();
+    let cancelled = false;
+
     setBriefLoading(true);
     setBriefError(null);
+
+    const settle = (apply: () => void) => {
+      const elapsed = Date.now() - startedAt;
+      const wait = Math.max(0, MIN_LOADING_MS - elapsed);
+      setTimeout(() => {
+        if (cancelled) return;
+        apply();
+        setBriefLoading(false);
+      }, wait);
+    };
+
     fetch('/api/brief')
       .then(async r => {
         const json = await r.json();
@@ -44,13 +63,14 @@ export function SummaryPanel({ politicians, panelHeight }: Props) {
         }
         return json as { brief: BriefResponse };
       })
-      .then(data => setBrief(data.brief))
+      .then(data => settle(() => setBrief(data.brief)))
       .catch(e => {
         const msg = e instanceof Error ? e.message : String(e);
         console.error('[SummaryPanel] brief fetch failed:', msg);
-        setBriefError(msg);
-      })
-      .finally(() => setBriefLoading(false));
+        settle(() => setBriefError(msg));
+      });
+
+    return () => { cancelled = true; };
   }, []);
 
   const insights = useMemo(() => {
