@@ -33,8 +33,8 @@ const MOCK_POSTS: PostRecord[] = politicians.flatMap(p =>
     topics:         post.topic ? [post.topic] : [],
     views:          post.views,
     likes:          post.likes,
-    comments:       0,
-    shares:         0,
+    comments:       post.comments,
+    shares:         post.shares,
     saves:          0,
     accountFollowers: p.totals.followers,
   }))
