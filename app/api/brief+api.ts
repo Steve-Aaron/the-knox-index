@@ -161,7 +161,9 @@ export async function GET(_request: Request): Promise<Response> {
 
     return Response.json(
       { brief },
-      { headers: { 'Cache-Control': 'public, max-age=3600, stale-while-revalidate=300' } }
+      // Cache for 12 hours, with a 1-hour grace window where stale content is
+      // served instantly while a fresh one regenerates in the background.
+      { headers: { 'Cache-Control': 'public, max-age=43200, stale-while-revalidate=3600' } }
     );
 
   } catch (err: unknown) {
