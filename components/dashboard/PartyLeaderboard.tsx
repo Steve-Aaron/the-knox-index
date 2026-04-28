@@ -1,0 +1,325 @@
+import React, { useMemo, useState } from 'react';
+import { View, Text, Pressable, StyleSheet, Platform } from 'react-native';
+import { GlassSurface } from '@/components/primitives/GlassSurface';
+import { DevLabel } from '@/components/primitives/DevLabel';
+import { InfoTip } from '@/components/primitives/InfoTip';
+import { neutral, glass, party } from '@/theme/colors';
+import type { PartyKey } from '@/theme/colors';
+import { spacing, radius } from '@/theme/spacing';
+import { type, font } from '@/theme/typography';
+import { formatters } from '@/components/primitives/CountUp';
+import type { Politician } from '@/data/types';
+
+/**
+ * PartyLeaderboard
+ * -----------------
+ * Aggregates politician-level numbers up to the party level so the user can
+ * see at a glance which party is doing best or is most active on TikTok.
+ * One job: party-level ranking, sortable by views / posts this week / engagement.
+ */
+
+type SortKey = 'views' | 'postsThisWeek' | 'engagement' | 'accounts';
+
+interface Props {
+  politicians: Politician[];
+}
+
+interface PartyRow {
+  key:             PartyKey;
+  label:           string;
+  accounts:        number;
+  totalViews:      number;
+  totalPosts:      number;     // posts in past 7 days summed across accounts
+  totalLikes:      number;
+  totalComments:   number;
+  totalShares:     number;
+  totalViews24h:   number;
+  engagementRate:  number;     // avg likes/views across the party (0..100)
+}
+
+const SORT_OPTIONS: { key: SortKey; label: string; tip: string }[] = [
+  { key: 'views',         label: 'Views',     tip: 'Total yesterday views, summed across every tracked account in the party' },
+  { key: 'postsThisWeek', label: 'Activity',  tip: 'Total posts this week from every tracked account in the party' },
+  { key: 'engagement',    label: 'Engagement', tip: 'Average engagement rate (likes + comments + shares ÷ views) across the party' },
+  { key: 'accounts',      label: 'Accounts',  tip: 'Number of distinct tracked accounts in the party' },
+];
+
+const PARTY_LABELS: Partial<Record<PartyKey, string>> = {
+  labour:       'Labour',
+  conservative: 'Conservative',
+  libdem:       'Lib Dem',
+  snp:          'SNP',
+  green:        'Greens',
+  reform:       'Reform',
+  plaid:        'Plaid',
+  dup:          'DUP',
+  sinnfein:     'Sinn Féin',
+  independent:  'Independent',
+  unknown:      'Unknown',
+};
+
+export function PartyLeaderboard({ politicians }: Props) {
+  const [sortKey, setSortKey] = useState<SortKey>('views');
+
+  const rows = useMemo<PartyRow[]>(() => {
+    const buckets = new Map<PartyKey, Politician[]>();
+    for (const p of politicians) {
+      const bucket = buckets.get(p.partyKey) ?? [];
+      bucket.push(p);
+      buckets.set(p.partyKey, bucket);
+    }
+
+    const out: PartyRow[] = [];
+    for (const [key, members] of buckets) {
+      const totalViews24h  = members.reduce((s, p) => s + p.totals.views24h,      0);
+      const totalLikes     = members.reduce((s, p) => s + p.totals.likesToday,    0);
+      const totalComments  = members.reduce((s, p) => s + p.totals.commentsToday, 0);
+      const totalShares    = members.reduce((s, p) => s + p.totals.savesToday,    0);
+      const totalPosts     = members.reduce((s, p) => s + p.totals.postsThisWeek, 0);
+      const engagementRate = totalViews24h > 0
+        ? ((totalLikes + totalComments + totalShares) / totalViews24h) * 100
+        : 0;
+      out.push({
+        key,
+        label:          PARTY_LABELS[key] ?? key,
+        accounts:       members.length,
+        totalViews:     totalViews24h,
+        totalPosts,
+        totalLikes,
+        totalComments,
+        totalShares,
+        totalViews24h,
+        engagementRate,
+      });
+    }
+
+    return out.sort((a, b) => {
+      switch (sortKey) {
+        case 'views':         return b.totalViews     - a.totalViews;
+        case 'postsThisWeek': return b.totalPosts     - a.totalPosts;
+        case 'engagement':    return b.engagementRate - a.engagementRate;
+        case 'accounts':      return b.accounts       - a.accounts;
+      }
+    });
+  }, [politicians, sortKey]);
+
+  const max = rows[0];
+
+  return (
+    <GlassSurface style={styles.wrap} radius={radius.lg}>
+      <DevLabel name="PartyLeaderboard" />
+
+      <View style={styles.header}>
+        <View style={styles.titleRow}>
+          <View>
+            <Text style={styles.kicker}>PARTY LEAGUE</Text>
+            <Text style={styles.title}>Who's winning the parties' war?</Text>
+          </View>
+          <InfoTip
+            text="Politicians grouped by party and totalled. Use this to answer 'which party is dominating TikTok this week' and 'which party is most active'."
+            width={260}
+          />
+        </View>
+
+        <View style={styles.sortRow}>
+          {SORT_OPTIONS.map(s => {
+            const active = s.key === sortKey;
+            return (
+              <Pressable
+                key={s.key}
+                onPress={() => setSortKey(s.key)}
+                style={({ pressed }) => [
+                  styles.sortChip,
+                  active && styles.sortChipActive,
+                  pressed && { opacity: 0.7 },
+                ]}
+              >
+                <Text style={[styles.sortChipText, active && styles.sortChipTextActive]}>
+                  {s.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      </View>
+
+      <View style={styles.list}>
+        {rows.length === 0 ? (
+          <Text style={styles.emptyText}>No party data available yet.</Text>
+        ) : rows.map((row, i) => {
+          const colour = party[row.key];
+          const denom = sortKey === 'views' ? max.totalViews
+                      : sortKey === 'postsThisWeek' ? max.totalPosts
+                      : sortKey === 'engagement' ? Math.max(max.engagementRate, 0.0001)
+                      : max.accounts;
+          const headlineValue = sortKey === 'views' ? row.totalViews
+                              : sortKey === 'postsThisWeek' ? row.totalPosts
+                              : sortKey === 'engagement' ? row.engagementRate
+                              : row.accounts;
+          const barFraction = denom > 0 ? Math.max(0, Math.min(1, headlineValue / denom)) : 0;
+          const headlineText = sortKey === 'engagement'
+            ? `${row.engagementRate.toFixed(2)}%`
+            : formatters.compact(headlineValue);
+
+          return (
+            <View key={row.key} style={styles.row}>
+              <Text style={styles.rank}>{i + 1}</Text>
+              <View style={[styles.partyDot, { backgroundColor: colour.base }]} />
+              <View style={styles.rowMain}>
+                <View style={styles.rowTopLine}>
+                  <Text style={styles.partyName}>{row.label}</Text>
+                  <Text style={[styles.headlineValue, { color: colour.glow }]}>
+                    {headlineText}
+                  </Text>
+                </View>
+
+                <View style={styles.barTrack}>
+                  <View
+                    style={[
+                      styles.barFill,
+                      { width: `${barFraction * 100}%`, backgroundColor: colour.base },
+                    ]}
+                  />
+                </View>
+
+                <View style={styles.rowMeta}>
+                  <Text style={styles.metaText}>{row.accounts} accounts</Text>
+                  <Text style={styles.metaDivider}>·</Text>
+                  <Text style={styles.metaText}>{formatters.compact(row.totalPosts)} posts / wk</Text>
+                  <Text style={styles.metaDivider}>·</Text>
+                  <Text style={styles.metaText}>{row.engagementRate.toFixed(2)}% eng</Text>
+                </View>
+              </View>
+            </View>
+          );
+        })}
+      </View>
+    </GlassSurface>
+  );
+}
+
+const styles = StyleSheet.create({
+  wrap: {
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    gap: spacing.md,
+  },
+  header: {
+    gap: spacing.sm,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+  },
+  kicker: {
+    ...type.caption,
+    color: neutral.textDim,
+    fontSize: 10,
+  },
+  title: {
+    ...type.title,
+    color: neutral.text,
+    fontSize: 18,
+    marginTop: 2,
+  },
+  sortRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+  },
+  sortChip: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 6,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: glass.border,
+    backgroundColor: glass.fill,
+    ...Platform.select({ web: { cursor: 'pointer' } as any, default: {} }),
+  },
+  sortChipActive: {
+    backgroundColor: 'rgba(124,131,255,0.16)',
+    borderColor: 'rgba(124,131,255,0.5)',
+  },
+  sortChipText: {
+    ...type.caption,
+    fontSize: 10,
+    color: neutral.textMid,
+  },
+  sortChipTextActive: {
+    color: neutral.text,
+  },
+  list: {
+    gap: spacing.sm,
+  },
+  emptyText: {
+    ...type.body,
+    color: neutral.textDim,
+    fontSize: 12,
+    textAlign: 'center',
+    paddingVertical: spacing.md,
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  rank: {
+    fontFamily: font.mono,
+    color: neutral.textDim,
+    fontSize: 12,
+    width: 18,
+    textAlign: 'right',
+  },
+  partyDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  rowMain: {
+    flex: 1,
+    gap: 4,
+  },
+  rowTopLine: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'baseline',
+  },
+  partyName: {
+    ...type.body,
+    color: neutral.text,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  headlineValue: {
+    fontFamily: font.mono,
+    fontSize: 14,
+    fontWeight: '700',
+    letterSpacing: -0.3,
+  },
+  barTrack: {
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    overflow: 'hidden',
+  },
+  barFill: {
+    height: '100%',
+    borderRadius: 2,
+  },
+  rowMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flexWrap: 'wrap',
+  },
+  metaText: {
+    ...type.caption,
+    color: neutral.textDim,
+    fontSize: 9,
+  },
+  metaDivider: {
+    color: neutral.textDim,
+    fontSize: 9,
+  },
+});

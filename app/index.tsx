@@ -18,6 +18,10 @@ import { RankBoard } from '@/components/dashboard/RankBoard';
 import { PostsTable } from '@/components/dashboard/PostsTable';
 import { LoadingScreen } from '@/components/dashboard/LoadingScreen';
 import { TimeRangePicker, TimeRange } from '@/components/dashboard/TimeRangePicker';
+import { PartyLeaderboard } from '@/components/dashboard/PartyLeaderboard';
+import { StyleBreakdown } from '@/components/dashboard/StyleBreakdown';
+import { TopicCloud } from '@/components/dashboard/TopicCloud';
+import { ContactFooter } from '@/components/dashboard/ContactFooter';
 import { useLiveData } from '@/data/useLiveData';
 import { usePostsData } from '@/data/usePostsData';
 import { useBenchmarks } from '@/data/useBenchmarks';
@@ -242,7 +246,12 @@ export default function DashboardScreen() {
             </View>
           )}
 
-          {/* ── 5. Posts table ────────────────────────── */}
+          {/* ── 5. Party league ───────────────────────── */}
+          <View style={styles.partySection}>
+            <PartyLeaderboard politicians={politicians} />
+          </View>
+
+          {/* ── 6. Posts table ────────────────────────── */}
           <View style={styles.postsSection}>
             <PostsTable
               posts={posts}
@@ -252,6 +261,21 @@ export default function DashboardScreen() {
               onClearPolitician={() => setActiveId('')}
               benchmarks={benchmarks}
             />
+          </View>
+
+          {/* ── 7. Style + topics row ─────────────────── */}
+          <View style={[styles.insightsRow, isDesktop ? styles.insightsRowDesktop : styles.insightsRowStacked]}>
+            <View style={styles.insightsCol}>
+              <StyleBreakdown posts={posts} rangeLabel={RANGE_LABELS[range]} />
+            </View>
+            <View style={styles.insightsCol}>
+              <TopicCloud posts={posts} rangeLabel={RANGE_LABELS[range]} />
+            </View>
+          </View>
+
+          {/* ── 8. Contact footer ─────────────────────── */}
+          <View style={styles.contactSection}>
+            <ContactFooter />
           </View>
 
         </ScrollView>
@@ -467,5 +491,27 @@ const styles = StyleSheet.create({
   postsSection: {
     paddingHorizontal: spacing.xl,
     marginTop: spacing.xl,   // extra breathing room separating feed from panels
+  },
+  partySection: {
+    paddingHorizontal: spacing.xl,
+    marginTop: spacing.xl,
+  },
+  insightsRow: {
+    paddingHorizontal: spacing.xl,
+    marginTop: spacing.xl,
+    gap: spacing.base,
+  },
+  insightsRowDesktop: {
+    flexDirection: 'row',
+  },
+  insightsRowStacked: {
+    flexDirection: 'column',
+  },
+  insightsCol: {
+    flex: 1,
+  },
+  contactSection: {
+    paddingHorizontal: spacing.xl,
+    marginTop: spacing.xl,
   },
 });
