@@ -16,6 +16,7 @@ import { RadialScoreChart, RawScoreValues } from '@/components/card/RadialScoreC
 import { LinkPill } from '@/components/primitives/LinkPill';
 import { InfoTip } from '@/components/primitives/InfoTip';
 import { CountUp, formatters } from '@/components/primitives/CountUp';
+import { FollowerQualityFlag } from './FollowerQualityFlag';
 import { neutral, party, glass } from '@/theme/colors';
 import { font } from '@/theme/typography';
 import { spacing, radius } from '@/theme/spacing';
@@ -119,6 +120,9 @@ export function PoliticianDetailPanel({ politician, headlineKey, panelHeight }: 
             />
           </View>
 
+          {/* ── Audience quality flag ────────────────── */}
+          <FollowerQualityFlag politician={politician} />
+
           {/* ── Account totals ───────────────────────── */}
           <SectionKicker label="Account totals" />
           <View style={styles.totalsGrid}>
@@ -151,43 +155,65 @@ export function PoliticianDetailPanel({ politician, headlineKey, panelHeight }: 
             </View>
           ) : (
           <View style={styles.posts}>
-            {politician.recentPosts.map(post => (
-              <Pressable
-                key={post.postId}
-                onPress={post.postUrl ? () => Linking.openURL(post.postUrl!) : undefined}
-                style={({ pressed, hovered }: any) => [
-                  styles.postCard,
-                  post.postUrl && hovered && { borderColor: colour.base, backgroundColor: 'rgba(255,255,255,0.04)' },
-                  post.postUrl && pressed && { opacity: 0.8 },
-                ]}
-                accessibilityRole={post.postUrl ? 'link' : undefined}
-              >
-                {/* Caption + TikTok icon */}
-                <View style={styles.postCaptionRow}>
-                  <Text style={styles.postCaption} numberOfLines={3}>{post.caption}</Text>
-                  {post.postUrl
-                    ? Platform.OS === 'web'
-                      ? React.createElement('i', {
-                          className: 'fa-brands fa-tiktok',
-                          style: { color: colour.glow, fontSize: 13, flexShrink: 0, marginTop: 2 },
-                        })
-                      : <Text style={[styles.postLinkIcon, { color: colour.glow }]}>↗</Text>
-                    : null}
-                </View>
-
-                {/* Date + stats */}
-                <View style={styles.postMeta}>
-                  {post.postDate ? (
-                    <Text style={styles.postDate}>{post.postDate.slice(0, 10)}</Text>
-                  ) : null}
-                  <View style={styles.postStats}>
-                    <PostStat label="Views" value={post.views} accentColor={colour.glow} />
-                    <View style={styles.postStatDivider} />
-                    <PostStat label="Likes" value={post.likes} accentColor={colour.glow} />
+            {politician.recentPosts.map(post => {
+              const engRate = post.views > 0
+                ? +(((post.likes + post.comments + post.shares) / post.views) * 100).toFixed(2)
+                : 0;
+              return (
+                <Pressable
+                  key={post.postId}
+                  onPress={post.postUrl ? () => Linking.openURL(post.postUrl!) : undefined}
+                  style={({ pressed, hovered }: any) => [
+                    styles.postCard,
+                    post.postUrl && hovered && { borderColor: colour.base, backgroundColor: 'rgba(255,255,255,0.04)' },
+                    post.postUrl && pressed && { opacity: 0.8 },
+                  ]}
+                  accessibilityRole={post.postUrl ? 'link' : undefined}
+                >
+                  {/* Caption + TikTok icon */}
+                  <View style={styles.postCaptionRow}>
+                    <Text style={styles.postCaption} numberOfLines={3}>{post.caption}</Text>
+                    {post.postUrl
+                      ? Platform.OS === 'web'
+                        ? React.createElement('i', {
+                            className: 'fa-brands fa-tiktok',
+                            style: { color: colour.glow, fontSize: 13, flexShrink: 0, marginTop: 2 },
+                          })
+                        : <Text style={[styles.postLinkIcon, { color: colour.glow }]}>↗</Text>
+                      : null}
                   </View>
-                </View>
-              </Pressable>
-            ))}
+
+                  {/* AI summary — falls back to nothing when missing so the layout stays tight */}
+                  {post.summary ? (
+                    <Text style={styles.postSummary} numberOfLines={3}>{post.summary}</Text>
+                  ) : null}
+
+                  {/* Date + 4 stats: Views, Likes, Comments, Shares */}
+                  <View style={styles.postMeta}>
+                    {post.postDate ? (
+                      <Text style={styles.postDate}>{post.postDate.slice(0, 10)}</Text>
+                    ) : null}
+                    <View style={styles.postStats}>
+                      <PostStat label="Views"    value={post.views}    accentColor={colour.glow} />
+                      <View style={styles.postStatDivider} />
+                      <PostStat label="Likes"    value={post.likes}    accentColor={colour.glow} />
+                      <View style={styles.postStatDivider} />
+                      <PostStat label="Comments" value={post.comments} accentColor={colour.glow} />
+                      <View style={styles.postStatDivider} />
+                      <PostStat label="Shares"   value={post.shares}   accentColor={colour.glow} />
+                    </View>
+                  </View>
+
+                  {/* Engagement rate strip */}
+                  <View style={styles.engRow}>
+                    <Text style={styles.engLabel}>ENGAGEMENT RATE</Text>
+                    <Text style={[styles.engValue, { color: colour.glow }]}>
+                      {post.views > 0 ? `${engRate}%` : '—'}
+                    </Text>
+                  </View>
+                </Pressable>
+              );
+            })}
           </View>
           )}
 
@@ -388,6 +414,32 @@ const styles = StyleSheet.create({
     color: neutral.text,
     fontSize: 13,
     lineHeight: 18,
+  },
+  postSummary: {
+    ...type.body,
+    color: neutral.textMid,
+    fontSize: 11,
+    lineHeight: 16,
+    fontStyle: 'italic',
+  },
+  engRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: spacing.xs,
+    borderTopWidth: 1,
+    borderTopColor: glass.border,
+  },
+  engLabel: {
+    ...type.caption,
+    color: neutral.textDim,
+    fontSize: 9,
+  },
+  engValue: {
+    fontFamily: font.mono,
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: -0.2,
   },
   postMeta: {
     flexDirection: 'row',

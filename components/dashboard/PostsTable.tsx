@@ -58,14 +58,38 @@ const WING_LABELS: Record<Wing, string> = {
 
 // ── Sort options ───────────────────────────────────────────────────────────────
 
-type SortKey = 'views' | 'likes' | 'comments' | 'shares' | 'postDate';
+type SortKey = 'views' | 'likes' | 'comments' | 'shares' | 'postDate' | 'virality';
 
 const SORT_OPTIONS: { key: SortKey; label: string }[] = [
   { key: 'views',    label: 'Views' },
   { key: 'likes',    label: 'Likes' },
   { key: 'comments', label: 'Comments' },
   { key: 'shares',   label: 'Shares' },
+  { key: 'virality', label: 'Virality' },
   { key: 'postDate', label: 'Date' },
+];
+
+/** Virality = views per follower. Small accounts that punched above their weight rank highest. */
+function viralityRatio(p: PostRecord): number {
+  return p.accountFollowers > 0 ? p.views / p.accountFollowers : 0;
+}
+
+// ── Threshold options for min-views / min-likes filters ────────────────────────
+
+const VIEW_THRESHOLDS: { value: number; label: string }[] = [
+  { value: 0,         label: 'Any' },
+  { value: 1_000,     label: '1k+' },
+  { value: 10_000,    label: '10k+' },
+  { value: 100_000,   label: '100k+' },
+  { value: 1_000_000, label: '1M+' },
+];
+
+const LIKE_THRESHOLDS: { value: number; label: string }[] = [
+  { value: 0,       label: 'Any' },
+  { value: 100,     label: '100+' },
+  { value: 1_000,   label: '1k+' },
+  { value: 10_000,  label: '10k+' },
+  { value: 100_000, label: '100k+' },
 ];
 
 // ── Party label helper ─────────────────────────────────────────────────────────
@@ -101,6 +125,8 @@ export function PostsTable({
   const [sortKey, setSortKey]       = useState<SortKey>('views');
   const [wingFilter, setWingFilter] = useState<Wing | null>(null);
   const [partyFilter, setPartyFilter] = useState<PartyKey | null>(null);
+  const [minViews, setMinViews]     = useState<number>(0);
+  const [minLikes, setMinLikes]     = useState<number>(0);
   const [selected, setSelected]     = useState<PostRecord | null>(null);
 
   // Party chips must only show parties that exist within the active wing filter.
@@ -124,11 +150,18 @@ export function PostsTable({
     if (partyFilter) {
       base = base.filter(p => p.partyKey === partyFilter);
     }
+    if (minViews > 0) {
+      base = base.filter(p => p.views >= minViews);
+    }
+    if (minLikes > 0) {
+      base = base.filter(p => p.likes >= minLikes);
+    }
     return [...base].sort((a, b) => {
       if (sortKey === 'postDate') return b.postDate.localeCompare(a.postDate);
+      if (sortKey === 'virality') return viralityRatio(b) - viralityRatio(a);
       return (b[sortKey] as number) - (a[sortKey] as number);
     });
-  }, [posts, sortKey, wingFilter, partyFilter, activePoliticianName]);
+  }, [posts, sortKey, wingFilter, partyFilter, activePoliticianName, minViews, minLikes]);
 
   // Clear party filter when wing changes (avoid empty result from stale combination)
   const handleWingChange = (w: Wing | null) => {
@@ -260,6 +293,57 @@ export function PostsTable({
             </ScrollView>
           </View>
         )}
+
+        {/* ── Min views / min likes thresholds ───────── */}
+        <View style={styles.filterSection}>
+          <View style={styles.filterLabelRow}>
+            <Text style={styles.filterLabel}>MIN VIEWS</Text>
+            <InfoTip text="Hide posts that fall below this view threshold. Useful when you only care about posts that broke through." />
+          </View>
+          <View style={styles.filterChips}>
+            {VIEW_THRESHOLDS.map(t => {
+              const active = minViews === t.value;
+              return (
+                <Pressable
+                  key={t.value}
+                  onPress={() => setMinViews(t.value)}
+                  style={({ pressed }) => [
+                    styles.alignChip,
+                    active && { borderColor: accent.indigo, backgroundColor: accent.indigo + '20' },
+                    pressed && { opacity: 0.75 },
+                  ]}
+                >
+                  <Text style={[styles.alignChipText, active && { color: accent.indigo }]}>{t.label}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+
+        <View style={styles.filterSection}>
+          <View style={styles.filterLabelRow}>
+            <Text style={styles.filterLabel}>MIN LIKES</Text>
+            <InfoTip text="Hide posts that fall below this like threshold. Surfaces only content that genuinely resonated." />
+          </View>
+          <View style={styles.filterChips}>
+            {LIKE_THRESHOLDS.map(t => {
+              const active = minLikes === t.value;
+              return (
+                <Pressable
+                  key={t.value}
+                  onPress={() => setMinLikes(t.value)}
+                  style={({ pressed }) => [
+                    styles.alignChip,
+                    active && { borderColor: accent.pink, backgroundColor: accent.pink + '20' },
+                    pressed && { opacity: 0.75 },
+                  ]}
+                >
+                  <Text style={[styles.alignChipText, active && { color: accent.pink }]}>{t.label}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
 
         {/* ── Active politician pill ─────────────────── */}
         {activePoliticianName ? (

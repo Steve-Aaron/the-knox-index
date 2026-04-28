@@ -19,6 +19,8 @@ export interface RecentPost {
   caption:   string;
   views:     number;
   likes:     number;
+  comments:  number;
+  shares:    number;
   summary?:  string;    // AI-generated summary from n8n / Gemini
   style?:    string;
   topic?:    string;
@@ -47,6 +49,7 @@ export interface PostRecord {
   comments:        number;
   shares:          number;
   saves:           number;
+  accountFollowers: number;   // for virality = views / followers ratio
 }
 
 /**

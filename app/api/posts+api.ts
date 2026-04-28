@@ -15,23 +15,24 @@ import { toPartyKeyPublic } from '@/data/partyUtils';
 import type { PostRecord } from '@/data/types';
 
 interface BQPostRecordRow {
-  postId:         number;
-  profile:        string;
-  politicianName: string;
-  party:          string;
-  caption:        string;
-  videoSummary:   string;
-  coverJpeg:      string;
-  videoMp4:       string;
-  postUrl:        string;
-  postDate:       string;
-  style:          string;
-  topics:         string[] | null;
-  views:          number;
-  likes:          number;
-  comments:       number;
-  shares:         number;
-  saves:          number;
+  postId:           number;
+  profile:          string;
+  politicianName:   string;
+  party:            string;
+  caption:          string;
+  videoSummary:     string;
+  coverJpeg:        string;
+  videoMp4:         string;
+  postUrl:          string;
+  postDate:         string;
+  style:            string;
+  topics:           string[] | null;
+  views:            number;
+  likes:            number;
+  comments:         number;
+  shares:           number;
+  saves:            number;
+  accountFollowers: number;
 }
 
 const POSTS_SQL = (limit: number, since: string | null) => `
@@ -52,6 +53,7 @@ const POSTS_SQL = (limit: number, since: string | null) => `
     COALESCE(p.comments, 0)      AS comments,
     COALESCE(p.shares,   0)      AS shares,
     COALESCE(p.saves,    0)      AS saves,
+    COALESCE(a.totalFollowers, 0) AS accountFollowers,
     ARRAY_AGG(DISTINCT t.name IGNORE NULLS) AS topics
   FROM ${tableRef('post')} p
   LEFT JOIN ${tableRef('account')} a ON LTRIM(p.profile, '@') = LTRIM(a.profile, '@')
@@ -62,7 +64,8 @@ const POSTS_SQL = (limit: number, since: string | null) => `
     p.postId, p.profile, a.name, a.party,
     p.caption, p.videoSummary, p.coverJpeg, p.videoMp4,
     p.postUrl, p.postDate, p.style,
-    p.views, p.likes, p.comments, p.shares, p.saves
+    p.views, p.likes, p.comments, p.shares, p.saves,
+    a.totalFollowers
   ORDER BY p.postDate DESC, p.views DESC
   LIMIT ${limit}
 `;
@@ -100,6 +103,7 @@ export async function GET(request: Request): Promise<Response> {
       comments:       r.comments     ?? 0,
       shares:         r.shares       ?? 0,
       saves:          r.saves        ?? 0,
+      accountFollowers: r.accountFollowers ?? 0,
     }));
 
     // Cache shorter than TTL so clients never hold an expired signed URL.

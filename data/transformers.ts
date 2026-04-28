@@ -156,6 +156,8 @@ function transformPost(row: BQPostRow): RecentPost {
     caption:   row.caption      ?? '(no caption)',
     views:     row.views        ?? 0,
     likes:     row.likes        ?? 0,
+    comments:  row.comments     ?? 0,
+    shares:    row.shares       ?? 0,
     summary:   row.videoSummary || undefined,
     style:     row.style        || undefined,
     coverJpeg: row.coverJpeg    || undefined,

@@ -36,6 +36,7 @@ const MOCK_POSTS: PostRecord[] = politicians.flatMap(p =>
     comments:       0,
     shares:         0,
     saves:          0,
+    accountFollowers: p.totals.followers,
   }))
 );
 
