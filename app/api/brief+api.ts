@@ -13,6 +13,7 @@
 
 import { query, tableRef } from '@/lib/bigquery';
 import { generateContent } from '@/lib/gemini';
+import { safeErrorDetail } from '@/lib/errors';
 import type { BriefResponse } from '@/data/types';
 
 interface TopPolitician {
@@ -167,8 +168,8 @@ export async function GET(_request: Request): Promise<Response> {
     );
 
   } catch (err: unknown) {
-    const detail = err instanceof Error ? err.message : String(err);
-    console.error('[/api/brief] error:', detail);
-    return Response.json({ error: 'Failed to generate brief', detail }, { status: 500 });
+    const { clientDetail, logMessage } = safeErrorDetail(err);
+    console.error('[/api/brief] error:', logMessage);
+    return Response.json({ error: 'Failed to generate brief', detail: clientDetail }, { status: 500 });
   }
 }

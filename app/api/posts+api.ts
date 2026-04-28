@@ -11,6 +11,7 @@
 
 import { query, tableRef } from '@/lib/bigquery';
 import { signMediaFields } from '@/lib/gcs';
+import { safeErrorDetail } from '@/lib/errors';
 import { toPartyKeyPublic } from '@/data/partyUtils';
 import type { PostRecord } from '@/data/types';
 
@@ -113,10 +114,10 @@ export async function GET(request: Request): Promise<Response> {
     );
 
   } catch (err: unknown) {
-    const detail = err instanceof Error ? err.message : String(err);
-    console.error('[/api/posts] BigQuery error:', detail);
+    const { clientDetail, logMessage } = safeErrorDetail(err);
+    console.error('[/api/posts] BigQuery error:', logMessage);
     return Response.json(
-      { error: 'Failed to fetch posts', detail },
+      { error: 'Failed to fetch posts', detail: clientDetail },
       { status: 500 }
     );
   }

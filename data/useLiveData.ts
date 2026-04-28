@@ -34,27 +34,32 @@ export function useLiveData(): DataState & { refresh: () => void } {
       const res = await fetch(API_PATH);
 
       if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body?.detail ?? `HTTP ${res.status}`);
+        // Do NOT echo the response body into the thrown error — server-side
+        // SDK errors have leaked credentials before. We only surface HTTP
+        // status to the UI. Operators can read the verbose message in the
+        // server logs.
+        throw new Error(`HTTP ${res.status}`);
       }
 
       const data = await res.json() as { politicians: Politician[] };
 
       if (!Array.isArray(data.politicians) || data.politicians.length === 0) {
-        throw new Error('Empty response — falling back to mock data');
+        throw new Error('Empty response');
       }
 
       setState({ status: 'live', politicians: data.politicians, isLive: true, error: null });
 
-
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : String(err);
-      console.warn('[useLiveData] fetch failed, using mock data:', message);
+      // Generic, fixed message in the UI / console. Never includes server detail.
+      const uiMessage = err instanceof Error && /^HTTP \d+$/.test(err.message)
+        ? err.message
+        : 'Live data unavailable';
+      console.warn('[useLiveData] fetch failed, using mock data');
       setState({
         status:      'error',
         politicians: mockPoliticians,
         isLive:      false,
-        error:       message,
+        error:       uiMessage,
       });
     }
   }, []);

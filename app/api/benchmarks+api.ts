@@ -14,6 +14,7 @@
  */
 
 import { query, tableRef } from '@/lib/bigquery';
+import { safeErrorDetail } from '@/lib/errors';
 import type { PostBenchmarks } from '@/data/types';
 
 interface BQBenchmarkRow {
@@ -102,8 +103,8 @@ export async function GET(_request: Request): Promise<Response> {
     );
 
   } catch (err: unknown) {
-    const detail = err instanceof Error ? err.message : String(err);
-    console.error('[/api/benchmarks] BigQuery error:', detail);
-    return Response.json({ error: 'Failed to fetch benchmarks', detail }, { status: 500 });
+    const { clientDetail, logMessage } = safeErrorDetail(err);
+    console.error('[/api/benchmarks] BigQuery error:', logMessage);
+    return Response.json({ error: 'Failed to fetch benchmarks', detail: clientDetail }, { status: 500 });
   }
 }

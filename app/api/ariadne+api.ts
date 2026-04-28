@@ -10,6 +10,7 @@
 
 import { query, tableRef } from '@/lib/bigquery';
 import { signMediaFields } from '@/lib/gcs';
+import { safeErrorDetail } from '@/lib/errors';
 import { transformToPoliticians } from '@/data/transformers';
 import type { BQAccountRow, BQPostRow } from '@/data/transformers';
 
@@ -120,8 +121,10 @@ export async function GET(request: Request): Promise<Response> {
         postSample:     post[0],
       });
     } catch (err: unknown) {
+      const { clientDetail, logMessage } = safeErrorDetail(err);
+      console.error('[/api/ariadne?debug=1] error:', logMessage);
       return Response.json(
-        { error: 'Debug query failed', detail: err instanceof Error ? err.message : String(err) },
+        { error: 'Debug query failed', detail: clientDetail },
         { status: 500 }
       );
     }
@@ -152,10 +155,10 @@ export async function GET(request: Request): Promise<Response> {
     );
 
   } catch (err: unknown) {
-    const detail = err instanceof Error ? err.message : String(err);
-    console.error('[/api/ariadne] BigQuery error:', detail);
+    const { clientDetail, logMessage } = safeErrorDetail(err);
+    console.error('[/api/ariadne] BigQuery error:', logMessage);
     return Response.json(
-      { error: 'Failed to fetch data from BigQuery', detail },
+      { error: 'Failed to fetch data from BigQuery', detail: clientDetail },
       { status: 500 }
     );
   }
