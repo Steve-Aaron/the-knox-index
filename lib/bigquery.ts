@@ -15,12 +15,24 @@ const CREDS_ENV  = process.env.GOOGLE_APPLICATION_CREDENTIALS ?? '';
 function makeClient(): BigQuery {
   const opts: ConstructorParameters<typeof BigQuery>[0] = { projectId: PROJECT_ID };
   if (CREDS_ENV) {
-    try {
-      // Cloud / CI environments pass the full JSON as the env var value
-      opts.credentials = JSON.parse(CREDS_ENV);
-    } catch {
-      // Local dev: GOOGLE_APPLICATION_CREDENTIALS is a file path
-      opts.keyFilename = CREDS_ENV;
+    const trimmed = CREDS_ENV.trim();
+
+    // If the value LOOKS like JSON (starts with `{`) it must parse cleanly.
+    // We refuse to fall through to keyFilename in that case because the SDK
+    // would otherwise embed the entire malformed JSON — including the
+    // private_key — into its error messages.
+    if (trimmed.startsWith('{')) {
+      try {
+        opts.credentials = JSON.parse(trimmed);
+      } catch {
+        throw new Error(
+          'GOOGLE_APPLICATION_CREDENTIALS looks like JSON but failed to parse. ' +
+          'Newlines inside private_key must be escaped as \\n, not raw line breaks.',
+        );
+      }
+    } else {
+      // Otherwise treat it as a path on disk (local dev pattern).
+      opts.keyFilename = trimmed;
     }
   }
   return new BigQuery(opts);

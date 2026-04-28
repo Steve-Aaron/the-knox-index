@@ -19,6 +19,7 @@
 
 import { query, tableRef } from '@/lib/bigquery';
 import { generateContent } from '@/lib/gemini';
+import { safeErrorDetail } from '@/lib/errors';
 
 interface PostRow {
   postId:        number;
@@ -104,8 +105,8 @@ export async function POST(request: Request): Promise<Response> {
     return Response.json({ summary, source });
 
   } catch (err: unknown) {
-    const detail = err instanceof Error ? err.message : String(err);
-    console.error('[/api/summarise] error:', detail);
-    return Response.json({ error: 'Summarisation failed', detail }, { status: 500 });
+    const { clientDetail, logMessage } = safeErrorDetail(err);
+    console.error('[/api/summarise] error:', logMessage);
+    return Response.json({ error: 'Summarisation failed', detail: clientDetail }, { status: 500 });
   }
 }

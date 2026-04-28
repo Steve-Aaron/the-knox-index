@@ -18,16 +18,25 @@ import path from 'path';
  * env var to the JSON content in Vercel / CI instead.
  */
 function makeStorage(): Storage {
-  const creds = process.env.GOOGLE_APPLICATION_CREDENTIALS ?? '';
+  const creds = (process.env.GOOGLE_APPLICATION_CREDENTIALS ?? '').trim();
   if (creds) {
-    try {
-      return new Storage({ credentials: JSON.parse(creds) });
-    } catch {
-      return new Storage({ keyFilename: creds });
+    // Mirror lib/bigquery.ts: refuse to silently fall through to keyFilename
+    // when the value looks like JSON, because the SDK would otherwise embed
+    // the entire malformed JSON (including private_key) into its errors.
+    if (creds.startsWith('{')) {
+      try {
+        return new Storage({ credentials: JSON.parse(creds) });
+      } catch {
+        throw new Error(
+          'GOOGLE_APPLICATION_CREDENTIALS looks like JSON but failed to parse. ' +
+          'Newlines inside private_key must be escaped as \\n, not raw line breaks.',
+        );
+      }
     }
+    return new Storage({ keyFilename: creds });
   }
-  // Local dev fallback — key file is gitignored
-  const keyFile = path.resolve(process.cwd(), 'keys/project-ariadne-1594cc65a2ed.json');
+  // Local dev fallback — looks for any service-account JSON in keys/
+  const keyFile = path.resolve(process.cwd(), 'keys/service-account.json');
   return new Storage({ keyFilename: keyFile });
 }
 

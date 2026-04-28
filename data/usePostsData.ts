@@ -70,8 +70,9 @@ export function usePostsData(range: TimeRange = 'week'): PostsState & { refresh:
       const res   = await fetch(url);
 
       if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body?.detail ?? `HTTP ${res.status}`);
+        // Do NOT pull body.detail into the thrown error — server-side SDK
+        // errors have leaked credentials before. We only surface HTTP status.
+        throw new Error(`HTTP ${res.status}`);
       }
 
       const data = await res.json() as { posts: PostRecord[] };
@@ -81,8 +82,10 @@ export function usePostsData(range: TimeRange = 'week'): PostsState & { refresh:
       setState({ posts: data.posts, loading: false, error: null, isLive: true });
 
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : String(err);
-      setState({ posts: MOCK_POSTS, loading: false, error: message, isLive: false });
+      const uiMessage = err instanceof Error && /^HTTP \d+$/.test(err.message)
+        ? err.message
+        : 'Posts unavailable';
+      setState({ posts: MOCK_POSTS, loading: false, error: uiMessage, isLive: false });
     }
   }, [range]);
 

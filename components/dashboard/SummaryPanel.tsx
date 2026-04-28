@@ -56,18 +56,19 @@ export function SummaryPanel({ politicians, panelHeight }: Props) {
 
     fetch('/api/brief')
       .then(async r => {
-        const json = await r.json();
         if (!r.ok) {
-          const msg = json.detail ?? json.error ?? `HTTP ${r.status}`;
-          throw new Error(msg);
+          // Do NOT echo body.detail into the error — see lib/errors.ts.
+          throw new Error(`HTTP ${r.status}`);
         }
-        return json as { brief: BriefResponse };
+        return await r.json() as { brief: BriefResponse };
       })
       .then(data => settle(() => setBrief(data.brief)))
       .catch(e => {
-        const msg = e instanceof Error ? e.message : String(e);
-        console.error('[SummaryPanel] brief fetch failed:', msg);
-        settle(() => setBriefError(msg));
+        const uiMessage = e instanceof Error && /^HTTP \d+$/.test(e.message)
+          ? e.message
+          : 'Briefing unavailable';
+        console.warn('[SummaryPanel] brief fetch failed');
+        settle(() => setBriefError(uiMessage));
       });
 
     return () => { cancelled = true; };
