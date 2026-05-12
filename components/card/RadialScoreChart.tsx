@@ -4,8 +4,16 @@ import Svg, { Polygon, Circle, Line, Text as SvgText, Rect, Defs, RadialGradient
 import Animated, { useAnimatedProps, useAnimatedStyle, useSharedValue, withTiming, withDelay, Easing } from 'react-native-reanimated';
 import { useEffect } from 'react';
 import { party, PartyKey, neutral, glass, accent } from '@/theme/colors';
-import { type } from '@/theme/typography';
+import { type, font } from '@/theme/typography';
 import type { TopTrumpScores, ScoreKey } from '@/data/types';
+
+/**
+ * SVG text fontFamily must be the CSS web name on web ('Montserrat') and the
+ * PostScript asset name on native ('Montserrat_600SemiBold' etc.).
+ * Expo Google Fonts registers both forms at load time via @expo-google-fonts.
+ */
+const SVG_FONT_LABEL  = Platform.select({ web: 'Montserrat', default: 'Montserrat_600SemiBold' });
+const SVG_WEIGHT_LABEL: string = '600';
 import { timing } from '@/theme/motion';
 import { DevLabel } from '@/components/primitives/DevLabel';
 
@@ -211,7 +219,8 @@ export function RadialScoreChart({ scores, partyKey, size = 440, highlightKey, r
               x={p.x}
               y={p.y}
               fontSize={isHovered ? 10 : 9}
-              fontWeight="700"
+              fontFamily={SVG_FONT_LABEL}
+              fontWeight={SVG_WEIGHT_LABEL}
               fill={isHovered ? colour.glow : isHi ? neutral.text : neutral.textDim}
               textAnchor="middle"
               alignmentBaseline="middle"
@@ -307,23 +316,23 @@ const styles = StyleSheet.create({
     letterSpacing: 1.2,
   },
   tooltipScore: {
-    fontFamily: 'ui-monospace, monospace',
+    fontFamily: font.mono,
     fontSize: 20,
     fontWeight: '700',
     color: '#fff',
     lineHeight: 24,
   },
   tooltipPct: {
+    fontFamily: font.mono,
     fontSize: 12,
     fontWeight: '600',
     color: '#aaa',
   },
   tooltipDesc: {
-    ...type.body,
+    fontFamily: font.ui,
     fontSize: 10,
     color: '#888',
     textAlign: 'center',
-    textTransform: 'none',
   },
   dotTooltip: {
     borderWidth: 1,
@@ -344,12 +353,13 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   noDataText: {
-    fontFamily: 'ui-monospace, monospace',
+    fontFamily: font.mono,
     fontSize: 12,
     color: 'rgba(255,255,255,0.35)',
     textAlign: 'center',
   },
   noDataSub: {
+    fontFamily: font.ui,
     fontSize: 9,
     color: 'rgba(255,255,255,0.2)',
     textAlign: 'center',

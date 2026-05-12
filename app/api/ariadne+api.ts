@@ -41,8 +41,7 @@ const ACCOUNTS_SQL = `
     COALESCE(m.likesToday,     0)  AS likesToday,
     COALESCE(m.commentsToday,  0)  AS commentsToday,
     COALESCE(m.savesToday,     0)  AS savesToday,
-    m.followerChange,
-    atype.accountTypeName
+    m.followerChange
   FROM ${tableRef('account')} a
   LEFT JOIN (
     SELECT *
@@ -62,14 +61,20 @@ const ACCOUNTS_SQL = `
     WHERE postDate >= DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY)
     GROUP BY LTRIM(profile, '@')
   ) pw ON LTRIM(a.profile, '@') = pw.profile
-  LEFT JOIN (
-    -- One type per account; if multiple rows exist take the lowest ID (most specific).
-    SELECT axat.accountId, at.name AS accountTypeName
-    FROM ${tableRef('account_x_accountType')} axat
-    JOIN ${tableRef('accountType')} at ON axat.accountTypeId = at.id
-    QUALIFY ROW_NUMBER() OVER (PARTITION BY axat.accountId ORDER BY at.id) = 1
-  ) atype ON a.id = atype.accountId
   ORDER BY a.name
+`;
+
+/**
+ * Optional query — fetches DB-sourced account types.
+ * Kept separate so a missing table doesn't crash the main data fetch.
+ * If this throws (tables don't exist yet), we silently fall back to the
+ * regex-based inferAccountType logic in transformers.ts.
+ */
+const ACCOUNT_TYPES_SQL = `
+  SELECT axat.accountId, at.name AS accountTypeName
+  FROM ${tableRef('account_x_accountType')} axat
+  JOIN ${tableRef('accountType')} at ON axat.accountTypeId = at.id
+  QUALIFY ROW_NUMBER() OVER (PARTITION BY axat.accountId ORDER BY at.id) = 1
 `;
 
 /**
@@ -144,6 +149,23 @@ export async function GET(request: Request): Promise<Response> {
       query<BQAccountRow>(ACCOUNTS_SQL),
       query<BQPostRow>(POSTS_SQL),
     ]);
+
+    // Optional: enrich rows with DB-sourced account types.
+    // If the join tables don't exist yet this is a no-op — regex fallback
+    // in transformers.ts covers it. Never allowed to crash the main fetch.
+    try {
+      interface TypeRow { accountId: number; accountTypeName: string }
+      const typeRows = await query<TypeRow>(ACCOUNT_TYPES_SQL);
+      if (typeRows.length > 0) {
+        const typeMap = new Map<number, string>(typeRows.map(r => [r.accountId, r.accountTypeName]));
+        for (const row of accountRows) {
+          const t = typeMap.get(row.id);
+          if (t) row.accountTypeName = t;
+        }
+      }
+    } catch {
+      // tables not present — transformer will use regex + 'other' fallback
+    }
 
     const politicians = transformToPoliticians(accountRows, postRows);
 

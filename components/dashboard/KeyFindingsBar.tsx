@@ -203,9 +203,8 @@ const styles = StyleSheet.create({
     letterSpacing: -0.8,
   },
   valueText: {
-    fontFamily: font.ui,
+    fontFamily: font.bold,
     fontSize: 17,
-    fontWeight: '700',
     letterSpacing: -0.3,
   },
   suffix: {
