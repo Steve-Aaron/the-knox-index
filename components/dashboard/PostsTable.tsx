@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,10 @@ import {
   StyleSheet,
   Platform,
 } from 'react-native';
+import DraggableFlatList, {
+  ScaleDecorator,
+  type RenderItemParams,
+} from 'react-native-draggable-flatlist';
 import { ShimmerImage } from '@/components/primitives/ShimmerImage';
 import { MotiView } from 'moti';
 import { GlassSurface } from '@/components/primitives/GlassSurface';
@@ -129,6 +133,9 @@ export function PostsTable({
   const [minLikes, setMinLikes]     = useState<number>(0);
   const [selected, setSelected]     = useState<PostRecord | null>(null);
 
+  // Draggable order — starts from filtered; resets when filters or sort change.
+  const [orderedPosts, setOrderedPosts] = useState<PostRecord[]>([]);
+
   // Party chips must only show parties that exist within the active wing filter.
   // Deriving from all posts would let users tap a party that has zero matches
   // in the current wing, silently returning an empty list.
@@ -162,6 +169,28 @@ export function PostsTable({
       return (b[sortKey] as number) - (a[sortKey] as number);
     });
   }, [posts, sortKey, wingFilter, partyFilter, activePoliticianName, minViews, minLikes]);
+
+  // Sync draggable list when filters or sort key change.
+  useEffect(() => {
+    setOrderedPosts(filtered);
+  }, [filtered]);
+
+  // Render item for DraggableFlatList.
+  const renderItem = useCallback(({ item: post, getIndex, drag, isActive }: RenderItemParams<PostRecord>) => {
+    const index = getIndex() ?? 0;
+    return (
+      <ScaleDecorator activeScale={1.03}>
+        <PostCard
+          post={post}
+          index={index}
+          benchmarks={benchmarks}
+          onPress={() => !isActive && setSelected(post)}
+          drag={drag}
+          isActive={isActive}
+        />
+      </ScaleDecorator>
+    );
+  }, [benchmarks]);
 
   // Clear party filter when wing changes (avoid empty result from stale combination)
   const handleWingChange = (w: Wing | null) => {
@@ -360,36 +389,32 @@ export function PostsTable({
           </View>
         ) : null}
 
-        {/* ── Card list — snaps to each card ────────── */}
-        <ScrollView
-          style={styles.list}
-          showsVerticalScrollIndicator={false}
-          nestedScrollEnabled
-          snapToInterval={CARD_H + GAP}
-          decelerationRate="fast"
-          snapToAlignment="start"
-          disableIntervalMomentum
-        >
-          {loading && posts.length === 0 ? (
-            <View style={styles.skeletonList}>
-              {[0, 1, 2].map(i => (
-                <SkeletonBlock key={i} height={CARD_H} borderRadius={14} />
-              ))}
-            </View>
-          ) : filtered.length === 0 ? (
-            <Text style={styles.emptyText}>No posts match the current filters.</Text>
-          ) : (
-            filtered.map((post, i) => (
-              <PostCard
-                key={post.postId}
-                post={post}
-                index={i}
-                benchmarks={benchmarks}
-                onPress={() => setSelected(post)}
-              />
-            ))
-          )}
-        </ScrollView>
+        {/* ── Card list — draggable + snapping ─────── */}
+        {loading && posts.length === 0 ? (
+          <View style={styles.skeletonList}>
+            {[0, 1, 2].map(i => (
+              <SkeletonBlock key={i} height={CARD_H} borderRadius={14} />
+            ))}
+          </View>
+        ) : orderedPosts.length === 0 ? (
+          <Text style={styles.emptyText}>No posts match the current filters.</Text>
+        ) : (
+          <DraggableFlatList
+            data={orderedPosts}
+            keyExtractor={item => item.postId}
+            renderItem={renderItem}
+            onDragEnd={({ data }) => setOrderedPosts(data)}
+            style={styles.list}
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+            nestedScrollEnabled
+            snapToInterval={CARD_H + GAP}
+            decelerationRate="fast"
+            snapToAlignment="start"
+            disableIntervalMomentum
+            activationDistance={8}
+          />
+        )}
       </View>
 
       {selected ? (
@@ -413,9 +438,11 @@ interface CardProps {
   index:       number;
   benchmarks?: PostBenchmarks;
   onPress:     () => void;
+  drag?:       () => void;
+  isActive?:   boolean;
 }
 
-function PostCard({ post, index, benchmarks, onPress }: CardProps) {
+function PostCard({ post, index, benchmarks, onPress, drag, isActive }: CardProps) {
   const colour = party[post.partyKey];
   const engRate = post.views > 0
     ? +((post.likes + post.comments + post.shares) / post.views * 100).toFixed(2)
@@ -456,10 +483,23 @@ function PostCard({ post, index, benchmarks, onPress }: CardProps) {
         onPress={onPress}
         style={({ pressed, hovered }: any) => [
           styles.card,
+          isActive && styles.cardDragging,
           hovered && { borderColor: colour.base },
           pressed && { opacity: 0.84 },
         ]}
       >
+        {/* ── Drag handle — long-press to reorder ─── */}
+        {drag && (
+          <Pressable
+            onLongPress={drag}
+            delayLongPress={150}
+            style={styles.dragHandle}
+            hitSlop={8}
+          >
+            <Text style={styles.dragIcon}>⠿</Text>
+          </Pressable>
+        )}
+
         {/* ── Cover thumbnail ─────────────────────── */}
         <View style={styles.coverWrap}>
           <ShimmerImage
@@ -759,8 +799,26 @@ const styles = StyleSheet.create({
 
   // List — exactly one card visible at a time; snapping handles navigation
   list: { height: CARD_H },
+  listContent: { paddingBottom: spacing.sm },
   skeletonList: { gap: spacing.sm, paddingBottom: spacing.sm },
   emptyText: { ...type.body, color: neutral.textDim, fontSize: 13, textAlign: 'center', padding: spacing.xl },
+
+  // Drag handle — vertical braille-dot grip icon on the left edge of the card
+  dragHandle: {
+    width: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderRightWidth: 1,
+    borderRightColor: glass.border,
+    flexShrink: 0,
+    ...Platform.select({ web: { cursor: 'grab' } as any, default: {} }),
+  },
+  dragIcon: {
+    fontSize: 14,
+    color: neutral.textDim,
+    lineHeight: 18,
+  },
 
   // Card — fixed to CARD_H so it fills the list window exactly; one card = one view
   card: {
@@ -781,6 +839,11 @@ const styles = StyleSheet.create({
       } as any,
       default: {},
     }),
+  },
+  cardDragging: {
+    borderColor: accent.indigo,
+    backgroundColor: 'rgba(124,131,255,0.08)',
+    ...Platform.select({ web: { cursor: 'grabbing' } as any, default: {} }),
   },
 
   // Cover
