@@ -244,7 +244,7 @@ const styles = StyleSheet.create({
     color: neutral.text,
     fontSize: 13,
     fontFamily: 'Montserrat_400Regular',
-    ...Platform.select({ web: { outline: 'none' } as any, default: {} }),
+    ...Platform.select({ web: { outlineStyle: 'none' } as any, default: {} }),
   },
   textarea: {
     minHeight: 72,

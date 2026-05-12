@@ -450,10 +450,6 @@ const styles = StyleSheet.create({
     paddingVertical:   spacing.md,
     maxWidth:          560,
     width:             '90%' as any,
-    shadowColor:       accent.indigo,
-    shadowOffset:      { width: 0, height: 8 },
-    shadowOpacity:     0.35,
-    shadowRadius:      24,
     ...Platform.select({
       web: {
         backdropFilter: 'blur(20px)',
@@ -461,7 +457,12 @@ const styles = StyleSheet.create({
         boxShadow: '0 8px 40px rgba(124,131,255,0.3)',
         cursor: 'pointer',
       } as any,
-      default: {},
+      default: {
+        shadowColor:    accent.indigo,
+        shadowOffset:   { width: 0, height: 8 },
+        shadowOpacity:  0.35,
+        shadowRadius:   24,
+      },
     }),
   },
   ctaInner: {
@@ -524,13 +525,14 @@ const styles = StyleSheet.create({
     width:           '90%' as any,
     maxWidth:        480,
     overflow:        'hidden',
-    shadowColor:     '#000',
-    shadowOffset:    { width: 0, height: 20 },
-    shadowOpacity:   0.6,
-    shadowRadius:    40,
     ...Platform.select({
       web: { boxShadow: '0 20px 60px rgba(0,0,0,0.6)' } as any,
-      default: {},
+      default: {
+        shadowColor:   '#000',
+        shadowOffset:  { width: 0, height: 20 },
+        shadowOpacity: 0.6,
+        shadowRadius:  40,
+      },
     }),
   },
   accentLine: {
