@@ -22,6 +22,7 @@ import { PartyLeaderboard } from '@/components/dashboard/PartyLeaderboard';
 import { StyleBreakdown } from '@/components/dashboard/StyleBreakdown';
 import { TopicCloud } from '@/components/dashboard/TopicCloud';
 import { ContactFooter } from '@/components/dashboard/ContactFooter';
+import { RegistrationWall } from '@/components/auth/RegistrationWall';
 import { useLiveData } from '@/data/useLiveData';
 import { usePostsData } from '@/data/usePostsData';
 import { useBenchmarks } from '@/data/useBenchmarks';
@@ -206,7 +207,13 @@ export default function DashboardScreen() {
                   : <SkeletonBlock height={PANEL_HEIGHT} style={{ borderRadius: 22 }} />}
               </View>
               <View style={styles.col}>
-                <SummaryPanel politicians={politicians} panelHeight={PANEL_HEIGHT} />
+                <RegistrationWall
+                  mode="full"
+                  headline="Unlock the weekly brief"
+                  copy="Register free to read the AI-generated briefing, key findings, and post analysis."
+                >
+                  <SummaryPanel politicians={politicians} panelHeight={PANEL_HEIGHT} />
+                </RegistrationWall>
               </View>
             </View>
           ) : isTablet ? (
@@ -228,7 +235,13 @@ export default function DashboardScreen() {
                     : <SkeletonBlock height={PANEL_HEIGHT} style={{ borderRadius: 22 }} />}
                 </View>
               </View>
-              <SummaryPanel politicians={politicians} />
+              <RegistrationWall
+                mode="full"
+                headline="Unlock the weekly brief"
+                copy="Register free to read the AI-generated briefing, key findings, and post analysis."
+              >
+                <SummaryPanel politicians={politicians} />
+              </RegistrationWall>
             </View>
           ) : (
             <View style={styles.mobileStack}>
@@ -242,34 +255,64 @@ export default function DashboardScreen() {
               {active
                 ? <PoliticianDetailPanel politician={active} headlineKey={sortKey} />
                 : <SkeletonBlock height={400} style={{ borderRadius: 22 }} />}
-              <SummaryPanel politicians={politicians} />
+              <RegistrationWall
+                mode="full"
+                headline="Unlock the weekly brief"
+                copy="Register free to read the AI-generated briefing, key findings, and post analysis."
+              >
+                <SummaryPanel politicians={politicians} />
+              </RegistrationWall>
             </View>
           )}
 
           {/* ── 5. Party league ───────────────────────── */}
           <View style={styles.partySection}>
-            <PartyLeaderboard politicians={politicians} />
+            <RegistrationWall
+              mode="blur"
+              headline="See the full party breakdown"
+              copy="Register free to compare every party's TikTok performance."
+            >
+              <PartyLeaderboard politicians={politicians} />
+            </RegistrationWall>
           </View>
 
           {/* ── 6. Posts table ────────────────────────── */}
           <View style={styles.postsSection}>
-            <PostsTable
-              posts={posts}
-              loading={postsLoading}
-              rangeLabel={RANGE_LABELS[range]}
-              activePoliticianName={activePoliticianName}
-              onClearPolitician={() => setActiveId('')}
-              benchmarks={benchmarks}
-            />
+            <RegistrationWall
+              mode="blur"
+              headline="Unlock the full post feed"
+              copy="Register free to browse every post, filter by politician, and see engagement breakdowns."
+            >
+              <PostsTable
+                posts={posts}
+                loading={postsLoading}
+                rangeLabel={RANGE_LABELS[range]}
+                activePoliticianName={activePoliticianName}
+                onClearPolitician={() => setActiveId('')}
+                benchmarks={benchmarks}
+              />
+            </RegistrationWall>
           </View>
 
           {/* ── 7. Style + topics row ─────────────────── */}
           <View style={[styles.insightsRow, isDesktop ? styles.insightsRowDesktop : styles.insightsRowStacked]}>
             <View style={styles.insightsCol}>
-              <StyleBreakdown posts={posts} rangeLabel={RANGE_LABELS[range]} />
+              <RegistrationWall
+                mode="blur"
+                headline="Content style breakdown"
+                copy="Register free to see which content formats are winning."
+              >
+                <StyleBreakdown posts={posts} rangeLabel={RANGE_LABELS[range]} />
+              </RegistrationWall>
             </View>
             <View style={styles.insightsCol}>
-              <TopicCloud posts={posts} rangeLabel={RANGE_LABELS[range]} />
+              <RegistrationWall
+                mode="blur"
+                headline="Topic intelligence"
+                copy="Register free to see what political topics are generating the most engagement."
+              >
+                <TopicCloud posts={posts} rangeLabel={RANGE_LABELS[range]} />
+              </RegistrationWall>
             </View>
           </View>
 
