@@ -53,6 +53,7 @@ export function RankBoard({ politicians, activeId, headlineKey, timeRangeLabel, 
     mp:      politicians.filter(p => p.accountType === 'mp').length,
     party:   politicians.filter(p => p.accountType === 'party').length,
     council: politicians.filter(p => p.accountType === 'council').length,
+    other:   politicians.filter(p => p.accountType === 'other').length,
   }), [politicians]);
 
   const partyOptions = useMemo<PartyKey[]>(() => {
@@ -154,16 +155,35 @@ export function RankBoard({ politicians, activeId, headlineKey, timeRangeLabel, 
                 <SkeletonBlock key={i} height={h} borderRadius={14} />
               ))
             : <Text style={styles.emptyText}>No accounts match the current filter.</Text>
-          : ranked.map((p, i) => (
-              <RankBoardRow
-                key={p.id}
-                politician={p}
-                rank={i + 1}
-                headlineKey={headlineKey}
-                active={p.id === activeId}
-                onPress={() => onSelect(p.id)}
-              />
-            ))
+          : ranked.map((p, i) => {
+              const blurred = i >= 5;
+              const row = (
+                <RankBoardRow
+                  key={p.id}
+                  politician={p}
+                  rank={i + 1}
+                  headlineKey={headlineKey}
+                  active={p.id === activeId}
+                  onPress={() => onSelect(p.id)}
+                />
+              );
+              if (!blurred) return row;
+              return (
+                <View
+                  key={p.id}
+                  style={[
+                    styles.blurWrap,
+                    Platform.select({
+                      web: { filter: 'blur(3px)', opacity: 0.55 } as any,
+                      default: { opacity: 0.2 },
+                    }),
+                  ]}
+                  pointerEvents="none"
+                >
+                  {row}
+                </View>
+              );
+            })
         }
       </ScrollView>
     </GlassSurface>
@@ -228,5 +248,10 @@ const styles = StyleSheet.create({
     fontSize: 12,
     textAlign: 'center',
     paddingTop: spacing.lg,
+  },
+  blurWrap: {
+    // Platform-specific blur applied inline via Platform.select in the JSX.
+    // This style provides only layout — no visual properties here.
+    userSelect: 'none' as any,
   },
 });

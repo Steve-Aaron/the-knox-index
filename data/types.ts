@@ -77,7 +77,7 @@ export interface PostBenchmarks {
 }
 
 /** Account type — used to filter the leaderboard into separate views. */
-export type AccountType = 'mp' | 'party' | 'council';
+export type AccountType = 'mp' | 'party' | 'council' | 'other';
 
 export interface Politician {
   id: string;
@@ -88,7 +88,7 @@ export interface Politician {
   partyLabel: string;       // human-readable party name
   country: string;          // ISO-style short e.g. "UK"
   avatarInitials: string;   // two-letter fallback
-  accountType: AccountType; // 'mp' | 'party' | 'council'
+  accountType: AccountType; // 'mp' | 'party' | 'council' | 'other'
   totals: {
     posts:          number;
     followers:      number;

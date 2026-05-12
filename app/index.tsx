@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect, useRef } from 'react';
+import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,8 @@ import {
   Pressable,
   Platform,
   useWindowDimensions,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
 } from 'react-native';
 import { MotiView } from 'moti';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -22,7 +24,7 @@ import { PartyLeaderboard } from '@/components/dashboard/PartyLeaderboard';
 import { StyleBreakdown } from '@/components/dashboard/StyleBreakdown';
 import { TopicCloud } from '@/components/dashboard/TopicCloud';
 import { ContactFooter } from '@/components/dashboard/ContactFooter';
-import { RegistrationWall } from '@/components/auth/RegistrationWall';
+import { StickyUnlock } from '@/components/auth/StickyUnlock';
 import { useLiveData } from '@/data/useLiveData';
 import { usePostsData } from '@/data/usePostsData';
 import { useBenchmarks } from '@/data/useBenchmarks';
@@ -72,6 +74,14 @@ export default function DashboardScreen() {
   const [range, setRange]       = useState<TimeRange>('yesterday');
   const [sortKey, setSortKey]   = useState<ScoreKey>('knoxFactor');
   const [activeId, setActiveId] = useState<string>('');
+  const [scrollY, setScrollY]   = useState(0);
+
+  const handleScroll = useCallback(
+    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+      setScrollY(e.nativeEvent.contentOffset.y);
+    },
+    []
+  );
 
   const { politicians, status, isLive, error, refresh } = useLiveData();
   const { posts, loading: postsLoading } = usePostsData(range);
@@ -107,6 +117,8 @@ export default function DashboardScreen() {
         <ScrollView
           contentContainerStyle={styles.scroll}
           showsVerticalScrollIndicator={false}
+          onScroll={handleScroll}
+          scrollEventThrottle={120}
         >
 
           {/* ── 1. Title bar ──────────────────────────── */}
@@ -209,13 +221,7 @@ export default function DashboardScreen() {
                   : <SkeletonBlock height={PANEL_HEIGHT} style={{ borderRadius: 22 }} />}
               </View>
               <View style={styles.col}>
-                <RegistrationWall
-                  mode="full"
-                  headline="Unlock the weekly brief"
-                  copy="Register free to read the AI-generated briefing, key findings, and post analysis."
-                >
-                  <SummaryPanel politicians={politicians} panelHeight={PANEL_HEIGHT} />
-                </RegistrationWall>
+                <SummaryPanel politicians={politicians} panelHeight={PANEL_HEIGHT} />
               </View>
             </View>
           ) : isTablet ? (
@@ -237,13 +243,7 @@ export default function DashboardScreen() {
                     : <SkeletonBlock height={PANEL_HEIGHT} style={{ borderRadius: 22 }} />}
                 </View>
               </View>
-              <RegistrationWall
-                mode="full"
-                headline="Unlock the weekly brief"
-                copy="Register free to read the AI-generated briefing, key findings, and post analysis."
-              >
-                <SummaryPanel politicians={politicians} />
-              </RegistrationWall>
+              <SummaryPanel politicians={politicians} />
             </View>
           ) : (
             <View style={[styles.mobileStack, { paddingHorizontal: hPad }]}>
@@ -257,64 +257,34 @@ export default function DashboardScreen() {
               {active
                 ? <PoliticianDetailPanel politician={active} headlineKey={sortKey} />
                 : <SkeletonBlock height={400} style={{ borderRadius: 22 }} />}
-              <RegistrationWall
-                mode="full"
-                headline="Unlock the weekly brief"
-                copy="Register free to read the AI-generated briefing, key findings, and post analysis."
-              >
-                <SummaryPanel politicians={politicians} />
-              </RegistrationWall>
+              <SummaryPanel politicians={politicians} />
             </View>
           )}
 
           {/* ── 5. Party league ───────────────────────── */}
           <View style={[styles.partySection, { paddingHorizontal: hPad }]}>
-            <RegistrationWall
-              mode="blur"
-              headline="See the full party breakdown"
-              copy="Register free to compare every party's TikTok performance."
-            >
-              <PartyLeaderboard politicians={politicians} />
-            </RegistrationWall>
+            <PartyLeaderboard politicians={politicians} />
           </View>
 
           {/* ── 6. Posts table ────────────────────────── */}
           <View style={[styles.postsSection, { paddingHorizontal: hPad }]}>
-            <RegistrationWall
-              mode="blur"
-              headline="Unlock the full post feed"
-              copy="Register free to browse every post, filter by politician, and see engagement breakdowns."
-            >
-              <PostsTable
-                posts={posts}
-                loading={postsLoading}
-                rangeLabel={RANGE_LABELS[range]}
-                activePoliticianName={activePoliticianName}
-                onClearPolitician={() => setActiveId('')}
-                benchmarks={benchmarks}
-              />
-            </RegistrationWall>
+            <PostsTable
+              posts={posts}
+              loading={postsLoading}
+              rangeLabel={RANGE_LABELS[range]}
+              activePoliticianName={activePoliticianName}
+              onClearPolitician={() => setActiveId('')}
+              benchmarks={benchmarks}
+            />
           </View>
 
           {/* ── 7. Style + topics row ─────────────────── */}
           <View style={[styles.insightsRow, { paddingHorizontal: hPad }, isDesktop ? styles.insightsRowDesktop : styles.insightsRowStacked]}>
             <View style={styles.insightsCol}>
-              <RegistrationWall
-                mode="blur"
-                headline="Content style breakdown"
-                copy="Register free to see which content formats are winning."
-              >
-                <StyleBreakdown posts={posts} rangeLabel={RANGE_LABELS[range]} />
-              </RegistrationWall>
+              <StyleBreakdown posts={posts} rangeLabel={RANGE_LABELS[range]} />
             </View>
             <View style={styles.insightsCol}>
-              <RegistrationWall
-                mode="blur"
-                headline="Topic intelligence"
-                copy="Register free to see what political topics are generating the most engagement."
-              >
-                <TopicCloud posts={posts} rangeLabel={RANGE_LABELS[range]} />
-              </RegistrationWall>
+              <TopicCloud posts={posts} rangeLabel={RANGE_LABELS[range]} />
             </View>
           </View>
 
@@ -324,6 +294,8 @@ export default function DashboardScreen() {
           </View>
 
         </ScrollView>
+        {/* Sticky registration CTA — appears after scrolling, hidden once registered */}
+        <StickyUnlock scrollY={scrollY} />
       </SafeAreaView>
 
       {/* Loading screen — absolute overlay, fades out once BQ data arrives.

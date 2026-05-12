@@ -15,13 +15,14 @@ import { computeKnoxFactor } from './knoxConfig';
 /** account JOIN accountMetrics (latest dateUpdated) */
 export interface BQAccountRow {
   // account
-  id:              number;
-  name:            string;    // display name
-  profile:         string;    // TikTok handle — also the join key to post.profile
-  party:           string;
-  affiliation:     string;    // e.g. 'MP, Ashton-under-Lyne'
-  totalFollowing:  number;
-  totalFollowers:  number;
+  id:               number;
+  name:             string;    // display name
+  profile:          string;    // TikTok handle — also the join key to post.profile
+  party:            string;
+  affiliation:      string;    // e.g. 'MP, Ashton-under-Lyne'
+  totalFollowing:   number;
+  totalFollowers:   number;
+  accountTypeName?: string;    // from accountType table via account_x_accountType JOIN
   // accountMetrics (latest row)
   totalPosts:      number;
   totalLikes:      number;
@@ -71,17 +72,28 @@ function normProfile(p: string | null | undefined): string {
 }
 
 /**
- * Infer the account type from the affiliation and name fields.
- * - MPs, MSPs, AMs, Councillors, Lords → 'mp'
- * - Accounts whose name/affiliation contains "Council" → 'council'
- * - Everything else (party accounts, campaign pages, leaders) → 'party'
+ * Resolve the account type.
+ * Priority: 1) DB value from account_x_accountType JOIN  2) regex on name/affiliation  3) 'other'
+ *
+ * DB values are expected to be one of: 'mp', 'party', 'council', 'other'
+ * (case-insensitive — we normalise on the way in).
  */
-function inferAccountType(name: string, affiliation: string): AccountType {
+function inferAccountType(name: string, affiliation: string, dbTypeName?: string): AccountType {
+  // 1. DB-sourced type takes precedence
+  if (dbTypeName) {
+    const t = dbTypeName.trim().toLowerCase() as AccountType;
+    if (t === 'mp' || t === 'party' || t === 'council' || t === 'other') return t;
+  }
+
+  // 2. Regex fallback
   const a = (affiliation ?? '').toLowerCase();
   const n = (name ?? '').toLowerCase();
   if (/\bcouncil\b/.test(n) || /\bcouncil\b/.test(a)) return 'council';
   if (/\b(mp|msp|am|am |lord|baron|earl|councillor|senator|mayor)\b/.test(a)) return 'mp';
-  return 'party';
+  if (/\b(party|labour|conservative|libdem|snp|green|reform|plaid|dup|sinn)\b/.test(n)) return 'party';
+
+  // 3. Final fallback
+  return 'other';
 }
 
 function toInitials(name: string): string {
@@ -216,7 +228,7 @@ export function transformToPoliticians(
       partyLabel:     acc.party ?? 'Unknown',
       country:        'UK',
       avatarInitials: toInitials(acc.name ?? ''),
-      accountType:    inferAccountType(acc.name ?? '', acc.affiliation ?? ''),
+      accountType:    inferAccountType(acc.name ?? '', acc.affiliation ?? '', acc.accountTypeName),
       totals: {
         posts:          acc.totalPosts     ?? 0,
         followers:      acc.totalFollowers ?? 0,

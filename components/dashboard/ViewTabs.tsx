@@ -28,10 +28,11 @@ interface Tab {
 }
 
 const TABS: Tab[] = [
-  { value: 'all',     label: 'All',      icon: '⊞', tip: 'Everyone tracked'          },
-  { value: 'mp',      label: 'MPs',      icon: '🏛', tip: 'Elected MPs, MSPs, AMs'    },
-  { value: 'party',   label: 'Parties',  icon: '🏴', tip: 'Party accounts & leaders'  },
-  { value: 'council', label: 'Councils', icon: '🏙', tip: 'Local council accounts'    },
+  { value: 'all',     label: 'All',      icon: '⊞', tip: 'Everyone tracked'                    },
+  { value: 'mp',      label: 'MPs',      icon: '🏛', tip: 'Elected MPs, MSPs, AMs'              },
+  { value: 'party',   label: 'Parties',  icon: '🏴', tip: 'Party accounts & leaders'            },
+  { value: 'council', label: 'Councils', icon: '🏙', tip: 'Local council accounts'              },
+  { value: 'other',   label: 'Other',    icon: '◎',  tip: 'Organisations, press & other pages'  },
 ];
 
 interface Props {
