@@ -206,6 +206,7 @@ const styles = StyleSheet.create({
     fontFamily: font.bold,
     fontSize: 17,
     letterSpacing: -0.3,
+    textTransform: 'uppercase' as const,
   },
   suffix: {
     ...type.body,
