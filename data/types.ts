@@ -76,6 +76,9 @@ export interface PostBenchmarks {
   engagement: MetricBenchmark;  // (likes + comments + shares) / views × 100
 }
 
+/** Account type — used to filter the leaderboard into separate views. */
+export type AccountType = 'mp' | 'party' | 'council';
+
 export interface Politician {
   id: string;
   name: string;
@@ -85,6 +88,7 @@ export interface Politician {
   partyLabel: string;       // human-readable party name
   country: string;          // ISO-style short e.g. "UK"
   avatarInitials: string;   // two-letter fallback
+  accountType: AccountType; // 'mp' | 'party' | 'council'
   totals: {
     posts:          number;
     followers:      number;

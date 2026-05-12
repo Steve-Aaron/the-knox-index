@@ -41,7 +41,7 @@ export function ContactFooter({
 
         <View style={styles.actions}>
           <Pressable
-            onPress={() => Linking.openURL(`mailto:${email}?subject=Project%20Ariadne%20%E2%80%94%20bespoke%20briefing`)}
+            onPress={() => Linking.openURL(`mailto:${email}?subject=The%20Knox%20Index%20%E2%80%94%20bespoke%20briefing`)}
             style={({ pressed }) => [styles.primaryBtn, pressed && { opacity: 0.85 }]}
           >
             <Text style={styles.primaryBtnText}>EMAIL THE TEAM</Text>

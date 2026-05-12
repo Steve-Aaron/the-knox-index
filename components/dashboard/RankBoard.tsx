@@ -5,6 +5,7 @@ import { DevLabel } from '@/components/primitives/DevLabel';
 import { InfoTip } from '@/components/primitives/InfoTip';
 import { SkeletonBlock } from '@/components/primitives/SkeletonBlock';
 import { RankBoardRow } from './RankBoardRow';
+import { ViewTabs, type ViewType } from './ViewTabs';
 import { neutral, glass, party } from '@/theme/colors';
 import type { PartyKey } from '@/theme/colors';
 import { spacing, radius } from '@/theme/spacing';
@@ -43,20 +44,35 @@ const LABELS: Record<ScoreKey, string> = {
 };
 
 export function RankBoard({ politicians, activeId, headlineKey, timeRangeLabel, onSelect, panelHeight }: Props) {
+  const [viewType, setViewType]       = useState<ViewType>('all');
   const [partyFilter, setPartyFilter] = useState<PartyKey | null>(null);
 
+  // Counts per view type for the tab badges.
+  const counts = useMemo<Partial<Record<ViewType, number>>>(() => ({
+    all:     politicians.length,
+    mp:      politicians.filter(p => p.accountType === 'mp').length,
+    party:   politicians.filter(p => p.accountType === 'party').length,
+    council: politicians.filter(p => p.accountType === 'council').length,
+  }), [politicians]);
+
   const partyOptions = useMemo<PartyKey[]>(() => {
+    const base = viewType === 'all' ? politicians : politicians.filter(p => p.accountType === viewType);
     const seen = new Set<PartyKey>();
-    politicians.forEach(p => seen.add(p.partyKey));
+    base.forEach(p => seen.add(p.partyKey));
     return Array.from(seen).sort();
-  }, [politicians]);
+  }, [politicians, viewType]);
+
+  // Reset party filter when view type changes.
+  function handleViewChange(v: ViewType) {
+    setViewType(v);
+    setPartyFilter(null);
+  }
 
   const ranked = useMemo(() => {
-    const base = partyFilter
-      ? politicians.filter(p => p.partyKey === partyFilter)
-      : politicians;
+    let base = viewType === 'all' ? politicians : politicians.filter(p => p.accountType === viewType);
+    if (partyFilter) base = base.filter(p => p.partyKey === partyFilter);
     return [...base].sort((a, b) => b.scores[headlineKey] - a.scores[headlineKey]);
-  }, [politicians, headlineKey, partyFilter]);
+  }, [politicians, headlineKey, viewType, partyFilter]);
 
   const wrapStyle = {
     flex: 1 as const,
@@ -79,6 +95,11 @@ export function RankBoard({ politicians, activeId, headlineKey, timeRangeLabel, 
           Ranked by {LABELS[headlineKey]} · {timeRangeLabel}
           {partyFilter ? ` · ${PARTY_LABELS[partyFilter] ?? partyFilter}` : ''}
         </Text>
+
+        {/* Account-type tabs — MPs / Parties / Councils / All */}
+        <View style={styles.viewTabsWrap}>
+          <ViewTabs value={viewType} onChange={handleViewChange} counts={counts} />
+        </View>
 
         {partyOptions.length > 1 && (
           <ScrollView
@@ -164,6 +185,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.lg,
     gap: spacing.sm,
+  },
+  viewTabsWrap: {
+    marginTop: spacing.sm,
   },
   partyRow: {
     flexDirection: 'row',

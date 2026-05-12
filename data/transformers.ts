@@ -5,7 +5,7 @@
  * components. Field names match the confirmed ariadne_tiktok_demo schema.
  */
 
-import type { Politician, TopTrumpScores, RecentPost } from './types';
+import type { Politician, TopTrumpScores, RecentPost, AccountType } from './types';
 import type { PartyKey } from '@/theme/colors';
 import { toPartyKeyPublic } from './partyUtils';
 import { computeKnoxFactor } from './knoxConfig';
@@ -70,6 +70,20 @@ function normProfile(p: string | null | undefined): string {
   return (p ?? '').replace(/^@/, '');
 }
 
+/**
+ * Infer the account type from the affiliation and name fields.
+ * - MPs, MSPs, AMs, Councillors, Lords → 'mp'
+ * - Accounts whose name/affiliation contains "Council" → 'council'
+ * - Everything else (party accounts, campaign pages, leaders) → 'party'
+ */
+function inferAccountType(name: string, affiliation: string): AccountType {
+  const a = (affiliation ?? '').toLowerCase();
+  const n = (name ?? '').toLowerCase();
+  if (/\bcouncil\b/.test(n) || /\bcouncil\b/.test(a)) return 'council';
+  if (/\b(mp|msp|am|am |lord|baron|earl|councillor|senator|mayor)\b/.test(a)) return 'mp';
+  return 'party';
+}
+
 function toInitials(name: string): string {
   if (!name) return '';
   return name
@@ -131,7 +145,8 @@ function computeScores(
   const frequency  = normalise(acc.postsThisWeek,  max.postsThisWeek);
   const followers  = normalise(acc.totalFollowers, max.totalFollowers);
 
-  const knoxFactor = computeKnoxFactor(views, engagement, frequency, followers);
+  // Knox Factor: virality = views score, then engagement, followers, frequency
+  const knoxFactor = computeKnoxFactor(views, engagement, followers, frequency);
 
   return { views, engagement, frequency, followers, knoxFactor };
 }
@@ -201,6 +216,7 @@ export function transformToPoliticians(
       partyLabel:     acc.party ?? 'Unknown',
       country:        'UK',
       avatarInitials: toInitials(acc.name ?? ''),
+      accountType:    inferAccountType(acc.name ?? '', acc.affiliation ?? ''),
       totals: {
         posts:          acc.totalPosts     ?? 0,
         followers:      acc.totalFollowers ?? 0,

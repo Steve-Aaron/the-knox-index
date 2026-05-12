@@ -113,7 +113,7 @@ export function SummaryPanel({ politicians, panelHeight }: Props) {
     ];
   }, [politicians]);
 
-  // Top 6 posts by views across all politicians, for the bangers strip
+  // Top 6 posts by views across all politicians
   const topBangers = useMemo(() => {
     return politicians
       .flatMap(p => p.recentPosts.map(post => ({ post, politician: p })))
@@ -153,8 +153,7 @@ export function SummaryPanel({ politicians, panelHeight }: Props) {
           transition={{ type: 'timing', duration: 320 }}
         >
           <Text style={styles.kicker}>WEEKLY BRIEFING</Text>
-          <Text style={styles.title}>What banged</Text>
-          <Text style={styles.subtitle}>on TikTok?</Text>
+          <Text style={styles.title}>This week on TikTok</Text>
         </MotiView>
 
         {/* ── AI narrative ─────────────────────────── */}
@@ -212,7 +211,7 @@ export function SummaryPanel({ politicians, panelHeight }: Props) {
         {/* ── What banged — post cards ─────────────── */}
         {topBangers.length > 0 ? (
           <>
-            <Text style={styles.sectionKicker}>WHAT BANGED</Text>
+            <Text style={styles.sectionKicker}>TOP POSTS</Text>
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}

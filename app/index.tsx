@@ -109,7 +109,7 @@ export default function DashboardScreen() {
           {/* ── 1. Title bar ──────────────────────────── */}
           <View style={styles.titleBar}>
             <View>
-              <Text style={styles.kicker}>ARIADNE · DAILY BRIEF</Text>
+              <Text style={styles.kicker}>THE KNOX INDEX · DAILY BRIEF</Text>
               <Text style={styles.title}>Dashboard</Text>
             </View>
             <View style={styles.titleRight}>

@@ -166,7 +166,7 @@ export function LoadingScreen({ visible }: Props) {
         style={styles.brandWrap}
       >
         <Text style={styles.kicker}>POLITICAL INTELLIGENCE</Text>
-        <Text style={styles.brand}>ARIADNE</Text>
+        <Text style={styles.brand}>THE KNOX INDEX</Text>
         <Text style={styles.sub}>DAILY BRIEF</Text>
       </MotiView>
 
