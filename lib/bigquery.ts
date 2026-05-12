@@ -7,6 +7,7 @@
  */
 
 import { BigQuery } from '@google-cloud/bigquery';
+import path from 'path';
 
 const PROJECT_ID = process.env.BIGQUERY_PROJECT_ID ?? 'project-ariadne';
 const DATASET    = process.env.BIGQUERY_DATASET    ?? 'ariadne_tiktok_demo';
@@ -31,8 +32,12 @@ function makeClient(): BigQuery {
         );
       }
     } else {
-      // Otherwise treat it as a path on disk (local dev pattern).
-      opts.keyFilename = trimmed;
+      // Treat as a file path. Resolve relative paths against the project root
+      // (__dirname here is lib/, so go one level up) rather than process.cwd(),
+      // because Expo's dev server may start from a different working directory.
+      opts.keyFilename = path.isAbsolute(trimmed)
+        ? trimmed
+        : path.resolve(__dirname, '..', trimmed);
     }
   }
   return new BigQuery(opts);
