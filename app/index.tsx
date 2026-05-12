@@ -66,6 +66,8 @@ export default function DashboardScreen() {
   const { width } = useWindowDimensions();
   const isDesktop = width >= breakpoints.desktop;
   const isTablet  = width >= breakpoints.tablet;
+  const isMobile  = width < breakpoints.tablet;
+  const hPad = isMobile ? spacing.md : spacing.xl;
 
   const [range, setRange]       = useState<TimeRange>('yesterday');
   const [sortKey, setSortKey]   = useState<ScoreKey>('knoxFactor');
@@ -108,7 +110,7 @@ export default function DashboardScreen() {
         >
 
           {/* ── 1. Title bar ──────────────────────────── */}
-          <View style={styles.titleBar}>
+          <View style={[styles.titleBar, { paddingHorizontal: hPad }]}>
             <View>
               <Text style={styles.kicker}>THE KNOX INDEX · DAILY BRIEF</Text>
               <Text style={styles.title}>Dashboard</Text>
@@ -143,7 +145,7 @@ export default function DashboardScreen() {
           <KeyFindingsBar politicians={politicians} />
 
           {/* ── 3. Controls (stacked, full-width each) ── */}
-          <View style={styles.controlsOuter}>
+          <View style={[styles.controlsOuter, { paddingHorizontal: hPad }]}>
             {/* Time range — full width */}
             <TimeRangePicker value={range} onChange={setRange} />
 
@@ -190,7 +192,7 @@ export default function DashboardScreen() {
             </View>
           ) : isDesktop ? (
             // Desktop: three equal columns side-by-side
-            <View style={styles.threeCol}>
+            <View style={[styles.threeCol, { paddingHorizontal: hPad }]}>
               <View style={styles.col}>
                 <RankBoard
                   politicians={politicians}
@@ -217,7 +219,7 @@ export default function DashboardScreen() {
               </View>
             </View>
           ) : isTablet ? (
-            <View style={styles.stackedTablet}>
+            <View style={[styles.stackedTablet, { paddingHorizontal: hPad }]}>
               <View style={styles.twoCol}>
                 <View style={styles.col}>
                   <RankBoard
@@ -244,7 +246,7 @@ export default function DashboardScreen() {
               </RegistrationWall>
             </View>
           ) : (
-            <View style={styles.mobileStack}>
+            <View style={[styles.mobileStack, { paddingHorizontal: hPad }]}>
               <RankBoard
                 politicians={politicians}
                 activeId={activeId}
@@ -266,7 +268,7 @@ export default function DashboardScreen() {
           )}
 
           {/* ── 5. Party league ───────────────────────── */}
-          <View style={styles.partySection}>
+          <View style={[styles.partySection, { paddingHorizontal: hPad }]}>
             <RegistrationWall
               mode="blur"
               headline="See the full party breakdown"
@@ -277,7 +279,7 @@ export default function DashboardScreen() {
           </View>
 
           {/* ── 6. Posts table ────────────────────────── */}
-          <View style={styles.postsSection}>
+          <View style={[styles.postsSection, { paddingHorizontal: hPad }]}>
             <RegistrationWall
               mode="blur"
               headline="Unlock the full post feed"
@@ -295,7 +297,7 @@ export default function DashboardScreen() {
           </View>
 
           {/* ── 7. Style + topics row ─────────────────── */}
-          <View style={[styles.insightsRow, isDesktop ? styles.insightsRowDesktop : styles.insightsRowStacked]}>
+          <View style={[styles.insightsRow, { paddingHorizontal: hPad }, isDesktop ? styles.insightsRowDesktop : styles.insightsRowStacked]}>
             <View style={styles.insightsCol}>
               <RegistrationWall
                 mode="blur"
@@ -317,7 +319,7 @@ export default function DashboardScreen() {
           </View>
 
           {/* ── 8. Contact footer ─────────────────────── */}
-          <View style={styles.contactSection}>
+          <View style={[styles.contactSection, { paddingHorizontal: hPad }]}>
             <ContactFooter />
           </View>
 
@@ -409,7 +411,6 @@ const styles = StyleSheet.create({
 
   // Title bar
   titleBar: {
-    paddingHorizontal: spacing.xl,
     flexDirection: 'row',
     alignItems: 'flex-end',
     justifyContent: 'space-between',
@@ -459,7 +460,6 @@ const styles = StyleSheet.create({
 
   // Controls
   controlsOuter: {
-    paddingHorizontal: spacing.xl,
     gap: spacing.md,
   },
   sortWrap: {
@@ -511,7 +511,6 @@ const styles = StyleSheet.create({
   // Layout containers
   threeCol: {
     flexDirection: 'row',
-    paddingHorizontal: spacing.xl,
     gap: spacing.base,
     height: PANEL_HEIGHT,
   },
@@ -524,23 +523,18 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   stackedTablet: {
-    paddingHorizontal: spacing.xl,
     gap: spacing.md,
   },
   mobileStack: {
-    paddingHorizontal: spacing.xl,
     gap: spacing.md,
   },
   postsSection: {
-    paddingHorizontal: spacing.xl,
-    marginTop: spacing.xl,   // extra breathing room separating feed from panels
+    marginTop: spacing.xl,
   },
   partySection: {
-    paddingHorizontal: spacing.xl,
     marginTop: spacing.xl,
   },
   insightsRow: {
-    paddingHorizontal: spacing.xl,
     marginTop: spacing.xl,
     gap: spacing.base,
   },
@@ -554,7 +548,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   contactSection: {
-    paddingHorizontal: spacing.xl,
     marginTop: spacing.xl,
   },
 });

@@ -6,7 +6,9 @@ import {
   Pressable,
   StyleSheet,
   Platform,
+  useWindowDimensions,
 } from 'react-native';
+import { breakpoints } from '@/theme/breakpoints';
 import DraggableFlatList, {
   ScaleDecorator,
   type RenderItemParams,
@@ -126,6 +128,9 @@ export function PostsTable({
   onClearPolitician,
   benchmarks,
 }: Props) {
+  const { width: windowWidth } = useWindowDimensions();
+  const isMobile = windowWidth < breakpoints.tablet;
+
   const [sortKey, setSortKey]       = useState<SortKey>('views');
   const [wingFilter, setWingFilter] = useState<Wing | null>(null);
   const [partyFilter, setPartyFilter] = useState<PartyKey | null>(null);
@@ -187,10 +192,11 @@ export function PostsTable({
           onPress={() => !isActive && setSelected(post)}
           drag={drag}
           isActive={isActive}
+          compact={isMobile}
         />
       </ScaleDecorator>
     );
-  }, [benchmarks]);
+  }, [benchmarks, isMobile]);
 
   // Clear party filter when wing changes (avoid empty result from stale combination)
   const handleWingChange = (w: Wing | null) => {
@@ -404,14 +410,16 @@ export function PostsTable({
             keyExtractor={item => item.postId}
             renderItem={renderItem}
             onDragEnd={({ data }) => setOrderedPosts(data)}
-            style={styles.list}
+            style={isMobile ? styles.listCompact : styles.list}
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
             nestedScrollEnabled
-            snapToInterval={CARD_H + GAP}
-            decelerationRate="fast"
-            snapToAlignment="start"
-            disableIntervalMomentum
+            {...(!isMobile && {
+              snapToInterval: CARD_H + GAP,
+              decelerationRate: 'fast' as const,
+              snapToAlignment: 'start' as const,
+              disableIntervalMomentum: true,
+            })}
             activationDistance={8}
           />
         )}
@@ -440,9 +448,11 @@ interface CardProps {
   onPress:     () => void;
   drag?:       () => void;
   isActive?:   boolean;
+  /** compact=true → stacked layout for narrow screens */
+  compact?:    boolean;
 }
 
-function PostCard({ post, index, benchmarks, onPress, drag, isActive }: CardProps) {
+function PostCard({ post, index, benchmarks, onPress, drag, isActive, compact }: CardProps) {
   const colour = party[post.partyKey];
   const engRate = post.views > 0
     ? +((post.likes + post.comments + post.shares) / post.views * 100).toFixed(2)
@@ -482,14 +492,14 @@ function PostCard({ post, index, benchmarks, onPress, drag, isActive }: CardProp
       <Pressable
         onPress={onPress}
         style={({ pressed, hovered }: any) => [
-          styles.card,
+          compact ? styles.cardCompact : styles.card,
           isActive && styles.cardDragging,
           hovered && { borderColor: colour.base },
           pressed && { opacity: 0.84 },
         ]}
       >
         {/* ── Drag handle — long-press to reorder ─── */}
-        {drag && (
+        {drag && !compact && (
           <Pressable
             onLongPress={drag}
             delayLongPress={150}
@@ -501,14 +511,14 @@ function PostCard({ post, index, benchmarks, onPress, drag, isActive }: CardProp
         )}
 
         {/* ── Cover thumbnail ─────────────────────── */}
-        <View style={styles.coverWrap}>
+        <View style={compact ? styles.coverWrapCompact : styles.coverWrap}>
           <ShimmerImage
             uri={post.coverJpeg || undefined}
-            wrapStyle={styles.cover}
+            wrapStyle={compact ? styles.coverCompact : styles.cover}
             resizeMode="cover"
             accentColour={colour.base}
             fallback={
-              <View style={[styles.cover, styles.coverFallback]}>
+              <View style={[compact ? styles.coverCompact : styles.cover, styles.coverFallback]}>
                 <Text style={styles.coverPlayIcon}>▶</Text>
               </View>
             }
@@ -520,8 +530,8 @@ function PostCard({ post, index, benchmarks, onPress, drag, isActive }: CardProp
           </View>
         </View>
 
-        {/* ── Right column: summary → metrics → info ── */}
-        <View style={styles.rightCol}>
+        {/* ── Content column: summary → metrics → info ── */}
+        <View style={compact ? styles.rightColCompact : styles.rightCol}>
 
           {/* 1. AI SUMMARY — most prominent, next to video */}
           <View style={styles.summarySection}>
@@ -799,6 +809,7 @@ const styles = StyleSheet.create({
 
   // List — exactly one card visible at a time; snapping handles navigation
   list: { height: CARD_H },
+  listCompact: { maxHeight: 2400 },  // on mobile: show up to ~4 cards, scroll freely
   listContent: { paddingBottom: spacing.sm },
   skeletonList: { gap: spacing.sm, paddingBottom: spacing.sm },
   emptyText: { ...type.body, color: neutral.textDim, fontSize: 13, textAlign: 'center', padding: spacing.xl },
@@ -845,6 +856,17 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(124,131,255,0.08)',
     ...Platform.select({ web: { cursor: 'grabbing' } as any, default: {} }),
   },
+  // Compact card — stacked layout for mobile
+  cardCompact: {
+    flexDirection: 'column',
+    borderWidth: 1,
+    borderColor: glass.border,
+    borderRadius: radius.md,
+    marginBottom: GAP,
+    overflow: 'hidden',
+    backgroundColor: glass.fill,
+    ...Platform.select({ web: { cursor: 'pointer' } as any, default: {} }),
+  },
 
   // Cover
   coverWrap: {
@@ -858,6 +880,18 @@ const styles = StyleSheet.create({
   cover: {
     width: COVER_W,
     height: CARD_H,
+  },
+  // Compact cover — 16:9 ratio at full width (shorter than the 9:16 portrait)
+  coverWrapCompact: {
+    width: '100%' as any,
+    aspectRatio: 16 / 9,
+    position: 'relative' as const,
+    backgroundColor: '#111',
+    overflow: 'hidden',
+  },
+  coverCompact: {
+    width: '100%' as any,
+    height: '100%' as any,
   },
   coverFallback: {
     backgroundColor: '#1a1a2e',
@@ -888,6 +922,13 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
   viewsLbl: { fontFamily: font.ui, fontSize: 9, color: neutral.textMid, textTransform: 'none' },
+
+  // Compact right column — full width below cover
+  rightColCompact: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: 'column',
+  },
 
   // Right column — stacks summary → metrics → distribution → identity vertically
   // Height budget at CARD_H=720px:
