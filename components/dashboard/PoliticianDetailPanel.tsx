@@ -456,7 +456,7 @@ const styles = StyleSheet.create({
   },
   postStats: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-end',
     gap: spacing.md,
   },
   postStat: {
@@ -475,8 +475,10 @@ const styles = StyleSheet.create({
   },
   postStatDivider: {
     width: 1,
-    height: 28,
+    height: 24,
     backgroundColor: glass.border,
+    alignSelf: 'flex-end',
+    marginBottom: 2,
   },
 
   // Empty posts state
