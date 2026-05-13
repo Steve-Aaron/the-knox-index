@@ -14,6 +14,9 @@ import {
   Montserrat_900Black,
 } from '@expo-google-fonts/montserrat';
 import { neutral } from '@/theme/colors';
+// Side-effect import: ensures analytics.web.ts module-level code runs on web
+// (sets window.mixpanel) before GTM's Window Loaded trigger fires.
+import '@/lib/analytics';
 
 SplashScreen.preventAutoHideAsync();
 
