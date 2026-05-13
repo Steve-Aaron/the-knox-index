@@ -115,7 +115,9 @@ const POSTS_SQL = `
 // ── Handler ───────────────────────────────────────────────────────────────────
 
 export async function GET(request: Request): Promise<Response> {
-  const isDebug = new URL(request.url).searchParams.get('debug') === '1';
+  const params  = new URL(request.url).searchParams;
+  const isDebug = params.get('debug') === '1';
+  const isDiag  = params.get('diag')  === '1';
 
   // Debug mode: return raw schema info independently of the main query
   if (isDebug) {
@@ -141,6 +143,50 @@ export async function GET(request: Request): Promise<Response> {
         { status: 500 }
       );
     }
+  }
+
+  // Diagnostic mode: run each pipeline step in isolation to identify failures.
+  // Hit /api/ariadne?diag=1 — never expose in production UI, check server logs too.
+  if (isDiag) {
+    const steps: Record<string, unknown> = {};
+
+    // Step 1 — account JOIN accountMetrics (the complex accounts query)
+    try {
+      const rows = await query<Record<string, unknown>>(ACCOUNTS_SQL);
+      steps['accounts_sql'] = { ok: true, row_count: rows.length, sample: rows[0] };
+    } catch (err: unknown) {
+      steps['accounts_sql'] = { ok: false, error: String(err) };
+    }
+
+    // Step 2 — posts window function
+    try {
+      const rows = await query<Record<string, unknown>>(POSTS_SQL);
+      steps['posts_sql'] = { ok: true, row_count: rows.length, sample: rows[0] };
+    } catch (err: unknown) {
+      steps['posts_sql'] = { ok: false, error: String(err) };
+    }
+
+    // Step 3 — account_x_accountType join table accessibility
+    try {
+      const rows = await query<Record<string, unknown>>(
+        `SELECT * FROM ${tableRef('account_x_accountType')} LIMIT 1`
+      );
+      steps['account_x_accountType'] = { ok: true, row_count: rows.length, fields: Object.keys(rows[0] ?? {}) };
+    } catch (err: unknown) {
+      steps['account_x_accountType'] = { ok: false, error: String(err) };
+    }
+
+    // Step 4 — accountType table accessibility
+    try {
+      const rows = await query<Record<string, unknown>>(
+        `SELECT * FROM ${tableRef('accountType')} LIMIT 5`
+      );
+      steps['accountType'] = { ok: true, rows };
+    } catch (err: unknown) {
+      steps['accountType'] = { ok: false, error: String(err) };
+    }
+
+    return Response.json({ steps });
   }
 
   // Main data fetch
