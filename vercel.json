@@ -10,9 +10,10 @@
     "api/[...all].ts": {
       "includeFiles": "dist/server/**",
       "maxDuration": 30
-      }
+    }
   },
-  "rewrites": [
-    { "source": "/((?!_expo/|_vercel/|assets/|brand/).*)", "destination": "/api/[...all]" }
+  "routes": [
+    { "handle": "filesystem" },
+    { "src": "/(.*)", "dest": "/api/[...all]" }
   ]
 }
