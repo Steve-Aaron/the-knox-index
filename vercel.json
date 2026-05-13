@@ -13,7 +13,6 @@
     }
   },
   "rewrites": [
-    { "source": "/mp/:path*", "destination": "https://api.mixpanel.com/:path*" },
     { "source": "/((?!_vercel/).*)", "destination": "/api/[...all]" }
   ]
 }
