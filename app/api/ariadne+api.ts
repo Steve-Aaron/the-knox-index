@@ -48,10 +48,10 @@ const ACCOUNTS_SQL = `
     acct.accountTypeName
   FROM ${tableRef('account')} a
   LEFT JOIN (
-    SELECT axat.accountId, at.name AS accountTypeName
+    SELECT axat.accountId, atype.name AS accountTypeName
     FROM ${tableRef('account_x_accountType')} axat
-    JOIN ${tableRef('accountType')} at ON axat.accountTypeId = at.id
-    QUALIFY ROW_NUMBER() OVER (PARTITION BY axat.accountId ORDER BY at.id) = 1
+    JOIN ${tableRef('accountType')} atype ON axat.accountTypeId = atype.id
+    QUALIFY ROW_NUMBER() OVER (PARTITION BY axat.accountId ORDER BY atype.id) = 1
   ) acct ON a.id = acct.accountId
   LEFT JOIN (
     SELECT *
