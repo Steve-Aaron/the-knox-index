@@ -75,21 +75,37 @@ function normProfile(p: string | null | undefined): string {
  * Resolve the account type.
  * Priority: 1) DB value from account_x_accountType JOIN  2) regex on name/affiliation  3) 'other'
  *
- * DB values are expected to be one of: 'mp', 'party', 'council', 'other'
- * (case-insensitive — we normalise on the way in).
+ * The DB accountType.name can vary — we normalise common variants so the four
+ * canonical values ('mp', 'party', 'council', 'other') are always returned.
  */
 function inferAccountType(name: string, affiliation: string, dbTypeName?: string): AccountType {
   // 1. DB-sourced type takes precedence
   if (dbTypeName) {
-    const t = dbTypeName.trim().toLowerCase() as AccountType;
-    if (t === 'mp' || t === 'party' || t === 'council' || t === 'other') return t;
+    const t = dbTypeName.trim().toLowerCase();
+
+    // Exact canonical matches
+    if (t === 'mp' || t === 'party' || t === 'council' || t === 'other') return t as AccountType;
+
+    // MP variants: 'Member of Parliament', 'MSP', 'AM', 'MLA', 'Elected Official', etc.
+    if (
+      t === 'member of parliament' ||
+      t === 'msp' || t === 'am' || t === 'mla' || t === 'td' ||
+      t === 'elected official' || t === 'politician' ||
+      t.startsWith('mp') || t.includes('member of parliament')
+    ) return 'mp';
+
+    // Party variants
+    if (t.includes('party') || t === 'political party' || t === 'political organisation') return 'party';
+
+    // Council variants
+    if (t.includes('council') || t === 'local government' || t === 'local authority') return 'council';
   }
 
-  // 2. Regex fallback
+  // 2. Regex fallback on name + affiliation fields
   const a = (affiliation ?? '').toLowerCase();
   const n = (name ?? '').toLowerCase();
   if (/\bcouncil\b/.test(n) || /\bcouncil\b/.test(a)) return 'council';
-  if (/\b(mp|msp|am|am |lord|baron|earl|councillor|senator|mayor)\b/.test(a)) return 'mp';
+  if (/\b(mp|msp|am|mla|lord|baron|earl|councillor|senator|mayor)\b/.test(a)) return 'mp';
   if (/\b(party|labour|conservative|libdem|snp|green|reform|plaid|dup|sinn)\b/.test(n)) return 'party';
 
   // 3. Final fallback

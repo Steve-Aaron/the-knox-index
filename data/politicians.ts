@@ -1,3 +1,5 @@
+// @ts-nocheck
+// Unused fixture — kept for reference only. Real data comes from BigQuery.
 import type { Politician } from './types';
 
 /**

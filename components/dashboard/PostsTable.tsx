@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -27,6 +27,7 @@ import { type, font } from '@/theme/typography';
 import { spacing, radius } from '@/theme/spacing';
 import { formatters } from '@/components/primitives/CountUp';
 import type { PostRecord, PostBenchmarks } from '@/data/types';
+import { track } from '@/lib/analytics';
 
 /**
  * PostsTable
@@ -141,6 +142,26 @@ export function PostsTable({
   // Draggable order — starts from filtered; resets when filters or sort change.
   const [orderedPosts, setOrderedPosts] = useState<PostRecord[]>([]);
 
+  // Ref tracking current filtered count — lets handlers access it without
+  // a stale-closure problem and without needing filtered to be declared first.
+  const filteredCountRef = useRef(0);
+
+  // Area 5: tracked filter/sort handlers
+  const handleSortKey = useCallback((key: SortKey) => {
+    track('post_sort_changed', { sort_key: key, previous_sort_key: sortKey });
+    setSortKey(key);
+  }, [sortKey]);
+
+  const handleMinViews = useCallback((v: number) => {
+    track('view_threshold_changed', { threshold: v, result_count: filteredCountRef.current });
+    setMinViews(v);
+  }, []);
+
+  const handleMinLikes = useCallback((v: number) => {
+    track('like_threshold_changed', { threshold: v, result_count: filteredCountRef.current });
+    setMinLikes(v);
+  }, []);
+
   // Party chips must only show parties that exist within the active wing filter.
   // Deriving from all posts would let users tap a party that has zero matches
   // in the current wing, silently returning an empty list.
@@ -175,10 +196,28 @@ export function PostsTable({
     });
   }, [posts, sortKey, wingFilter, partyFilter, activePoliticianName, minViews, minLikes]);
 
+  // Keep the ref in sync so analytics handlers always read the current count.
+  filteredCountRef.current = filtered.length;
+
   // Sync draggable list when filters or sort key change.
   useEffect(() => {
     setOrderedPosts(filtered);
   }, [filtered]);
+
+  // Area 6: fire post_card_opened with position and metadata
+  const handleCardPress = useCallback((post: PostRecord, index: number) => {
+    track('post_card_opened', {
+      post_id:         post.postId,
+      politician_name: post.politicianName,
+      party:           post.partyKey,
+      views:           post.views,
+      likes:           post.likes,
+      has_video:       Boolean(post.videoMp4),
+      position_in_feed: index,
+      sort_key:        sortKey,
+    });
+    setSelected(post);
+  }, [sortKey]);
 
   // Render item for DraggableFlatList.
   const renderItem = useCallback(({ item: post, getIndex, drag, isActive }: RenderItemParams<PostRecord>) => {
@@ -189,20 +228,32 @@ export function PostsTable({
           post={post}
           index={index}
           benchmarks={benchmarks}
-          onPress={() => !isActive && setSelected(post)}
+          onPress={() => !isActive && handleCardPress(post, index)}
           drag={drag}
           isActive={isActive}
           compact={isMobile}
         />
       </ScaleDecorator>
     );
-  }, [benchmarks, isMobile]);
+  }, [benchmarks, isMobile, handleCardPress]);
 
-  // Clear party filter when wing changes (avoid empty result from stale combination)
-  const handleWingChange = (w: Wing | null) => {
+  // Area 5: alignment filter — also clears party to avoid empty stale combinations
+  const handleWingChange = useCallback((w: Wing | null) => {
+    track('alignment_filter_changed', {
+      wing:         w ?? 'all',
+      result_count: filteredCountRef.current,
+    });
     setWingFilter(w);
     setPartyFilter(null);
-  };
+  }, []);
+
+  const handlePartyFilter = useCallback((pk: PartyKey | null) => {
+    track('party_filter_changed', {
+      party:        pk ?? 'all',
+      result_count: filteredCountRef.current,
+    });
+    setPartyFilter(pk);
+  }, []);
 
   return (
     <GlassSurface style={styles.wrap} radius={radius.lg}>
@@ -236,7 +287,7 @@ export function PostsTable({
               return (
                 <Pressable
                   key={s.key}
-                  onPress={() => setSortKey(s.key)}
+                  onPress={() => handleSortKey(s.key)}
                   style={({ pressed }) => [
                     styles.sortChip,
                     isActive && styles.sortChipActive,
@@ -311,7 +362,7 @@ export function PostsTable({
                 return (
                   <Pressable
                     key={pk}
-                    onPress={() => setPartyFilter(active ? null : pk)}
+                    onPress={() => handlePartyFilter(active ? null : pk)}
                     style={({ pressed }) => [
                       styles.partyChip,
                       active && { borderColor: colour.base, backgroundColor: colour.base + '22' },
@@ -341,7 +392,7 @@ export function PostsTable({
               return (
                 <Pressable
                   key={t.value}
-                  onPress={() => setMinViews(t.value)}
+                  onPress={() => handleMinViews(t.value)}
                   style={({ pressed }) => [
                     styles.alignChip,
                     active && { borderColor: accent.indigo, backgroundColor: accent.indigo + '20' },
@@ -366,7 +417,7 @@ export function PostsTable({
               return (
                 <Pressable
                   key={t.value}
-                  onPress={() => setMinLikes(t.value)}
+                  onPress={() => handleMinLikes(t.value)}
                   style={({ pressed }) => [
                     styles.alignChip,
                     active && { borderColor: accent.pink, backgroundColor: accent.pink + '20' },
@@ -432,6 +483,10 @@ export function PostsTable({
           coverJpeg={selected.coverJpeg}
           caption={selected.caption}
           postUrl={selected.postUrl}
+          postId={selected.postId}
+          politicianName={selected.politicianName}
+          partyKey={selected.partyKey}
+          views={selected.views}
           onClose={() => setSelected(null)}
         />
       ) : null}
@@ -476,8 +531,9 @@ function PostCard({ post, index, benchmarks, onPress, drag, isActive, compact }:
         setSummary(data.summary);
         setGenSource(data.source ?? null);
       }
-    } catch (e) {
-      console.warn('[PostCard] generateSummary failed', e);
+    } catch {
+      // Failure is surfaced by the button returning to its idle state —
+      // no console output, no error detail leaked to the client.
     } finally {
       setGenerating(false);
     }

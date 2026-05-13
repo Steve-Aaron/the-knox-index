@@ -27,8 +27,12 @@ import { ContactFooter } from '@/components/dashboard/ContactFooter';
 import { StickyUnlock } from '@/components/auth/StickyUnlock';
 import { useLiveData } from '@/data/useLiveData';
 import { usePostsData } from '@/data/usePostsData';
+import { track, startTimer, stopTimer } from '@/lib/analytics';
+import { useSessionTracking } from '@/hooks/useSessionTracking';
+import { useSectionTracking } from '@/hooks/useSectionTracking';
 import { useBenchmarks } from '@/data/useBenchmarks';
 import { SkeletonBlock } from '@/components/primitives/SkeletonBlock';
+import { ErrorBoundary, ErrorScreen } from '@/components/primitives/ErrorBoundary';
 import { neutral, glass, accent, party } from '@/theme/colors';
 import { spacing, radius } from '@/theme/spacing';
 import { type } from '@/theme/typography';
@@ -64,17 +68,67 @@ const RANGE_LABELS: Record<TimeRange, string> = {
 /** Fixed height for the three panels when side-by-side. */
 const PANEL_HEIGHT = 620;
 
-export default function DashboardScreen() {
+function DashboardScreenInner() {
   const { width } = useWindowDimensions();
   const isDesktop = width >= breakpoints.desktop;
   const isTablet  = width >= breakpoints.tablet;
   const isMobile  = width < breakpoints.tablet;
   const hPad = isMobile ? spacing.md : spacing.xl;
 
-  const [range, setRange]       = useState<TimeRange>('yesterday');
+  // Area 1: session lifecycle + super properties
+  useSessionTracking();
+
+  // Area 9: scroll depth — attach to section root Views
+  const sectionRef = useSectionTracking();
+
+  const [range, setRange]       = useState<TimeRange>('week');
   const [sortKey, setSortKey]   = useState<ScoreKey>('knoxFactor');
   const [activeId, setActiveId] = useState<string>('');
   const [scrollY, setScrollY]   = useState(0);
+
+  // Area 4: enhanced sort/range handlers that carry previous values
+  const prevSortRef  = useRef<ScoreKey>('knoxFactor');
+  const prevRangeRef = useRef<TimeRange>('week');
+
+  const handleSetRange = useCallback((r: TimeRange) => {
+    track('time_range_changed', {
+      range:          r,
+      previous_range: prevRangeRef.current,
+    });
+    prevRangeRef.current = r;
+    setRange(r);
+  }, []);
+
+  const handleSetSortKey = useCallback((key: ScoreKey) => {
+    track('dashboard_sort_changed', {
+      sort_key:          key,
+      previous_sort_key: prevSortRef.current,
+    });
+    prevSortRef.current = key;
+    setSortKey(key);
+  }, []);
+
+  // Area 3: politician dwell time — emit politician_dwell when the active politician changes
+  const activeIdRef        = useRef<string>('');
+  const politicianTimerKey = 'politician_dwell';
+
+  const handleSetActiveId = useCallback((id: string) => {
+    // Emit dwell for the politician that's leaving
+    const previousId = activeIdRef.current;
+    if (previousId) {
+      track('politician_dwell', {
+        politician_id: previousId,
+        dwell_ms:      stopTimer(politicianTimerKey),
+      });
+    }
+    // Start the clock for the incoming politician
+    if (id) {
+      startTimer(politicianTimerKey);
+    }
+    activeIdRef.current = id;
+    setActiveId(id);
+    if (id) track('politician_selected', { politician_id: id });
+  }, []);
 
   const handleScroll = useCallback(
     (e: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -83,9 +137,51 @@ export default function DashboardScreen() {
     []
   );
 
-  const { politicians, status, isLive, error, refresh } = useLiveData();
-  const { posts, loading: postsLoading } = usePostsData(range);
+  const { politicians, status, isLive, error, retryAttempt, retryTotal, refresh } = useLiveData();
+  const { posts, loading: postsLoading, error: postsError } = usePostsData(range);
   const { benchmarks } = useBenchmarks();
+
+  // Area 10: fire analytics events when data status changes, including recovery timing.
+  const prevStatusRef  = useRef(status);
+  const errorTimerKey  = 'dashboard_error';
+  useEffect(() => {
+    if (prevStatusRef.current === status) return;
+    const prev = prevStatusRef.current;
+    prevStatusRef.current = status;
+
+    if (status === 'live') {
+      track('dashboard_viewed', { account_count: politicians.length });
+      // Recovery: was previously in error state
+      if (prev === 'error') {
+        track('error_recovered', {
+          context:            'dashboard',
+          time_to_recovery_ms: stopTimer(errorTimerKey),
+        });
+      }
+    } else if (status === 'error') {
+      startTimer(errorTimerKey);
+      track('error_shown', { context: 'dashboard', message: error ?? 'unknown' });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status]);
+
+  // Area 10: posts feed error tracking
+  const prevPostsErrorRef = useRef<string | null>(null);
+  const postsErrorTimerKey = 'posts_error';
+  useEffect(() => {
+    const prev = prevPostsErrorRef.current;
+    prevPostsErrorRef.current = postsError;
+
+    if (postsError && !prev) {
+      startTimer(postsErrorTimerKey);
+      track('posts_error_shown', { message: postsError });
+    } else if (!postsError && prev) {
+      track('posts_error_recovered', {
+        time_to_recovery_ms: stopTimer(postsErrorTimerKey),
+      });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [postsError]);
 
   // Auto-refresh every 5 minutes when live data is available.
   const refreshRef = useRef(refresh);
@@ -129,7 +225,7 @@ export default function DashboardScreen() {
             </View>
             <View style={styles.titleRight}>
               {/* Data source pill */}
-              <Pressable onPress={refresh} style={[
+              <Pressable onPress={() => { track('retry_tapped'); refresh(); }} style={[
                 styles.hint,
                 isLive && { borderColor: accent.mint },
                 status === 'loading' && { borderColor: accent.amber },
@@ -140,11 +236,13 @@ export default function DashboardScreen() {
                   isLive && { color: accent.mint },
                   status === 'loading' && { color: accent.amber },
                 ]}>
-                  {status === 'loading'
+                  {status === 'loading' && retryAttempt > 0
+                    ? `Retrying ${retryAttempt}/${retryTotal}…`
+                    : status === 'loading'
                     ? 'Loading…'
                     : isLive
                     ? `Live · ${politicians.length} accounts`
-                    : 'Mock data · tap to retry'}
+                    : 'Error · tap to retry'}
                 </Text>
               </Pressable>
               {error ? (
@@ -154,12 +252,14 @@ export default function DashboardScreen() {
           </View>
 
           {/* ── 2. Key findings strip ─────────────────── */}
-          <KeyFindingsBar politicians={politicians} />
+          <View ref={sectionRef('key_findings') as any}>
+            <KeyFindingsBar politicians={politicians} />
+          </View>
 
           {/* ── 3. Controls (stacked, full-width each) ── */}
           <View style={[styles.controlsOuter, { paddingHorizontal: hPad }]}>
             {/* Time range — full width */}
-            <TimeRangePicker value={range} onChange={setRange} />
+            <TimeRangePicker value={range} onChange={handleSetRange} />
 
             {/* Sort chips — full-width horizontal scroll */}
             <View style={styles.sortWrap}>
@@ -174,7 +274,7 @@ export default function DashboardScreen() {
                   return (
                     <Pressable
                       key={s.key}
-                      onPress={() => setSortKey(s.key)}
+                      onPress={() => handleSetSortKey(s.key)}
                       style={({ pressed }) => [
                         styles.chip,
                         isActive && styles.chipActive,
@@ -202,6 +302,11 @@ export default function DashboardScreen() {
               <SkeletonBlock height={PANEL_HEIGHT} style={{ flex: 1, borderRadius: 22 }} />
               <SkeletonBlock height={PANEL_HEIGHT} style={{ flex: 1, borderRadius: 22 }} />
             </View>
+          ) : status === 'error' && politicians.length === 0 ? (
+            // Hard error — BigQuery unreachable or bad response
+            <View style={{ paddingHorizontal: spacing.xl }}>
+              <ErrorScreen message={error ?? undefined} onRetry={refresh} />
+            </View>
           ) : isDesktop ? (
             // Desktop: three equal columns side-by-side
             <View style={[styles.threeCol, { paddingHorizontal: hPad }]}>
@@ -211,7 +316,7 @@ export default function DashboardScreen() {
                   activeId={activeId}
                   headlineKey={sortKey}
                   timeRangeLabel={RANGE_LABELS[range]}
-                  onSelect={setActiveId}
+                  onSelect={handleSetActiveId}
                   panelHeight={PANEL_HEIGHT}
                 />
               </View>
@@ -233,7 +338,7 @@ export default function DashboardScreen() {
                     activeId={activeId}
                     headlineKey={sortKey}
                     timeRangeLabel={RANGE_LABELS[range]}
-                    onSelect={setActiveId}
+                    onSelect={handleSetActiveId}
                     panelHeight={PANEL_HEIGHT}
                   />
                 </View>
@@ -252,7 +357,7 @@ export default function DashboardScreen() {
                 activeId={activeId}
                 headlineKey={sortKey}
                 timeRangeLabel={RANGE_LABELS[range]}
-                onSelect={setActiveId}
+                onSelect={handleSetActiveId}
               />
               {active
                 ? <PoliticianDetailPanel politician={active} headlineKey={sortKey} />
@@ -262,24 +367,35 @@ export default function DashboardScreen() {
           )}
 
           {/* ── 5. Party league ───────────────────────── */}
-          <View style={[styles.partySection, { paddingHorizontal: hPad }]}>
+          <View
+            ref={sectionRef('party_leaderboard') as any}
+            style={[styles.partySection, { paddingHorizontal: hPad }]}
+          >
             <PartyLeaderboard politicians={politicians} />
           </View>
 
           {/* ── 6. Posts table ────────────────────────── */}
-          <View style={[styles.postsSection, { paddingHorizontal: hPad }]}>
-            <PostsTable
-              posts={posts}
-              loading={postsLoading}
-              rangeLabel={RANGE_LABELS[range]}
-              activePoliticianName={activePoliticianName}
-              onClearPolitician={() => setActiveId('')}
-              benchmarks={benchmarks}
-            />
+          <View
+            ref={sectionRef('post_feed') as any}
+            style={[styles.postsSection, { paddingHorizontal: hPad }]}
+          >
+            <ErrorBoundary>
+              <PostsTable
+                posts={posts}
+                loading={postsLoading}
+                rangeLabel={RANGE_LABELS[range]}
+                activePoliticianName={activePoliticianName}
+                onClearPolitician={() => handleSetActiveId('')}
+                benchmarks={benchmarks ?? undefined}
+              />
+            </ErrorBoundary>
           </View>
 
           {/* ── 7. Style + topics row ─────────────────── */}
-          <View style={[styles.insightsRow, { paddingHorizontal: hPad }, isDesktop ? styles.insightsRowDesktop : styles.insightsRowStacked]}>
+          <View
+            ref={sectionRef('style_breakdown') as any}
+            style={[styles.insightsRow, { paddingHorizontal: hPad }, isDesktop ? styles.insightsRowDesktop : styles.insightsRowStacked]}
+          >
             <View style={styles.insightsCol}>
               <StyleBreakdown posts={posts} rangeLabel={RANGE_LABELS[range]} />
             </View>
@@ -289,7 +405,10 @@ export default function DashboardScreen() {
           </View>
 
           {/* ── 8. Contact footer ─────────────────────── */}
-          <View style={[styles.contactSection, { paddingHorizontal: hPad }]}>
+          <View
+            ref={sectionRef('contact_footer') as any}
+            style={[styles.contactSection, { paddingHorizontal: hPad }]}
+          >
             <ContactFooter />
           </View>
 
@@ -302,6 +421,14 @@ export default function DashboardScreen() {
           Gemini brief and other async data load independently afterwards. */}
       <LoadingScreen visible={status === 'loading' && politicians.length === 0} />
     </View>
+  );
+}
+
+export default function DashboardScreen() {
+  return (
+    <ErrorBoundary>
+      <DashboardScreenInner />
+    </ErrorBoundary>
   );
 }
 

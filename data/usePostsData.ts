@@ -2,12 +2,14 @@
  * data/usePostsData.ts
  * ----------------------
  * Fetches posts from /api/posts, optionally filtered by a `since` ISO date.
- * Falls back to mock list on failure.
+ * Retries up to 3 times (1 s → 2 s → 4 s) before surfacing an error.
+ * Never falls back to mock data — errors surface with posts: [] so the UI
+ * can render a proper empty/error state.
  */
 import { useState, useEffect, useCallback } from 'react';
 import type { PostRecord } from './types';
-import { politicians } from './politicians';
 import type { TimeRange } from '@/components/dashboard/TimeRangePicker';
+import { fetchWithRetry } from './fetchWithRetry';
 
 export interface PostsState {
   posts:   PostRecord[];
@@ -15,30 +17,6 @@ export interface PostsState {
   error:   string | null;
   isLive:  boolean;
 }
-
-// Mock fallback: flatten recentPosts from seed data
-const MOCK_POSTS: PostRecord[] = politicians.flatMap(p =>
-  p.recentPosts.map(post => ({
-    postId:         post.postId,
-    profile:        p.handle.replace('@', ''),
-    politicianName: p.name,
-    partyKey:       p.partyKey,
-    caption:        post.caption,
-    videoSummary:   post.summary  ?? '',
-    coverJpeg:      post.coverJpeg ?? '',
-    videoMp4:       post.videoMp4  ?? '',
-    postUrl:        post.postUrl   ?? '',
-    postDate:       post.postDate  ?? '',
-    style:          post.style     ?? '',
-    topics:         post.topic ? [post.topic] : [],
-    views:          post.views,
-    likes:          post.likes,
-    comments:       0,
-    shares:         0,
-    saves:          0,
-    accountFollowers: p.totals.followers,
-  }))
-);
 
 /** Convert a TimeRange key to a `since` ISO date string, or null for lifetime. */
 function rangeToSince(range: TimeRange): string | null {
@@ -56,7 +34,7 @@ function rangeToSince(range: TimeRange): string | null {
 
 export function usePostsData(range: TimeRange = 'week'): PostsState & { refresh: () => void } {
   const [state, setState] = useState<PostsState>({
-    posts:   [],   // start empty — skeletons shown until real data arrives
+    posts:   [],
     loading: true,
     error:   null,
     isLive:  false,
@@ -67,25 +45,26 @@ export function usePostsData(range: TimeRange = 'week'): PostsState & { refresh:
     try {
       const since = rangeToSince(range);
       const url   = since ? `/api/posts?since=${since}` : '/api/posts';
-      const res   = await fetch(url);
 
-      if (!res.ok) {
-        // Do NOT pull body.detail into the thrown error — server-side SDK
-        // errors have leaked credentials before. We only surface HTTP status.
-        throw new Error(`HTTP ${res.status}`);
-      }
+      // fetchWithRetry handles network errors and 5xx with back-off.
+      const res = await fetchWithRetry(url);
 
       const data = await res.json() as { posts: PostRecord[] };
-      if (!Array.isArray(data.posts) || data.posts.length === 0) {
-        throw new Error('Empty posts response');
-      }
-      setState({ posts: data.posts, loading: false, error: null, isLive: true });
+      // Accept an empty array — no processed posts in this window is valid,
+      // not an error.
+      setState({
+        posts:   Array.isArray(data.posts) ? data.posts : [],
+        loading: false,
+        error:   null,
+        isLive:  true,
+      });
 
     } catch (err: unknown) {
+      // Never echo full error details — only surface HTTP status when available.
       const uiMessage = err instanceof Error && /^HTTP \d+$/.test(err.message)
         ? err.message
         : 'Posts unavailable';
-      setState({ posts: MOCK_POSTS, loading: false, error: uiMessage, isLive: false });
+      setState({ posts: [], loading: false, error: uiMessage, isLive: false });
     }
   }, [range]);
 

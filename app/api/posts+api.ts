@@ -43,9 +43,9 @@ const POSTS_SQL = (limit: number, since: string | null) => `
     a.name        AS politicianName,
     a.party,
     p.caption,
-    COALESCE(p.videoSummary, '')  AS videoSummary,
+    p.videoSummary,
     COALESCE(p.coverJpeg,   '')  AS coverJpeg,
-    COALESCE(p.videoMp4,    '')  AS videoMp4,
+    p.videoMp4,
     COALESCE(p.postUrl,     '')  AS postUrl,
     CAST(p.postDate AS STRING)   AS postDate,
     COALESCE(p.style,       '')  AS style,
@@ -60,7 +60,9 @@ const POSTS_SQL = (limit: number, since: string | null) => `
   LEFT JOIN ${tableRef('account')} a ON LTRIM(p.profile, '@') = LTRIM(a.profile, '@')
   LEFT JOIN ${tableRef('post_x_topic')} pt ON p.postId = pt.postId
   LEFT JOIN ${tableRef('topic')} t ON pt.topicId = t.id
-  ${since ? `WHERE p.postDate >= DATE '${since}'` : ''}
+  WHERE p.videoSummary IS NOT NULL
+    AND p.videoMp4     IS NOT NULL
+    ${since ? `AND p.postDate >= DATE '${since}'` : ''}
   GROUP BY
     p.postId, p.profile, a.name, a.party,
     p.caption, p.videoSummary, p.coverJpeg, p.videoMp4,

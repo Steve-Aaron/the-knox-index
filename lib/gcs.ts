@@ -48,10 +48,11 @@ function getStorage(): Storage {
 
 /**
  * Parses a GCS object reference into { bucketName, objectPath }.
- * Handles three common formats:
+ * Handles four common formats:
  *   1. https://storage.googleapis.com/download/storage/v1/b/{bucket}/o/{encodedPath}?alt=media
  *   2. https://storage.googleapis.com/{bucket}/{path}
  *   3. gs://{bucket}/{path}
+ *   4. https://storage.cloud.google.com/{bucket}/{path}  (console/browser URL — no CORS headers)
  */
 function parseGcsRef(ref: string): { bucketName: string; objectPath: string } | null {
   if (!ref) return null;
@@ -67,7 +68,7 @@ function parseGcsRef(ref: string): { bucketName: string; objectPath: string } | 
     };
   }
 
-  // Format 2 — public-style URL
+  // Format 2 — public-style googleapis URL
   const publicMatch = ref.match(/storage\.googleapis\.com\/([^/]+)\/(.+)/);
   if (publicMatch) {
     return {
@@ -80,6 +81,16 @@ function parseGcsRef(ref: string): { bucketName: string; objectPath: string } | 
   const gsMatch = ref.match(/^gs:\/\/([^/]+)\/(.+)/);
   if (gsMatch) {
     return { bucketName: gsMatch[1], objectPath: gsMatch[2] };
+  }
+
+  // Format 4 — storage.cloud.google.com (browser console URL, no CORS headers,
+  // must be converted to a signed URL before sending to the client)
+  const cloudMatch = ref.match(/storage\.cloud\.google\.com\/([^/]+)\/(.+)/);
+  if (cloudMatch) {
+    return {
+      bucketName: decodeURIComponent(cloudMatch[1]),
+      objectPath: decodeURIComponent(cloudMatch[2]),
+    };
   }
 
   return null;
@@ -109,7 +120,7 @@ export async function signGcsUrl(
       });
     return url;
   } catch (err) {
-    console.warn('[gcs] signing failed for', ref, err instanceof Error ? err.message : err);
+    console.warn('[gcs] signing failed:', err instanceof Error ? err.message : 'unknown error');
     return ref;   // degrade gracefully rather than blowing up the whole response
   }
 }

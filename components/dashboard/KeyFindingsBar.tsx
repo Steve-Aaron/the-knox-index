@@ -6,7 +6,7 @@ import { DevLabel } from '@/components/primitives/DevLabel';
 import { InfoTip } from '@/components/primitives/InfoTip';
 import { SkeletonBlock } from '@/components/primitives/SkeletonBlock';
 import { CountUp, formatters } from '@/components/primitives/CountUp';
-import { neutral, accent } from '@/theme/colors';
+import { neutral, accent, party } from '@/theme/colors';
 import { font } from '@/theme/typography';
 import { spacing, radius } from '@/theme/spacing';
 import { type } from '@/theme/typography';
@@ -66,7 +66,7 @@ export function KeyFindingsBar({ politicians }: Props) {
         tip:          'The politician with the highest Knox Factor score right now. Knox Factor is our overall performance score that combines views, engagement, posting frequency and follower count.',
         textValue:    topPerformer?.name ?? '—',
         suffix:       topPerformer ? `Knox Factor · ${topPerformer.scores.knoxFactor}` : undefined,
-        accentColor:  accent.amber,
+        accentColor:  topPerformer ? party[topPerformer.partyKey].base : accent.amber,
       },
       {
         kicker:       'Most viral post',

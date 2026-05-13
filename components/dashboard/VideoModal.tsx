@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
   Modal,
   View,
@@ -15,6 +15,7 @@ import { MotiView } from 'moti';
 import { neutral, glass, accent } from '@/theme/colors';
 import { spacing, radius } from '@/theme/spacing';
 import { type } from '@/theme/typography';
+import { track } from '@/lib/analytics';
 
 /**
  * VideoModal
@@ -22,26 +23,57 @@ import { type } from '@/theme/typography';
  * Overlay player for post videos.
  * Card: max 95vh, internally scrollable.
  * Video: max 80vh, 9:16 portrait ratio.
- * Falls back to cover image when no videoMp4 is present.
+ *
+ * On web we render a native <video> element directly. This is the only
+ * reliable way to honour the browser's autoplay policy — expo-video's
+ * p.play() runs after React's render cycle and falls outside the
+ * trusted user-gesture window that Chrome/Safari require.
+ *
+ * On native (iOS/Android) we use expo-video's VideoView as normal.
  */
 interface Props {
-  visible:    boolean;
-  videoMp4?:  string;
-  coverJpeg?: string;
-  caption?:   string;
-  postUrl?:   string;
-  onClose:    () => void;
+  visible:         boolean;
+  videoMp4?:       string;
+  coverJpeg?:      string;
+  caption?:        string;
+  postUrl?:        string;
+  /** Post metadata — used to enrich analytics events. */
+  postId?:         string;
+  politicianName?: string;
+  partyKey?:       string;
+  views?:          number;
+  onClose:         () => void;
 }
 
-function VideoPlayer({ uri }: { uri: string }) {
-  const player = useVideoPlayer(uri, p => { p.loop = false; });
+/** Web-only: plain HTML5 <video> element. autoPlay triggers within the
+ *  gesture frame because the attribute is evaluated by the browser when
+ *  the element first connects to the DOM, not by JS async callbacks. */
+function WebVideoPlayer({ uri }: { uri: string }) {
+  // createElement escapes React Native's component model on web so we can
+  // use real HTML attributes including autoPlay and data-*.
+  const { createElement } = require('react');
+  return createElement('video', {
+    src:          uri,
+    autoPlay:     true,
+    controls:     true,
+    playsInline:  true,
+    'data-video': 'play',
+    style: {
+      width:           '100%',
+      aspectRatio:     '9 / 16',
+      maxHeight:       '80vh',
+      backgroundColor: '#000',
+      display:         'block',
+    },
+  });
+}
 
-  // Play after mount — setup callback fires before the view attaches,
-  // so browsers may ignore it. useEffect fires post-render with the
-  // user gesture still in scope, satisfying autoplay policies.
-  useEffect(() => {
-    player.play();
-  }, [player]);
+/** Native: expo-video player. play() called in setup callback. */
+function NativeVideoPlayer({ uri }: { uri: string }) {
+  const player = useVideoPlayer(uri, p => {
+    p.loop = false;
+    p.play();
+  });
 
   return (
     <VideoView
@@ -54,7 +86,41 @@ function VideoPlayer({ uri }: { uri: string }) {
   );
 }
 
-export function VideoModal({ visible, videoMp4, coverJpeg, caption, postUrl, onClose }: Props) {
+function VideoPlayer({ uri }: { uri: string }) {
+  return Platform.OS === 'web'
+    ? <WebVideoPlayer uri={uri} />
+    : <NativeVideoPlayer uri={uri} />;
+}
+
+export function VideoModal({
+  visible, videoMp4, coverJpeg, caption, postUrl,
+  postId, politicianName, partyKey, views, onClose,
+}: Props) {
+  // Track when the modal first becomes visible (video opened).
+  const prevVisibleRef = useRef(false);
+  useEffect(() => {
+    if (visible && !prevVisibleRef.current) {
+      const hasMp4 = Boolean(videoMp4);
+      track('video_opened', {
+        has_video:        hasMp4,
+        has_cover:        Boolean(coverJpeg),
+        post_id:          postId          ?? null,
+        politician_name:  politicianName  ?? null,
+        party:            partyKey        ?? null,
+        views:            views           ?? null,
+      });
+      // If the post has no video, record a cover-fallback impression separately.
+      if (!hasMp4 && coverJpeg) {
+        track('video_cover_fallback', {
+          post_id:         postId          ?? null,
+          politician_name: politicianName  ?? null,
+          party:           partyKey        ?? null,
+        });
+      }
+    }
+    prevVisibleRef.current = visible;
+  }, [visible, videoMp4, coverJpeg, postId, politicianName, partyKey, views]);
+
   return (
     <Modal
       visible={visible}
@@ -99,7 +165,14 @@ export function VideoModal({ visible, videoMp4, coverJpeg, caption, postUrl, onC
               {postUrl ? (
                 <Pressable
                   style={styles.openBtn}
-                  onPress={() => Linking.openURL(postUrl)}
+                  onPress={() => {
+                    track('tiktok_link_tapped', {
+                      post_id:         postId         ?? null,
+                      politician_name: politicianName ?? null,
+                      party:           partyKey       ?? null,
+                    });
+                    Linking.openURL(postUrl);
+                  }}
                 >
                   <Text style={styles.openBtnText}>View on TikTok ↗</Text>
                 </Pressable>
@@ -164,7 +237,6 @@ const styles = StyleSheet.create({
     flexGrow: 1,
   },
 
-  // Video wrapper: background black, no explicit height — video sizes itself
   videoWrap: {
     backgroundColor: '#000',
   },
@@ -179,7 +251,7 @@ const styles = StyleSheet.create({
     }),
   },
 
-  // Cover fallback: same proportions
+  // Cover fallback: same proportions — only used when no videoMp4 at all
   cover: {
     width: '100%',
     aspectRatio: 9 / 16,

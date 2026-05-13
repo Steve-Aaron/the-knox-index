@@ -9,8 +9,7 @@ import { Platform } from 'react-native';
  * View element. This makes every component instantly identifiable in the
  * browser's Elements inspector without any visual impact on end users.
  *
- * In native dev builds it falls back to a console.log on mount.
- * In production builds it renders nothing and does nothing.
+ * In production builds (and non-web dev builds) it renders nothing and does nothing.
  *
  * Usage — place as the first child of any component's root View:
  *
@@ -48,9 +47,9 @@ export function DevLabel({ name }: Props) {
           node = node.parentElement;
         }
       }
-    } else {
-      console.log(`[component] ${name} mounted`);
     }
+    // Non-web dev builds: data-component attributes aren't available,
+    // but we don't log to console — DevLabel is a silent no-op there.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

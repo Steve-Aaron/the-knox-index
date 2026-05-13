@@ -67,7 +67,6 @@ export function SummaryPanel({ politicians, panelHeight }: Props) {
         const uiMessage = e instanceof Error && /^HTTP \d+$/.test(e.message)
           ? e.message
           : 'Briefing unavailable';
-        console.warn('[SummaryPanel] brief fetch failed');
         settle(() => setBriefError(uiMessage));
       });
 

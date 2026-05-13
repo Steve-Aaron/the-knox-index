@@ -104,22 +104,27 @@ const styles = StyleSheet.create({
 
   tooltip: {
     position: 'absolute',
-    left: 0,
+    right: 0,
     ...Platform.select({ web: { zIndex: 9999 } as any, default: {} }),
   },
   tooltipInner: {
-    backgroundColor: '#1a1a2e',
+    backgroundColor: '#0d0d1a',
     borderWidth: 1,
     borderColor: 'rgba(124,131,255,0.35)',
     borderRadius: 8,
     padding: 10,
+    // elevation lifts above siblings on Android; zIndex covers web + iOS
+    elevation: 20,
     ...Platform.select({
-      web: { boxShadow: '0 8px 32px rgba(0,0,0,0.55)' } as any,
+      web: {
+        zIndex: 9999,
+        boxShadow: '0 8px 32px rgba(0,0,0,0.75)',
+      } as any,
       default: {
         shadowColor: '#000',
-        shadowOpacity: 0.5,
-        shadowRadius: 12,
-        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.7,
+        shadowRadius: 16,
+        shadowOffset: { width: 0, height: 6 },
       },
     }),
   },

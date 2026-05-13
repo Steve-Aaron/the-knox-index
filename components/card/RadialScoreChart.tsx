@@ -257,16 +257,23 @@ export function RadialScoreChart({ scores, partyKey, size = 440, highlightKey, r
         </View>
       )}
 
-      {/* Axis-label hover tooltip: normalised score */}
+      {/* Axis-label hover tooltip: raw value when available, otherwise normalised score */}
       {!noData && hoveredIdx !== null && dotHoverIdx === null && (() => {
         const axis  = AXES[hoveredIdx];
         const score = scores[axis.key] ?? 0;
+        const raw   = rawValues ? rawValues[axis.key] : null;
         return (
           <View style={styles.tooltip}>
             <Text style={[styles.tooltipLabel, { color: colour.glow }]}>
               {axis.label.toUpperCase()}
             </Text>
-            <Text style={styles.tooltipScore}>{score}<Text style={styles.tooltipPct}>%</Text></Text>
+            {raw !== null && axis.key !== 'knoxFactor' ? (
+              <Text style={[styles.tooltipScore, { color: colour.glow }]}>
+                {axis.format(raw)}
+              </Text>
+            ) : (
+              <Text style={styles.tooltipScore}>{score}<Text style={styles.tooltipPct}>%</Text></Text>
+            )}
             <Text style={styles.tooltipDesc}>{axis.desc}</Text>
           </View>
         );

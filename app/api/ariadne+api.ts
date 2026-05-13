@@ -41,15 +41,22 @@ const ACCOUNTS_SQL = `
     COALESCE(m.likesToday,     0)  AS likesToday,
     COALESCE(m.commentsToday,  0)  AS commentsToday,
     COALESCE(m.savesToday,     0)  AS savesToday,
-    m.followerChange
+    m.followerChange,
+    -- Account type sourced directly from the accountType table.
+    -- LEFT JOIN so accounts with no type entry still appear; they fall back
+    -- to regex inference in transformers.ts.
+    acct.accountTypeName
   FROM ${tableRef('account')} a
+  LEFT JOIN (
+    SELECT axat.accountId, at.name AS accountTypeName
+    FROM ${tableRef('account_x_accountType')} axat
+    JOIN ${tableRef('accountType')} at ON axat.accountTypeId = at.id
+    QUALIFY ROW_NUMBER() OVER (PARTITION BY axat.accountId ORDER BY at.id) = 1
+  ) acct ON a.id = acct.accountId
   LEFT JOIN (
     SELECT *
     FROM ${tableRef('accountMetrics')}
     WHERE dateUpdated = (
-      -- Use the most recent date that is NOT today.
-      -- The scraper may run today before data is available, producing zeros.
-      -- Capping at INTERVAL 1 DAY ensures we always get the last complete run.
       SELECT MAX(dateUpdated)
       FROM ${tableRef('accountMetrics')}
       WHERE dateUpdated <= DATE_SUB(CURRENT_DATE(), INTERVAL 1 DAY)
@@ -64,18 +71,6 @@ const ACCOUNTS_SQL = `
   ORDER BY a.name
 `;
 
-/**
- * Optional query — fetches DB-sourced account types.
- * Kept separate so a missing table doesn't crash the main data fetch.
- * If this throws (tables don't exist yet), we silently fall back to the
- * regex-based inferAccountType logic in transformers.ts.
- */
-const ACCOUNT_TYPES_SQL = `
-  SELECT axat.accountId, at.name AS accountTypeName
-  FROM ${tableRef('account_x_accountType')} axat
-  JOIN ${tableRef('accountType')} at ON axat.accountTypeId = at.id
-  QUALIFY ROW_NUMBER() OVER (PARTITION BY axat.accountId ORDER BY at.id) = 1
-`;
 
 /**
  * Most recent 5 posts per account, partitioned by profile handle.
@@ -108,6 +103,11 @@ const POSTS_SQL = `
         ORDER BY postDate DESC
       ) AS _rn
     FROM ${tableRef('post')}
+    -- Only rank posts that have been fully processed by the pipeline.
+    -- Unprocessed posts (no summary, no video URL) are excluded before
+    -- the window function runs, so _rn reflects the most recent *processed* posts.
+    WHERE videoSummary IS NOT NULL
+      AND videoMp4     IS NOT NULL
   )
   WHERE _rn <= 5
 `;
@@ -150,23 +150,7 @@ export async function GET(request: Request): Promise<Response> {
       query<BQPostRow>(POSTS_SQL),
     ]);
 
-    // Optional: enrich rows with DB-sourced account types.
-    // If the join tables don't exist yet this is a no-op — regex fallback
-    // in transformers.ts covers it. Never allowed to crash the main fetch.
-    try {
-      interface TypeRow { accountId: number; accountTypeName: string }
-      const typeRows = await query<TypeRow>(ACCOUNT_TYPES_SQL);
-      if (typeRows.length > 0) {
-        const typeMap = new Map<number, string>(typeRows.map(r => [r.accountId, r.accountTypeName]));
-        for (const row of accountRows) {
-          const t = typeMap.get(row.id);
-          if (t) row.accountTypeName = t;
-        }
-      }
-    } catch {
-      // tables not present — transformer will use regex + 'other' fallback
-    }
-
+    // accountTypeName is now joined inline in ACCOUNTS_SQL — no separate fetch needed.
     const politicians = transformToPoliticians(accountRows, postRows);
 
     // Sign coverJpeg + videoMp4 for every recentPost across all politicians.

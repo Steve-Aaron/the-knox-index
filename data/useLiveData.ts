@@ -2,44 +2,74 @@
  * data/useLiveData.ts
  * --------------------
  * React hook that fetches live Politician data from the /api/ariadne route.
- * Falls back to mock data if the fetch fails (dev safety net).
- * Returns { politicians, loading, error, isLive }.
+ * Retries up to 3 times (1 s → 2 s → 4 s) before surfacing an error.
+ * Exposes retryAttempt so the UI can show 'Retrying 1/3…' during back-off.
+ * Fires Area 2 Mixpanel events: data_loaded / data_load_failed with timing.
+ * Never falls back to mock data — errors surface as status: 'error' with an
+ * empty politicians array so the UI can render a proper error state.
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import type { Politician } from './types';
-import { politicians as mockPoliticians } from './politicians';
+import { fetchWithRetry } from './fetchWithRetry';
+import { track, startTimer, stopTimer } from '@/lib/analytics';
 
 export interface DataState {
-  status:      'loading' | 'live' | 'error';
-  politicians: Politician[];
-  isLive:      boolean;
-  error:       string | null;
+  status:       'loading' | 'live' | 'error';
+  politicians:  Politician[];
+  isLive:       boolean;
+  error:        string | null;
+  /** Current retry attempt (1-based), or 0 when not retrying. */
+  retryAttempt: number;
+  /** Total retry attempts before giving up (mirrors fetchWithRetry delays length). */
+  retryTotal:   number;
 }
 
-const API_PATH = '/api/ariadne';
+const API_PATH    = '/api/ariadne';
+const RETRY_TOTAL = 3;
+const TIMER_KEY   = 'data_load';
 
 export function useLiveData(): DataState & { refresh: () => void } {
   const [state, setState] = useState<DataState>({
-    status:      'loading',
-    politicians: [],   // start empty — skeletons shown until real data arrives
-    isLive:      false,
-    error:       null,
+    status:       'loading',
+    politicians:  [],
+    isLive:       false,
+    error:        null,
+    retryAttempt: 0,
+    retryTotal:   RETRY_TOTAL,
   });
 
+  const cancelledRef  = useRef(false);
+  const retryCountRef = useRef(0);
+
   const fetch_ = useCallback(async () => {
-    setState(prev => ({ ...prev, status: 'loading', isLive: false, error: null }));
+    cancelledRef.current  = false;
+    retryCountRef.current = 0;
+
+    setState(prev => ({
+      ...prev,
+      status:       'loading',
+      isLive:       false,
+      error:        null,
+      retryAttempt: 0,
+    }));
+
+    startTimer(TIMER_KEY);
 
     try {
-      const res = await fetch(API_PATH);
+      const res = await fetchWithRetry(
+        API_PATH,
+        undefined,
+        undefined,
+        ({ attempt, total }) => {
+          retryCountRef.current = attempt;
+          if (!cancelledRef.current) {
+            setState(prev => ({ ...prev, retryAttempt: attempt, retryTotal: total }));
+          }
+        },
+      );
 
-      if (!res.ok) {
-        // Do NOT echo the response body into the thrown error — server-side
-        // SDK errors have leaked credentials before. We only surface HTTP
-        // status to the UI. Operators can read the verbose message in the
-        // server logs.
-        throw new Error(`HTTP ${res.status}`);
-      }
+      if (cancelledRef.current) return;
 
       const data = await res.json() as { politicians: Politician[] };
 
@@ -47,24 +77,52 @@ export function useLiveData(): DataState & { refresh: () => void } {
         throw new Error('Empty response');
       }
 
-      setState({ status: 'live', politicians: data.politicians, isLive: true, error: null });
+      const loadMs = stopTimer(TIMER_KEY);
+
+      track('data_loaded', {
+        time_to_load_ms:  loadMs,
+        politician_count: data.politicians.length,
+        retry_count:      retryCountRef.current,
+      });
+
+      setState({
+        status:       'live',
+        politicians:  data.politicians,
+        isLive:       true,
+        error:        null,
+        retryAttempt: 0,
+        retryTotal:   RETRY_TOTAL,
+      });
 
     } catch (err: unknown) {
-      // Generic, fixed message in the UI / console. Never includes server detail.
+      if (cancelledRef.current) return;
+
+      const loadMs = stopTimer(TIMER_KEY);
       const uiMessage = err instanceof Error && /^HTTP \d+$/.test(err.message)
         ? err.message
         : 'Live data unavailable';
-      console.warn('[useLiveData] fetch failed, using mock data');
+
+      track('data_load_failed', {
+        time_to_fail_ms: loadMs,
+        retry_count:     retryCountRef.current,
+        error:           uiMessage,
+      });
+
       setState({
-        status:      'error',
-        politicians: mockPoliticians,
-        isLive:      false,
-        error:       uiMessage,
+        status:       'error',
+        politicians:  [],
+        isLive:       false,
+        error:        uiMessage,
+        retryAttempt: 0,
+        retryTotal:   RETRY_TOTAL,
       });
     }
   }, []);
 
-  useEffect(() => { fetch_(); }, [fetch_]);
+  useEffect(() => {
+    fetch_();
+    return () => { cancelledRef.current = true; };
+  }, [fetch_]);
 
   return { ...state, refresh: fetch_ };
 }
