@@ -38,7 +38,15 @@ if (typeof window !== 'undefined') {
   mixpanel.init('fd4826c41ed1184899b0350f4507593d', {
     api_host:    window.location.origin + '/api/mp',
     persistence: 'localStorage',
-    ignore_dnt:  false,
+    ignore_dnt:  true,   // respect user privacy but don't let DNT silently kill events
+    loaded: (mp) => {
+      // Ensure any stale opt-out state from a previous session does not persist.
+      // opt_in_tracking() is a no-op if the user was already opted in.
+      mp.opt_in_tracking();
+      if (__DEV__) {
+        console.log('[Mixpanel] Initialised. distinct_id:', mp.get_distinct_id());
+      }
+    },
   });
 }
 
