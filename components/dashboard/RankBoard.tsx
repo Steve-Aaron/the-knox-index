@@ -105,9 +105,11 @@ export function RankBoard({ politicians, activeId, headlineKey, timeRangeLabel, 
           <Text style={styles.kicker}>LEADERBOARD</Text>
           <InfoTip text="Politicians ranked from highest to lowest by the selected score. Tap any row to see their full profile and recent posts in the panel to the right. Use the party chips to scope the leaderboard to a single party." />
         </View>
-        <Text style={styles.title}>Top {ranked.length}</Text>
+        <Text style={styles.title}>The Leaderboard</Text>
         <Text style={styles.meta}>
-          Ranked by {LABELS[headlineKey]} · {timeRangeLabel}
+          {timeRangeLabel}
+          {' · '}
+          {ranked.reduce((sum, p) => sum + p.totals.postsThisWeek, 0)} posts by {ranked.length} accounts
           {partyFilter ? ` · ${PARTY_LABELS[partyFilter] ?? partyFilter}` : ''}
         </Text>
 

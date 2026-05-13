@@ -83,14 +83,14 @@ function DashboardScreenInner() {
   // Area 9: scroll depth — attach to section root Views
   const sectionRef = useSectionTracking();
 
-  const [range, setRange]       = useState<TimeRange>('week');
+  const [range, setRange]       = useState<TimeRange>('yesterday');
   const [sortKey, setSortKey]   = useState<ScoreKey>('knoxFactor');
   const [activeId, setActiveId] = useState<string>('');
   const [scrollY, setScrollY]   = useState(0);
 
   // Area 4: enhanced sort/range handlers that carry previous values
   const prevSortRef  = useRef<ScoreKey>('knoxFactor');
-  const prevRangeRef = useRef<TimeRange>('week');
+  const prevRangeRef = useRef<TimeRange>('yesterday');
 
   const handleSetRange = useCallback((r: TimeRange) => {
     track('time_range_changed', {
@@ -262,7 +262,7 @@ function DashboardScreenInner() {
           {/* ── 3. Controls (stacked, full-width each) ── */}
           <View style={[styles.controlsOuter, { paddingHorizontal: hPad }]}>
             {/* Time range — full width */}
-            <TimeRangePicker value={range} onChange={handleSetRange} />
+            <TimeRangePicker value={range} onChange={handleSetRange} isRegistered={isRegistered} />
 
             {/* Sort chips — full-width horizontal scroll */}
             <View style={styles.sortWrap}>
@@ -393,6 +393,7 @@ function DashboardScreenInner() {
                 activePoliticianName={activePoliticianName}
                 onClearPolitician={() => handleSetActiveId('')}
                 benchmarks={benchmarks ?? undefined}
+                isRegistered={isRegistered}
               />
             </ErrorBoundary>
           </View>

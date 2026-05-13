@@ -31,13 +31,13 @@ stopTimer(label: string): number
 
 ### Ad-blocker Bypass (Web)
 
-`analytics.web.ts` sets `api_host` to `${window.location.origin}/mp`. Vercel proxies this to Mixpanel:
+The GTM Custom HTML tag that calls `mixpanel.init()` sets `api_host` to `window.location.origin + '/api/mp'`.
 
-```json
-{ "source": "/mp/:path*", "destination": "https://api.mixpanel.com/:path*" }
-```
+Expo Router generates its own Vercel routing config at build time (`.vercel/output/config.json`), which overrides `vercel.json` rewrites. For this reason the proxy is exposed directly at `/api/mp/*` — Expo API routes are always reachable at `/api/*` without any rewrite needed.
 
-**Do not remove this rewrite from `vercel.json`** — direct calls to `api.mixpanel.com` are blocked by common ad-blockers and privacy extensions.
+The proxy handler lives at `app/api/mp/[...path]+api.ts` and forwards all methods to `https://api.mixpanel.com`.
+
+**Do not change `api_host` to point directly at `api.mixpanel.com`** — direct calls are blocked by common ad-blockers and privacy extensions.
 
 ### Tracking Plan (10 Areas)
 

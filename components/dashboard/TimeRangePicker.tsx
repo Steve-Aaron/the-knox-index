@@ -8,7 +8,7 @@ import Animated, {
 import { useEffect } from 'react';
 import { GlassSurface } from '@/components/primitives/GlassSurface';
 import { DevLabel } from '@/components/primitives/DevLabel';
-import { neutral, accent, glass } from '@/theme/colors';
+import { neutral, accent } from '@/theme/colors';
 import { spacing, radius } from '@/theme/spacing';
 import { type } from '@/theme/typography';
 import { spring } from '@/theme/motion';
@@ -16,15 +16,17 @@ import { spring } from '@/theme/motion';
 /**
  * TimeRangePicker
  * ----------------
- * Segmented pill for the four Top Trump time ranges. The "selected" highlight
- * is a single translated element behind the labels — shared-element feel.
+ * Segmented pill for the five time ranges. The "selected" highlight is a single
+ * translated element behind the labels — shared-element feel.
+ * month / year / lifetime are locked behind registration.
  * One job: pick a time range.
  */
 export type TimeRange = 'yesterday' | 'week' | 'month' | 'year' | 'lifetime';
 
 interface Props {
-  value: TimeRange;
-  onChange: (next: TimeRange) => void;
+  value:         TimeRange;
+  onChange:      (next: TimeRange) => void;
+  isRegistered?: boolean;
 }
 
 const OPTIONS: { key: TimeRange; label: string }[] = [
@@ -35,7 +37,9 @@ const OPTIONS: { key: TimeRange; label: string }[] = [
   { key: 'lifetime',  label: 'Lifetime' },
 ];
 
-export function TimeRangePicker({ value, onChange }: Props) {
+const LOCKED_RANGES = new Set<TimeRange>(['month', 'year', 'lifetime']);
+
+export function TimeRangePicker({ value, onChange, isRegistered = false }: Props) {
   const index = OPTIONS.findIndex(o => o.key === value);
   const xPct = useSharedValue(index);
 
@@ -57,18 +61,14 @@ export function TimeRangePicker({ value, onChange }: Props) {
         </Animated.View>
         {OPTIONS.map(opt => {
           const active = opt.key === value;
+          const locked = !isRegistered && LOCKED_RANGES.has(opt.key);
           return (
             <Pressable
               key={opt.key}
-              onPress={() => onChange(opt.key)}
-              style={styles.option}
+              onPress={() => { if (!locked) onChange(opt.key); }}
+              style={[styles.option, locked && styles.optionLocked]}
             >
-              <Text
-                style={[
-                  styles.label,
-                  { color: active ? neutral.text : neutral.textMid },
-                ]}
-              >
+              <Text style={[styles.label, { color: active ? neutral.text : neutral.textMid }]}>
                 {opt.label}
               </Text>
             </Pressable>
@@ -117,6 +117,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 1,
+  },
+  optionLocked: {
+    opacity: 0.4,
   },
   label: {
     ...type.caption,

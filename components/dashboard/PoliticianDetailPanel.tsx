@@ -109,6 +109,7 @@ export function PoliticianDetailPanel({ politician, headlineKey, panelHeight }: 
               <InfoTip
                 text="Each point on this chart is scored 0–100 relative to the best performer in the dataset. Hover any point to see the raw number. Knox Factor is the average of all five axes."
                 width={260}
+                align="left"
               />
             </View>
             <RadialScoreChart

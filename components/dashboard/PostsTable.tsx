@@ -119,6 +119,8 @@ interface Props {
   activePoliticianName?:  string | null;
   onClearPolitician?:     () => void;
   benchmarks?:            PostBenchmarks;
+  /** When false, the post feed is hidden behind a registration gate. */
+  isRegistered?:          boolean;
 }
 
 export function PostsTable({
@@ -128,6 +130,7 @@ export function PostsTable({
   activePoliticianName,
   onClearPolitician,
   benchmarks,
+  isRegistered = false,
 }: Props) {
   const { width: windowWidth } = useWindowDimensions();
   const isMobile = windowWidth < breakpoints.tablet;
@@ -446,33 +449,45 @@ export function PostsTable({
           </View>
         ) : null}
 
-        {/* ── Card list — draggable + snapping ─────── */}
-        {loading && posts.length === 0 ? (
-          <View style={styles.skeletonList}>
-            {[0, 1, 2].map(i => (
-              <SkeletonBlock key={i} height={CARD_H} borderRadius={14} />
-            ))}
+        {/* ── Registration gate ────────────────────── */}
+        {!isRegistered && (
+          <View style={styles.lockedWrap}>
+            <Text style={styles.lockedTitle}>Post feed is locked</Text>
+            <Text style={styles.lockedBody}>
+              Register free to access every post, filter by party, and sort by views, likes, virality and more.
+            </Text>
           </View>
-        ) : orderedPosts.length === 0 ? (
-          <Text style={styles.emptyText}>No posts match the current filters.</Text>
-        ) : (
-          <DraggableFlatList
-            data={orderedPosts}
-            keyExtractor={item => item.postId}
-            renderItem={renderItem}
-            onDragEnd={({ data }) => setOrderedPosts(data)}
-            style={isMobile ? styles.listCompact : styles.list}
-            contentContainerStyle={styles.listContent}
-            showsVerticalScrollIndicator={false}
-            nestedScrollEnabled
-            {...(!isMobile && {
-              snapToInterval: CARD_H + GAP,
-              decelerationRate: 'fast' as const,
-              snapToAlignment: 'start' as const,
-              disableIntervalMomentum: true,
-            })}
-            activationDistance={8}
-          />
+        )}
+
+        {/* ── Card list — draggable + snapping ─────── */}
+        {isRegistered && (
+          loading && posts.length === 0 ? (
+            <View style={styles.skeletonList}>
+              {[0, 1, 2].map(i => (
+                <SkeletonBlock key={i} height={CARD_H} borderRadius={14} />
+              ))}
+            </View>
+          ) : orderedPosts.length === 0 ? (
+            <Text style={styles.emptyText}>No posts match the current filters.</Text>
+          ) : (
+            <DraggableFlatList
+              data={orderedPosts}
+              keyExtractor={item => item.postId}
+              renderItem={renderItem}
+              onDragEnd={({ data }) => setOrderedPosts(data)}
+              style={isMobile ? styles.listCompact : styles.list}
+              contentContainerStyle={styles.listContent}
+              showsVerticalScrollIndicator={false}
+              nestedScrollEnabled
+              {...(!isMobile && {
+                snapToInterval: CARD_H + GAP,
+                decelerationRate: 'fast' as const,
+                snapToAlignment: 'start' as const,
+                disableIntervalMomentum: true,
+              })}
+              activationDistance={8}
+            />
+          )
         )}
       </View>
 
@@ -869,6 +884,25 @@ const styles = StyleSheet.create({
   listContent: { paddingBottom: spacing.sm },
   skeletonList: { gap: spacing.sm, paddingBottom: spacing.sm },
   emptyText: { ...type.body, color: neutral.textDim, fontSize: 13, textAlign: 'center', padding: spacing.xl },
+  lockedWrap: {
+    paddingVertical: spacing.xl,
+    paddingHorizontal: spacing.lg,
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  lockedTitle: {
+    ...type.title,
+    fontSize: 16,
+    color: neutral.text,
+    textAlign: 'center',
+  },
+  lockedBody: {
+    ...type.body,
+    fontSize: 13,
+    color: neutral.textMid,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
 
   // Drag handle — vertical braille-dot grip icon on the left edge of the card
   dragHandle: {
