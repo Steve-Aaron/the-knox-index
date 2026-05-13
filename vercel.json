@@ -13,7 +13,7 @@
     }
   },
   "rewrites": [
-    { "source": "/mp/:path*", "destination": "https://api.mixpanel.com/:path*" },
+    { "source": "/mp/:path*", "destination": "/api/mp/:path*" },
     { "source": "/((?!_vercel/|_expo/|assets/|brand/).*)", "destination": "/api/[...all]" }
   ]
 }

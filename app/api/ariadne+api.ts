@@ -179,7 +179,7 @@ export async function GET(request: Request): Promise<Response> {
     // Step 4 — accountType table accessibility
     try {
       const rows = await query<Record<string, unknown>>(
-        `SELECT * FROM ${tableRef('accountType')} LIMIT 5`
+        `SELECT * FROM ${tableRef('accountType')} ORDER BY id`
       );
       steps['accountType'] = { ok: true, rows };
     } catch (err: unknown) {
