@@ -5,7 +5,7 @@ import { DevLabel } from '@/components/primitives/DevLabel';
 import { InfoTip } from '@/components/primitives/InfoTip';
 import { SkeletonBlock } from '@/components/primitives/SkeletonBlock';
 import { RankBoardRow } from './RankBoardRow';
-import { ViewTabs, type ViewType } from './ViewTabs';
+import { ViewTabs, VIEW_ACCOUNT_TYPES, type ViewType } from './ViewTabs';
 import { neutral, glass, party } from '@/theme/colors';
 import type { PartyKey } from '@/theme/colors';
 import { spacing, radius } from '@/theme/spacing';
@@ -48,16 +48,27 @@ export function RankBoard({ politicians, activeId, headlineKey, timeRangeLabel, 
   const [partyFilter, setPartyFilter] = useState<PartyKey | null>(null);
 
   // Counts per view type for the tab badges.
-  const counts = useMemo<Partial<Record<ViewType, number>>>(() => ({
-    all:     politicians.length,
-    mp:      politicians.filter(p => p.accountType === 'mp').length,
-    party:   politicians.filter(p => p.accountType === 'party').length,
-    council: politicians.filter(p => p.accountType === 'council').length,
-    other:   politicians.filter(p => p.accountType === 'other').length,
-  }), [politicians]);
+  // VIEW_ACCOUNT_TYPES maps each tab to its included AccountType values.
+  // 'all' has no entry, so the full array length is used directly.
+  const counts = useMemo<Partial<Record<ViewType, number>>>(() => {
+    const countFor = (v: ViewType) => {
+      const types = VIEW_ACCOUNT_TYPES[v];
+      if (!types) return politicians.length;
+      return politicians.filter(p => types.includes(p.accountType)).length;
+    };
+    return {
+      all:                  politicians.length,
+      member_of_parliament: countFor('member_of_parliament'),
+      political_party:      countFor('political_party'),
+      party_leader:         countFor('party_leader'),
+      cabinet_minister:     countFor('cabinet_minister'),
+      senior_politicians:   countFor('senior_politicians'),
+    };
+  }, [politicians]);
 
   const partyOptions = useMemo<PartyKey[]>(() => {
-    const base = viewType === 'all' ? politicians : politicians.filter(p => p.accountType === viewType);
+    const types = VIEW_ACCOUNT_TYPES[viewType];
+    const base = types ? politicians.filter(p => types.includes(p.accountType)) : politicians;
     const seen = new Set<PartyKey>();
     base.forEach(p => seen.add(p.partyKey));
     return Array.from(seen).sort();
@@ -70,7 +81,8 @@ export function RankBoard({ politicians, activeId, headlineKey, timeRangeLabel, 
   }
 
   const ranked = useMemo(() => {
-    let base = viewType === 'all' ? politicians : politicians.filter(p => p.accountType === viewType);
+    const types = VIEW_ACCOUNT_TYPES[viewType];
+    let base = types ? politicians.filter(p => types.includes(p.accountType)) : politicians;
     if (partyFilter) base = base.filter(p => p.partyKey === partyFilter);
     return [...base].sort((a, b) => b.scores[headlineKey] - a.scores[headlineKey]);
   }, [politicians, headlineKey, viewType, partyFilter]);

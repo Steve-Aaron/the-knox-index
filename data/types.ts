@@ -76,8 +76,21 @@ export interface PostBenchmarks {
   engagement: MetricBenchmark;  // (likes + comments + shares) / views × 100
 }
 
-/** Account type — used to filter the leaderboard into separate views. */
-export type AccountType = 'mp' | 'party' | 'council' | 'other';
+/**
+ * Account type — raw DB values from accountType.name (snake_case).
+ * These are the canonical values returned by inferAccountType() and stored
+ * on every Politician record. 'council' and 'other' are fallback types used
+ * when no DB match is found and regex inference is applied instead.
+ */
+export type AccountType =
+  | 'member_of_parliament'
+  | 'political_party'
+  | 'party_leader'
+  | 'prime_minister'
+  | 'cabinet_minister'
+  | 'shadow_cabinet_minister'
+  | 'council'
+  | 'other';
 
 export interface Politician {
   id: string;
@@ -88,7 +101,7 @@ export interface Politician {
   partyLabel: string;       // human-readable party name
   country: string;          // ISO-style short e.g. "UK"
   avatarInitials: string;   // two-letter fallback
-  accountType: AccountType; // 'mp' | 'party' | 'council' | 'other'
+  accountType: AccountType;
   totals: {
     posts:          number;
     followers:      number;

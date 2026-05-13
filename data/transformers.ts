@@ -75,38 +75,47 @@ function normProfile(p: string | null | undefined): string {
  * Resolve the account type.
  * Priority: 1) DB value from account_x_accountType JOIN  2) regex on name/affiliation  3) 'other'
  *
- * The DB accountType.name can vary — we normalise common variants so the four
- * canonical values ('mp', 'party', 'council', 'other') are always returned.
+ * DB values are snake_case (e.g. 'member_of_parliament'). These are returned
+ * verbatim when they match the canonical AccountType union. Legacy/human-readable
+ * variants are normalised to the nearest canonical value for forward-compat.
  */
 function inferAccountType(name: string, affiliation: string, dbTypeName?: string): AccountType {
   // 1. DB-sourced type takes precedence
   if (dbTypeName) {
     const t = dbTypeName.trim().toLowerCase();
 
-    // Exact canonical matches
-    if (t === 'mp' || t === 'party' || t === 'council' || t === 'other') return t as AccountType;
-
-    // MP variants: 'Member of Parliament', 'MSP', 'AM', 'MLA', 'Elected Official', etc.
+    // Exact canonical snake_case matches — returned as-is
     if (
-      t === 'member of parliament' ||
-      t === 'msp' || t === 'am' || t === 'mla' || t === 'td' ||
-      t === 'elected official' || t === 'politician' ||
+      t === 'member_of_parliament' ||
+      t === 'political_party'      ||
+      t === 'party_leader'         ||
+      t === 'prime_minister'       ||
+      t === 'cabinet_minister'     ||
+      t === 'shadow_cabinet_minister' ||
+      t === 'council'              ||
+      t === 'other'
+    ) return t as AccountType;
+
+    // Legacy / human-readable variants
+    if (
+      t === 'mp' || t === 'msp' || t === 'am' || t === 'mla' || t === 'td' ||
+      t === 'member of parliament' || t === 'elected official' || t === 'politician' ||
       t.startsWith('mp') || t.includes('member of parliament')
-    ) return 'mp';
+    ) return 'member_of_parliament';
 
-    // Party variants
-    if (t.includes('party') || t === 'political party' || t === 'political organisation') return 'party';
-
-    // Council variants
+    if (t === 'party leader' || t === 'leader')                              return 'party_leader';
+    if (t === 'cabinet minister' || t === 'minister')                        return 'cabinet_minister';
+    if (t === 'shadow cabinet minister' || t === 'shadow minister')          return 'shadow_cabinet_minister';
+    if (t.includes('party') || t === 'political organisation')               return 'political_party';
     if (t.includes('council') || t === 'local government' || t === 'local authority') return 'council';
   }
 
   // 2. Regex fallback on name + affiliation fields
   const a = (affiliation ?? '').toLowerCase();
   const n = (name ?? '').toLowerCase();
-  if (/\bcouncil\b/.test(n) || /\bcouncil\b/.test(a)) return 'council';
-  if (/\b(mp|msp|am|mla|lord|baron|earl|councillor|senator|mayor)\b/.test(a)) return 'mp';
-  if (/\b(party|labour|conservative|libdem|snp|green|reform|plaid|dup|sinn)\b/.test(n)) return 'party';
+  if (/\bcouncil\b/.test(n) || /\bcouncil\b/.test(a))                                    return 'council';
+  if (/\b(mp|msp|am|mla|lord|baron|earl|councillor|senator|mayor)\b/.test(a))            return 'member_of_parliament';
+  if (/\b(party|labour|conservative|libdem|snp|green|reform|plaid|dup|sinn)\b/.test(n))  return 'political_party';
 
   // 3. Final fallback
   return 'other';

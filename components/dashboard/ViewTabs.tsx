@@ -9,16 +9,34 @@ import { type } from '@/theme/typography';
 /**
  * ViewTabs
  * ---------
- * Switches the leaderboard and detail panel between:
- *   - MPs / elected officials
- *   - Party accounts
- *   - Councils
+ * Switches the leaderboard between account type groups.
+ * 'all' shows everyone. 'senior_politicians' is a composite tab covering
+ * shadow_cabinet_minister, cabinet_minister, and party_leader.
  *
- * 'all' shows everyone on the same board (default pre-selection).
  * One job: emit the chosen view type to the parent.
  */
 
-export type ViewType = AccountType | 'all';
+export type ViewType =
+  | 'all'
+  | 'member_of_parliament'
+  | 'political_party'
+  | 'party_leader'
+  | 'cabinet_minister'
+  | 'senior_politicians';
+
+/**
+ * Maps each ViewType to the AccountType values it includes.
+ * 'all' has no entry — it means no filter is applied.
+ * 'senior_politicians' is a composite: cabinet ministers, party leaders,
+ * shadow cabinet ministers, and the prime minister.
+ */
+export const VIEW_ACCOUNT_TYPES: Partial<Record<ViewType, AccountType[]>> = {
+  member_of_parliament: ['member_of_parliament'],
+  political_party:      ['political_party'],
+  party_leader:         ['party_leader'],
+  cabinet_minister:     ['cabinet_minister'],
+  senior_politicians:   ['prime_minister', 'cabinet_minister', 'party_leader', 'shadow_cabinet_minister'],
+};
 
 interface Tab {
   value: ViewType;
@@ -28,11 +46,12 @@ interface Tab {
 }
 
 const TABS: Tab[] = [
-  { value: 'all',     label: 'All',      icon: '⊞', tip: 'Everyone tracked'                    },
-  { value: 'mp',      label: 'MPs',      icon: '🏛', tip: 'Elected MPs, MSPs, AMs'              },
-  { value: 'party',   label: 'Parties',  icon: '🏴', tip: 'Party accounts & leaders'            },
-  { value: 'council', label: 'Councils', icon: '🏙', tip: 'Local council accounts'              },
-  { value: 'other',   label: 'Other',    icon: '◎',  tip: 'Organisations, press & other pages'  },
+  { value: 'all',                  label: 'All',               icon: '⊞', tip: 'Everyone tracked'                                                                        },
+  { value: 'member_of_parliament', label: 'MPs',               icon: '🏛', tip: 'Elected MPs, MSPs, AMs and other sitting members'                                        },
+  { value: 'political_party',      label: 'Parties',           icon: '🏴', tip: 'Official party accounts'                                                                 },
+  { value: 'party_leader',         label: 'Party Leaders',     icon: '👑', tip: 'Leaders of political parties'                                                            },
+  { value: 'cabinet_minister',     label: 'Cabinet',           icon: '🗂', tip: 'Current cabinet ministers'                                                               },
+  { value: 'senior_politicians',   label: 'Senior Politicians',icon: '⭐', tip: 'Cabinet ministers, party leaders, shadow cabinet and the Prime Minister combined'        },
 ];
 
 interface Props {
