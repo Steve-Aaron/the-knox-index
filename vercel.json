@@ -12,7 +12,7 @@
       "maxDuration": 30
     }
   },
-  "routes": [
+  "routes": [ 
     { "handle": "filesystem" },
     { "src": "/(.*)", "dest": "/api/[...all]" }
   ]
