@@ -34,7 +34,7 @@ export const VIEW_ACCOUNT_TYPES: Partial<Record<ViewType, AccountType[]>> = {
   member_of_parliament: ['member_of_parliament'],
   political_party:      ['political_party'],
   party_leader:         ['party_leader'],
-  cabinet_minister:     ['cabinet_minister'],
+  cabinet_minister:     ['cabinet_minister', 'prime_minister'],
   senior_politicians:   ['prime_minister', 'cabinet_minister', 'party_leader', 'shadow_cabinet_minister'],
 };
 

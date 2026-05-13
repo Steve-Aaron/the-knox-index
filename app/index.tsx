@@ -24,7 +24,9 @@ import { PartyLeaderboard } from '@/components/dashboard/PartyLeaderboard';
 import { StyleBreakdown } from '@/components/dashboard/StyleBreakdown';
 import { TopicCloud } from '@/components/dashboard/TopicCloud';
 import { ContactFooter } from '@/components/dashboard/ContactFooter';
+import { AppFooter } from '@/components/dashboard/AppFooter';
 import { StickyUnlock } from '@/components/auth/StickyUnlock';
+import { useAuth } from '@/hooks/useAuth';
 import { useLiveData } from '@/data/useLiveData';
 import { usePostsData } from '@/data/usePostsData';
 import { track, startTimer, stopTimer } from '@/lib/analytics';
@@ -137,6 +139,7 @@ function DashboardScreenInner() {
     []
   );
 
+  const { isRegistered, email: authEmail } = useAuth();
   const { politicians, status, isLive, error, retryAttempt, retryTotal, refresh } = useLiveData();
   const { posts, loading: postsLoading, error: postsError } = usePostsData(range);
   const { benchmarks } = useBenchmarks();
@@ -318,6 +321,7 @@ function DashboardScreenInner() {
                   timeRangeLabel={RANGE_LABELS[range]}
                   onSelect={handleSetActiveId}
                   panelHeight={PANEL_HEIGHT}
+                  isRegistered={isRegistered}
                 />
               </View>
               <View style={styles.col}>
@@ -340,6 +344,7 @@ function DashboardScreenInner() {
                     timeRangeLabel={RANGE_LABELS[range]}
                     onSelect={handleSetActiveId}
                     panelHeight={PANEL_HEIGHT}
+                    isRegistered={isRegistered}
                   />
                 </View>
                 <View style={styles.col}>
@@ -358,6 +363,7 @@ function DashboardScreenInner() {
                 headlineKey={sortKey}
                 timeRangeLabel={RANGE_LABELS[range]}
                 onSelect={handleSetActiveId}
+                isRegistered={isRegistered}
               />
               {active
                 ? <PoliticianDetailPanel politician={active} headlineKey={sortKey} />
@@ -412,9 +418,14 @@ function DashboardScreenInner() {
             <ContactFooter />
           </View>
 
+          {/* ── 9. App footer ─────────────────────────── */}
+          <View style={[styles.footerSection, { paddingHorizontal: hPad }]}>
+            <AppFooter />
+          </View>
+
         </ScrollView>
         {/* Sticky registration CTA — appears after scrolling, hidden once registered */}
-        <StickyUnlock scrollY={scrollY} />
+        <StickyUnlock scrollY={scrollY} isRegistered={isRegistered} email={authEmail} />
       </SafeAreaView>
 
       {/* Loading screen — absolute overlay, fades out once BQ data arrives.
@@ -648,5 +659,8 @@ const styles = StyleSheet.create({
   },
   contactSection: {
     marginTop: spacing.xl,
+  },
+  footerSection: {
+    marginTop: spacing.xxl,
   },
 });

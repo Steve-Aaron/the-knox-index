@@ -33,6 +33,8 @@ interface Props {
   timeRangeLabel: string;
   onSelect:       (id: string) => void;
   panelHeight?:   number;
+  /** When true, all rows are visible. When false, rows 6+ are blurred and non-interactive. */
+  isRegistered?:  boolean;
 }
 
 const LABELS: Record<ScoreKey, string> = {
@@ -43,7 +45,7 @@ const LABELS: Record<ScoreKey, string> = {
   knoxFactor:  'Knox Factor',
 };
 
-export function RankBoard({ politicians, activeId, headlineKey, timeRangeLabel, onSelect, panelHeight }: Props) {
+export function RankBoard({ politicians, activeId, headlineKey, timeRangeLabel, onSelect, panelHeight, isRegistered = false }: Props) {
   const [viewType, setViewType]       = useState<ViewType>('all');
   const [partyFilter, setPartyFilter] = useState<PartyKey | null>(null);
 
@@ -168,7 +170,7 @@ export function RankBoard({ politicians, activeId, headlineKey, timeRangeLabel, 
               ))
             : <Text style={styles.emptyText}>No accounts match the current filter.</Text>
           : ranked.map((p, i) => {
-              const blurred = i >= 5;
+              const blurred = !isRegistered && i >= 5;
               const row = (
                 <RankBoardRow
                   key={p.id}

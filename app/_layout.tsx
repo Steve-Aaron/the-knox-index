@@ -1,7 +1,7 @@
 import { Stack } from 'expo-router';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, View, Platform } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { useEffect } from 'react';
 import * as SplashScreen from 'expo-splash-screen';
 import {
@@ -17,9 +17,6 @@ import { neutral } from '@/theme/colors';
 // Side-effect import: ensures analytics.web.ts module-level code runs on web
 // (sets window.mixpanel) before GTM's Window Loaded trigger fires.
 import '@/lib/analytics';
-// Speed Insights: web-only, no-op on native.
-import { SpeedInsights } from '@vercel/speed-insights/react';
-
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
@@ -49,7 +46,6 @@ export default function RootLayout() {
             animation: 'fade',
           }}
         />
-        {Platform.OS === 'web' && <SpeedInsights />}
       </View>
     </GestureHandlerRootView>
   );
