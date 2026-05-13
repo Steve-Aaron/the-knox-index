@@ -14,6 +14,6 @@
   },
   "rewrites": [
     { "source": "/mp/:path*", "destination": "/api/mp/:path*" },
-    { "source": "/((?!_vercel/|_expo/|assets/|brand/).*)", "destination": "/api/[...all]" }
+    { "source": "/(.*)", "destination": "/api/[...all]" }
   ]
 }
