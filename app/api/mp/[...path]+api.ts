@@ -12,7 +12,7 @@
  * This combination bypasses ad-blocker blocks on api.mixpanel.com directly.
  */
 
-const MIXPANEL_BASE = 'https://api.mixpanel.com';
+const MIXPANEL_BASE = 'https://api-eu.mixpanel.com';
 
 async function proxy(request: Request): Promise<Response> {
   const url = new URL(request.url);
