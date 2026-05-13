@@ -7,17 +7,14 @@
  * platform-split via .web.ts extension). Native builds continue to use
  * analytics.ts (mixpanel-react-native).
  *
- * ── Ownership split ──────────────────────────────────────────────────────────
- *   GTM    — calls mixpanel.init() via a Custom HTML tag gated on
- *            analytics_storage consent (Silktide). See AGENTS.md for the
- *            exact GTM tag configuration.
- *   Code   — owns all track() / identify() / setSuperProperties() calls.
- *            mixpanel-browser queues these internally and flushes them
- *            automatically once GTM fires init.
- * ─────────────────────────────────────────────────────────────────────────────
+ * init() is called here directly. The GTM Custom HTML tag is no longer
+ * needed and can be removed — calling init() via GTM after module-imported
+ * track() calls silently drops all pre-init events because mixpanel-browser
+ * does NOT queue calls made before init() when imported as a module.
  *
- * Ad-blocker bypass: GTM's init tag sets api_host to window.location.origin
- * + '/mp', which Vercel rewrites to https://api.mixpanel.com (see vercel.json).
+ * Ad-blocker bypass: api_host points to the server-side proxy at /api/mp,
+ * which forwards to https://api.mixpanel.com. Direct calls are blocked by
+ * common privacy extensions.
  *
  * Public API (identical signature to analytics.ts):
  *   track(event, properties)   — fire an event
@@ -32,19 +29,17 @@ import mixpanel from 'mixpanel-browser';
 
 export type Properties = Record<string, string | number | boolean | null | undefined>;
 
-// ── GTM bridge ───────────────────────────────────────────────────────────────
+// ── Initialise ────────────────────────────────────────────────────────────────
 //
-// Expose the bundled mixpanel instance as window.mixpanel so GTM's init tag
-// operates on this exact object. When GTM calls mixpanel.init(...), it inits
-// the same instance that all the track() calls below use — no double instance.
-//
-// DO NOT call mixpanel.init() here. GTM owns that call.
-// mixpanel-browser queues all track/identify/register calls internally and
-// flushes them once init fires, so events sent before consent is granted
-// are not lost — they fire as soon as the user accepts analytics.
-//
+// Must run before any track() call. Safe to call on every module load —
+// mixpanel-browser no-ops duplicate init calls on the same token.
+
 if (typeof window !== 'undefined') {
-  (window as unknown as Record<string, unknown>).mixpanel = mixpanel;
+  mixpanel.init('fd4826c41ed1184899b0350f4507593d', {
+    api_host:    window.location.origin + '/api/mp',
+    persistence: 'localStorage',
+    ignore_dnt:  false,
+  });
 }
 
 // ── Timers ────────────────────────────────────────────────────────────────────
@@ -73,7 +68,6 @@ export function stopTimer(label: string): number {
 
 /**
  * Merge props into super-properties stamped on every subsequent event.
- * Safe to call before init — mixpanel-browser queues register() internally.
  */
 export function setSuperProperties(props: Properties): void {
   try {
@@ -85,7 +79,6 @@ export function setSuperProperties(props: Properties): void {
 
 /**
  * Fire a named event with optional properties.
- * Safe to call before GTM fires init — events queue and flush on init.
  */
 export function track(event: string, properties: Properties = {}): void {
   try {
