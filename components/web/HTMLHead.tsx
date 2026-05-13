@@ -146,6 +146,7 @@ export function HTMLHead() {
       {/* ── [5] Performance ──────────────────────────────────────────
            Deferred — not needed before paint.                              */}
       <script defer src="/_vercel/speed-insights/script.js" />
+      <script defer src="/_vercel/insights/script.js" />
     </>
   );
 }
