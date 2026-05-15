@@ -1,5 +1,6 @@
-import React, { useMemo, useState, useEffect } from 'react';
-import { View, Text, ScrollView, StyleSheet } from 'react-native';
+import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react';
+import { View, Text, ScrollView, StyleSheet, Platform } from 'react-native';
+import { track } from '@/lib/analytics';
 import { MotiView } from 'moti';
 import type { BriefResponse } from '@/data/types';
 import { GlassSurface } from '@/components/primitives/GlassSurface';
@@ -31,6 +32,25 @@ export function SummaryPanel({ politicians, panelHeight }: Props) {
   const [brief, setBrief]             = useState<BriefResponse | null>(null);
   const [briefLoading, setBriefLoading] = useState(true);
   const [briefError, setBriefError]   = useState<string | null>(null);
+
+  // ── Summary hover: fire summary_hover_2s once per mount if the pointer
+  //    rests on the summary panel for at least 2 seconds (web only).
+  const hoverTimerRef   = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hoverFiredRef   = useRef(false);
+  const handleMouseEnter = useCallback(() => {
+    if (hoverFiredRef.current) return;
+    hoverTimerRef.current = setTimeout(() => {
+      hoverFiredRef.current = true;
+      track('summary_hover_2s');
+    }, 2000);
+  }, []);
+  const handleMouseLeave = useCallback(() => {
+    if (hoverTimerRef.current) {
+      clearTimeout(hoverTimerRef.current);
+      hoverTimerRef.current = null;
+    }
+  }, []);
+  useEffect(() => () => { if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current); }, []);
 
   useEffect(() => {
     // Hold the loading state for at least MIN_LOADING_MS so the UI feels
@@ -135,8 +155,13 @@ export function SummaryPanel({ politicians, panelHeight }: Props) {
     ...(panelHeight != null ? { height: panelHeight } : {}),
   };
 
+  // Web hover props — attach to the outer surface so any pointer rest counts.
+  const hoverProps = Platform.OS === 'web'
+    ? ({ onMouseEnter: handleMouseEnter, onMouseLeave: handleMouseLeave } as any)
+    : {};
+
   return (
-    <GlassSurface style={wrapStyle} radius={radius.lg}>
+    <GlassSurface style={wrapStyle} radius={radius.lg} {...hoverProps}>
       <DevLabel name="SummaryPanel" />
       {/* Accent strip */}
       <View style={[styles.accentStrip, { backgroundColor: accent.indigo }]} />

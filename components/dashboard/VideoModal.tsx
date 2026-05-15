@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import {
   Modal,
   View,
@@ -48,11 +48,22 @@ interface Props {
 /** Web-only: plain HTML5 <video> element. autoPlay triggers within the
  *  gesture frame because the attribute is evaluated by the browser when
  *  the element first connects to the DOM, not by JS async callbacks. */
-function WebVideoPlayer({ uri }: { uri: string }) {
-  // createElement escapes React Native's component model on web so we can
-  // use real HTML attributes including autoPlay and data-*.
+function WebVideoPlayer({ uri, onPlayStarted }: { uri: string; onPlayStarted: () => void }) {
+  const ref = useRef<HTMLVideoElement | null>(null);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const handler = () => onPlayStarted();
+    el.addEventListener('play', handler, { once: true });
+    return () => el.removeEventListener('play', handler);
+  // onPlayStarted is stable (useCallback in parent) — safe dep
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const { createElement } = require('react');
   return createElement('video', {
+    ref,
     src:          uri,
     autoPlay:     true,
     controls:     true,
@@ -69,11 +80,23 @@ function WebVideoPlayer({ uri }: { uri: string }) {
 }
 
 /** Native: expo-video player. play() called in setup callback. */
-function NativeVideoPlayer({ uri }: { uri: string }) {
+function NativeVideoPlayer({ uri, onPlayStarted }: { uri: string; onPlayStarted: () => void }) {
+  const firedRef = useRef(false);
   const player = useVideoPlayer(uri, p => {
     p.loop = false;
     p.play();
   });
+
+  useEffect(() => {
+    const sub = player.addListener('statusChange', (status: any) => {
+      if (!firedRef.current && status?.status === 'readyToPlay') {
+        firedRef.current = true;
+        onPlayStarted();
+      }
+    });
+    return () => sub?.remove?.();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [player]);
 
   return (
     <VideoView
@@ -86,20 +109,24 @@ function NativeVideoPlayer({ uri }: { uri: string }) {
   );
 }
 
-function VideoPlayer({ uri }: { uri: string }) {
+function VideoPlayer({ uri, onPlayStarted }: { uri: string; onPlayStarted: () => void }) {
   return Platform.OS === 'web'
-    ? <WebVideoPlayer uri={uri} />
-    : <NativeVideoPlayer uri={uri} />;
+    ? <WebVideoPlayer uri={uri} onPlayStarted={onPlayStarted} />
+    : <NativeVideoPlayer uri={uri} onPlayStarted={onPlayStarted} />;
 }
 
 export function VideoModal({
   visible, videoMp4, coverJpeg, caption, postUrl,
   postId, politicianName, partyKey, views, onClose,
 }: Props) {
-  // Track when the modal first becomes visible (video opened).
-  const prevVisibleRef = useRef(false);
+  // Track when the modal first becomes visible (video opened) and when it closes.
+  const prevVisibleRef  = useRef(false);
+  const openedAtRef     = useRef<number | null>(null);
+
   useEffect(() => {
     if (visible && !prevVisibleRef.current) {
+      // ── Modal opened ───────────────────────────────────────────────────────
+      openedAtRef.current = Date.now();
       const hasMp4 = Boolean(videoMp4);
       track('video_opened', {
         has_video:        hasMp4,
@@ -117,9 +144,31 @@ export function VideoModal({
           party:           partyKey        ?? null,
         });
       }
+    } else if (!visible && prevVisibleRef.current) {
+      // ── Modal closed ───────────────────────────────────────────────────────
+      const watchDurationS = openedAtRef.current != null
+        ? Math.round((Date.now() - openedAtRef.current) / 1000)
+        : null;
+      openedAtRef.current = null;
+      track('video_closed', {
+        post_id:          postId         ?? null,
+        politician_name:  politicianName ?? null,
+        party:            partyKey       ?? null,
+        had_video:        Boolean(videoMp4),
+        watch_duration_s: watchDurationS,
+      });
     }
     prevVisibleRef.current = visible;
   }, [visible, videoMp4, coverJpeg, postId, politicianName, partyKey, views]);
+
+  // Fired once when the video actually begins playing (not just when the modal opens).
+  const handlePlayStarted = useCallback(() => {
+    track('video_play_started', {
+      post_id:         postId         ?? null,
+      politician_name: politicianName ?? null,
+      party:           partyKey       ?? null,
+    });
+  }, [postId, politicianName, partyKey]);
 
   return (
     <Modal
@@ -148,7 +197,7 @@ export function VideoModal({
             >
               <View style={styles.videoWrap}>
                 {videoMp4
-                  ? <VideoPlayer uri={videoMp4} />
+                  ? <VideoPlayer uri={videoMp4} onPlayStarted={handlePlayStarted} />
                   : coverJpeg
                   ? <Image source={{ uri: coverJpeg }} style={styles.cover} resizeMode="cover" />
                   : <View style={[styles.cover, styles.coverFallback]} />

@@ -43,9 +43,6 @@ if (typeof window !== 'undefined') {
       // Ensure any stale opt-out state from a previous session does not persist.
       // opt_in_tracking() is a no-op if the user was already opted in.
       mp.opt_in_tracking();
-      if (__DEV__) {
-        console.log('[Mixpanel] Initialised. distinct_id:', mp.get_distinct_id());
-      }
     },
   });
 }

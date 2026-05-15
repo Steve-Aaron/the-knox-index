@@ -8,6 +8,7 @@ import type { PartyKey } from '@/theme/colors';
 import { spacing, radius } from '@/theme/spacing';
 import { type, font } from '@/theme/typography';
 import { formatters } from '@/components/primitives/CountUp';
+import { track } from '@/lib/analytics';
 import type { Politician } from '@/data/types';
 
 /**
@@ -162,7 +163,23 @@ export function PartyLeaderboard({ politicians }: Props) {
             : formatters.compact(headlineValue);
 
           return (
-            <View key={row.key} style={styles.row}>
+            <Pressable
+              key={row.key}
+              onPress={() => track('party_leaderboard_row_tapped', {
+                party_key:       row.key,
+                party_label:     row.label,
+                rank:            i + 1,
+                sort_key:        sortKey,
+                total_views:     row.totalViews,
+                total_posts:     row.totalPosts,
+                engagement_rate: +row.engagementRate.toFixed(2),
+              })}
+              style={({ pressed, hovered }: any) => [
+                styles.row,
+                hovered && { backgroundColor: 'rgba(255,255,255,0.03)' },
+                pressed && { opacity: 0.75 },
+              ]}
+            >
               <Text style={styles.rank}>{i + 1}</Text>
               <View style={[styles.partyDot, { backgroundColor: colour.base }]} />
               <View style={styles.rowMain}>
@@ -190,7 +207,7 @@ export function PartyLeaderboard({ politicians }: Props) {
                   <Text style={styles.metaText}>{row.engagementRate.toFixed(2)}% eng</Text>
                 </View>
               </View>
-            </View>
+            </Pressable>
           );
         })}
       </View>
@@ -263,6 +280,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
+    borderRadius: radius.sm,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.xs,
+    ...Platform.select({ web: { cursor: 'pointer', transitionProperty: 'background-color', transitionDuration: '150ms' } as any, default: {} }),
   },
   rank: {
     fontFamily: font.mono,

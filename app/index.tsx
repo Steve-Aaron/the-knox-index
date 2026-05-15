@@ -110,17 +110,24 @@ function DashboardScreenInner() {
     setSortKey(key);
   }, []);
 
-  // Area 3: politician dwell time — emit politician_dwell when the active politician changes
+  // Area 3: politician dwell time — emit politician_dwell when the active politician changes.
+  // rankedRef + sortKeyRef give the callback stable identity while always reading the
+  // latest values — avoids a forward-reference problem since `ranked` is declared later.
   const activeIdRef        = useRef<string>('');
   const politicianTimerKey = 'politician_dwell';
+  const rankedRef          = useRef<typeof ranked>([] as any);
+  const sortKeyRef         = useRef<ScoreKey>(sortKey);
 
   const handleSetActiveId = useCallback((id: string) => {
-    // Emit dwell for the politician that's leaving
+    // Emit dwell for the politician that's leaving, enriched with name + party
     const previousId = activeIdRef.current;
     if (previousId) {
+      const prev = rankedRef.current.find(p => p.id === previousId);
       track('politician_dwell', {
-        politician_id: previousId,
-        dwell_ms:      stopTimer(politicianTimerKey),
+        politician_id:   previousId,
+        politician_name: prev?.name      ?? null,
+        party_key:       prev?.partyKey  ?? null,
+        dwell_ms:        stopTimer(politicianTimerKey),
       });
     }
     // Start the clock for the incoming politician
@@ -129,7 +136,20 @@ function DashboardScreenInner() {
     }
     activeIdRef.current = id;
     setActiveId(id);
-    if (id) track('politician_selected', { politician_id: id });
+    if (id) {
+      const p    = rankedRef.current.find(pol => pol.id === id);
+      const rank = p ? rankedRef.current.indexOf(p) + 1 : null;
+      track('politician_selected', {
+        politician_id:   id,
+        politician_name: p?.name      ?? null,
+        party_key:       p?.partyKey  ?? null,
+        party_label:     p?.partyLabel ?? null,
+        rank,
+        sort_key:        sortKeyRef.current,
+      });
+    }
+  // Stable callback — reads latest values via refs, no deps needed
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleScroll = useCallback(
@@ -198,6 +218,9 @@ function DashboardScreenInner() {
     () => [...politicians].sort((a, b) => b.scores[sortKey] - a.scores[sortKey]),
     [politicians, sortKey]
   );
+  // Keep refs in sync so handleSetActiveId always reads current values.
+  rankedRef.current   = ranked;
+  sortKeyRef.current  = sortKey;
 
   // active: the explicitly selected politician, or the #1 ranked as default display.
   // activePoliticianName is ONLY non-null when the user has tapped a specific row.

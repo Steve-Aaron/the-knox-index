@@ -377,6 +377,14 @@ function ProfilingModal({ email, onClose, onDone }: ProfilingModalProps) {
         body:    JSON.stringify({ email: storedEmail, segment: resolvedSegment, interests, profileUpdate: true }),
       });
     } catch { /* non-fatal */ }
+
+    // Track who registered and why — powers the Conversion Report segment breakdown.
+    track('user_profiled', {
+      segment:         resolvedSegment ?? null,
+      interests:       interests.join(','),
+      interests_count: interests.length,
+    });
+
     setLoading(false);
     onDone();
   }

@@ -1,8 +1,8 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Platform } from 'react-native';
+import { track } from '@/lib/analytics';
 import Svg, { Polygon, Circle, Line, Text as SvgText, Rect, Defs, RadialGradient, Stop, G } from 'react-native-svg';
 import Animated, { useAnimatedProps, useAnimatedStyle, useSharedValue, withTiming, withDelay, Easing } from 'react-native-reanimated';
-import { useEffect } from 'react';
 import { party, PartyKey, neutral, glass, accent } from '@/theme/colors';
 import { type, font } from '@/theme/typography';
 import type { TopTrumpScores, ScoreKey } from '@/data/types';
@@ -72,6 +72,20 @@ export function RadialScoreChart({ scores, partyKey, size = 440, highlightKey, r
 
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
   const [dotHoverIdx, setDotHoverIdx] = useState<number | null>(null);
+
+  // Fire radial_chart_hovered once per mount when the user first interacts.
+  const chartHoverFiredRef = useRef(false);
+  useEffect(() => {
+    if (chartHoverFiredRef.current) return;
+    if (hoveredIdx !== null || dotHoverIdx !== null) {
+      chartHoverFiredRef.current = true;
+      const axisKey = hoveredIdx !== null ? AXES[hoveredIdx]?.key : null;
+      track('radial_chart_hovered', {
+        axis_key:  axisKey ?? null,
+        party_key: partyKey,
+      });
+    }
+  }, [hoveredIdx, dotHoverIdx, partyKey]);
 
   // Staged load-in: rings fade first, polygon grows with overshoot, dots pop last
   const ringOpacity = useSharedValue(0);
