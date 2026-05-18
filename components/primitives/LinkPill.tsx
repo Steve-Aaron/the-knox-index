@@ -80,18 +80,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   tiktokMark: {
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: '800',
   },
   label: {
     ...type.caption,
-    fontSize: 11,
+    fontSize: 12,
     textTransform: 'none',
     letterSpacing: 0.2,
     fontWeight: '700',
   },
   arrow: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '700',
     marginLeft: 2,
   },

@@ -13,52 +13,67 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import type { Politician } from './types';
 import { fetchWithRetry } from './fetchWithRetry';
 import { track, startTimer, stopTimer } from '@/lib/analytics';
+import type { TimeRange } from '@/components/dashboard/TimeRangePicker';
 
 export interface DataState {
-  status:       'loading' | 'live' | 'error';
-  politicians:  Politician[];
-  isLive:       boolean;
-  error:        string | null;
+  status:        'loading' | 'live' | 'error';
+  politicians:   Politician[];
+  isLive:        boolean;
+  error:         string | null;
   /** Current retry attempt (1-based), or 0 when not retrying. */
-  retryAttempt: number;
+  retryAttempt:  number;
   /** Total retry attempts before giving up (mirrors fetchWithRetry delays length). */
-  retryTotal:   number;
+  retryTotal:    number;
+  /**
+   * True only during the very first fetch — used to show the full-page
+   * LoadingScreen overlay. Subsequent range-change fetches set this false so
+   * the UI shows skeleton columns rather than an overlay.
+   */
+  isInitialLoad: boolean;
 }
 
 const API_PATH    = '/api/ariadne';
 const RETRY_TOTAL = 3;
 const TIMER_KEY   = 'data_load';
 
-export function useLiveData(): DataState & { refresh: () => void } {
+export function useLiveData(range: TimeRange = 'yesterday'): DataState & { refresh: () => void } {
   const [state, setState] = useState<DataState>({
-    status:       'loading',
-    politicians:  [],
-    isLive:       false,
-    error:        null,
-    retryAttempt: 0,
-    retryTotal:   RETRY_TOTAL,
+    status:        'loading',
+    politicians:   [],
+    isLive:        false,
+    error:         null,
+    retryAttempt:  0,
+    retryTotal:    RETRY_TOTAL,
+    isInitialLoad: true,
   });
 
-  const cancelledRef  = useRef(false);
-  const retryCountRef = useRef(0);
+  const cancelledRef   = useRef(false);
+  const retryCountRef  = useRef(0);
+  /** Flipped to false after the first successful response. */
+  const everLoadedRef  = useRef(false);
 
   const fetch_ = useCallback(async () => {
     cancelledRef.current  = false;
     retryCountRef.current = 0;
 
+    // Clear stale data immediately — the UI should show skeletons, not old data,
+    // while the new range is fetching. isInitialLoad stays true only before the
+    // first ever successful load (controls full-page overlay vs. skeleton columns).
     setState(prev => ({
       ...prev,
-      status:       'loading',
-      isLive:       false,
-      error:        null,
-      retryAttempt: 0,
+      status:        'loading',
+      politicians:   [],
+      isLive:        false,
+      error:         null,
+      retryAttempt:  0,
+      isInitialLoad: !everLoadedRef.current,
     }));
 
     startTimer(TIMER_KEY);
 
     try {
       const res = await fetchWithRetry(
-        API_PATH,
+        `${API_PATH}?range=${range}`,
         undefined,
         undefined,
         ({ attempt, total }) => {
@@ -78,6 +93,7 @@ export function useLiveData(): DataState & { refresh: () => void } {
       }
 
       const loadMs = stopTimer(TIMER_KEY);
+      everLoadedRef.current = true;
 
       track('data_loaded', {
         time_to_load_ms:  loadMs,
@@ -86,12 +102,13 @@ export function useLiveData(): DataState & { refresh: () => void } {
       });
 
       setState({
-        status:       'live',
-        politicians:  data.politicians,
-        isLive:       true,
-        error:        null,
-        retryAttempt: 0,
-        retryTotal:   RETRY_TOTAL,
+        status:        'live',
+        politicians:   data.politicians,
+        isLive:        true,
+        error:         null,
+        retryAttempt:  0,
+        retryTotal:    RETRY_TOTAL,
+        isInitialLoad: false,
       });
 
     } catch (err: unknown) {
@@ -109,15 +126,16 @@ export function useLiveData(): DataState & { refresh: () => void } {
       });
 
       setState({
-        status:       'error',
-        politicians:  [],
-        isLive:       false,
-        error:        uiMessage,
-        retryAttempt: 0,
-        retryTotal:   RETRY_TOTAL,
+        status:        'error',
+        politicians:   [],
+        isLive:        false,
+        error:         uiMessage,
+        retryAttempt:  0,
+        retryTotal:    RETRY_TOTAL,
+        isInitialLoad: false,
       });
     }
-  }, []);
+  }, [range]);
 
   useEffect(() => {
     fetch_();

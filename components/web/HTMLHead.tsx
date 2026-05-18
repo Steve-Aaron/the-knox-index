@@ -9,11 +9,11 @@
  *
  * ── Script load order (ORDER IS CRITICAL) ───────────────────────────────────
  *   1. Consent defaults   — must run before GTM so no data fires pre-consent
- *   2. Silktide CSS       — loads banner styles
- *   3. Silktide JS        — loads banner library (no defer — must be ready
- *                           before GTM's Consent Initialization trigger fires)
- *   4. GTM               — loads Tag Manager (the Silktide init() call lives
- *                           inside GTM as a Custom HTML tag on Consent Init)
+ *   2. Consent Manager CSS — loads banner styles
+ *   3. Consent Manager JS  — loads banner library (no defer — must be ready
+ *                            before GTM's Consent Initialization trigger fires)
+ *   3b. Consent Manager init — calls window.silktideConsentManager.init()
+ *   4. GTM                — loads Tag Manager
  *   5. Everything else    — analytics, speed insights, etc.
  * ────────────────────────────────────────────────────────────────────────────
  *
@@ -28,8 +28,9 @@ import { BRAND } from '@/brand/constants';
 /** Google Tag Manager container ID */
 const GTM_ID = 'GTM-WBQQHKZP';
 
-/** Silktide Consent Manager CDN version */
-const SILKTIDE_VERSION = 'v2.0.0';
+/** Silktide Consent Manager — served from local public/ assets */
+const SILKTIDE_CSS = '/silktide-consent-manager.css';
+const SILKTIDE_JS  = '/silktide-consent-manager.js';
 
 // ── Inline scripts ────────────────────────────────────────────────────────────
 
@@ -55,6 +56,53 @@ gtag('consent', 'default', {
   ad_personalization:    localStorage.getItem('stcm.consent.marketing') === 'true' ? 'granted' : 'denied',
   functionality_storage: localStorage.getItem('stcm.consent.essential') === 'true' ? 'granted' : 'denied',
   security_storage:      localStorage.getItem('stcm.consent.essential') === 'true' ? 'granted' : 'denied'
+});
+`.trim();
+
+/**
+ * Silktide init — called directly after the Silktide JS loads.
+ * Disable the GTM Custom HTML tag that previously called init() to avoid
+ * double-initialisation.
+ */
+const SILKTIDE_INIT_SCRIPT = `
+window.silktideConsentManager.init({
+  backdrop: { show: true },
+  icon:     { position: 'bottomLeft' },
+  prompt:   { position: 'bottomRight' },
+  consentTypes: [
+    {
+      id: 'essential',
+      label: 'Essential',
+      description: '<p>These cookies are necessary for the website to function properly and cannot be switched off. They help with things like logging in and setting your privacy preferences.</p>',
+      required: true
+    },
+    {
+      id: 'analytics',
+      label: 'Analytics',
+      description: '<p>These cookies help us improve the site by tracking which pages are most popular and how visitors move around the site.</p>',
+      defaultValue: true,
+      gtag: 'analytics_storage'
+    },
+    {
+      id: 'marketing',
+      label: 'Marketing',
+      description: '<p>These cookies are used by us and our advertising partners to show you relevant ads on this site and elsewhere, and to measure how those campaigns perform.</p>',
+      gtag: ['ad_storage', 'ad_user_data', 'ad_personalization']
+    }
+  ],
+  text: {
+    prompt: {
+      description: '<p>We use cookies on our site to enhance your user experience, provide personalised content, and analyse our traffic.</p>',
+      acceptAllButtonText: 'Accept all',
+      rejectNonEssentialButtonText: 'Reject non-essential',
+      preferencesButtonText: 'Preferences'
+    },
+    preferences: {
+      title: 'Customise your cookie preferences',
+      description: '<p>We respect your right to privacy. You can choose not to allow some types of cookies. Your cookie preferences will apply across our website.</p>',
+      saveButtonText: 'Save and close'
+    }
+  }
 });
 `.trim();
 
@@ -120,22 +168,20 @@ export function HTMLHead() {
       {/* ── [2] Silktide Consent Manager CSS ─────────────────────────
            Loads the banner stylesheet before the JS so there's no FOUC
            when the banner first renders.                                   */}
-      <link
-        rel="stylesheet"
-        href={`https://cdn.jsdelivr.net/gh/silktide/consent-manager@${SILKTIDE_VERSION}/silktide-consent-manager.css`}
-        integrity="sha384-IO1E/jCrQXyH5rwcI0SXP7OXw47JFqQNDQcKhbFvqnL2IunBxxwE2Ne5XyAmCqKs"
-        crossOrigin="anonymous"
-      />
+      <link rel="stylesheet" href={SILKTIDE_CSS} />
 
-      {/* ── [3] Silktide Consent Manager JS ──────────────────────────
+
+{/* ── [3] Silktide Consent Manager JS ──────────────────────────
            NO defer — Silktide must be fully loaded before GTM fires its
            Consent Initialization trigger so silktideConsentManager is
            defined when the GTM init tag runs.                             */}
-      <script
-        src={`https://cdn.jsdelivr.net/gh/silktide/consent-manager@${SILKTIDE_VERSION}/silktide-consent-manager.js`}
-        integrity="sha384-j4NIMOecmtzMWe9GJADIIe5hTlHG63aiTQ/2XorW10RNyQJg+IU+xwFVDy45wBah"
-        crossOrigin="anonymous"
-      />
+      <script src={SILKTIDE_JS} />
+
+      {/* ── [3b] Silktide init ────────────────────────────────────────
+           Called directly after the Silktide JS loads.
+           NOTE: disable the GTM Custom HTML tag that previously called
+           silktideConsentManager.init() to avoid double-initialisation.  */}
+      <script dangerouslySetInnerHTML={{ __html: SILKTIDE_INIT_SCRIPT }} />
 
       {/* ── [4] Google Tag Manager ────────────────────────────────────
            Loads after Silktide. The silktideConsentManager.init() call

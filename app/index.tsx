@@ -21,11 +21,14 @@ import { PostsTable } from '@/components/dashboard/PostsTable';
 import { LoadingScreen } from '@/components/dashboard/LoadingScreen';
 import { TimeRangePicker, TimeRange } from '@/components/dashboard/TimeRangePicker';
 import { PartyLeaderboard } from '@/components/dashboard/PartyLeaderboard';
+import { AccountsInterstitial } from '@/components/dashboard/AccountsInterstitial';
 import { StyleBreakdown } from '@/components/dashboard/StyleBreakdown';
 import { TopicCloud } from '@/components/dashboard/TopicCloud';
 import { ContactFooter } from '@/components/dashboard/ContactFooter';
 import { AppFooter } from '@/components/dashboard/AppFooter';
 import { StickyUnlock } from '@/components/auth/StickyUnlock';
+import { DevPanel } from '@/components/primitives/DevPanel';
+import { getDevPreview } from '@/lib/devPreview';
 import { useAuth } from '@/hooks/useAuth';
 import { useLiveData } from '@/data/useLiveData';
 import { usePostsData } from '@/data/usePostsData';
@@ -83,10 +86,13 @@ function DashboardScreenInner() {
   // Area 9: scroll depth — attach to section root Views
   const sectionRef = useSectionTracking();
 
-  const [range, setRange]       = useState<TimeRange>('yesterday');
-  const [sortKey, setSortKey]   = useState<ScoreKey>('knoxFactor');
-  const [activeId, setActiveId] = useState<string>('');
-  const [scrollY, setScrollY]   = useState(0);
+  const [range, setRange]           = useState<TimeRange>('yesterday');
+  const [sortKey, setSortKey]       = useState<ScoreKey>('knoxFactor');
+  const [activeId, setActiveId]     = useState<string>('');
+  const [scrollY, setScrollY]       = useState(0);
+  const [contentHeight, setContentHeight] = useState(0);
+  const [showAccounts, setShowAccounts] = useState(false);
+  const scrollViewRef = useRef<ScrollView>(null);
 
   // Area 4: enhanced sort/range handlers that carry previous values
   const prevSortRef  = useRef<ScoreKey>('knoxFactor');
@@ -160,7 +166,13 @@ function DashboardScreenInner() {
   );
 
   const { isRegistered, email: authEmail } = useAuth();
-  const { politicians, status, isLive, error, retryAttempt, retryTotal, refresh } = useLiveData();
+
+  // 10% scroll threshold — lock scroll once reached (until registered)
+  const devPreview          = getDevPreview();
+  const scrollThreshold     = contentHeight > 0 ? contentHeight * 0.10 : Infinity;
+  const hasReachedThreshold = !isRegistered && (scrollY >= scrollThreshold || devPreview === 'gate');
+
+  const { politicians, status, isLive, error, retryAttempt, retryTotal, isInitialLoad, refresh } = useLiveData(range);
   const { posts, loading: postsLoading, error: postsError } = usePostsData(range);
   const { benchmarks } = useBenchmarks();
 
@@ -215,7 +227,9 @@ function DashboardScreenInner() {
   }, []);
 
   const ranked = useMemo(
-    () => [...politicians].sort((a, b) => b.scores[sortKey] - a.scores[sortKey]),
+    () => [...politicians]
+      .filter(p => p.totals.postsInRange > 0)
+      .sort((a, b) => b.scores[sortKey] - a.scores[sortKey]),
     [politicians, sortKey]
   );
   // Keep refs in sync so handleSetActiveId always reads current values.
@@ -237,10 +251,14 @@ function DashboardScreenInner() {
 
       <SafeAreaView style={styles.safe} edges={['top']}>
         <ScrollView
+          ref={scrollViewRef}
+          style={styles.scrollView}
           contentContainerStyle={styles.scroll}
           showsVerticalScrollIndicator={false}
           onScroll={handleScroll}
           scrollEventThrottle={120}
+          scrollEnabled={!hasReachedThreshold}
+          onContentSizeChange={(_w, h) => setContentHeight(h)}
         >
 
           {/* ── 1. Title bar ──────────────────────────── */}
@@ -251,7 +269,7 @@ function DashboardScreenInner() {
             </View>
             <View style={styles.titleRight}>
               {/* Data source pill */}
-              <Pressable onPress={() => { track('retry_tapped'); refresh(); }} style={[
+              <Pressable onPress={() => { track('accounts_pill_tapped'); setShowAccounts(true); }} style={[
                 styles.hint,
                 isLive && { borderColor: accent.mint },
                 status === 'loading' && { borderColor: accent.amber },
@@ -279,7 +297,7 @@ function DashboardScreenInner() {
 
           {/* ── 2. Key findings strip ─────────────────── */}
           <View ref={sectionRef('key_findings') as any}>
-            <KeyFindingsBar politicians={politicians} />
+            <KeyFindingsBar politicians={politicians} range={range} />
           </View>
 
           {/* ── 3. Controls (stacked, full-width each) ── */}
@@ -323,18 +341,18 @@ function DashboardScreenInner() {
           {/* ── 4. Three-column main area ─────────────── */}
           {status === 'loading' && politicians.length === 0 ? (
             // Skeleton shown before first data arrives
-            <View style={[styles.threeCol, { paddingHorizontal: spacing.xl }]}>
+            <View style={[styles.threeCol, { paddingHorizontal: hPad }]}>
               <SkeletonBlock height={PANEL_HEIGHT} style={{ flex: 1, borderRadius: 22 }} />
               <SkeletonBlock height={PANEL_HEIGHT} style={{ flex: 1, borderRadius: 22 }} />
               <SkeletonBlock height={PANEL_HEIGHT} style={{ flex: 1, borderRadius: 22 }} />
             </View>
           ) : status === 'error' && politicians.length === 0 ? (
             // Hard error — BigQuery unreachable or bad response
-            <View style={{ paddingHorizontal: spacing.xl }}>
+            <View style={{ paddingHorizontal: hPad }}>
               <ErrorScreen message={error ?? undefined} onRetry={refresh} />
             </View>
           ) : isDesktop ? (
-            // Desktop: three equal columns side-by-side
+            // Desktop: three equal columns side-by-side, aligned with other sections
             <View style={[styles.threeCol, { paddingHorizontal: hPad }]}>
               <View style={styles.col}>
                 <RankBoard
@@ -400,7 +418,7 @@ function DashboardScreenInner() {
             ref={sectionRef('party_leaderboard') as any}
             style={[styles.partySection, { paddingHorizontal: hPad }]}
           >
-            <PartyLeaderboard politicians={politicians} />
+            <PartyLeaderboard politicians={politicians} range={range} />
           </View>
 
           {/* ── 6. Posts table ────────────────────────── */}
@@ -448,13 +466,25 @@ function DashboardScreenInner() {
           </View>
 
         </ScrollView>
-        {/* Sticky registration CTA — appears after scrolling, hidden once registered */}
-        <StickyUnlock scrollY={scrollY} isRegistered={isRegistered} email={authEmail} />
+        {/* Sticky registration CTA — appears at 10% scroll depth, hidden once registered */}
+        <StickyUnlock showBar={hasReachedThreshold} isRegistered={isRegistered} email={authEmail} />
       </SafeAreaView>
+
+      {/* Dev-only preview panel — stripped from production builds */}
+      <DevPanel />
 
       {/* Loading screen — absolute overlay, fades out once BQ data arrives.
           Gemini brief and other async data load independently afterwards. */}
-      <LoadingScreen visible={status === 'loading' && politicians.length === 0} />
+      <LoadingScreen visible={isInitialLoad && status === 'loading'} />
+
+      {/* Accounts interstitial — shown when the Live pill is tapped */}
+      {showAccounts && (
+        <AccountsInterstitial
+          politicians={politicians}
+          onClose={() => setShowAccounts(false)}
+          onRefresh={refresh}
+        />
+      )}
     </View>
   );
 }
@@ -537,6 +567,9 @@ const styles = StyleSheet.create({
   safe: {
     flex: 1,
   },
+  scrollView: {
+    paddingHorizontal: spacing.base,  // 1rem gutters — remains scrollable on web
+  },
   scroll: {
     paddingTop: spacing.lg,
     paddingBottom: spacing.xxxl,
@@ -554,7 +587,7 @@ const styles = StyleSheet.create({
   kicker: {
     ...type.caption,
     color: neutral.textDim,
-    fontSize: 10,
+    fontSize: 12,
   },
   title: {
     ...type.title,
@@ -583,12 +616,12 @@ const styles = StyleSheet.create({
   hintText: {
     ...type.caption,
     color: neutral.textMid,
-    fontSize: 10,
+    fontSize: 12,
   },
   errorText: {
     ...type.caption,
     color: neutral.textDim,
-    fontSize: 9,
+    fontSize: 12,
     maxWidth: 260,
   },
 
@@ -604,7 +637,7 @@ const styles = StyleSheet.create({
   sortLabel: {
     ...type.caption,
     color: neutral.textDim,
-    fontSize: 10,
+    fontSize: 12,
     flexShrink: 0,
   },
   sortRow: {
@@ -635,7 +668,7 @@ const styles = StyleSheet.create({
   chipText: {
     ...type.caption,
     color: neutral.textMid,
-    fontSize: 11,
+    fontSize: 12,
     // no-wrap enforced via numberOfLines={1} on the Text element
   },
   chipTextActive: {

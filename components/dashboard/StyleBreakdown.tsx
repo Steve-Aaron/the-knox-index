@@ -107,7 +107,7 @@ const styles = StyleSheet.create({
   kicker: {
     ...type.caption,
     color: neutral.textDim,
-    fontSize: 10,
+    fontSize: 12,
   },
   title: {
     ...type.title,

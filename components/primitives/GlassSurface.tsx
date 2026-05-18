@@ -2,45 +2,92 @@ import React from 'react';
 import { View, StyleSheet, Platform, ViewStyle } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
-import { glass, neutral } from '@/theme';
+import { glass, brand } from '@/theme';
 
 /**
  * GlassSurface
  * -------------
- * A single-purpose glass panel. It is the only place in the app that knows
- * how to render a frosted dark card — everything else composes on top.
- * Layers, bottom→top:
- *   1. BlurView (native) or saturated dark background (web fallback)
- *   2. Dark-ink linear gradient for depth
- *   3. Low-alpha white fill for the "glass" read
- *   4. Hairline border
+ * Knox-branded container surface. Layers, bottom→top:
+ *   1. Knox Product Gradient (#1F1D1D → #35393B)
+ *   2. Low-alpha white glass fill
+ *   3. Hairline border
+ *   4. Optional 6px top accent bar (solid colour or horizontal gradient)
+ *   5. Children
+ *
+ * Props:
+ *   topAccent  — solid colour string or array of colours for a gradient bar
+ *   flatTop    — true = square top corners, curved bottom only
+ *
+ * One job: be the single surface primitive.
  */
 interface Props {
-  children?: React.ReactNode;
-  radius?: number;
-  style?: ViewStyle;
-  intensity?: number; // blur intensity (native only)
+  children?:  React.ReactNode;
+  radius?:    number;
+  style?:     ViewStyle;
+  intensity?: number;
+  /** Solid hex string for a flat bar, or string[] for a horizontal gradient. */
+  topAccent?: string | readonly string[];
+  /** When true, top corners are square; bottom corners get full radius. */
+  flatTop?:   boolean;
 }
 
-export function GlassSurface({ children, radius = 22, style, intensity = 40 }: Props) {
+export function GlassSurface({
+  children,
+  radius    = 22,
+  style,
+  intensity = 40,
+  topAccent,
+  flatTop   = false,
+}: Props) {
+  const shapeStyle = flatTop
+    ? {
+        borderTopLeftRadius:     0,
+        borderTopRightRadius:    0,
+        borderBottomLeftRadius:  radius,
+        borderBottomRightRadius: radius,
+      }
+    : { borderRadius: radius };
+
+  const isGradientAccent = Array.isArray(topAccent) && topAccent.length > 1;
+
   const inner = (
     <>
+      {/* Knox Product Gradient background */}
       <LinearGradient
-        colors={[neutral.ink, neutral.night]}
+        colors={brand.productGradient as unknown as [string, string]}
         start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
+        end={{ x: 0, y: 1 }}
         style={StyleSheet.absoluteFill}
       />
+
+      {/* Glass sheen */}
       <View style={[StyleSheet.absoluteFill, { backgroundColor: glass.fill }]} />
-      <View style={[StyleSheet.absoluteFill, styles.border, { borderRadius: radius }]} />
+
+      {/* Hairline border — same shape as container */}
+      <View style={[StyleSheet.absoluteFill, styles.border, shapeStyle]} />
+
+      {/* Content */}
       {children}
+
+      {/* Top accent bar — rendered last so it sits above content */}
+      {topAccent && (
+        isGradientAccent ? (
+          <LinearGradient
+            colors={topAccent as [string, string, ...string[]]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.topBar}
+          />
+        ) : (
+          <View style={[styles.topBar, { backgroundColor: topAccent as string }]} />
+        )
+      )}
     </>
   );
 
-  // BlurView on web is unreliable and can wash out content; we skip it there.
   if (Platform.OS === 'web') {
     return (
-      <View style={[{ borderRadius: radius, overflow: 'hidden' }, style]}>
+      <View style={[shapeStyle, { overflow: 'hidden' }, style]}>
         {inner}
       </View>
     );
@@ -50,7 +97,7 @@ export function GlassSurface({ children, radius = 22, style, intensity = 40 }: P
     <BlurView
       intensity={intensity}
       tint="dark"
-      style={[{ borderRadius: radius, overflow: 'hidden' }, style]}
+      style={[shapeStyle, { overflow: 'hidden' }, style]}
     >
       {inner}
     </BlurView>
@@ -59,7 +106,14 @@ export function GlassSurface({ children, radius = 22, style, intensity = 40 }: P
 
 const styles = StyleSheet.create({
   border: {
-    borderWidth: 1,
-    borderColor: glass.border,
+    borderWidth:  1,
+    borderColor:  glass.border,
+  },
+  topBar: {
+    position: 'absolute',
+    top:      0,
+    left:     0,
+    right:    0,
+    height:   6,
   },
 });

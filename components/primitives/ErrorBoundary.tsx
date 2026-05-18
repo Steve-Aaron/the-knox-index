@@ -32,17 +32,28 @@ interface Props {
 }
 
 interface State {
-  crashed: boolean;
+  crashed:        boolean;
+  isStaleBundle:  boolean;
+}
+
+function isChunkLoadError(error: Error): boolean {
+  // Webpack / Metro chunk load failures surface as ChunkLoadError or a
+  // message containing 'Loading chunk' / 'Loading CSS chunk'.
+  return (
+    error.name === 'ChunkLoadError' ||
+    /loading (css )?chunk/i.test(error.message) ||
+    /failed to fetch dynamically imported module/i.test(error.message)
+  );
 }
 
 export class ErrorBoundary extends React.Component<Props, State> {
   constructor(props: Props) {
     super(props);
-    this.state = { crashed: false };
+    this.state = { crashed: false, isStaleBundle: false };
   }
 
-  static getDerivedStateFromError(): State {
-    return { crashed: true };
+  static getDerivedStateFromError(error: Error): State {
+    return { crashed: true, isStaleBundle: isChunkLoadError(error) };
   }
 
   componentDidCatch(error: Error, info: React.ErrorInfo): void {
@@ -55,13 +66,18 @@ export class ErrorBoundary extends React.Component<Props, State> {
     if (Platform.OS === 'web') {
       (window as any).location.reload();
     } else {
-      this.setState({ crashed: false });
+      this.setState({ crashed: false, isStaleBundle: false });
     }
   };
 
   render() {
     if (this.state.crashed) {
-      return <ErrorCard onRetry={this.handleReset} />;
+      return (
+        <ErrorCard
+          onRetry={this.handleReset}
+          isStaleBundle={this.state.isStaleBundle}
+        />
+      );
     }
     return this.props.children;
   }
@@ -86,41 +102,48 @@ export function ErrorScreen({ message, onRetry }: ErrorScreenProps) {
 // ── Shared card UI ────────────────────────────────────────────────────────────
 
 interface ErrorCardProps {
-  message?: string;
-  onRetry?: () => void;
+  message?:       string;
+  onRetry?:       () => void;
+  isStaleBundle?: boolean;
 }
 
-function ErrorCard({ message, onRetry }: ErrorCardProps) {
+function ErrorCard({ message, onRetry, isStaleBundle }: ErrorCardProps) {
+  const title = isStaleBundle ? 'New version available' : 'Data unavailable';
+  const body  = isStaleBundle
+    ? 'The Knox Index has been updated. Refresh the page to load the latest version.'
+    : (message ?? 'The Knox Index could not reach its data source.');
+  const hint  = isStaleBundle
+    ? 'This happens when a new deployment lands while you have the page open.'
+    : 'This is usually a temporary network issue or a BigQuery outage. Check the server logs for details.';
+  const btnLabel = isStaleBundle ? 'Refresh now' : 'Try again';
+
   return (
     <View style={styles.root}>
       <MotiView
         from={{ opacity: 0, scale: 0.96, translateY: 12 }}
         animate={{ opacity: 1, scale: 1, translateY: 0 }}
         transition={{ type: 'timing', duration: 320 }}
-        style={styles.card}
+        style={[styles.card, isStaleBundle && styles.cardUpdate]}
       >
         {/* Icon */}
-        <View style={styles.iconWrap}>
-          <Text style={styles.icon}>⚠</Text>
+        <View style={[styles.iconWrap, isStaleBundle && styles.iconWrapUpdate]}>
+          <Text style={[styles.icon, isStaleBundle && styles.iconUpdate]}>
+            {isStaleBundle ? '↻' : '⚠'}
+          </Text>
         </View>
 
         {/* Text */}
-        <Text style={styles.title}>Data unavailable</Text>
-        <Text style={styles.body}>
-          {message ?? 'The Knox Index could not reach its data source.'}
-        </Text>
-        <Text style={styles.hint}>
-          This is usually a temporary network issue or a BigQuery outage.
-          Check the server logs for details.
-        </Text>
+        <Text style={styles.title}>{title}</Text>
+        <Text style={styles.body}>{body}</Text>
+        <Text style={styles.hint}>{hint}</Text>
 
         {/* Actions */}
         {onRetry ? (
           <Pressable
-            style={({ pressed }) => [styles.btn, pressed && { opacity: 0.8 }]}
+            style={({ pressed }) => [styles.btn, isStaleBundle && styles.btnUpdate, pressed && { opacity: 0.8 }]}
             onPress={onRetry}
           >
-            <Text style={styles.btnText}>Try again</Text>
+            <Text style={styles.btnText}>{btnLabel}</Text>
           </Pressable>
         ) : null}
       </MotiView>
@@ -168,26 +191,26 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   icon: {
-    fontSize: 22,
+    fontSize: 24,
     color: '#ff6060',
   },
   title: {
     fontFamily: font.bold,
-    fontSize: 18,
+    fontSize: 20,
     color: neutral.text,
     letterSpacing: -0.3,
     textAlign: 'center',
   },
   body: {
     ...type.body,
-    fontSize: 13,
+    fontSize: 16,
     color: neutral.textMid,
     textAlign: 'center',
     lineHeight: 20,
   },
   hint: {
     ...type.body,
-    fontSize: 11,
+    fontSize: 12,
     color: neutral.textDim,
     textAlign: 'center',
     lineHeight: 17,
@@ -203,10 +226,25 @@ const styles = StyleSheet.create({
       default: {},
     }),
   },
+  btnUpdate: {
+    backgroundColor: accent.mint,
+  },
   btnText: {
     fontFamily: font.bold,
-    fontSize: 13,
+    fontSize: 16,
     color: '#fff',
     letterSpacing: 0.2,
+  },
+  // Stale bundle variant — mint accent instead of red
+  cardUpdate: {
+    borderColor: 'rgba(63,230,177,0.25)',
+  },
+  iconWrapUpdate: {
+    backgroundColor: 'rgba(63,230,177,0.1)',
+    borderColor:     'rgba(63,230,177,0.3)',
+  },
+  iconUpdate: {
+    color: accent.mint,
+    fontSize: 28,
   },
 });

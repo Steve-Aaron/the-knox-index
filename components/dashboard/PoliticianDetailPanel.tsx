@@ -41,19 +41,26 @@ export function PoliticianDetailPanel({ politician, headlineKey, panelHeight }: 
   const colour = party[politician.partyKey];
 
   // Raw values shown in the dot-hover popup on the radar chart.
-  // Engagement uses yesterday's likes+comments+saves / yesterday's views
-  // so the figure reflects current performance, not lifetime totals.
+  // Engagement uses range-specific likes+comments+saves+shares / range views
+  // so the figure matches the selected time window. Falls back to yesterday
+  // figures when no range posts exist.
   const avgViews = politician.recentPosts.length > 0
     ? Math.round(politician.recentPosts.reduce((s, p) => s + p.views, 0) / politician.recentPosts.length)
     : 0;
 
+  const engViews = politician.totals.viewsInRange > 0
+    ? politician.totals.viewsInRange
+    : politician.totals.views24h;
+  const engNumerator =
+    (politician.totals.viewsInRange > 0
+      ? politician.totals.likesInRange + politician.totals.commentsInRange +
+        politician.totals.savesInRange + politician.totals.sharesInRange
+      : politician.totals.likesToday + politician.totals.commentsToday + politician.totals.savesToday);
+
   const rawValues: RawScoreValues = {
     views:      avgViews,
-    frequency:  politician.totals.postsThisWeek,
-    engagement: politician.totals.views24h > 0
-      ? ((politician.totals.likesToday + politician.totals.commentsToday + politician.totals.savesToday)
-          / politician.totals.views24h) * 100
-      : 0,
+    frequency:  politician.totals.postsInRange > 0 ? politician.totals.postsInRange : politician.totals.postsThisWeek,
+    engagement: engViews > 0 ? (engNumerator / engViews) * 100 : 0,
     followers:  politician.totals.followers,
     knoxFactor: politician.scores.knoxFactor,
   };
@@ -68,6 +75,7 @@ export function PoliticianDetailPanel({ politician, headlineKey, panelHeight }: 
     <GlassSurface
       style={wrapStyle}
       radius={radius.lg}
+      flatTop
     >
       <DevLabel name="PoliticianDetailPanel" />
       {/* Horizontal party-colour strip along the top */}
@@ -92,6 +100,7 @@ export function PoliticianDetailPanel({ politician, headlineKey, panelHeight }: 
               partyLabel={'Associated with ' + politician.partyLabel}
               partyKey={politician.partyKey}
               initials={politician.avatarInitials}
+              avatarUrl={politician.avatarUrl}
             />
             <View style={styles.linkRow}>
               <LinkPill
@@ -158,7 +167,7 @@ export function PoliticianDetailPanel({ politician, headlineKey, panelHeight }: 
           <View style={styles.posts}>
             {politician.recentPosts.map(post => {
               const engRate = post.views > 0
-                ? +(((post.likes + post.comments + post.shares) / post.views) * 100).toFixed(2)
+                ? +(((post.likes + post.comments + (post.saves ?? 0) + post.shares) / post.views) * 100).toFixed(2)
                 : 0;
               return (
                 <Pressable
@@ -178,7 +187,7 @@ export function PoliticianDetailPanel({ politician, headlineKey, panelHeight }: 
                       ? Platform.OS === 'web'
                         ? React.createElement('i', {
                             className: 'fa-brands fa-tiktok',
-                            style: { color: colour.glow, fontSize: 13, flexShrink: 0, marginTop: 2 },
+                            style: { color: colour.glow, fontSize: 16, flexShrink: 0, marginTop: 2 },
                           })
                         : <Text style={[styles.postLinkIcon, { color: colour.glow }]}>↗</Text>
                       : null}
@@ -343,7 +352,7 @@ const styles = StyleSheet.create({
   sectionKicker: {
     ...type.caption,
     color: neutral.textDim,
-    fontSize: 9,
+    fontSize: 12,
     marginBottom: -spacing.sm,
   },
 
@@ -373,7 +382,7 @@ const styles = StyleSheet.create({
   totalLabel: {
     ...type.caption,
     color: neutral.textDim,
-    fontSize: 9,
+    fontSize: 12,
   },
 
   // Posts
@@ -407,19 +416,19 @@ const styles = StyleSheet.create({
     ...Platform.select({ web: { cursor: 'pointer' } as any, default: {} }),
   },
   postLinkIcon: {
-    fontSize: 13,
+    fontSize: 16,
   },
   postCaption: {
     flex: 1,
     ...type.body,
     color: neutral.text,
-    fontSize: 13,
+    fontSize: 16,
     lineHeight: 18,
   },
   postSummary: {
     ...type.body,
     color: neutral.textMid,
-    fontSize: 11,
+    fontSize: 12,
     lineHeight: 16,
     fontStyle: 'italic',
   },
@@ -434,7 +443,7 @@ const styles = StyleSheet.create({
   engLabel: {
     ...type.caption,
     color: neutral.textDim,
-    fontSize: 9,
+    fontSize: 12,
   },
   engValue: {
     fontFamily: font.mono,
@@ -451,7 +460,7 @@ const styles = StyleSheet.create({
   postDate: {
     ...type.caption,
     color: neutral.textDim,
-    fontSize: 9,
+    fontSize: 12,
     textTransform: 'none' as const,
     flexShrink: 0,
   },
@@ -472,7 +481,7 @@ const styles = StyleSheet.create({
   postStatLabel: {
     ...type.caption,
     color: neutral.textDim,
-    fontSize: 9,
+    fontSize: 12,
   },
   postStatDivider: {
     width: 1,
@@ -499,7 +508,7 @@ const styles = StyleSheet.create({
   emptyPostsSub: {
     ...type.body,
     color: neutral.textDim,
-    fontSize: 11,
+    fontSize: 12,
     textAlign: 'center',
     lineHeight: 16,
   },
@@ -521,6 +530,6 @@ const styles = StyleSheet.create({
   },
   ctaText: {
     ...type.caption,
-    fontSize: 11,
+    fontSize: 12,
   },
 });

@@ -8,7 +8,7 @@
  *
  * Metrics:
  *   views      — raw view count per post
- *   engagement — (likes + comments + shares) / views × 100
+ *   engagement — (likes + comments + saves + shares) / views × 100
  *
  * Statistics per metric: min, p25, median, mean, p75, max
  */
@@ -42,26 +42,26 @@ const BENCHMARKS_SQL = `
     APPROX_QUANTILES(views, 4)[OFFSET(4)]  AS views_max,
 
     APPROX_QUANTILES(
-      SAFE_DIVIDE(CAST(likes + comments + shares AS FLOAT64), views) * 100,
+      SAFE_DIVIDE(CAST(likes + comments + saves + shares AS FLOAT64), views) * 100,
       4
     )[OFFSET(0)]  AS eng_min,
     APPROX_QUANTILES(
-      SAFE_DIVIDE(CAST(likes + comments + shares AS FLOAT64), views) * 100,
+      SAFE_DIVIDE(CAST(likes + comments + saves + shares AS FLOAT64), views) * 100,
       4
     )[OFFSET(1)]  AS eng_p25,
     APPROX_QUANTILES(
-      SAFE_DIVIDE(CAST(likes + comments + shares AS FLOAT64), views) * 100,
+      SAFE_DIVIDE(CAST(likes + comments + saves + shares AS FLOAT64), views) * 100,
       4
     )[OFFSET(2)]  AS eng_median,
     AVG(
-      SAFE_DIVIDE(CAST(likes + comments + shares AS FLOAT64), views) * 100
+      SAFE_DIVIDE(CAST(likes + comments + saves + shares AS FLOAT64), views) * 100
     )              AS eng_mean,
     APPROX_QUANTILES(
-      SAFE_DIVIDE(CAST(likes + comments + shares AS FLOAT64), views) * 100,
+      SAFE_DIVIDE(CAST(likes + comments + saves + shares AS FLOAT64), views) * 100,
       4
     )[OFFSET(3)]  AS eng_p75,
     APPROX_QUANTILES(
-      SAFE_DIVIDE(CAST(likes + comments + shares AS FLOAT64), views) * 100,
+      SAFE_DIVIDE(CAST(likes + comments + saves + shares AS FLOAT64), views) * 100,
       4
     )[OFFSET(4)]  AS eng_max
 

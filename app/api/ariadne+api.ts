@@ -4,29 +4,54 @@
  * Expo Router server API route. Runs in Node.js only — never sent to the browser.
  * Queries BigQuery and returns a Politician[] JSON array.
  *
- * GET  /api/ariadne          → full politician list
- * GET  /api/ariadne?debug=1  → returns raw field names + sample rows for schema verification
+ * GET  /api/ariadne               → full politician list (defaults to yesterday)
+ * GET  /api/ariadne?range=week    → week-range aggregates
+ * GET  /api/ariadne?debug=1       → returns raw field names + sample rows for schema verification
  */
 
 import { query, tableRef } from '@/lib/bigquery';
-import { signMediaFields } from '@/lib/gcs';
+import { signMediaFields, signGcsUrl } from '@/lib/gcs';
 import { safeErrorDetail } from '@/lib/errors';
 import { transformToPoliticians } from '@/data/transformers';
 import type { BQAccountRow, BQPostRow } from '@/data/transformers';
 
-// ── SQL ───────────────────────────────────────────────────────────────────────
+// ── Range helpers ─────────────────────────────────────────────────────────────
+
+type Range = 'yesterday' | 'week' | 'month' | 'year' | 'lifetime';
+const VALID_RANGES: Range[] = ['yesterday', 'week', 'month', 'year', 'lifetime'];
+
+function parseRange(raw: string | null): Range {
+  return VALID_RANGES.includes(raw as Range) ? (raw as Range) : 'yesterday';
+}
+
+/** Returns a BQ SQL predicate that restricts post rows to the selected range. */
+function rangeDateFilter(range: Range): string {
+  switch (range) {
+    case 'yesterday': return `postDate >= DATE_SUB(CURRENT_DATE(), INTERVAL 1 DAY)`;
+    case 'week':      return `postDate >= DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY)`;
+    case 'month':     return `postDate >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)`;
+    case 'year':      return `postDate >= DATE_SUB(CURRENT_DATE(), INTERVAL 365 DAY)`;
+    case 'lifetime':  return `postDate IS NOT NULL`;
+  }
+}
+
+// ── SQL builders ──────────────────────────────────────────────────────────────
 
 /**
- * Accounts joined with their most recent accountMetrics row.
+ * Accounts joined with their most recent accountMetrics row, plus range-specific
+ * aggregates from the post table (postsInRange, viewsInRange, etc.).
  * account.id = accountMetrics.pageId
  */
-const ACCOUNTS_SQL = `
+function buildAccountsSQL(range: Range): string {
+  const dateFilter = rangeDateFilter(range);
+  return `
   SELECT
     a.id,
     a.name,
     a.profile,
     a.party,
     a.affiliation,
+    a.avatar,
     COALESCE(a.totalFollowers, 0)  AS totalFollowers,
     COALESCE(a.totalFollowing, 0)  AS totalFollowing,
     COALESCE(m.totalPosts,     0)  AS totalPosts,
@@ -42,6 +67,13 @@ const ACCOUNTS_SQL = `
     COALESCE(m.commentsToday,  0)  AS commentsToday,
     COALESCE(m.savesToday,     0)  AS savesToday,
     m.followerChange,
+    -- Range-specific aggregates from the post table
+    COALESCE(ra.postsInRange,    0) AS postsInRange,
+    COALESCE(ra.viewsInRange,    0) AS viewsInRange,
+    COALESCE(ra.likesInRange,    0) AS likesInRange,
+    COALESCE(ra.commentsInRange, 0) AS commentsInRange,
+    COALESCE(ra.savesInRange,    0) AS savesInRange,
+    COALESCE(ra.sharesInRange,   0) AS sharesInRange,
     -- Account type sourced directly from the accountType table.
     -- LEFT JOIN so accounts with no type entry still appear; they fall back
     -- to regex inference in transformers.ts.
@@ -59,7 +91,6 @@ const ACCOUNTS_SQL = `
     WHERE dateUpdated = (
       SELECT MAX(dateUpdated)
       FROM ${tableRef('accountMetrics')}
-      WHERE dateUpdated <= DATE_SUB(CURRENT_DATE(), INTERVAL 1 DAY)
     )
   ) m ON a.id = m.pageId
   LEFT JOIN (
@@ -68,15 +99,31 @@ const ACCOUNTS_SQL = `
     WHERE postDate >= DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY)
     GROUP BY LTRIM(profile, '@')
   ) pw ON LTRIM(a.profile, '@') = pw.profile
+  LEFT JOIN (
+    SELECT
+      LTRIM(profile, '@')          AS profile,
+      COUNT(*)                     AS postsInRange,
+      SUM(COALESCE(views,    0))   AS viewsInRange,
+      SUM(COALESCE(likes,    0))   AS likesInRange,
+      SUM(COALESCE(comments, 0))   AS commentsInRange,
+      SUM(COALESCE(saves,    0))   AS savesInRange,
+      SUM(COALESCE(shares,   0))   AS sharesInRange
+    FROM ${tableRef('post')}
+    WHERE ${dateFilter}
+    GROUP BY LTRIM(profile, '@')
+  ) ra ON LTRIM(a.profile, '@') = ra.profile
   ORDER BY a.name
 `;
-
+}
 
 /**
- * Most recent 5 posts per account, partitioned by profile handle.
+ * Most recent 5 processed posts per account within the selected range,
+ * partitioned by profile handle.
  * post.profile = account.profile (string join, not by ID).
  */
-const POSTS_SQL = `
+function buildPostsSQL(range: Range): string {
+  const dateFilter = rangeDateFilter(range);
+  return `
   SELECT
     postId,
     -- Normalise profile: strip any leading '@' so it always matches
@@ -108,9 +155,11 @@ const POSTS_SQL = `
     -- the window function runs, so _rn reflects the most recent *processed* posts.
     WHERE videoSummary IS NOT NULL
       AND videoMp4     IS NOT NULL
+      AND ${dateFilter}
   )
   WHERE _rn <= 5
 `;
+}
 
 // ── Handler ───────────────────────────────────────────────────────────────────
 
@@ -118,6 +167,7 @@ export async function GET(request: Request): Promise<Response> {
   const params  = new URL(request.url).searchParams;
   const isDebug = params.get('debug') === '1';
   const isDiag  = params.get('diag')  === '1';
+  const range   = parseRange(params.get('range'));
 
   // Debug mode: return raw schema info independently of the main query
   if (isDebug) {
@@ -152,7 +202,7 @@ export async function GET(request: Request): Promise<Response> {
 
     // Step 1 — account JOIN accountMetrics (the complex accounts query)
     try {
-      const rows = await query<Record<string, unknown>>(ACCOUNTS_SQL);
+      const rows = await query<Record<string, unknown>>(buildAccountsSQL(range));
       steps['accounts_sql'] = { ok: true, row_count: rows.length, sample: rows[0] };
     } catch (err: unknown) {
       steps['accounts_sql'] = { ok: false, error: String(err) };
@@ -160,7 +210,7 @@ export async function GET(request: Request): Promise<Response> {
 
     // Step 2 — posts window function
     try {
-      const rows = await query<Record<string, unknown>>(POSTS_SQL);
+      const rows = await query<Record<string, unknown>>(buildPostsSQL(range));
       steps['posts_sql'] = { ok: true, row_count: rows.length, sample: rows[0] };
     } catch (err: unknown) {
       steps['posts_sql'] = { ok: false, error: String(err) };
@@ -192,22 +242,27 @@ export async function GET(request: Request): Promise<Response> {
   // Main data fetch
   try {
     const [accountRows, postRows] = await Promise.all([
-      query<BQAccountRow>(ACCOUNTS_SQL),
-      query<BQPostRow>(POSTS_SQL),
+      query<BQAccountRow>(buildAccountsSQL(range)),
+      query<BQPostRow>(buildPostsSQL(range)),
     ]);
 
     // accountTypeName is now joined inline in ACCOUNTS_SQL — no separate fetch needed.
     const politicians = transformToPoliticians(accountRows, postRows);
 
-    // Sign coverJpeg + videoMp4 for every recentPost across all politicians.
-    await Promise.all(
-      politicians.flatMap(p =>
+    // Sign coverJpeg + videoMp4 for every recentPost, and avatar for each politician.
+    await Promise.all([
+      ...politicians.flatMap(p =>
         p.recentPosts.map(async (post, i) => {
           const signed = await signMediaFields(post);
           p.recentPosts[i] = signed;
         })
-      )
-    );
+      ),
+      ...politicians.map(async p => {
+        if (p.avatarUrl) {
+          p.avatarUrl = await signGcsUrl(p.avatarUrl);
+        }
+      }),
+    ]);
 
     return Response.json(
       { politicians },

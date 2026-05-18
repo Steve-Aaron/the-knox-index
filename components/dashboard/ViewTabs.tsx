@@ -137,7 +137,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(124,131,255,0.10)',
   },
   tabIcon: {
-    fontSize: 13,
+    fontSize: 16,
   },
   tabLabel: {
     ...type.caption,
@@ -165,7 +165,7 @@ const styles = StyleSheet.create({
   badgeText: {
     ...type.caption,
     color: neutral.textDim,
-    fontSize: 9,
+    fontSize: 12,
     fontWeight: '700',
   },
   badgeTextActive: {

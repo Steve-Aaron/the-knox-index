@@ -21,6 +21,9 @@ keys/
 # Build artefacts
 build/
 
+# Project docs — briefs, reviews, planning notes
+docs/
+
 # OS
 .DS_Store
 Thumbs.db

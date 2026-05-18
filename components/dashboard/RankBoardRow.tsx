@@ -44,7 +44,7 @@ export function RankBoardRow({ politician, rank, headlineKey, active, onPress }:
       <Text style={[styles.rank, silent ? styles.rankSilent : { color: colour.glow }]}>
         #{rank}
       </Text>
-      <CardAvatar partyKey={politician.partyKey} initials={politician.avatarInitials} size={36} />
+      <CardAvatar partyKey={politician.partyKey} initials={politician.avatarInitials} size={36} avatarUrl={politician.avatarUrl} />
       <View style={styles.id}>
         <Text style={[styles.name, silent && styles.textSilent]} numberOfLines={1}>
           {politician.name}
@@ -75,7 +75,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     borderWidth: 1,
     borderColor: glass.border,
-    backgroundColor: glass.fill,
+    backgroundColor: glass.card,
     borderRadius: radius.md,
     ...Platform.select({
       web: { transitionProperty: 'border-color, background-color', transitionDuration: '180ms', cursor: 'pointer' } as any,
@@ -84,16 +84,16 @@ const styles = StyleSheet.create({
   },
   rank: {
     ...type.caption,
-    fontSize: 11,
+    fontSize: 12,
     width: 24,
   },
   id: { flex: 1, minWidth: 0 },
-  name: { ...type.body, color: neutral.text, fontSize: 13, fontWeight: '700' },
-  meta: { ...type.caption, color: neutral.textDim, fontSize: 9, marginTop: 1, fontVariant: ['small-caps'] as any },
+  name: { ...type.body, color: neutral.text, fontSize: 16, fontWeight: '700' },
+  meta: { ...type.caption, color: neutral.textDim, fontSize: 12, marginTop: 1, fontVariant: ['small-caps'] as any },
 
   // Silent state
   rowSilent:  { opacity: 0.45 },
-  rankSilent: { ...type.caption, fontSize: 11, width: 24, color: neutral.textDim },
+  rankSilent: { ...type.caption, fontSize: 12, width: 24, color: neutral.textDim },
   textSilent: { color: neutral.textDim },
   silentBadge: {
     borderRadius: radius.pill,
@@ -105,7 +105,7 @@ const styles = StyleSheet.create({
   silentBadgeText: {
     ...type.caption,
     color: neutral.textDim,
-    fontSize: 8,
+    fontSize: 12,
     letterSpacing: 0.8,
   },
 
@@ -121,6 +121,6 @@ const styles = StyleSheet.create({
   scoreUnit: {
     ...type.caption,
     color: neutral.textDim,
-    fontSize: 9,
+    fontSize: 12,
   },
 });

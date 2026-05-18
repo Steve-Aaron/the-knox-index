@@ -11,17 +11,18 @@ import { spacing } from '@/theme/spacing';
  * Avatar + identity block (name, role, party). Composition only — no logic.
  */
 interface Props {
-  name: string;
-  role: string;
+  name:       string;
+  role:       string;
   partyLabel: string;
-  partyKey: PartyKey;
-  initials: string;
+  partyKey:   PartyKey;
+  initials:   string;
+  avatarUrl?: string;
 }
 
-export function CardHeader({ name, role, partyLabel, partyKey, initials }: Props) {
+export function CardHeader({ name, role, partyLabel, partyKey, initials, avatarUrl }: Props) {
   return (
     <View style={styles.row}>
-      <CardAvatar partyKey={partyKey} initials={initials} />
+      <CardAvatar partyKey={partyKey} initials={initials} avatarUrl={avatarUrl} />
       <View style={styles.text}>
         <Text style={styles.name} numberOfLines={1}>
           {name}

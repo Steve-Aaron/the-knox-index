@@ -104,9 +104,9 @@ ${topByViews.map((p, i) =>
   `${i + 1}. ${p.name} (${p.party}) — ${p.views24h.toLocaleString()} views, ${p.likesToday.toLocaleString()} likes, ${p.commentsToday.toLocaleString()} comments, ${p.savesToday.toLocaleString()} saves, ${p.postsThisWeek} posts this week, ${p.followers.toLocaleString()} followers`
 ).join('\n')}
 
-HIGHEST ENGAGEMENT RATES YESTERDAY (likes + comments + saves / views):
+HIGHEST ENGAGEMENT RATES YESTERDAY (likes + comments + saves + shares / views):
 ${topByEngagement.map(p => {
-  const rate = ((p.likesToday + p.commentsToday + p.savesToday) / Math.max(p.views24h, 1) * 100).toFixed(2);
+  const rate = +((p.likesToday + p.commentsToday + p.savesToday) / Math.max(p.views24h, 1) * 100).toFixed(2);
   return `• ${p.name} (${p.party}) — ${rate}% engagement rate`;
 }).join('\n')}
 

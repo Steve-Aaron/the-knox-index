@@ -3,46 +3,62 @@ import { View, Text, Pressable, StyleSheet, Platform } from 'react-native';
 import { GlassSurface } from '@/components/primitives/GlassSurface';
 import { DevLabel } from '@/components/primitives/DevLabel';
 import { InfoTip } from '@/components/primitives/InfoTip';
-import { neutral, glass, party } from '@/theme/colors';
+import { neutral, glass, party, brand } from '@/theme/colors';
 import type { PartyKey } from '@/theme/colors';
 import { spacing, radius } from '@/theme/spacing';
 import { type, font } from '@/theme/typography';
 import { formatters } from '@/components/primitives/CountUp';
 import { track } from '@/lib/analytics';
 import type { Politician } from '@/data/types';
+import type { TimeRange } from '@/components/dashboard/TimeRangePicker';
+
+/** Short label for the activity meta line on each row. */
+const POSTS_PERIOD: Record<TimeRange, string> = {
+  yesterday: 'posts / day',
+  week:      'posts / wk',
+  month:     'posts / mo',
+  year:      'posts / yr',
+  lifetime:  'posts',
+};
+
+/** Kicker suffix per range. */
+const RANGE_KICKER: Record<TimeRange, string> = {
+  yesterday: 'YESTERDAY',
+  week:      'THIS WEEK',
+  month:     'THIS MONTH',
+  year:      'THIS YEAR',
+  lifetime:  'ALL TIME',
+};
 
 /**
  * PartyLeaderboard
  * -----------------
  * Aggregates politician-level numbers up to the party level so the user can
  * see at a glance which party is doing best or is most active on TikTok.
- * One job: party-level ranking, sortable by views / posts this week / engagement.
+ * One job: party-level ranking, sortable by views / posts / engagement.
  */
 
 type SortKey = 'views' | 'postsThisWeek' | 'engagement' | 'accounts';
 
 interface Props {
   politicians: Politician[];
+  range?: TimeRange;
 }
 
 interface PartyRow {
-  key:             PartyKey;
-  label:           string;
-  accounts:        number;
-  totalViews:      number;
-  totalPosts:      number;     // posts in past 7 days summed across accounts
-  totalLikes:      number;
-  totalComments:   number;
-  totalShares:     number;
-  totalViews24h:   number;
-  engagementRate:  number;     // avg likes/views across the party (0..100)
+  key:            PartyKey;
+  label:          string;
+  accounts:       number;
+  totalViews:     number;   // views in selected range (from post table)
+  totalPosts:     number;   // posts in selected range
+  engagementRate: number;   // (likes + comments + saves + shares) / views in range × 100
 }
 
 const SORT_OPTIONS: { key: SortKey; label: string; tip: string }[] = [
-  { key: 'views',         label: 'Views',     tip: 'Total yesterday views, summed across every tracked account in the party' },
-  { key: 'postsThisWeek', label: 'Activity',  tip: 'Total posts this week from every tracked account in the party' },
-  { key: 'engagement',    label: 'Engagement', tip: 'Average engagement rate (likes + comments + shares ÷ views) across the party' },
-  { key: 'accounts',      label: 'Accounts',  tip: 'Number of distinct tracked accounts in the party' },
+  { key: 'views',         label: 'Views',      tip: 'Total views for this period, summed across every tracked account in the party.' },
+  { key: 'postsThisWeek', label: 'Activity',   tip: 'Total posts published in this period from every tracked account in the party.' },
+  { key: 'engagement',    label: 'Engagement', tip: 'Average engagement rate (likes + comments + saves + shares ÷ views) across all posts in this period.' },
+  { key: 'accounts',      label: 'Accounts',   tip: 'Number of distinct tracked accounts in the party.' },
 ];
 
 const PARTY_LABELS: Partial<Record<PartyKey, string>> = {
@@ -59,8 +75,10 @@ const PARTY_LABELS: Partial<Record<PartyKey, string>> = {
   unknown:      'Unknown',
 };
 
-export function PartyLeaderboard({ politicians }: Props) {
+export function PartyLeaderboard({ politicians, range = 'week' }: Props) {
   const [sortKey, setSortKey] = useState<SortKey>('views');
+  const postsPeriodLabel = POSTS_PERIOD[range];
+  const rangeKicker = RANGE_KICKER[range];
 
   const rows = useMemo<PartyRow[]>(() => {
     const buckets = new Map<PartyKey, Politician[]>();
@@ -72,24 +90,23 @@ export function PartyLeaderboard({ politicians }: Props) {
 
     const out: PartyRow[] = [];
     for (const [key, members] of buckets) {
-      const totalViews24h  = members.reduce((s, p) => s + p.totals.views24h,      0);
-      const totalLikes     = members.reduce((s, p) => s + p.totals.likesToday,    0);
-      const totalComments  = members.reduce((s, p) => s + p.totals.commentsToday, 0);
-      const totalShares    = members.reduce((s, p) => s + p.totals.savesToday,    0);
-      const totalPosts     = members.reduce((s, p) => s + p.totals.postsThisWeek, 0);
-      const engagementRate = totalViews24h > 0
-        ? ((totalLikes + totalComments + totalShares) / totalViews24h) * 100
+      // Use range-specific aggregates from the post table — these are always
+      // populated (coalesced to 0 in SQL) and reflect the selected time window.
+      const totalViews    = members.reduce((s, p) => s + p.totals.viewsInRange,    0);
+      const totalLikes    = members.reduce((s, p) => s + p.totals.likesInRange,    0);
+      const totalComments = members.reduce((s, p) => s + p.totals.commentsInRange, 0);
+      const totalSaves    = members.reduce((s, p) => s + p.totals.savesInRange,    0);
+      const totalShares   = members.reduce((s, p) => s + p.totals.sharesInRange,   0);
+      const totalPosts    = members.reduce((s, p) => s + p.totals.postsInRange,    0);
+      const engagementRate = totalViews > 0
+        ? ((totalLikes + totalComments + totalSaves + totalShares) / totalViews) * 100
         : 0;
       out.push({
         key,
         label:          PARTY_LABELS[key] ?? key,
         accounts:       members.length,
-        totalViews:     totalViews24h,
+        totalViews,
         totalPosts,
-        totalLikes,
-        totalComments,
-        totalShares,
-        totalViews24h,
         engagementRate,
       });
     }
@@ -107,13 +124,13 @@ export function PartyLeaderboard({ politicians }: Props) {
   const max = rows[0];
 
   return (
-    <GlassSurface style={styles.wrap} radius={radius.lg}>
+    <GlassSurface style={styles.wrap} radius={radius.lg} topAccent={[...brand.gradient]} flatTop>
       <DevLabel name="PartyLeaderboard" />
 
       <View style={styles.header}>
         <View style={styles.titleRow}>
           <View>
-            <Text style={styles.kicker}>PARTY LEAGUE</Text>
+            <Text style={styles.kicker}>PARTY LEAGUE · {rangeKicker}</Text>
             <Text style={styles.title}>Who's winning the parties' war?</Text>
           </View>
           <InfoTip
@@ -202,7 +219,7 @@ export function PartyLeaderboard({ politicians }: Props) {
                 <View style={styles.rowMeta}>
                   <Text style={styles.metaText}>{row.accounts} accounts</Text>
                   <Text style={styles.metaDivider}>·</Text>
-                  <Text style={styles.metaText}>{formatters.compact(row.totalPosts)} posts / wk</Text>
+                  <Text style={styles.metaText}>{formatters.compact(row.totalPosts)} {postsPeriodLabel}</Text>
                   <Text style={styles.metaDivider}>·</Text>
                   <Text style={styles.metaText}>{row.engagementRate.toFixed(2)}% eng</Text>
                 </View>
@@ -232,12 +249,12 @@ const styles = StyleSheet.create({
   kicker: {
     ...type.caption,
     color: neutral.textDim,
-    fontSize: 10,
+    fontSize: 12,
   },
   title: {
     ...type.title,
     color: neutral.text,
-    fontSize: 18,
+    fontSize: 20,
     marginTop: 2,
   },
   sortRow: {
@@ -260,7 +277,7 @@ const styles = StyleSheet.create({
   },
   sortChipText: {
     ...type.caption,
-    fontSize: 10,
+    fontSize: 12,
     color: neutral.textMid,
   },
   sortChipTextActive: {
@@ -309,12 +326,12 @@ const styles = StyleSheet.create({
   partyName: {
     ...type.body,
     color: neutral.text,
-    fontSize: 13,
+    fontSize: 16,
     fontWeight: '600',
   },
   headlineValue: {
     fontFamily: font.mono,
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '700',
     letterSpacing: -0.3,
   },
@@ -337,10 +354,10 @@ const styles = StyleSheet.create({
   metaText: {
     ...type.caption,
     color: neutral.textDim,
-    fontSize: 9,
+    fontSize: 12,
   },
   metaDivider: {
     color: neutral.textDim,
-    fontSize: 9,
+    fontSize: 12,
   },
 });

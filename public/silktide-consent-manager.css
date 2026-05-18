@@ -9,9 +9,9 @@
 #stcm-wrapper {
   --boxShadow: -5px 5px 10px 0px #00000012, 0px 0px 50px 0px #0000001a;
   --fontFamily: Helvetica Neue, Segoe UI, Arial, sans-serif;
-  --primaryColor: #F9D000;
-  --backgroundColor: #050505;
-  --textColor: #F4F0DF;
+  --primaryColor: white;
+  --backgroundColor: black;
+  --textColor: white;
   --backdropBackgroundColor: #00000077;
   --backdropBackgroundBlur: 0px;
   --iconColor: #050505;
@@ -448,18 +448,15 @@ Modal - Footer
   padding: 0;
 }
 
-#sctm-modal footer .stcm-credit-link {
-    visibility: hidden !important;
-    display: none !important;
-
-}
-
-#stcm-modal footer a.stcm-credit-link {
-  text-decoration: none;
-}
-
+#stcm-modal footer a.stcm-credit-link,
 #stcm-modal footer a.stcm-credit-link:hover {
-  text-decoration: underline;
+  display: none !important;
+  visibility: hidden !important;
+}
+
+/* Hide Silktide logo link in the banner */
+#stcm-banner a.stcm-logo {
+  display: none !important;
 }
 
 /* Cookie Icon */
