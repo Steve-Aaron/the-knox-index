@@ -10,13 +10,16 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   ActivityIndicator,
+  Linking,
 } from 'react-native';
 import { MotiView } from 'moti';
+import { LinearGradient } from 'expo-linear-gradient';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
-import { neutral, glass, accent } from '@/theme/colors';
+import { neutral, glass, accent, brand } from '@/theme/colors';
 import { spacing, radius } from '@/theme/spacing';
 import { type, font } from '@/theme/typography';
 import { track } from '@/lib/analytics';
+import { SEGMENTS, INTERESTS } from '@/data/profileOptions';
 
 /**
  * StickyUnlock
@@ -35,47 +38,25 @@ import { track } from '@/lib/analytics';
  *
  * Phase 3 — profiling modal (next visit after registration)
  *   If isRegistered=true but tki_profiled≠1 in localStorage, fires after
- *   a short delay to collect segment + interests.
+ *   a short delay to collect name, company, LinkedIn, segment, interests,
+ *   and comms consent. Submits to /api/preferences → Brevo.
  *
  * Auth state (isRegistered, email) is owned by the parent via useAuth().
  * This component never writes tki_registered to localStorage directly.
  */
 
-const SCROLL_THRESHOLD = 500;
 const PROFILE_DELAY_MS = 2500;
-
-interface SegmentOption { id: string; label: string; sub: string; icon: string }
-interface InterestOption { id: string; label: string; desc: string; icon: string }
-
-const SEGMENTS: SegmentOption[] = [
-  { id: 'consultant', label: 'Political Consultant',       sub: 'Strategy and communications',            icon: 'briefcase'       },
-  { id: 'agency',     label: 'Digital / Creative Agency',  sub: 'Brand and content work',                 icon: 'palette'         },
-  { id: 'politician', label: 'MP / AM / MSP / Councillor', sub: "You're a political figure",              icon: 'landmark'        },
-  { id: 'officer',    label: 'Parliamentary Officer',      sub: 'Caseworker or senior comms staff',       icon: 'user-tie'        },
-  { id: 'journalist', label: 'Journalist / Researcher',    sub: 'You write or research political affairs', icon: 'newspaper'      },
-  { id: 'other',      label: 'Other',                      sub: 'Something else entirely',                icon: 'circle-question' },
-];
-
-const INTERESTS: InterestOption[] = [
-  { id: 'stories',   label: 'Find news stories',          desc: 'Unique angles on political TikTok strategy',      icon: 'magnifying-glass' },
-  { id: 'rivals',    label: 'Track other MPs',            desc: 'See what opponents post and why it cuts through',  icon: 'chess'            },
-  { id: 'sentiment', label: 'Monitor constituent issues', desc: 'Issues trending with your community on TikTok',   icon: 'comments'         },
-  { id: 'briefing',  label: 'Build daily briefings',      desc: 'Morning intelligence for you or your clients',    icon: 'clipboard-list'   },
-  { id: 'data',      label: 'Analyse performance data',   desc: 'Deep-dive engagement metrics and content trends',  icon: 'chart-line'      },
-  { id: 'fun',       label: 'Just for fun',               desc: 'You find UK political TikTok oddly fascinating',   icon: 'face-smile'      },
-];
-
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 interface Props {
-  scrollY:      number;
+  showBar:      boolean;
   isRegistered: boolean;
   email:        string | null;
 }
 
 type ModalState = 'hidden' | 'unlock' | 'profiling';
 
-export function StickyUnlock({ scrollY, isRegistered, email }: Props) {
+export function StickyUnlock({ showBar, isRegistered, email }: Props) {
   const [profiled, setProfiled] = useState(false);
   const [modal,    setModal]    = useState<ModalState>('hidden');
 
@@ -100,23 +81,22 @@ export function StickyUnlock({ scrollY, isRegistered, email }: Props) {
     const params = new URLSearchParams(window.location.search);
     if (params.get('auth') === 'error') {
       setAuthError(true);
-      // Clean the URL without a reload
       window.history.replaceState({}, '', window.location.pathname);
       const t = setTimeout(() => setAuthError(false), 5000);
       return () => clearTimeout(t);
     }
   }, []);
 
-  const shouldShowBar = !isRegistered && scrollY >= SCROLL_THRESHOLD;
+  const shouldShowBar = showBar && !isRegistered;
 
-  // Fire cta_bar_shown analytics event once
+  // Fire cta_bar_shown analytics event once per session
   const ctaShownRef = useRef(false);
   useEffect(() => {
     if (shouldShowBar && !ctaShownRef.current) {
       ctaShownRef.current = true;
-      track('cta_bar_shown', { scroll_y: scrollY });
+      track('cta_bar_shown', { trigger: 'scroll_10pct' });
     }
-  }, [shouldShowBar, scrollY]);
+  }, [shouldShowBar]);
 
   const handleProfileDone = useCallback(() => {
     if (Platform.OS === 'web') localStorage.setItem('tki_profiled', '1');
@@ -138,14 +118,14 @@ export function StickyUnlock({ scrollY, isRegistered, email }: Props) {
         >
           <Pressable
             onPress={() => { track('cta_bar_tapped'); setModal('unlock'); }}
-            style={({ pressed }) => [styles.ctaBar, pressed && { opacity: 0.9 }]}
+            style={({ pressed }) => [styles.ctaBar, pressed && { opacity: 0.95 }]}
           >
             <View style={styles.ctaInner}>
               <View style={styles.ctaTextGroup}>
-                <Text style={styles.ctaKicker}>FREE ACCESS</Text>
-                <Text style={styles.ctaHeadline}>Unlock the full Knox Index</Text>
+                <Text style={styles.ctaKicker}>GET ACCESS FOR FREE</Text>
+                <Text style={styles.ctaHeadline}>Want to get complete access?</Text>
                 <Text style={styles.ctaCopy}>
-                  Register in 10 seconds — no card, no commitment.
+                  Register via email — free for a limited time only
                 </Text>
               </View>
               <View style={styles.ctaBtn}>
@@ -200,9 +180,9 @@ interface UnlockModalProps {
 type UnlockStep = 'form' | 'sending' | 'sent';
 
 function UnlockModal({ onClose, onOpen }: UnlockModalProps) {
-  const [email, setEmail]   = useState('');
-  const [step,  setStep]    = useState<UnlockStep>('form');
-  const [error, setError]   = useState<string | null>(null);
+  const [email, setEmail] = useState('');
+  const [step,  setStep]  = useState<UnlockStep>('form');
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => { onOpen?.(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -245,10 +225,14 @@ function UnlockModal({ onClose, onOpen }: UnlockModalProps) {
           transition={{ type: 'spring', damping: 20, stiffness: 260 }}
           style={styles.modalCard}
         >
-          <View style={styles.accentLine} />
+          <LinearGradient
+            colors={brand.gradient as unknown as [string, string, ...string[]]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.accentLine}
+          />
 
           {step === 'sent' ? (
-            // ── Sent state ──────────────────────────────────────────────
             <MotiView
               from={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -274,12 +258,11 @@ function UnlockModal({ onClose, onOpen }: UnlockModalProps) {
               </Pressable>
             </MotiView>
           ) : (
-            // ── Form state ──────────────────────────────────────────────
             <View style={styles.modalInner}>
-              <Text style={styles.modalKicker}>FREE · NO CARD REQUIRED</Text>
-              <Text style={styles.modalTitle}>Unlock The Knox Index</Text>
+              <Text style={styles.modalKicker}>Free • Limited time only</Text>
+              <Text style={styles.modalTitle}>Unlock the Complete Knox Index</Text>
               <Text style={styles.modalCopy}>
-                Enter your email and we'll send you a one-click access link. No password needed.
+                Enter your email and we'll send you a one-click access link.
               </Text>
 
               <TextInput
@@ -296,6 +279,7 @@ function UnlockModal({ onClose, onOpen }: UnlockModalProps) {
                 onSubmitEditing={handleSubmit}
                 editable={step === 'form'}
                 autoFocus
+                {...Platform.select({ web: { outlineStyle: 'none' } as any, default: {} })}
               />
 
               {error && <Text style={styles.errorText}>{error}</Text>}
@@ -316,7 +300,15 @@ function UnlockModal({ onClose, onOpen }: UnlockModalProps) {
               </Pressable>
 
               <Text style={styles.legalText}>
-                We'll never share your email. Unsubscribe any time.
+                We'll never share your email. Unsubscribe any time.{' '}
+                <Text
+                  style={styles.legalLink}
+                  onPress={() => Linking.openURL('/privacy-policy')}
+                  {...Platform.select({ web: { accessibilityRole: 'link' } as any, default: {} })}
+                >
+                  Read our Privacy Policy
+                </Text>
+                {' '}for more details.
               </Text>
             </View>
           )}
@@ -329,9 +321,9 @@ function UnlockModal({ onClose, onOpen }: UnlockModalProps) {
 // ── Profiling modal ───────────────────────────────────────────────────────────
 
 interface ProfilingModalProps {
-  email:    string | null;
-  onClose:  () => void;
-  onDone:   () => void;
+  email:   string | null;
+  onClose: () => void;
+  onDone:  () => void;
 }
 
 function toSmartCase(s: string): string {
@@ -350,15 +342,65 @@ function ProgressBar({ progress }: { progress: number }) {
   );
 }
 
+// ── Consent toggle row ────────────────────────────────────────────────────────
+
+interface ConsentRowProps {
+  checked:  boolean;
+  onToggle: () => void;
+  label:    string;
+  desc:     string;
+}
+
+function ConsentRow({ checked, onToggle, label, desc }: ConsentRowProps) {
+  return (
+    <Pressable
+      onPress={onToggle}
+      style={({ pressed }) => [proStyles.consentRow, pressed && { opacity: 0.8 }]}
+    >
+      <MotiView
+        animate={{
+          backgroundColor: checked ? accent.indigo : 'rgba(255,255,255,0.05)',
+          borderColor:     checked ? accent.indigo  : 'rgba(255,255,255,0.15)',
+        }}
+        transition={{ type: 'timing', duration: 160 }}
+        style={proStyles.checkbox}
+      >
+        {checked && (
+          <MotiView
+            from={{ opacity: 0, scale: 0.5 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ type: 'spring', damping: 14, stiffness: 300 }}
+          >
+            <FontAwesome6 name="check" size={9} color="#fff" solid />
+          </MotiView>
+        )}
+      </MotiView>
+      <View style={proStyles.consentText}>
+        <Text style={proStyles.consentLabel}>{label}</Text>
+        <Text style={proStyles.consentDesc}>{desc}</Text>
+      </View>
+    </Pressable>
+  );
+}
+
+// ── ProfilingModal ────────────────────────────────────────────────────────────
+
 function ProfilingModal({ email, onClose, onDone }: ProfilingModalProps) {
+  const [firstName, setFirstName] = useState('');
+  const [lastName,  setLastName]  = useState('');
+  const [company,   setCompany]   = useState('');
+  const [linkedin,  setLinkedin]  = useState('');
   const [segment,   setSegment]   = useState<string | null>(null);
   const [otherText, setOtherText] = useState('');
   const [interests, setInterests] = useState<string[]>([]);
-  const [loading,   setLoading]   = useState(false);
+  const [consentUpdates,  setConsentUpdates]  = useState(true);
+  const [consentBriefing, setConsentBriefing] = useState(true);
+  const [consentKnox,     setConsentKnox]     = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const progress =
     segment && interests.length > 0 ? 100 :
-    segment || interests.length > 0 ?  50 : 0;
+    segment || interests.length > 0 ? 50  : 0;
 
   function toggleInterest(id: string) {
     setInterests(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
@@ -368,9 +410,25 @@ function ProfilingModal({ email, onClose, onDone }: ProfilingModalProps) {
     setLoading(true);
     const resolvedSegment = segment === 'other' && otherText.trim()
       ? `other:${otherText.trim()}`
-      : segment;
+      : segment ?? '';
+
+    const storedEmail = email ?? (Platform.OS === 'web' ? (localStorage.getItem('tki_email') ?? '') : '');
+
+    // Write to localStorage
+    if (Platform.OS === 'web') {
+      localStorage.setItem('tki_firstname',        firstName.trim());
+      localStorage.setItem('tki_lastname',         lastName.trim());
+      localStorage.setItem('tki_company',          company.trim());
+      localStorage.setItem('tki_linkedin',         linkedin.trim());
+      localStorage.setItem('tki_segment',          resolvedSegment);
+      localStorage.setItem('tki_interests',        JSON.stringify(interests));
+      localStorage.setItem('tki_consent_updates',  consentUpdates  ? '1' : '0');
+      localStorage.setItem('tki_consent_briefing', consentBriefing ? '1' : '0');
+      localStorage.setItem('tki_consent_knox',     consentKnox     ? '1' : '0');
+    }
+
     try {
-      const storedEmail = email ?? (Platform.OS === 'web' ? (localStorage.getItem('tki_email') ?? '') : '');
+      // Existing register call (DB)
       await fetch('/api/register', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -378,11 +436,32 @@ function ProfilingModal({ email, onClose, onDone }: ProfilingModalProps) {
       });
     } catch { /* non-fatal */ }
 
-    // Track who registered and why — powers the Conversion Report segment breakdown.
+    try {
+      // Preferences call → Brevo
+      await fetch('/api/preferences', {
+        method:      'POST',
+        credentials: 'same-origin',
+        headers:     { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          firstName:            firstName.trim(),
+          lastName:             lastName.trim(),
+          company:              company.trim(),
+          linkedin:             linkedin.trim(),
+          segment:              resolvedSegment,
+          interests,
+          consentKnoxUpdates:   consentUpdates,
+          consentDailyBriefing: consentBriefing,
+          consentKnoxDigital:   consentKnox,
+        }),
+      });
+    } catch { /* non-fatal */ }
+
     track('user_profiled', {
       segment:         resolvedSegment ?? null,
       interests:       interests.join(','),
       interests_count: interests.length,
+      consent_updates: consentUpdates,
+      consent_briefing: consentBriefing,
     });
 
     setLoading(false);
@@ -412,13 +491,81 @@ function ProfilingModal({ email, onClose, onDone }: ProfilingModalProps) {
           <ProgressBar progress={progress} />
 
           {/* Scrollable body */}
-          <ScrollView style={proStyles.body} contentContainerStyle={proStyles.bodyInner} showsVerticalScrollIndicator={false}>
+          <ScrollView
+            style={proStyles.body}
+            contentContainerStyle={proStyles.bodyInner}
+            showsVerticalScrollIndicator={false}
+          >
             <Text style={proStyles.title}>Help us tailor your experience</Text>
             <Text style={proStyles.subtitle}>
-              Takes 15 seconds. Helps us surface the most relevant intelligence for the way you work.
+              Takes 30 seconds. Helps us surface the most relevant intelligence for the way you work.
             </Text>
 
-            {/* Who are you? */}
+            {/* ── Your details ──────────────────────────────────────── */}
+            <View style={proStyles.section}>
+              <Text style={proStyles.sectionTitle}>Your details</Text>
+              <View style={proStyles.detailsGrid}>
+                <View style={proStyles.detailsField}>
+                  <Text style={proStyles.fieldLabel}>FIRST NAME</Text>
+                  <TextInput
+                    value={firstName}
+                    onChangeText={setFirstName}
+                    placeholder="Jane"
+                    placeholderTextColor={neutral.textDim}
+                    style={proStyles.textInput}
+                    autoCapitalize="words"
+                    autoCorrect={false}
+                    returnKeyType="next"
+                    {...Platform.select({ web: { outlineStyle: 'none' } as any, default: {} })}
+                  />
+                </View>
+                <View style={proStyles.detailsField}>
+                  <Text style={proStyles.fieldLabel}>LAST NAME</Text>
+                  <TextInput
+                    value={lastName}
+                    onChangeText={setLastName}
+                    placeholder="Smith"
+                    placeholderTextColor={neutral.textDim}
+                    style={proStyles.textInput}
+                    autoCapitalize="words"
+                    autoCorrect={false}
+                    returnKeyType="next"
+                    {...Platform.select({ web: { outlineStyle: 'none' } as any, default: {} })}
+                  />
+                </View>
+                <View style={proStyles.detailsField}>
+                  <Text style={proStyles.fieldLabel}>COMPANY / ORGANISATION</Text>
+                  <TextInput
+                    value={company}
+                    onChangeText={setCompany}
+                    placeholder="Acme Political Consulting"
+                    placeholderTextColor={neutral.textDim}
+                    style={proStyles.textInput}
+                    autoCapitalize="words"
+                    autoCorrect={false}
+                    returnKeyType="next"
+                    {...Platform.select({ web: { outlineStyle: 'none' } as any, default: {} })}
+                  />
+                </View>
+                <View style={proStyles.detailsField}>
+                  <Text style={proStyles.fieldLabel}>LINKEDIN</Text>
+                  <TextInput
+                    value={linkedin}
+                    onChangeText={setLinkedin}
+                    placeholder="linkedin.com/in/janesmith"
+                    placeholderTextColor={neutral.textDim}
+                    style={proStyles.textInput}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    keyboardType="url"
+                    returnKeyType="next"
+                    {...Platform.select({ web: { outlineStyle: 'none' } as any, default: {} })}
+                  />
+                </View>
+              </View>
+            </View>
+
+            {/* ── Who are you? ──────────────────────────────────────── */}
             <View style={proStyles.section}>
               <View style={proStyles.sectionHeadRow}>
                 <Text style={proStyles.sectionTitle}>Who are you?</Text>
@@ -467,7 +614,7 @@ function ProfilingModal({ email, onClose, onDone }: ProfilingModalProps) {
               )}
             </View>
 
-            {/* What do you want to do? */}
+            {/* ── What do you want to do? ───────────────────────────── */}
             <View style={proStyles.section}>
               <View style={proStyles.sectionHeadRow}>
                 <Text style={proStyles.sectionTitle}>What do you want to do?</Text>
@@ -494,6 +641,46 @@ function ProfilingModal({ email, onClose, onDone }: ProfilingModalProps) {
                   );
                 })}
               </View>
+            </View>
+
+            {/* ── Stay in the loop ──────────────────────────────────── */}
+            <View style={proStyles.section}>
+              <View style={proStyles.sectionHeadRow}>
+                <Text style={proStyles.sectionTitle}>Stay in the loop</Text>
+                <Text style={proStyles.sectionHint}>Optional</Text>
+              </View>
+              <View style={proStyles.consentCard}>
+                <ConsentRow
+                  checked={consentBriefing}
+                  onToggle={() => setConsentBriefing(v => !v)}
+                  label="The Knox Index Daily Briefing"
+                  desc="A morning email with the top political TikTok stories of the day, delivered to your inbox."
+                />
+                <View style={proStyles.consentDivider} />
+                <ConsentRow
+                  checked={consentUpdates}
+                  onToggle={() => setConsentUpdates(v => !v)}
+                  label="Knox Index Product Updates"
+                  desc="News about new features, improvements, and platform announcements."
+                />
+                <View style={proStyles.consentDivider} />
+                <ConsentRow
+                  checked={consentKnox}
+                  onToggle={() => setConsentKnox(v => !v)}
+                  label="Knox Digital News"
+                  desc="Occasional updates from the Knox Digital team about other products and services."
+                />
+              </View>
+              <Text style={proStyles.consentNote}>
+                You can change these preferences at any time.{' '}
+                <Text
+                  style={proStyles.consentLink}
+                  onPress={() => Linking.openURL('/privacy-policy')}
+                  {...Platform.select({ web: { accessibilityRole: 'link' } as any, default: {} })}
+                >
+                  Privacy Policy
+                </Text>
+              </Text>
             </View>
           </ScrollView>
 
@@ -562,15 +749,15 @@ const styles = StyleSheet.create({
     }),
   },
   ctaInner:     { flexDirection: 'row', alignItems: 'center', gap: spacing.lg },
-  ctaTextGroup: { flex: 1, gap: 4 },
+  ctaTextGroup: { flex: 1, gap: 3 },
   ctaKicker: {
     ...type.caption,
-    fontSize:      10,
+    fontSize:      12,
     color:         accent.indigo,
     letterSpacing: 1.5,
   },
-  ctaHeadline: { ...type.title,   fontSize: 18, color: neutral.text,    fontWeight: '700' },
-  ctaCopy:     { ...type.body,    fontSize: 13, color: neutral.textMid, lineHeight: 18 },
+  ctaHeadline: { ...type.title,   fontSize: 16, color: neutral.text,    fontWeight: '700' },
+  ctaCopy:     { ...type.body,    fontSize: 12, color: neutral.textMid, lineHeight: 17 },
   ctaBtn: {
     backgroundColor:   accent.indigo,
     paddingHorizontal: spacing.lg,
@@ -579,22 +766,21 @@ const styles = StyleSheet.create({
     flexShrink:        0,
     ...Platform.select({ web: { boxShadow: '0 4px 20px rgba(124,131,255,0.4)' } as any, default: {} }),
   },
-  ctaBtnText: { ...type.caption, color: '#fff', fontSize: 11, fontWeight: '800', letterSpacing: 0.8 },
+  ctaBtnText: { ...type.caption, color: '#fff', fontSize: 12, fontWeight: '800', letterSpacing: 0.8 },
 
-  // Error toast
   errorToast: {
-    position:          'absolute' as any,
-    bottom:            spacing.xxxl + 60,
-    left:              0,
-    right:             0,
-    alignItems:        'center',
-    zIndex:            1000,
-    pointerEvents:     'none' as any,
+    position:      'absolute' as any,
+    bottom:        spacing.xxxl + 60,
+    left:          0,
+    right:         0,
+    alignItems:    'center',
+    zIndex:        1000,
+    pointerEvents: 'none' as any,
     ...Platform.select({ web: { position: 'fixed' } as any, default: {} }),
   },
   errorToastText: {
     ...type.body,
-    fontSize:          13,
+    fontSize:          16,
     color:             '#fff',
     backgroundColor:   'rgba(220,60,60,0.9)',
     paddingHorizontal: spacing.lg,
@@ -603,7 +789,6 @@ const styles = StyleSheet.create({
     overflow:          'hidden',
   },
 
-  // Modal scaffold
   modalBackdrop: {
     flex:            1,
     backgroundColor: 'rgba(5,5,9,0.75)',
@@ -621,25 +806,23 @@ const styles = StyleSheet.create({
     overflow:        'hidden',
     ...Platform.select({ web: { boxShadow: '0 20px 60px rgba(0,0,0,0.6)' } as any, default: {} }),
   },
-  accentLine: { height: 3, backgroundColor: accent.indigo },
-
-  // Form state
+  accentLine:  { height: 6 },
   modalInner:  { padding: spacing.xl, gap: spacing.md },
-  modalKicker: { ...type.caption, fontSize: 9, color: accent.indigo, letterSpacing: 1.5 },
+  modalKicker: { ...type.caption, fontSize: 12, color: accent.indigo, letterSpacing: 1.5 },
   modalTitle:  { ...type.title, fontSize: 24, color: neutral.text, fontWeight: '700', marginTop: 2 },
-  modalCopy:   { ...type.body, fontSize: 13, color: neutral.textMid, lineHeight: 20 },
+  modalCopy:   { ...type.body, fontSize: 16, color: neutral.textMid, lineHeight: 20 },
   input: {
     backgroundColor:   glass.fill,
     borderWidth:       1,
     borderColor:       glass.border,
     borderRadius:      radius.md,
     color:             neutral.text,
-    fontSize:          14,
+    fontSize:          16,
     paddingHorizontal: spacing.md,
     paddingVertical:   12,
     ...Platform.select({ web: { outlineStyle: 'none' } as any, default: {} }),
   },
-  errorText:     { ...type.body, color: '#FF6B6B', fontSize: 12 },
+  errorText: { ...type.body, color: '#FF6B6B', fontSize: 12 },
   submitBtn: {
     backgroundColor: accent.indigo,
     borderRadius:    radius.pill,
@@ -649,14 +832,10 @@ const styles = StyleSheet.create({
     ...Platform.select({ web: { cursor: 'pointer' } as any, default: {} }),
   },
   submitBtnText: { color: '#fff', fontSize: 12, fontWeight: '800', letterSpacing: 1 },
-  legalText:     { ...type.caption, fontSize: 10, color: neutral.textDim, textAlign: 'center' },
+  legalText:     { ...type.caption, fontSize: 12, color: neutral.textDim, textAlign: 'center' },
+  legalLink:     { color: neutral.textMid, textDecorationLine: 'underline' },
 
-  // Sent state
-  sentWrap: {
-    padding:    spacing.xl,
-    alignItems: 'center',
-    gap:        spacing.md,
-  },
+  sentWrap: { padding: spacing.xl, alignItems: 'center', gap: spacing.md },
   sentIconWrap: {
     width:           72,
     height:          72,
@@ -666,20 +845,20 @@ const styles = StyleSheet.create({
     justifyContent:  'center',
     marginBottom:    spacing.xs,
   },
-  sentTitle: { ...type.title, fontSize: 22, color: neutral.text, fontWeight: '700' },
+  sentTitle: { ...type.title, fontSize: 24, color: neutral.text, fontWeight: '700' },
   sentCopy: {
     ...type.body,
-    fontSize:  14,
-    color:     neutral.textMid,
-    textAlign: 'center',
+    fontSize:   16,
+    color:      neutral.textMid,
+    textAlign:  'center',
     lineHeight: 22,
   },
   sentEmail: { color: neutral.text, fontWeight: '600' },
   sentHint: {
     ...type.body,
-    fontSize:  12,
-    color:     neutral.textDim,
-    textAlign: 'center',
+    fontSize:   12,
+    color:      neutral.textDim,
+    textAlign:  'center',
     lineHeight: 18,
   },
   closeBtn: {
@@ -726,73 +905,183 @@ const proStyles = StyleSheet.create({
   },
   headerLeft:    { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   brandDot:      { width: 8, height: 8, borderRadius: 4, backgroundColor: accent.indigo },
-  brandLabel:    { fontFamily: font.bold, fontSize: 11, color: neutral.textDim, letterSpacing: 2 },
-  progressLabel: { fontFamily: font.ui, fontSize: 11, color: neutral.textDim },
+  brandLabel:    { fontFamily: font.bold, fontSize: 12, color: neutral.textDim, letterSpacing: 2 },
+  progressLabel: { fontFamily: font.ui, fontSize: 12, color: neutral.textDim },
   progressTrack: { height: 3, backgroundColor: 'rgba(255,255,255,0.07)', overflow: 'hidden' },
   progressFill:  { height: 3, backgroundColor: accent.indigo, borderRadius: 2 },
+
   body:      { flex: 1 },
   bodyInner: { padding: spacing.xl, gap: spacing.xl, paddingBottom: spacing.xl + 4 },
-  title:    { fontFamily: font.bold, fontSize: 26, color: neutral.text, lineHeight: 34 },
-  subtitle: { fontFamily: font.ui, fontSize: 14, color: neutral.textMid, lineHeight: 22, marginTop: 4 },
-  section:         { gap: spacing.md },
-  sectionHeadRow:  { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
-  sectionTitle:    { fontFamily: font.bold, fontSize: 16, color: neutral.text },
-  sectionHint:     { fontFamily: font.ui, fontSize: 11, color: neutral.textDim },
-  cardGrid:        { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+
+  title:    { fontFamily: font.bold, fontSize: 28, color: neutral.text, lineHeight: 34 },
+  subtitle: { fontFamily: font.ui, fontSize: 16, color: neutral.textMid, lineHeight: 22, marginTop: 4 },
+
+  section:        { gap: spacing.md },
+  sectionHeadRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
+  sectionTitle:   { fontFamily: font.bold, fontSize: 16, color: neutral.text },
+  sectionHint:    { fontFamily: font.ui, fontSize: 12, color: neutral.textDim },
+
+  // Details fields
+  detailsGrid: {
+    flexDirection: 'row',
+    flexWrap:      'wrap',
+    gap:           spacing.md,
+  },
+  detailsField: {
+    flex:     1,
+    minWidth: 200,
+    gap:      4,
+  },
+  fieldLabel: {
+    fontFamily:    font.bold,
+    fontSize:      12,
+    color:         neutral.textDim,
+    letterSpacing: 0.8,
+  },
+  textInput: {
+    backgroundColor:   'rgba(255,255,255,0.05)',
+    borderWidth:       1,
+    borderColor:       glass.border,
+    borderRadius:      radius.md,
+    color:             neutral.text,
+    fontFamily:        font.ui,
+    fontSize:          16,
+    paddingHorizontal: spacing.md,
+    paddingVertical:   10,
+  },
+
+  // Segment / interest grids
+  cardGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   segCard: {
-    flexDirection: 'row', alignItems: 'center', gap: spacing.md,
-    width: 'calc(50% - 6px)' as any, minWidth: 220, flex: 1,
-    backgroundColor: 'rgba(255,255,255,0.03)', borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.07)', borderRadius: radius.md,
-    padding: spacing.md, position: 'relative',
+    flexDirection:   'row',
+    alignItems:      'center',
+    gap:             spacing.md,
+    width:           'calc(50% - 6px)' as any,
+    minWidth:        220,
+    flex:            1,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderWidth:     1.5,
+    borderColor:     'rgba(255,255,255,0.07)',
+    borderRadius:    radius.md,
+    padding:         spacing.md,
+    position:        'relative',
     ...Platform.select({ web: { cursor: 'pointer', transitionProperty: 'border-color, background-color', transitionDuration: '140ms' } as any, default: {} }),
   },
   segCardActive:      { borderColor: accent.indigo, backgroundColor: 'rgba(124,131,255,0.08)' },
   segCardText:        { flex: 1, gap: 2, minWidth: 0 },
-  segCardLabel:       { fontFamily: font.bold, fontSize: 13, color: neutral.textMid },
+  segCardLabel:       { fontFamily: font.bold, fontSize: 16, color: neutral.textMid },
   segCardLabelActive: { color: neutral.text },
-  segCardSub:         { fontFamily: font.ui, fontSize: 11, color: neutral.textDim, lineHeight: 16 },
-  otherWrap:  { marginTop: spacing.sm },
+  segCardSub:         { fontFamily: font.ui, fontSize: 12, color: neutral.textDim, lineHeight: 16 },
+  otherWrap:          { marginTop: spacing.sm },
   otherInput: {
-    backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1.5, borderColor: accent.indigo,
-    borderRadius: radius.md, color: neutral.text, fontFamily: font.ui,
-    fontSize: 14, paddingHorizontal: spacing.md, paddingVertical: 12,
+    backgroundColor:   'rgba(255,255,255,0.05)',
+    borderWidth:       1.5,
+    borderColor:       accent.indigo,
+    borderRadius:      radius.md,
+    color:             neutral.text,
+    fontFamily:        font.ui,
+    fontSize:          16,
+    paddingHorizontal: spacing.md,
+    paddingVertical:   12,
   },
   interestCard: {
-    flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md,
-    width: 'calc(50% - 6px)' as any, minWidth: 220, flex: 1,
-    backgroundColor: 'rgba(255,255,255,0.03)', borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.07)', borderRadius: radius.md,
-    padding: spacing.md, paddingTop: spacing.md + 2, position: 'relative',
+    flexDirection:   'row',
+    alignItems:      'flex-start',
+    gap:             spacing.md,
+    width:           'calc(50% - 6px)' as any,
+    minWidth:        220,
+    flex:            1,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderWidth:     1.5,
+    borderColor:     'rgba(255,255,255,0.07)',
+    borderRadius:    radius.md,
+    padding:         spacing.md,
+    paddingTop:      spacing.md + 2,
+    position:        'relative',
     ...Platform.select({ web: { cursor: 'pointer', transitionProperty: 'border-color, background-color', transitionDuration: '140ms' } as any, default: {} }),
   },
   interestCardActive:  { borderColor: accent.indigo, backgroundColor: 'rgba(124,131,255,0.08)' },
   interestCardText:    { flex: 1, gap: 3, minWidth: 0 },
-  interestLabel:       { fontFamily: font.bold, fontSize: 13, color: neutral.textMid },
+  interestLabel:       { fontFamily: font.bold, fontSize: 16, color: neutral.textMid },
   interestLabelActive: { color: neutral.text },
-  interestDesc:        { fontFamily: font.ui, fontSize: 11, color: neutral.textDim, lineHeight: 16 },
+  interestDesc:        { fontFamily: font.ui, fontSize: 12, color: neutral.textDim, lineHeight: 16 },
   iconWrap: {
-    width: 40, height: 40, borderRadius: radius.sm,
+    width:           40,
+    height:          40,
+    borderRadius:    radius.sm,
     backgroundColor: 'rgba(255,255,255,0.05)',
-    alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+    alignItems:      'center',
+    justifyContent:  'center',
+    flexShrink:      0,
   },
   iconWrapActive: { backgroundColor: 'rgba(124,131,255,0.14)' },
   checkBadge: {
-    position: 'absolute', top: 8, right: 8,
-    width: 20, height: 20, borderRadius: 10,
-    backgroundColor: accent.indigo, alignItems: 'center', justifyContent: 'center',
+    position:        'absolute',
+    top:             8,
+    right:           8,
+    width:           20,
+    height:          20,
+    borderRadius:    10,
+    backgroundColor: accent.indigo,
+    alignItems:      'center',
+    justifyContent:  'center',
   },
+
+  // Consent
+  consentCard: {
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderWidth:     1,
+    borderColor:     glass.border,
+    borderRadius:    radius.md,
+    overflow:        'hidden',
+  },
+  consentRow: {
+    flexDirection:   'row',
+    alignItems:      'center',
+    gap:             spacing.md,
+    paddingHorizontal: spacing.lg,
+    paddingVertical:   spacing.md,
+    ...Platform.select({ web: { cursor: 'pointer' } as any, default: {} }),
+  },
+  checkbox: {
+    width:        22,
+    height:       22,
+    borderRadius: 6,
+    borderWidth:  1.5,
+    alignItems:   'center',
+    justifyContent: 'center',
+    flexShrink:   0,
+  },
+  consentText:  { flex: 1, gap: 2 },
+  consentLabel: { fontFamily: font.bold, fontSize: 16, color: neutral.text },
+  consentDesc:  { fontFamily: font.ui, fontSize: 12, color: neutral.textDim, lineHeight: 16 },
+  consentDivider: { height: 1, backgroundColor: 'rgba(255,255,255,0.05)', marginHorizontal: spacing.lg },
+  consentNote: {
+    fontFamily: font.ui,
+    fontSize:   12,
+    color:      neutral.textDim,
+    lineHeight: 17,
+    marginTop:  spacing.xs,
+  },
+  consentLink: { color: neutral.textMid, textDecorationLine: 'underline' },
+
+  // Footer
   footerDivider: { height: 1, backgroundColor: 'rgba(255,255,255,0.07)' },
   footer: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: spacing.xl, paddingVertical: spacing.lg,
+    flexDirection:     'row',
+    alignItems:        'center',
+    justifyContent:    'space-between',
+    paddingHorizontal: spacing.xl,
+    paddingVertical:   spacing.lg,
   },
   submitBtn: {
-    backgroundColor: accent.indigo, borderRadius: radius.pill,
-    paddingHorizontal: spacing.xl, paddingVertical: 12,
+    backgroundColor:   accent.indigo,
+    borderRadius:      radius.pill,
+    paddingHorizontal: spacing.xl,
+    paddingVertical:   12,
     ...Platform.select({ web: { cursor: 'pointer' } as any, default: {} }),
   },
   submitBtnDisabled: { backgroundColor: 'rgba(124,131,255,0.35)' },
   submitBtnInner:    { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  submitBtnText:     { fontFamily: font.bold, fontSize: 13, color: '#fff', letterSpacing: 0.3 },
+  submitBtnText:     { fontFamily: font.bold, fontSize: 16, color: '#fff', letterSpacing: 0.3 },
 });

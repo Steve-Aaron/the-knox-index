@@ -45,7 +45,7 @@ export function TopicCloud({ posts, rangeLabel, topN = 24 }: Props) {
 
     const sorted = Array.from(counts.entries())
       .map(([key, count]) => ({
-        label: key.charAt(0).toUpperCase() + key.slice(1),
+        label: key.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
         count,
         share: count / total,
       }))
@@ -103,19 +103,19 @@ export function TopicCloud({ posts, rangeLabel, topN = 24 }: Props) {
 const TIERS = [
   {
     pill: { backgroundColor: 'rgba(255,255,255,0.04)', borderColor: 'rgba(255,255,255,0.08)' },
-    text: { color: neutral.textDim, fontSize: 10 },
+    text: { color: neutral.textDim, fontSize: 12 },
   },
   {
     pill: { backgroundColor: 'rgba(255,255,255,0.06)', borderColor: 'rgba(255,255,255,0.12)' },
-    text: { color: neutral.textMid, fontSize: 11 },
+    text: { color: neutral.textMid, fontSize: 12 },
   },
   {
     pill: { backgroundColor: 'rgba(110,255,180,0.12)', borderColor: 'rgba(110,255,180,0.35)' },
-    text: { color: accent.mint, fontSize: 13, fontWeight: '600' as const },
+    text: { color: accent.mint, fontSize: 16, fontWeight: '600' as const },
   },
   {
     pill: { backgroundColor: 'rgba(124,131,255,0.18)', borderColor: 'rgba(124,131,255,0.55)' },
-    text: { color: accent.indigo, fontSize: 14, fontWeight: '700' as const },
+    text: { color: accent.indigo, fontSize: 16, fontWeight: '700' as const },
   },
 ] as const;
 
@@ -133,7 +133,7 @@ const styles = StyleSheet.create({
   kicker: {
     ...type.caption,
     color: neutral.textDim,
-    fontSize: 10,
+    fontSize: 12,
   },
   title: {
     ...type.title,
@@ -160,7 +160,7 @@ const styles = StyleSheet.create({
   },
   pillCount: {
     fontFamily: font.mono,
-    fontSize: 9,
+    fontSize: 12,
     color: neutral.textDim,
   },
   emptyText: {

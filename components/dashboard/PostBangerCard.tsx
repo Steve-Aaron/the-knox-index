@@ -122,7 +122,7 @@ export function PostBangerCard({ post, politicianName, partyKey, delay = 0 }: Pr
 const styles = StyleSheet.create({
   card: {
     width: 180,
-    backgroundColor: glass.fill,
+    backgroundColor: glass.card,
     borderWidth: 1,
     borderColor: glass.border,
     borderRadius: radius.md,
@@ -192,7 +192,7 @@ const styles = StyleSheet.create({
   },
   viewsLabel: {
     ...type.caption,
-    fontSize: 9,
+    fontSize: 12,
     color: neutral.textMid,
     textTransform: 'none',
     letterSpacing: 0,
@@ -219,7 +219,7 @@ const styles = StyleSheet.create({
   },
   name: {
     ...type.caption,
-    fontSize: 9,
+    fontSize: 12,
     letterSpacing: 0.4,
     flex: 1,
   },
@@ -229,7 +229,7 @@ const styles = StyleSheet.create({
   },
   linkText: {
     ...type.caption,
-    fontSize: 9,
+    fontSize: 12,
     color: accent.indigo,
     letterSpacing: 0.2,
   },

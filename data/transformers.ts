@@ -20,6 +20,7 @@ export interface BQAccountRow {
   profile:          string;    // TikTok handle — also the join key to post.profile
   party:            string;
   affiliation:      string;    // e.g. 'MP, Ashton-under-Lyne'
+  avatar?:          string;    // GCS URL for profile photo
   totalFollowing:   number;
   totalFollowers:   number;
   accountTypeName?: string;    // from accountType table via account_x_accountType JOIN
@@ -37,6 +38,13 @@ export interface BQAccountRow {
   commentsToday:   number;
   savesToday:      number;
   followerChange:  number | null;
+  // Range-specific aggregates (present when ?range= is passed to the API)
+  postsInRange?:    number;
+  viewsInRange?:    number;
+  likesInRange?:    number;
+  commentsInRange?: number;
+  savesInRange?:    number;
+  sharesInRange?:   number;
 }
 
 /** post rows — linked to account via post.profile = account.profile */
@@ -139,32 +147,46 @@ function normalise(value: number, max: number): number {
 }
 
 interface ScoreMaxValues {
-  avgViews:        number;
-  engagementRate:  number;   // (likes + comments + shares) / views
-  postsThisWeek:   number;   // posts in the past 7 days
-  totalFollowers:  number;
+  avgViews:       number;
+  engagementRate: number;  // (likes + comments + saves + shares) / views
+  postsInRange:   number;  // posts within the selected range
+  totalFollowers: number;
 }
 
 function computeMaxValues(
   rows: BQAccountRow[],
   postsByProfile: Map<string, BQPostRow[]>
 ): ScoreMaxValues {
-  let maxAvgViews = 1, maxEngRate = 1, maxPostsThisWeek = 1, maxFollowers = 1;
+  let maxAvgViews = 1, maxEngRate = 1, maxPostsInRange = 1, maxFollowers = 1;
 
   for (const acc of rows) {
-    const posts      = postsByProfile.get(normProfile(acc.profile)) ?? [];
-    const totalViews = posts.reduce((s, p) => s + (p.views ?? 0), 0);
-    const avgViews   = posts.length > 0 ? totalViews / posts.length : 0;
-    const engViews   = Math.max(acc.totalViews ?? 1, 1);
-    const engRate    = ((acc.totalLikes + acc.totalComments + acc.totalShares) / engViews) * 100;
+    const posts = postsByProfile.get(normProfile(acc.profile)) ?? [];
 
-    if (avgViews              > maxAvgViews)       maxAvgViews       = avgViews;
-    if (engRate               > maxEngRate)        maxEngRate        = engRate;
-    if (acc.postsThisWeek     > maxPostsThisWeek)  maxPostsThisWeek  = acc.postsThisWeek;
-    if (acc.totalFollowers    > maxFollowers)       maxFollowers      = acc.totalFollowers;
+    // views: use range views from BQ aggregate if present, else average posts in feed
+    const rangeViews = acc.viewsInRange ?? 0;
+    const feedViews  = posts.reduce((s, p) => s + (p.views ?? 0), 0);
+    const avgViews   = rangeViews > 0
+      ? rangeViews / Math.max(acc.postsInRange ?? posts.length, 1)
+      : posts.length > 0 ? feedViews / posts.length : 0;
+
+    // engagement: prefer range-specific totals, fall back to lifetime
+    const eViews    = Math.max(rangeViews > 0 ? rangeViews : (acc.totalViews ?? 1), 1);
+    const eLikes    = acc.likesInRange    ?? acc.totalLikes;
+    const eComments = acc.commentsInRange ?? acc.totalComments;
+    const eSaves    = acc.savesInRange    ?? acc.totalSaves;
+    const eShares   = acc.sharesInRange   ?? acc.totalShares;
+    const engRate   = ((eLikes + eComments + eSaves + eShares) / eViews) * 100;
+
+    // frequency: posts in range when available, fall back to postsThisWeek
+    const postsCount = acc.postsInRange ?? acc.postsThisWeek;
+
+    if (avgViews     > maxAvgViews)      maxAvgViews      = avgViews;
+    if (engRate      > maxEngRate)       maxEngRate       = engRate;
+    if (postsCount   > maxPostsInRange)  maxPostsInRange  = postsCount;
+    if (acc.totalFollowers > maxFollowers) maxFollowers   = acc.totalFollowers;
   }
 
-  return { avgViews: maxAvgViews, engagementRate: maxEngRate, postsThisWeek: maxPostsThisWeek, totalFollowers: maxFollowers };
+  return { avgViews: maxAvgViews, engagementRate: maxEngRate, postsInRange: maxPostsInRange, totalFollowers: maxFollowers };
 }
 
 function computeScores(
@@ -172,15 +194,28 @@ function computeScores(
   posts: BQPostRow[],
   max: ScoreMaxValues
 ): TopTrumpScores {
-  const totalViews = posts.reduce((s, p) => s + (p.views ?? 0), 0);
-  const avgViews   = posts.length > 0 ? totalViews / posts.length : 0;
-  const engViews   = Math.max(acc.totalViews ?? 1, 1);
-  const engRate    = ((acc.totalLikes + acc.totalComments + acc.totalShares) / engViews) * 100;
+  // views: prefer range aggregate, fall back to feed average
+  const rangeViews = acc.viewsInRange ?? 0;
+  const feedViews  = posts.reduce((s, p) => s + (p.views ?? 0), 0);
+  const avgViews   = rangeViews > 0
+    ? rangeViews / Math.max(acc.postsInRange ?? posts.length, 1)
+    : posts.length > 0 ? feedViews / posts.length : 0;
 
-  const views      = normalise(avgViews,          max.avgViews);
-  const engagement = normalise(engRate,            max.engagementRate);
-  const frequency  = normalise(acc.postsThisWeek,  max.postsThisWeek);
-  const followers  = normalise(acc.totalFollowers, max.totalFollowers);
+  // engagement: prefer range-specific totals, fall back to lifetime
+  const eViews    = Math.max(rangeViews > 0 ? rangeViews : (acc.totalViews ?? 1), 1);
+  const eLikes    = acc.likesInRange    ?? acc.totalLikes;
+  const eComments = acc.commentsInRange ?? acc.totalComments;
+  const eSaves    = acc.savesInRange    ?? acc.totalSaves;
+  const eShares   = acc.sharesInRange   ?? acc.totalShares;
+  const engRate   = ((eLikes + eComments + eSaves + eShares) / eViews) * 100;
+
+  // frequency: posts in range when available, fall back to postsThisWeek
+  const postsCount = acc.postsInRange ?? acc.postsThisWeek;
+
+  const views      = normalise(avgViews,            max.avgViews);
+  const engagement = normalise(engRate,             max.engagementRate);
+  const frequency  = normalise(postsCount,          max.postsInRange);
+  const followers  = normalise(acc.totalFollowers,  max.totalFollowers);
 
   // Knox Factor: virality = views score, then engagement, followers, frequency
   const knoxFactor = computeKnoxFactor(views, engagement, followers, frequency);
@@ -210,6 +245,7 @@ function transformPost(row: BQPostRow): RecentPost {
     likes:     row.likes        ?? 0,
     comments:  row.comments     ?? 0,
     shares:    row.shares       ?? 0,
+    saves:     row.saves        ?? 0,
     summary:   row.videoSummary || undefined,
     style:     row.style        || undefined,
     coverJpeg: row.coverJpeg    || undefined,
@@ -253,6 +289,7 @@ export function transformToPoliticians(
       partyLabel:     acc.party ?? 'Unknown',
       country:        'UK',
       avatarInitials: toInitials(acc.name ?? ''),
+      avatarUrl:      acc.avatar || undefined,
       accountType:    inferAccountType(acc.name ?? '', acc.affiliation ?? '', acc.accountTypeName),
       totals: {
         posts:          acc.totalPosts     ?? 0,
@@ -265,6 +302,12 @@ export function transformToPoliticians(
         savesToday:     acc.savesToday     ?? 0,
         postsToday:     acc.postsToday     ?? 0,
         postsThisWeek:  acc.postsThisWeek  ?? 0,
+        postsInRange:    acc.postsInRange    ?? 0,
+        viewsInRange:    acc.viewsInRange    ?? 0,
+        likesInRange:    acc.likesInRange    ?? 0,
+        commentsInRange: acc.commentsInRange ?? 0,
+        savesInRange:    acc.savesInRange    ?? 0,
+        sharesInRange:   acc.sharesInRange   ?? 0,
       },
       scores,
       recentPosts: posts.map(transformPost),

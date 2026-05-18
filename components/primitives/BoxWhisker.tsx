@@ -288,12 +288,12 @@ const styles = StyleSheet.create({
   metricLabel: {
     ...type.caption,
     color: neutral.textDim,
-    fontSize: 9,
+    fontSize: 12,
     letterSpacing: 0.6,
   },
   metricValue: {
     fontFamily: font.mono,
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '700',
   },
 
@@ -305,7 +305,7 @@ const styles = StyleSheet.create({
   },
   zoneBadgeText: {
     fontFamily: font.bold,
-    fontSize: 9,
+    fontSize: 12,
     letterSpacing: 0.4,
   },
 
@@ -315,22 +315,22 @@ const styles = StyleSheet.create({
   tipText: {
     fontFamily: font.ui,
     color: neutral.textDim,
-    fontSize: 10,
+    fontSize: 12,
     lineHeight: 15,
   },
   tipActive: {
     color: neutral.textMid,
     fontFamily: font.bold,
-    fontSize: 10,
+    fontSize: 12,
   },
   tipDim: {
     fontFamily: font.ui,
     color: neutral.textDim,
-    fontSize: 10,
+    fontSize: 12,
   },
   tipNum: {
     fontFamily: font.mono,
     color: neutral.textMid,
-    fontSize: 10,
+    fontSize: 12,
   },
 });

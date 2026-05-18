@@ -17,8 +17,8 @@ import { type, font } from '@/theme/typography';
 const YEAR = new Date().getFullYear();
 
 const LINKS: { label: string; url: string }[] = [
-  { label: 'LinkedIn',       url: 'https://www.linkedin.com/company/knox-digital' },
-  { label: 'Privacy Policy', url: 'https://knoxdigi.com/privacy' },
+  { label: 'LinkedIn',       url: 'https://www.linkedin.com/company/knoxdigital' },
+  { label: 'Privacy Policy', url: 'https://knoxdigi.com/privacy-policy' },
   { label: 'Contact',        url: 'mailto:hello@knoxdigi.com' },
 ];
 
@@ -67,7 +67,7 @@ export function AppFooter() {
       {/* Legal line */}
       <View style={styles.legalRow}>
         <Text style={styles.legalText}>
-          © {YEAR} Knox Digital Ltd. All rights reserved. Data sourced from public TikTok accounts.
+          © {YEAR} Knox Digital Ltd. All rights reserved.
         </Text>
       </View>
     </View>
@@ -120,13 +120,13 @@ const styles = StyleSheet.create({
   },
   brandTagline: {
     fontFamily: font.ui,
-    fontSize: 13,
+    fontSize: 16,
     color: neutral.textMid,
     lineHeight: 20,
   },
   brandSub: {
     fontFamily: font.ui,
-    fontSize: 11,
+    fontSize: 12,
     color: neutral.textDim,
   },
 
@@ -148,7 +148,7 @@ const styles = StyleSheet.create({
   },
   linkText: {
     ...type.caption,
-    fontSize: 11,
+    fontSize: 12,
     color: neutral.textMid,
   },
 
@@ -160,7 +160,7 @@ const styles = StyleSheet.create({
   },
   legalText: {
     ...type.caption,
-    fontSize: 10,
+    fontSize: 12,
     color: neutral.textDim,
     textAlign: 'center',
     lineHeight: 16,

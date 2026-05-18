@@ -317,7 +317,7 @@ const styles = StyleSheet.create({
   caption: {
     ...type.body,
     color: neutral.textMid,
-    fontSize: 13,
+    fontSize: 16,
     lineHeight: 20,
     padding: spacing.md,
   },
@@ -344,7 +344,7 @@ const styles = StyleSheet.create({
   openBtnText: {
     ...type.caption,
     color: '#fff',
-    fontSize: 11,
+    fontSize: 12,
   },
   closeBtn: {
     paddingHorizontal: spacing.md,
@@ -357,6 +357,6 @@ const styles = StyleSheet.create({
   closeBtnText: {
     ...type.caption,
     color: neutral.textMid,
-    fontSize: 11,
+    fontSize: 12,
   },
 });

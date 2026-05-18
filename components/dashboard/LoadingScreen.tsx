@@ -299,19 +299,19 @@ const styles = StyleSheet.create({
   },
   kicker: {
     fontFamily: font.bold,
-    fontSize: 10,
+    fontSize: 12,
     color: neutral.textDim,
     letterSpacing: 3,
   },
   brand: {
     fontFamily: font.bold,
-    fontSize: 38,
+    fontSize: 40,
     color: neutral.text,
     letterSpacing: -1,
   },
   sub: {
     fontFamily: font.ui,
-    fontSize: 13,
+    fontSize: 16,
     color: accent.indigo,
     letterSpacing: 4,
   },

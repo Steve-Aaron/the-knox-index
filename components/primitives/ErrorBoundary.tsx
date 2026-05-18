@@ -191,26 +191,26 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   icon: {
-    fontSize: 22,
+    fontSize: 24,
     color: '#ff6060',
   },
   title: {
     fontFamily: font.bold,
-    fontSize: 18,
+    fontSize: 20,
     color: neutral.text,
     letterSpacing: -0.3,
     textAlign: 'center',
   },
   body: {
     ...type.body,
-    fontSize: 13,
+    fontSize: 16,
     color: neutral.textMid,
     textAlign: 'center',
     lineHeight: 20,
   },
   hint: {
     ...type.body,
-    fontSize: 11,
+    fontSize: 12,
     color: neutral.textDim,
     textAlign: 'center',
     lineHeight: 17,
@@ -231,7 +231,7 @@ const styles = StyleSheet.create({
   },
   btnText: {
     fontFamily: font.bold,
-    fontSize: 13,
+    fontSize: 16,
     color: '#fff',
     letterSpacing: 0.2,
   },
@@ -245,6 +245,6 @@ const styles = StyleSheet.create({
   },
   iconUpdate: {
     color: accent.mint,
-    fontSize: 26,
+    fontSize: 28,
   },
 });

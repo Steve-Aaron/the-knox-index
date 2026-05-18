@@ -12,7 +12,7 @@ import type { TopTrumpScores, ScoreKey } from '@/data/types';
  * PostScript asset name on native ('Montserrat_600SemiBold' etc.).
  * Expo Google Fonts registers both forms at load time via @expo-google-fonts.
  */
-const SVG_FONT_LABEL  = Platform.select({ web: 'Montserrat', default: 'Montserrat_600SemiBold' });
+const SVG_FONT_LABEL  = Platform.select({ web: 'Figtree', default: 'Figtree_600SemiBold' });
 const SVG_WEIGHT_LABEL: string = '600';
 import { timing } from '@/theme/motion';
 import { DevLabel } from '@/components/primitives/DevLabel';
@@ -47,7 +47,7 @@ interface Props {
 const AXES: { key: ScoreKey; label: string; desc: string; format: (v: number) => string }[] = [
   { key: 'views',      label: 'Views',     desc: 'Avg post views',                        format: v => compact(v) + ' avg views' },
   { key: 'frequency',  label: 'Activity', desc: 'Posts this week',                       format: v => `${v} posts this week` },
-  { key: 'engagement', label: 'Eng. %',    desc: 'Likes + comments + shares per view',   format: v => v.toFixed(2) + '% eng. rate' },
+  { key: 'engagement', label: 'Eng. %',    desc: 'Likes + comments + saves + shares per view',   format: v => v.toFixed(2) + '% eng. rate' },
   { key: 'followers',  label: 'Followers', desc: 'Total followers',                       format: v => compact(v) + ' followers' },
   { key: 'knoxFactor', label: 'Knox',      desc: 'Average of all four axes',             format: v => `${v} / 100` },
 ];
@@ -333,7 +333,7 @@ const styles = StyleSheet.create({
   },
   tooltipLabel: {
     ...type.caption,
-    fontSize: 9,
+    fontSize: 12,
     letterSpacing: 1.2,
   },
   tooltipScore: {
@@ -351,7 +351,7 @@ const styles = StyleSheet.create({
   },
   tooltipDesc: {
     fontFamily: font.ui,
-    fontSize: 10,
+    fontSize: 12,
     color: '#888',
     textAlign: 'center',
   },
@@ -381,7 +381,7 @@ const styles = StyleSheet.create({
   },
   noDataSub: {
     fontFamily: font.ui,
-    fontSize: 9,
+    fontSize: 12,
     color: 'rgba(255,255,255,0.2)',
     textAlign: 'center',
   },

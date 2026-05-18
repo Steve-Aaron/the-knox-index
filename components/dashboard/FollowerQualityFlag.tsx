@@ -106,18 +106,18 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   dot: {
-    fontSize: 10,
+    fontSize: 12,
     lineHeight: 12,
   },
   label: {
     ...type.caption,
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: '600',
     flex: 1,
   },
   ratio: {
     ...type.body,
-    fontSize: 11,
+    fontSize: 12,
     color: neutral.textDim,
   },
   ratioValue: {

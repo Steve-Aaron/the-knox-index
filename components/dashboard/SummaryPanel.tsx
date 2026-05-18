@@ -6,7 +6,7 @@ import type { BriefResponse } from '@/data/types';
 import { GlassSurface } from '@/components/primitives/GlassSurface';
 import { DevLabel } from '@/components/primitives/DevLabel';
 import { PostBangerCard } from './PostBangerCard';
-import { neutral, party, glass, accent } from '@/theme/colors';
+import { neutral, party, glass, accent, brand } from '@/theme/colors';
 import { font } from '@/theme/typography';
 import { spacing, radius } from '@/theme/spacing';
 import { type } from '@/theme/typography';
@@ -161,10 +161,8 @@ export function SummaryPanel({ politicians, panelHeight }: Props) {
     : {};
 
   return (
-    <GlassSurface style={wrapStyle} radius={radius.lg} {...hoverProps}>
+    <GlassSurface style={wrapStyle} radius={radius.lg} topAccent={[...brand.gradient]} flatTop {...hoverProps}>
       <DevLabel name="SummaryPanel" />
-      {/* Accent strip */}
-      <View style={[styles.accentStrip, { backgroundColor: accent.indigo }]} />
 
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -307,11 +305,6 @@ export function SummaryPanel({ politicians, panelHeight }: Props) {
 }
 
 const styles = StyleSheet.create({
-  accentStrip: {
-    height: 3,
-    width: '100%',
-    opacity: 0.7,
-  },
   scroll: {
     padding: spacing.lg,
     gap: spacing.lg,
@@ -322,12 +315,12 @@ const styles = StyleSheet.create({
   kicker: {
     ...type.caption,
     color: neutral.textDim,
-    fontSize: 9,
+    fontSize: 12,
     marginBottom: spacing.xs,
   },
   title: {
     fontFamily: font.ui,
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: '800',
     color: neutral.text,
     letterSpacing: -0.5,
@@ -335,7 +328,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontFamily: font.ui,
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: '800',
     color: accent.indigo,
     letterSpacing: -0.5,
@@ -362,7 +355,7 @@ const styles = StyleSheet.create({
     flex: 1,
     ...type.body,
     color: neutral.textMid,
-    fontSize: 13,
+    fontSize: 16,
     lineHeight: 20,
   },
 
@@ -395,7 +388,7 @@ const styles = StyleSheet.create({
   },
   postingStatsParties: {
     ...type.body,
-    fontSize: 11,
+    fontSize: 12,
     color: neutral.textDim,
     lineHeight: 16,
   },
@@ -404,7 +397,7 @@ const styles = StyleSheet.create({
   sectionKicker: {
     ...type.caption,
     color: neutral.textDim,
-    fontSize: 9,
+    fontSize: 12,
     marginBottom: -spacing.sm,
   },
 
@@ -424,7 +417,7 @@ const styles = StyleSheet.create({
   insightLabel: {
     ...type.caption,
     color: neutral.textDim,
-    fontSize: 9,
+    fontSize: 12,
   },
   insightValue: {
     fontFamily: font.mono,
@@ -435,7 +428,7 @@ const styles = StyleSheet.create({
   insightSub: {
     ...type.body,
     color: neutral.textMid,
-    fontSize: 11,
+    fontSize: 12,
   },
 
   // Top narratives
@@ -461,7 +454,7 @@ const styles = StyleSheet.create({
   narrativeHeadline: {
     ...type.body,
     color: neutral.text,
-    fontSize: 13,
+    fontSize: 16,
     fontWeight: '700',
   },
   narrativeBody: {

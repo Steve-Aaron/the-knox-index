@@ -33,6 +33,7 @@ interface PostRow {
   views:         number;
   likes:         number;
   comments:      number;
+  saves:         number;
   shares:        number;
 }
 
@@ -48,6 +49,7 @@ const FETCH_SQL = (postId: string) => `
     COALESCE(p.views,    0)  AS views,
     COALESCE(p.likes,    0)  AS likes,
     COALESCE(p.comments, 0)  AS comments,
+    COALESCE(p.saves,    0)  AS saves,
     COALESCE(p.shares,   0)  AS shares,
     ARRAY_AGG(DISTINCT t.name IGNORE NULLS) AS topics
   FROM ${tableRef('post')} p
@@ -57,7 +59,7 @@ const FETCH_SQL = (postId: string) => `
   WHERE p.postId = ${postId}
   GROUP BY p.postId, p.profile, a.name, a.party,
            p.caption, p.videoMp4, p.style,
-           p.views, p.likes, p.comments, p.shares
+           p.views, p.likes, p.comments, p.saves, p.shares
   LIMIT 1
 `;
 
@@ -68,7 +70,7 @@ Caption: "${post.caption}"
 Content style: ${post.style || 'unknown'}
 Topics: ${(post.topics ?? []).join(', ') || 'none tagged'}
 Performance: ${post.views.toLocaleString()} views · ${post.likes.toLocaleString()} likes · ${post.comments.toLocaleString()} comments · ${post.shares.toLocaleString()} shares
-Engagement rate: ${post.views > 0 ? ((post.likes + post.comments + post.shares) / post.views * 100).toFixed(1) : '0'}%
+Engagement rate: ${post.views > 0 ? +((post.likes + post.comments + post.saves + post.shares) / post.views * 100).toFixed(2) : '0'}%
 
 Write exactly 2–3 sentences summarising:
 1. What the politician is likely doing or addressing in this video based on the caption and topics

@@ -6,7 +6,7 @@ import { InfoTip } from '@/components/primitives/InfoTip';
 import { SkeletonBlock } from '@/components/primitives/SkeletonBlock';
 import { RankBoardRow } from './RankBoardRow';
 import { ViewTabs, VIEW_ACCOUNT_TYPES, type ViewType } from './ViewTabs';
-import { neutral, glass, party } from '@/theme/colors';
+import { neutral, glass, party, brand } from '@/theme/colors';
 import type { PartyKey } from '@/theme/colors';
 import { spacing, radius } from '@/theme/spacing';
 import { type } from '@/theme/typography';
@@ -85,6 +85,8 @@ export function RankBoard({ politicians, activeId, headlineKey, timeRangeLabel, 
   const ranked = useMemo(() => {
     const types = VIEW_ACCOUNT_TYPES[viewType];
     let base = types ? politicians.filter(p => types.includes(p.accountType)) : politicians;
+    // Only include accounts that posted at least once in the selected range.
+    base = base.filter(p => p.totals.postsInRange > 0);
     if (partyFilter) base = base.filter(p => p.partyKey === partyFilter);
     return [...base].sort((a, b) => b.scores[headlineKey] - a.scores[headlineKey]);
   }, [politicians, headlineKey, viewType, partyFilter]);
@@ -96,7 +98,7 @@ export function RankBoard({ politicians, activeId, headlineKey, timeRangeLabel, 
   };
 
   return (
-    <GlassSurface style={wrapStyle} radius={radius.lg}>
+    <GlassSurface style={wrapStyle} radius={radius.lg} topAccent={[...brand.gradient]} flatTop>
       <DevLabel name="RankBoard" />
 
       {/* Fixed header — stays at the top */}
@@ -109,7 +111,7 @@ export function RankBoard({ politicians, activeId, headlineKey, timeRangeLabel, 
         <Text style={styles.meta}>
           {timeRangeLabel}
           {' · '}
-          {ranked.reduce((sum, p) => sum + p.totals.postsThisWeek, 0)} posts by {ranked.length} accounts
+          {ranked.reduce((sum, p) => sum + p.totals.postsInRange, 0)} posts by {ranked.filter(p => p.totals.postsInRange > 0).length} accounts
           {partyFilter ? ` · ${PARTY_LABELS[partyFilter] ?? partyFilter}` : ''}
         </Text>
 
@@ -214,7 +216,7 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.md,
   },
   kickerRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  kicker: { ...type.caption, color: neutral.textDim, fontSize: 10 },
+  kicker: { ...type.caption, color: neutral.textDim, fontSize: 12 },
   title:  { ...type.title, color: neutral.text, fontSize: 20, marginTop: 2 },
   meta:   { ...type.body, color: neutral.textMid, fontSize: 12 },
   listContent: {
@@ -252,7 +254,7 @@ const styles = StyleSheet.create({
   },
   partyChipText: {
     ...type.caption,
-    fontSize: 9,
+    fontSize: 12,
     color: neutral.textMid,
   },
   partyChipTextAll: {

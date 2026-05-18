@@ -1,31 +1,42 @@
 /**
- * Dark glassmorphist palette. Party colours are kept distinct and vivid so
- * they pop against the dark felt. Neutrals stay cool to sell the "screen at
- * night" feel.
+ * Knox Index brand palette.
+ * Primary surface is #1F1D1D (warm dark). Containers use the Knox Product
+ * Gradient. The Knox Gradient is used as a signature accent on key surfaces.
  */
 
+export const brand = {
+  /** Five-stop gradient — horizontal, left-to-right. */
+  gradient: ['#FF9363', '#F67374', '#E83C91', '#933A89', '#553984'] as const,
+  /** Two-stop gradient — vertical, top-to-bottom. Container fill. */
+  productGradient: ['#1F1D1D', '#35393B'] as const,
+  black:    '#1F1D1D',
+  grey:     '#7C919A',
+  darkGrey: '#4D575C',
+  white:    '#F4F5FF',
+};
+
 export const neutral = {
-  felt: '#07070B',        // page background, deepest
-  night: '#0E0E14',       // panel background
-  ink: '#14141C',         // card body base
-  stroke: '#26263A',      // soft borders
-  strokeHi: '#3A3A55',    // hover / focus borders
-  text: '#ECECF2',        // primary text
-  textMid: '#A8A8BA',     // secondary text
-  textDim: '#6C6C82',     // tertiary text
+  felt:      '#1F1D1D',   // page background
+  night:     '#35393B',   // product gradient end / elevated surface
+  ink:       '#272424',   // slightly lighter base for depth layering
+  stroke:    '#4D575C',   // dark grey — soft borders
+  strokeHi:  '#7C919A',   // grey — hover / focus borders
+  text:      '#F4F5FF',   // white — primary text
+  textMid:   '#7C919A',   // grey — secondary text
+  textDim:   '#4D575C',   // dark grey — tertiary text
 };
 
 /**
- * Party colour tokens. Each has:
+ * Party colour tokens.
  *  - base: the spine / primary accent
  *  - glow: a softer version used in shadows, radial fills, halos
  */
 export const party = {
   labour:       { base: '#E4002B', glow: '#FF4F6E' },
-  conservative: { base: '#1a5eb8', glow: '#4d8fdd' },   // royal blue — vivid on dark bg
+  conservative: { base: '#1a5eb8', glow: '#4d8fdd' },
   libdem:       { base: '#FAA61A', glow: '#FFC96B' },
   snp:          { base: '#FFF95D', glow: '#FFFBA6' },
-  green:        { base: '#00C951', glow: '#5FE890' },   // vivid green
+  green:        { base: '#00C951', glow: '#5FE890' },
   reform:       { base: '#12B6CF', glow: '#5DE3F4' },
   plaid:        { base: '#005B54', glow: '#3C9C95' },
   dup:          { base: '#D46A4C', glow: '#F09879' },
@@ -38,14 +49,16 @@ export type PartyKey = keyof typeof party;
 
 export const accent = {
   indigo: '#7C83FF',
-  pink: '#FF6BD4',
-  mint: '#3FE6B1',
-  amber: '#FFB657',
+  pink:   '#FF6BD4',
+  mint:   '#3FE6B1',
+  amber:  '#FFB657',
 };
 
 export const glass = {
-  fill: 'rgba(255, 255, 255, 0.04)',
-  fillHi: 'rgba(255, 255, 255, 0.08)',
-  border: 'rgba(255, 255, 255, 0.08)',
+  fill:     'rgba(255, 255, 255, 0.04)',
+  fillHi:   'rgba(255, 255, 255, 0.08)',
+  border:   'rgba(255, 255, 255, 0.08)',
   borderHi: 'rgba(255, 255, 255, 0.16)',
+  /** Inner card fill — #1F1D1D at 50% opacity, sits on top of Knox Product Gradient. */
+  card:     'rgba(31, 29, 29, 0.5)',
 };

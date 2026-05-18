@@ -7,7 +7,7 @@ import type { PartyKey } from '@/theme/colors';
 export interface TopTrumpScores {
   views:       number;   // 0..100  normalised avg post views
   frequency:   number;   // 0..100  normalised posting frequency (posts today)
-  engagement:  number;   // 0..100  normalised (likes + comments + shares) / views rate
+  engagement:  number;   // 0..100  normalised (likes + comments + saves + shares) / views rate
   followers:   number;   // 0..100  normalised total follower count
   knoxFactor:  number;   // 0..100  average of the four axes above
 }
@@ -21,6 +21,7 @@ export interface RecentPost {
   likes:     number;
   comments:  number;
   shares:    number;
+  saves?:    number;
   summary?:  string;    // AI-generated summary from n8n / Gemini
   style?:    string;
   topic?:    string;
@@ -73,7 +74,7 @@ export interface BriefResponse {
 
 export interface PostBenchmarks {
   views:      MetricBenchmark;
-  engagement: MetricBenchmark;  // (likes + comments + shares) / views × 100
+  engagement: MetricBenchmark;  // (likes + comments + saves + shares) / views × 100
 }
 
 /**
@@ -101,6 +102,7 @@ export interface Politician {
   partyLabel: string;       // human-readable party name
   country: string;          // ISO-style short e.g. "UK"
   avatarInitials: string;   // two-letter fallback
+  avatarUrl?: string;       // signed GCS photo URL from account.avatar
   accountType: AccountType;
   totals: {
     posts:          number;
@@ -113,6 +115,14 @@ export interface Politician {
     savesToday:     number;
     postsToday:     number;
     postsThisWeek:  number;
+    /** Posts within the currently selected range — matches the active API ?range= param. */
+    postsInRange:   number;
+    /** Range-specific aggregates from the post table — zero when no posts exist in range. */
+    viewsInRange:    number;
+    likesInRange:    number;
+    commentsInRange: number;
+    savesInRange:    number;
+    sharesInRange:   number;
   };
   scores: TopTrumpScores;
   recentPosts: RecentPost[];

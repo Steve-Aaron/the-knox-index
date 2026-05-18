@@ -123,6 +123,6 @@ const styles = StyleSheet.create({
   },
   label: {
     ...type.caption,
-    fontSize: 11,
+    fontSize: 12,
   },
 });

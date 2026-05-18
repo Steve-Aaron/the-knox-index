@@ -259,7 +259,7 @@ export function PostsTable({
   }, []);
 
   return (
-    <GlassSurface style={styles.wrap} radius={radius.lg}>
+    <GlassSurface style={styles.wrap} radius={radius.lg} flatTop>
       <DevLabel name="PostsTable" />
       <View style={[styles.accentStrip, { backgroundColor: accent.pink }]} />
 
@@ -525,7 +525,7 @@ interface CardProps {
 function PostCard({ post, index, benchmarks, onPress, drag, isActive, compact }: CardProps) {
   const colour = party[post.partyKey];
   const engRate = post.views > 0
-    ? +((post.likes + post.comments + post.shares) / post.views * 100).toFixed(2)
+    ? +((post.likes + post.comments + post.saves + post.shares) / post.views * 100).toFixed(2)
     : 0;
 
   // Generated summary — starts from the BQ value, can be updated live
@@ -755,10 +755,10 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: spacing.md,
   },
-  kicker: { ...type.caption, color: neutral.textDim, fontSize: 9 },
+  kicker: { ...type.caption, color: neutral.textDim, fontSize: 12 },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: 2 },
-  title: { ...type.title, color: neutral.text, fontSize: 18 },
-  titleRange: { ...type.body, color: neutral.textDim, fontSize: 14 },
+  title: { ...type.title, color: neutral.text, fontSize: 20 },
+  titleRange: { ...type.body, color: neutral.textDim, fontSize: 16 },
   countBadge: {
     backgroundColor: accent.pink + '22',
     borderWidth: 1,
@@ -769,7 +769,7 @@ const styles = StyleSheet.create({
   },
   countText: {
     fontFamily: font.mono,
-    fontSize: 11,
+    fontSize: 12,
     color: accent.pink,
   },
 
@@ -788,7 +788,7 @@ const styles = StyleSheet.create({
     borderColor: accent.pink,
     backgroundColor: 'rgba(255,107,212,0.1)',
   },
-  sortChipText: { ...type.caption, color: neutral.textMid, fontSize: 10 },
+  sortChipText: { ...type.caption, color: neutral.textMid, fontSize: 12 },
   sortChipTextActive: { color: accent.pink },
 
   // Filter rows
@@ -801,7 +801,7 @@ const styles = StyleSheet.create({
   filterLabel: {
     ...type.caption,
     color: neutral.textDim,
-    fontSize: 9,
+    fontSize: 12,
     letterSpacing: 0.8,
   },
   filterChips: {
@@ -812,7 +812,7 @@ const styles = StyleSheet.create({
   filterHint: {
     ...type.caption,
     color: neutral.textDim,
-    fontSize: 9,
+    fontSize: 12,
   },
 
   // Alignment chips
@@ -836,7 +836,7 @@ const styles = StyleSheet.create({
     borderColor: neutral.strokeHi,
     backgroundColor: glass.fillHi,
   },
-  alignChipText: { ...type.caption, color: neutral.textMid, fontSize: 10 },
+  alignChipText: { ...type.caption, color: neutral.textMid, fontSize: 12 },
   alignChipTextAll: { color: neutral.text },
 
   // Party chips
@@ -860,7 +860,7 @@ const styles = StyleSheet.create({
     }),
   },
   partyDot: { width: 6, height: 6, borderRadius: 3 },
-  partyChipText: { ...type.caption, color: neutral.textMid, fontSize: 10 },
+  partyChipText: { ...type.caption, color: neutral.textMid, fontSize: 12 },
 
   // Active politician pill
   polPill: {
@@ -875,15 +875,15 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     ...Platform.select({ web: { cursor: 'pointer' } as any, default: {} }),
   },
-  polPillText: { ...type.caption, color: accent.indigo, fontSize: 11 },
-  polPillClose: { ...type.caption, color: accent.indigo, fontSize: 13, lineHeight: 14 },
+  polPillText: { ...type.caption, color: accent.indigo, fontSize: 12 },
+  polPillClose: { ...type.caption, color: accent.indigo, fontSize: 16, lineHeight: 14 },
 
   // List — exactly one card visible at a time; snapping handles navigation
   list: { height: CARD_H },
   listCompact: { maxHeight: 2400 },  // on mobile: show up to ~4 cards, scroll freely
   listContent: { paddingBottom: spacing.sm },
   skeletonList: { gap: spacing.sm, paddingBottom: spacing.sm },
-  emptyText: { ...type.body, color: neutral.textDim, fontSize: 13, textAlign: 'center', padding: spacing.xl },
+  emptyText: { ...type.body, color: neutral.textDim, fontSize: 16, textAlign: 'center', padding: spacing.xl },
   lockedWrap: {
     paddingVertical: spacing.xl,
     paddingHorizontal: spacing.lg,
@@ -898,7 +898,7 @@ const styles = StyleSheet.create({
   },
   lockedBody: {
     ...type.body,
-    fontSize: 13,
+    fontSize: 16,
     color: neutral.textMid,
     textAlign: 'center',
     lineHeight: 20,
@@ -916,7 +916,7 @@ const styles = StyleSheet.create({
     ...Platform.select({ web: { cursor: 'grab' } as any, default: {} }),
   },
   dragIcon: {
-    fontSize: 14,
+    fontSize: 16,
     color: neutral.textDim,
     lineHeight: 18,
   },
@@ -1011,7 +1011,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#fff',
   },
-  viewsLbl: { fontFamily: font.ui, fontSize: 9, color: neutral.textMid, textTransform: 'none' },
+  viewsLbl: { fontFamily: font.ui, fontSize: 12, color: neutral.textMid, textTransform: 'none' },
 
   // Compact right column — full width below cover
   rightColCompact: {
@@ -1050,7 +1050,7 @@ const styles = StyleSheet.create({
   summaryKicker: {
     ...type.caption,
     color: neutral.textDim,
-    fontSize: 9,
+    fontSize: 12,
     letterSpacing: 0.8,
   },
   sourceTag: {
@@ -1063,7 +1063,7 @@ const styles = StyleSheet.create({
   },
   sourceTagText: {
     fontFamily: font.ui,
-    fontSize: 9,
+    fontSize: 12,
     color: accent.mint,
     textTransform: 'none' as const,
   },
@@ -1080,21 +1080,21 @@ const styles = StyleSheet.create({
   },
   genBtnText: {
     fontFamily: font.bold,
-    fontSize: 11,
+    fontSize: 12,
     color: accent.indigo,
     textTransform: 'none' as const,
   },
   summaryText: {
     fontFamily: font.ui,
     color: neutral.text,
-    fontSize: 15,
+    fontSize: 16,
     lineHeight: 24,
     flex: 1,
   },
   summaryEmpty: {
     fontFamily: font.ui,
     color: neutral.textDim,
-    fontSize: 13,
+    fontSize: 16,
     lineHeight: 20,
     fontStyle: 'italic',
   },
@@ -1110,7 +1110,7 @@ const styles = StyleSheet.create({
   metricPill: { gap: 2 },
   metricValue: {
     fontFamily: font.mono,
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '700',
   },
   metricValueLg: {
@@ -1119,7 +1119,7 @@ const styles = StyleSheet.create({
   metricLabel: {
     ...type.caption,
     color: neutral.textDim,
-    fontSize: 9,
+    fontSize: 12,
   },
 
   // ── 4. Identity + caption + tags — grounding context ────────────────────
@@ -1145,13 +1145,13 @@ const styles = StyleSheet.create({
   politicianName: {
     fontFamily: font.bold,
     color: neutral.text,
-    fontSize: 13,
+    fontSize: 16,
     letterSpacing: 0.1,
   },
   metaLine: {
     fontFamily: font.ui,
     color: neutral.textDim,
-    fontSize: 11,
+    fontSize: 12,
     textTransform: 'none',
   },
   caption: {
@@ -1177,7 +1177,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     paddingVertical: 2,
   },
-  tagText: { fontFamily: font.bold, fontSize: 9, color: neutral.textMid },
+  tagText: { fontFamily: font.bold, fontSize: 12, color: neutral.textMid },
 
   // Box-and-whisker distribution section
   distributionSection: {
@@ -1194,7 +1194,7 @@ const styles = StyleSheet.create({
   distKicker: {
     ...type.caption,
     color: neutral.textDim,
-    fontSize: 9,
+    fontSize: 12,
     letterSpacing: 0.8,
   },
   // Two plots rendered side-by-side to save vertical space

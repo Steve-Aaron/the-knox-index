@@ -9,12 +9,13 @@ import {
   Platform,
   ActivityIndicator,
 } from 'react-native';
+import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { MotiView } from 'moti';
 import { GlassSurface } from '@/components/primitives/GlassSurface';
 import { DevLabel } from '@/components/primitives/DevLabel';
-import { neutral, glass, accent } from '@/theme/colors';
+import { neutral, glass, accent, brand } from '@/theme/colors';
 import { spacing, radius } from '@/theme/spacing';
-import { type } from '@/theme/typography';
+import { type, font } from '@/theme/typography';
 
 /**
  * ContactFooter
@@ -35,7 +36,7 @@ interface Props {
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function ContactFooter({
-  linkedIn = 'https://www.linkedin.com/company/knox-digital',
+  linkedIn = 'https://www.linkedin.com/company/knoxdigital',
 }: Props) {
   const [name,    setName]    = useState('');
   const [email,   setEmail]   = useState('');
@@ -78,9 +79,8 @@ export function ContactFooter({
   }
 
   return (
-    <GlassSurface style={styles.wrap} radius={radius.lg}>
+    <GlassSurface style={styles.wrap} radius={radius.lg} topAccent={[...brand.gradient]} flatTop>
       <DevLabel name="ContactFooter" />
-      <View style={[styles.accentStrip, { backgroundColor: accent.indigo }]} />
 
       <View style={styles.body}>
         {/* Left: copy block */}
@@ -98,7 +98,8 @@ export function ContactFooter({
               onPress={() => Linking.openURL(linkedIn)}
               style={({ pressed }) => [styles.linkBtn, pressed && { opacity: 0.75 }]}
             >
-              <Text style={styles.linkBtnText}>LINKEDIN ↗</Text>
+              <FontAwesome6 name="linkedin" size={14} color={neutral.textMid} />
+              <Text style={styles.linkBtnText}>LinkedIn ↗</Text>
             </Pressable>
           </View>
         </View>
@@ -172,11 +173,6 @@ const styles = StyleSheet.create({
   wrap: {
     overflow: 'hidden',
   },
-  accentStrip: {
-    height: 3,
-    width: '100%',
-    opacity: 0.85,
-  },
   body: {
     flexDirection: 'row',
     gap: spacing.xl,
@@ -192,13 +188,13 @@ const styles = StyleSheet.create({
   kicker: {
     ...type.caption,
     color: neutral.textDim,
-    fontSize: 10,
+    fontSize: 12,
     letterSpacing: 1.5,
   },
   title: {
     ...type.title,
     color: neutral.text,
-    fontSize: 18,
+    fontSize: 20,
   },
   lede: {
     ...type.body,
@@ -212,6 +208,9 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
   },
   linkBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     borderRadius: radius.pill,
@@ -222,7 +221,7 @@ const styles = StyleSheet.create({
   linkBtnText: {
     ...type.caption,
     color: neutral.textMid,
-    fontSize: 11,
+    fontSize: 12,
   },
 
   // form
@@ -242,8 +241,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: 10,
     color: neutral.text,
-    fontSize: 13,
-    fontFamily: 'Montserrat_400Regular',
+    fontSize: 16,
+    fontFamily: font.regular,
     ...Platform.select({ web: { outlineStyle: 'none' } as any, default: {} }),
   },
   textarea: {
@@ -253,7 +252,7 @@ const styles = StyleSheet.create({
   errorText: {
     ...type.body,
     color: '#ff6b6b',
-    fontSize: 11,
+    fontSize: 12,
   },
   submitBtn: {
     backgroundColor: accent.indigo,
@@ -283,11 +282,11 @@ const styles = StyleSheet.create({
   successTitle: {
     ...type.title,
     color: neutral.text,
-    fontSize: 22,
+    fontSize: 24,
   },
   successBody: {
     ...type.body,
     color: neutral.textMid,
-    fontSize: 13,
+    fontSize: 16,
   },
 });
