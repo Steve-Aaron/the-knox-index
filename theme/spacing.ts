@@ -19,6 +19,7 @@ export const radius = {
   lg: 22,
   xl: 28,
   pill: 999,
+  full: 9999,
 };
 
 export const card = {

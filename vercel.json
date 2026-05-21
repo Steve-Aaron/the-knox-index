@@ -1,5 +1,5 @@
 {
-  "buildCommand": "rm -rf dist && npx expo export --platform web",
+  "nodeVersion": "24.x",
   "outputDirectory": "dist/client",
   "installCommand": "npm install",
   "devCommand": "npx expo start --web",
