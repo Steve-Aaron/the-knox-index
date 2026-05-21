@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { MotiView } from 'moti';
-import { GlassSurface } from '@/components/primitives/GlassSurface';
+import { DashCard } from '@/components/primitives/DashCard';
 import { DevLabel } from '@/components/primitives/DevLabel';
 import { neutral, glass, accent, brand } from '@/theme/colors';
 import { spacing, radius } from '@/theme/spacing';
@@ -79,17 +79,16 @@ export function ContactFooter({
   }
 
   return (
-    <GlassSurface style={styles.wrap} radius={radius.lg} topAccent={[...brand.gradient]} flatTop>
+    <DashCard style={styles.wrap}>
       <DevLabel name="ContactFooter" />
 
       <View style={styles.body}>
         {/* Left: copy block */}
         <View style={styles.copy}>
-          <Text style={styles.kicker}>NEED MORE THAN THIS?</Text>
-          <Text style={styles.title}>Bespoke briefings, exports, white-label.</Text>
+          <Text style={styles.kicker}>LOOKING FOR DEEPER INSIGHTS?</Text>
+          <Text style={styles.title}>Deeper insights, API access and white labelling services are available.</Text>
           <Text style={styles.lede}>
-            Deep-dives, multi-country tracking, white-label data exports for clients.
-            Tell us what you're chasing.
+            Just get in touch with directly for insights tailored towards you. Dashboards and data access for businesses and agencies are avaialable.
           </Text>
 
           {/* Fallback links */}
@@ -165,7 +164,7 @@ export function ContactFooter({
           )}
         </View>
       </View>
-    </GlassSurface>
+    </DashCard>
   );
 }
 
@@ -201,6 +200,7 @@ const styles = StyleSheet.create({
     color: neutral.textMid,
     fontSize: 12,
     lineHeight: 18,
+    width: '50%'
   },
   links: {
     flexDirection: 'row',
@@ -242,7 +242,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     color: neutral.text,
     fontSize: 16,
-    fontFamily: font.regular,
+    fontFamily: font.ui,
     ...Platform.select({ web: { outlineStyle: 'none' } as any, default: {} }),
   },
   textarea: {

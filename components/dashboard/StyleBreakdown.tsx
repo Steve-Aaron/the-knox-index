@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { GlassSurface } from '@/components/primitives/GlassSurface';
+import { DashCard } from '@/components/primitives/DashCard';
 import { DevLabel } from '@/components/primitives/DevLabel';
 import { InfoTip } from '@/components/primitives/InfoTip';
 import { neutral, glass, accent } from '@/theme/colors';
@@ -47,7 +47,7 @@ export function StyleBreakdown({ posts, rangeLabel, topN = 8 }: Props) {
   const max = rows[0];
 
   return (
-    <GlassSurface style={styles.wrap} radius={radius.lg}>
+    <DashCard style={styles.wrap}>
       <DevLabel name="StyleBreakdown" />
 
       <View style={styles.header}>
@@ -89,7 +89,7 @@ export function StyleBreakdown({ posts, rangeLabel, topN = 8 }: Props) {
           })}
         </View>
       )}
-    </GlassSurface>
+    </DashCard>
   );
 }
 

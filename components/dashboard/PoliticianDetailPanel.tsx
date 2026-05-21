@@ -9,7 +9,7 @@ import {
   Platform,
 } from 'react-native';
 import { MotiView } from 'moti';
-import { GlassSurface } from '@/components/primitives/GlassSurface';
+import { DashCard } from '@/components/primitives/DashCard';
 import { DevLabel } from '@/components/primitives/DevLabel';
 import { CardHeader } from '@/components/card/CardHeader';
 import { RadialScoreChart, RawScoreValues } from '@/components/card/RadialScoreChart';
@@ -72,14 +72,13 @@ export function PoliticianDetailPanel({ politician, headlineKey, panelHeight }: 
   };
 
   return (
-    <GlassSurface
-      style={wrapStyle}
-      radius={radius.lg}
-      flatTop
-    >
+    <DashCard style={wrapStyle} topAccent={undefined}>
       <DevLabel name="PoliticianDetailPanel" />
       {/* Horizontal party-colour strip along the top */}
-      <View style={[styles.partyStrip, { backgroundColor: colour.base }]} />
+      <View
+        style={[styles.partyStrip, { backgroundColor: colour.base }]}
+        {...(Platform.OS === 'web' ? { 'data-container_name': 'card_party_strip' } as any : {})}
+      />
 
       <MotiView
         key={politician.id}
@@ -93,7 +92,10 @@ export function PoliticianDetailPanel({ politician, headlineKey, panelHeight }: 
           contentContainerStyle={styles.scroll}
         >
           {/* ── Identity ─────────────────────────────── */}
-          <View style={styles.section}>
+          <View
+            style={styles.section}
+            {...(Platform.OS === 'web' ? { 'data-container_name': 'card_identity_section' } as any : {})}
+          >
             <CardHeader
               name={politician.name}
               role={'On the ' + politician.role.replace(/\w\S*/g, txt => txt.charAt(0).toUpperCase() + txt.slice(1).toLowerCase())}
@@ -112,7 +114,10 @@ export function PoliticianDetailPanel({ politician, headlineKey, panelHeight }: 
           </View>
 
           {/* ── Radar chart ──────────────────────────── */}
-          <View style={styles.chartWrap}>
+          <View
+            style={styles.chartWrap}
+            {...(Platform.OS === 'web' ? { 'data-container_name': 'chart_wrap_radar' } as any : {})}
+          >
             <View style={styles.chartHeader}>
               <SectionKicker label="Performance radar" />
               <InfoTip
@@ -135,7 +140,10 @@ export function PoliticianDetailPanel({ politician, headlineKey, panelHeight }: 
 
           {/* ── Account totals ───────────────────────── */}
           <SectionKicker label="Account totals" />
-          <View style={styles.totalsGrid}>
+          <View
+            style={styles.totalsGrid}
+            {...(Platform.OS === 'web' ? { 'data-container_name': 'card_account_totals' } as any : {})}
+          >
             <TotalTile label="Posts" value={politician.totals.posts} />
             <TotalTile label="Followers" value={politician.totals.followers} />
             <TotalTile label="Total likes" value={politician.totals.likes} />
@@ -147,13 +155,16 @@ export function PoliticianDetailPanel({ politician, headlineKey, panelHeight }: 
             />
           </View>
 
-          {/* ── Yesterday's activity ─────────────────── */}
-          <SectionKicker label="Yesterday" />
-          <View style={styles.totalsGrid}>
-            <TotalTile label="Views"    value={politician.totals.views24h}      accentColor={colour.glow} zeroDash />
-            <TotalTile label="Likes"    value={politician.totals.likesToday}     accentColor={colour.glow} zeroDash />
-            <TotalTile label="Comments" value={politician.totals.commentsToday}  accentColor={colour.glow} zeroDash />
-            <TotalTile label="Saves"    value={politician.totals.savesToday}     accentColor={colour.glow} zeroDash />
+          {/* ── Past 7 days activity ─────────────────── */}
+          <SectionKicker label="Past 7 days" />
+          <View
+            style={styles.totalsGrid}
+            {...(Platform.OS === 'web' ? { 'data-container_name': 'card_past7days_totals' } as any : {})}
+          >
+            <TotalTile label="Views"    value={politician.totals.viewsInRange}    accentColor={colour.glow} zeroDash />
+            <TotalTile label="Likes"    value={politician.totals.likesInRange}    accentColor={colour.glow} zeroDash />
+            <TotalTile label="Comments" value={politician.totals.commentsInRange} accentColor={colour.glow} zeroDash />
+            <TotalTile label="Saves"    value={politician.totals.savesInRange}    accentColor={colour.glow} zeroDash />
           </View>
 
           {/* ── Recent posts ─────────────────────────── */}
@@ -164,7 +175,10 @@ export function PoliticianDetailPanel({ politician, headlineKey, panelHeight }: 
               <Text style={styles.emptyPostsSub}>They may not have posted recently or their content isn't being tracked yet.</Text>
             </View>
           ) : (
-          <View style={styles.posts}>
+          <View
+            style={styles.posts}
+            {...(Platform.OS === 'web' ? { 'data-container_name': 'card_recent_posts_list' } as any : {})}
+          >
             {politician.recentPosts.map(post => {
               const engRate = post.views > 0
                 ? +(((post.likes + post.comments + (post.saves ?? 0) + post.shares) / post.views) * 100).toFixed(2)
@@ -245,7 +259,7 @@ export function PoliticianDetailPanel({ politician, headlineKey, panelHeight }: 
           </Pressable>
         </ScrollView>
       </MotiView>
-    </GlassSurface>
+    </DashCard>
   );
 }
 
@@ -338,6 +352,8 @@ const styles = StyleSheet.create({
   chartWrap: {
     alignItems: 'center',
     marginVertical: -spacing.sm,
+    marginHorizontal: -spacing.lg,   // negate scroll container padding so chart is edge-to-edge
+    paddingHorizontal: 0,
   },
   chartHeader: {
     flexDirection: 'row',

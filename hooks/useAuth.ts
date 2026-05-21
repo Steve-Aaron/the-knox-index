@@ -23,6 +23,7 @@
 import { useState, useEffect } from 'react';
 import { Platform } from 'react-native';
 import { identify, setSuperProperties, track } from '@/lib/analytics';
+import { getDevPreview } from '@/lib/devPreview';
 
 export interface AuthState {
   isRegistered: boolean;
@@ -52,9 +53,18 @@ export function useAuth(): AuthState {
       setEmail(cachedEmail);
     }
 
+    // Dev preview: skip server verification entirely — no real cookie exists
+    // in local dev, so /api/auth/me would return 401 and undo the seeded state.
+    const devPreview = getDevPreview();
+    if (devPreview === 'signup' || devPreview === 'full') {
+      setSuperProperties({ is_registered: true });
+      setLoading(false);
+      return;
+    }
+
     // Always verify with the server — stale localStorage + cleared cookie
     // would otherwise let a session-expired user think they're still in.
-    fetch('/api/auth/me', { credentials: 'same-origin' })
+    fetch('/api/auth/me', { credentials: 'same-origin', cache: 'no-store' })
       .then(async r => {
         if (r.ok) {
           const data: { email: string } = await r.json();

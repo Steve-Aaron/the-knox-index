@@ -9,6 +9,7 @@ import type { Politician, TopTrumpScores, RecentPost, AccountType } from './type
 import type { PartyKey } from '@/theme/colors';
 import { toPartyKeyPublic } from './partyUtils';
 import { computeKnoxFactor } from './knoxConfig';
+import { fmtLabel } from '@/lib/format';
 
 // ── Raw BQ row shapes ─────────────────────────────────────────────────────────
 
@@ -23,7 +24,7 @@ export interface BQAccountRow {
   avatar?:          string;    // GCS URL for profile photo
   totalFollowing:   number;
   totalFollowers:   number;
-  accountTypeName?: string;    // from accountType table via account_x_accountType JOIN
+  accountTypeNames?: string;   // comma-separated — all types for this account (STRING_AGG)
   // accountMetrics (latest row)
   totalPosts:      number;
   totalLikes:      number;
@@ -80,53 +81,65 @@ function normProfile(p: string | null | undefined): string {
 }
 
 /**
- * Resolve the account type.
- * Priority: 1) DB value from account_x_accountType JOIN  2) regex on name/affiliation  3) 'other'
+ * Resolve all account types for an account.
+ * Priority: 1) DB values from account_x_accountType JOIN (comma-separated STRING_AGG)
+ *           2) regex on name/affiliation  3) ['other']
  *
- * DB values are snake_case (e.g. 'member_of_parliament'). These are returned
- * verbatim when they match the canonical AccountType union. Legacy/human-readable
- * variants are normalised to the nearest canonical value for forward-compat.
+ * Returns an array because one account can legitimately hold multiple types —
+ * e.g. a party leader who is also an MP gets ['party_leader', 'member_of_parliament'].
+ * Each DB token is normalised from legacy/human-readable variants to canonical
+ * snake_case values before being added to the result set.
  */
-function inferAccountType(name: string, affiliation: string, dbTypeName?: string): AccountType {
-  // 1. DB-sourced type takes precedence
-  if (dbTypeName) {
-    const t = dbTypeName.trim().toLowerCase();
+function resolveCanonicalType(raw: string): AccountType | null {
+  const t = raw.trim().toLowerCase();
+  if (
+    t === 'member_of_parliament'    ||
+    t === 'political_party'         ||
+    t === 'party_leader'            ||
+    t === 'prime_minister'          ||
+    t === 'cabinet_minister'        ||
+    t === 'shadow_cabinet_minister' ||
+    t === 'council'                 ||
+    t === 'other'
+  ) return t as AccountType;
 
-    // Exact canonical snake_case matches — returned as-is
-    if (
-      t === 'member_of_parliament' ||
-      t === 'political_party'      ||
-      t === 'party_leader'         ||
-      t === 'prime_minister'       ||
-      t === 'cabinet_minister'     ||
-      t === 'shadow_cabinet_minister' ||
-      t === 'council'              ||
-      t === 'other'
-    ) return t as AccountType;
+  if (
+    t === 'mp' || t === 'msp' || t === 'am' || t === 'mla' || t === 'td' ||
+    t === 'member of parliament' || t === 'elected official' || t === 'politician' ||
+    t.startsWith('mp') || t.includes('member of parliament')
+  ) return 'member_of_parliament';
 
-    // Legacy / human-readable variants
-    if (
-      t === 'mp' || t === 'msp' || t === 'am' || t === 'mla' || t === 'td' ||
-      t === 'member of parliament' || t === 'elected official' || t === 'politician' ||
-      t.startsWith('mp') || t.includes('member of parliament')
-    ) return 'member_of_parliament';
+  if (t === 'party leader' || t === 'leader')                              return 'party_leader';
+  if (t === 'cabinet minister' || t === 'minister')                        return 'cabinet_minister';
+  if (t === 'shadow cabinet minister' || t === 'shadow minister')          return 'shadow_cabinet_minister';
+  if (t.includes('party') || t === 'political organisation')               return 'political_party';
+  if (t.includes('council') || t === 'local government' || t === 'local authority') return 'council';
+  return null;
+}
 
-    if (t === 'party leader' || t === 'leader')                              return 'party_leader';
-    if (t === 'cabinet minister' || t === 'minister')                        return 'cabinet_minister';
-    if (t === 'shadow cabinet minister' || t === 'shadow minister')          return 'shadow_cabinet_minister';
-    if (t.includes('party') || t === 'political organisation')               return 'political_party';
-    if (t.includes('council') || t === 'local government' || t === 'local authority') return 'council';
+function inferAccountTypes(name: string, affiliation: string, dbTypeNames?: string): AccountType[] {
+  // 1. DB-sourced types — parse comma-separated STRING_AGG result
+  if (dbTypeNames) {
+    const resolved = dbTypeNames
+      .split(',')
+      .map(resolveCanonicalType)
+      .filter((t): t is AccountType => t !== null);
+    // Deduplicate while preserving order
+    const unique = Array.from(new Set(resolved));
+    if (unique.length > 0) return unique;
   }
 
-  // 2. Regex fallback on name + affiliation fields
+  // 2. Regex fallback on name + affiliation — may infer multiple types
   const a = (affiliation ?? '').toLowerCase();
   const n = (name ?? '').toLowerCase();
-  if (/\bcouncil\b/.test(n) || /\bcouncil\b/.test(a))                                    return 'council';
-  if (/\b(mp|msp|am|mla|lord|baron|earl|councillor|senator|mayor)\b/.test(a))            return 'member_of_parliament';
-  if (/\b(party|labour|conservative|libdem|snp|green|reform|plaid|dup|sinn)\b/.test(n))  return 'political_party';
+  const inferred: AccountType[] = [];
+  if (/\bcouncil\b/.test(n) || /\bcouncil\b/.test(a))                                    inferred.push('council');
+  if (/\b(mp|msp|am|mla|lord|baron|earl|councillor|senator|mayor)\b/.test(a))            inferred.push('member_of_parliament');
+  if (/\b(party|labour|conservative|libdem|snp|green|reform|plaid|dup|sinn)\b/.test(n))  inferred.push('political_party');
+  if (inferred.length > 0) return inferred;
 
   // 3. Final fallback
-  return 'other';
+  return ['other'];
 }
 
 function toInitials(name: string): string {
@@ -286,11 +299,11 @@ export function transformToPoliticians(
       handle:         acc.profile ?? '',
       role:           acc.affiliation ?? '',
       partyKey:       toPartyKey(acc.party),
-      partyLabel:     acc.party ?? 'Unknown',
+      partyLabel:     fmtLabel(acc.party) || 'Unknown',
       country:        'UK',
       avatarInitials: toInitials(acc.name ?? ''),
       avatarUrl:      acc.avatar || undefined,
-      accountType:    inferAccountType(acc.name ?? '', acc.affiliation ?? '', acc.accountTypeName),
+      accountTypes:   inferAccountTypes(acc.name ?? '', acc.affiliation ?? '', acc.accountTypeNames),
       totals: {
         posts:          acc.totalPosts     ?? 0,
         followers:      acc.totalFollowers ?? 0,

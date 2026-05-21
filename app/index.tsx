@@ -28,7 +28,7 @@ import { ContactFooter } from '@/components/dashboard/ContactFooter';
 import { AppFooter } from '@/components/dashboard/AppFooter';
 import { StickyUnlock } from '@/components/auth/StickyUnlock';
 import { DevPanel } from '@/components/primitives/DevPanel';
-import { getDevPreview } from '@/lib/devPreview';
+import { getDevPreview, setDevPreview, type DevPreviewState } from '@/lib/devPreview';
 import { useAuth } from '@/hooks/useAuth';
 import { useLiveData } from '@/data/useLiveData';
 import { usePostsData } from '@/data/usePostsData';
@@ -165,9 +165,29 @@ function DashboardScreenInner() {
     []
   );
 
+  // Debug URL param: ?debug=full | signup | gate | off
+  // Strip the param BEFORE calling setDevPreview so the subsequent
+  // window.location.reload() hits the clean URL and doesn't loop.
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof __DEV__ === 'undefined' || !__DEV__) return;
+    const params = new URLSearchParams(window.location.search);
+    const raw    = params.get('debug');
+    if (!raw) return;
+    const VALID: DevPreviewState[] = ['off', 'gate', 'signup', 'full'];
+    if (!VALID.includes(raw as DevPreviewState)) return;
+    // Strip the param first — reload will then land on the clean URL
+    params.delete('debug');
+    const cleanSearch = params.toString();
+    const cleanUrl    = window.location.pathname + (cleanSearch ? `?${cleanSearch}` : '');
+    history.replaceState(null, '', cleanUrl);
+    setDevPreview(raw as DevPreviewState);
+  // Run once on mount only
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const { isRegistered, email: authEmail } = useAuth();
 
-  // 10% scroll threshold — lock scroll once reached (until registered)
+  // 10% scroll threshold — show CTA bar once reached (no scroll lock)
   const devPreview          = getDevPreview();
   const scrollThreshold     = contentHeight > 0 ? contentHeight * 0.10 : Infinity;
   const hasReachedThreshold = !isRegistered && (scrollY >= scrollThreshold || devPreview === 'gate');
@@ -257,12 +277,15 @@ function DashboardScreenInner() {
           showsVerticalScrollIndicator={false}
           onScroll={handleScroll}
           scrollEventThrottle={120}
-          scrollEnabled={!hasReachedThreshold}
+          scrollEnabled
           onContentSizeChange={(_w, h) => setContentHeight(h)}
         >
 
           {/* ── 1. Title bar ──────────────────────────── */}
-          <View style={[styles.titleBar, { paddingHorizontal: hPad }]}>
+          <View
+            style={[styles.titleBar, { paddingHorizontal: hPad }]}
+            {...(Platform.OS === 'web' ? { 'data-container_name': 'row_title_bar' } as any : {})}
+          >
             <View>
               <Text style={styles.kicker}>THE KNOX INDEX · DAILY BRIEF</Text>
               <Text style={styles.title}>Dashboard</Text>
@@ -296,12 +319,18 @@ function DashboardScreenInner() {
           </View>
 
           {/* ── 2. Key findings strip ─────────────────── */}
-          <View ref={sectionRef('key_findings') as any}>
+          <View
+            ref={sectionRef('key_findings') as any}
+            {...(Platform.OS === 'web' ? { 'data-container_name': 'row_key_findings_bar' } as any : {})}
+          >
             <KeyFindingsBar politicians={politicians} range={range} />
           </View>
 
           {/* ── 3. Controls (stacked, full-width each) ── */}
-          <View style={[styles.controlsOuter, { paddingHorizontal: hPad }]}>
+          <View
+            style={[styles.controlsOuter, { paddingHorizontal: hPad }]}
+            {...(Platform.OS === 'web' ? { 'data-container_name': 'row_controls_time_sort' } as any : {})}
+          >
             {/* Time range — full width */}
             <TimeRangePicker value={range} onChange={handleSetRange} isRegistered={isRegistered} />
 
@@ -353,8 +382,14 @@ function DashboardScreenInner() {
             </View>
           ) : isDesktop ? (
             // Desktop: three equal columns side-by-side, aligned with other sections
-            <View style={[styles.threeCol, { paddingHorizontal: hPad }]}>
-              <View style={styles.col}>
+            <View
+              style={[styles.threeCol, { paddingHorizontal: hPad }]}
+              {...(Platform.OS === 'web' ? { 'data-container_name': 'row_three_col_desktop' } as any : {})}
+            >
+              <View
+                style={styles.col}
+                {...(Platform.OS === 'web' ? { 'data-container_name': 'card_rank_board_col' } as any : {})}
+              >
                 <RankBoard
                   politicians={politicians}
                   activeId={activeId}
@@ -365,19 +400,34 @@ function DashboardScreenInner() {
                   isRegistered={isRegistered}
                 />
               </View>
-              <View style={styles.col}>
+              <View
+                style={styles.col}
+                {...(Platform.OS === 'web' ? { 'data-container_name': 'card_politician_detail_col' } as any : {})}
+              >
                 {active
                   ? <PoliticianDetailPanel politician={active} headlineKey={sortKey} panelHeight={PANEL_HEIGHT} />
                   : <SkeletonBlock height={PANEL_HEIGHT} style={{ borderRadius: 22 }} />}
               </View>
-              <View style={styles.col}>
+              <View
+                style={styles.col}
+                {...(Platform.OS === 'web' ? { 'data-container_name': 'card_summary_panel_col' } as any : {})}
+              >
                 <SummaryPanel politicians={politicians} panelHeight={PANEL_HEIGHT} />
               </View>
             </View>
           ) : isTablet ? (
-            <View style={[styles.stackedTablet, { paddingHorizontal: hPad }]}>
-              <View style={styles.twoCol}>
-                <View style={styles.col}>
+            <View
+              style={[styles.stackedTablet, { paddingHorizontal: hPad }]}
+              {...(Platform.OS === 'web' ? { 'data-container_name': 'row_stacked_tablet' } as any : {})}
+            >
+              <View
+                style={styles.twoCol}
+                {...(Platform.OS === 'web' ? { 'data-container_name': 'row_two_col_tablet' } as any : {})}
+              >
+                <View
+                  style={styles.col}
+                  {...(Platform.OS === 'web' ? { 'data-container_name': 'card_rank_board_col' } as any : {})}
+                >
                   <RankBoard
                     politicians={politicians}
                     activeId={activeId}
@@ -388,7 +438,10 @@ function DashboardScreenInner() {
                     isRegistered={isRegistered}
                   />
                 </View>
-                <View style={styles.col}>
+                <View
+                  style={styles.col}
+                  {...(Platform.OS === 'web' ? { 'data-container_name': 'card_politician_detail_col' } as any : {})}
+                >
                   {active
                     ? <PoliticianDetailPanel politician={active} headlineKey={sortKey} panelHeight={PANEL_HEIGHT} />
                     : <SkeletonBlock height={PANEL_HEIGHT} style={{ borderRadius: 22 }} />}
@@ -397,7 +450,10 @@ function DashboardScreenInner() {
               <SummaryPanel politicians={politicians} />
             </View>
           ) : (
-            <View style={[styles.mobileStack, { paddingHorizontal: hPad }]}>
+            <View
+              style={[styles.mobileStack, { paddingHorizontal: hPad }]}
+              {...(Platform.OS === 'web' ? { 'data-container_name': 'row_mobile_stack' } as any : {})}
+            >
               <RankBoard
                 politicians={politicians}
                 activeId={activeId}
@@ -417,6 +473,7 @@ function DashboardScreenInner() {
           <View
             ref={sectionRef('party_leaderboard') as any}
             style={[styles.partySection, { paddingHorizontal: hPad }]}
+            {...(Platform.OS === 'web' ? { 'data-container_name': 'row_party_leaderboard' } as any : {})}
           >
             <PartyLeaderboard politicians={politicians} range={range} />
           </View>
@@ -425,6 +482,7 @@ function DashboardScreenInner() {
           <View
             ref={sectionRef('post_feed') as any}
             style={[styles.postsSection, { paddingHorizontal: hPad }]}
+            {...(Platform.OS === 'web' ? { 'data-container_name': 'row_posts_table' } as any : {})}
           >
             <ErrorBoundary>
               <PostsTable
@@ -443,6 +501,7 @@ function DashboardScreenInner() {
           <View
             ref={sectionRef('style_breakdown') as any}
             style={[styles.insightsRow, { paddingHorizontal: hPad }, isDesktop ? styles.insightsRowDesktop : styles.insightsRowStacked]}
+            {...(Platform.OS === 'web' ? { 'data-container_name': 'row_style_topics_insights' } as any : {})}
           >
             <View style={styles.insightsCol}>
               <StyleBreakdown posts={posts} rangeLabel={RANGE_LABELS[range]} />
@@ -456,12 +515,16 @@ function DashboardScreenInner() {
           <View
             ref={sectionRef('contact_footer') as any}
             style={[styles.contactSection, { paddingHorizontal: hPad }]}
+            {...(Platform.OS === 'web' ? { 'data-container_name': 'row_contact_footer' } as any : {})}
           >
             <ContactFooter />
           </View>
 
           {/* ── 9. App footer ─────────────────────────── */}
-          <View style={[styles.footerSection, { paddingHorizontal: hPad }]}>
+          <View
+            style={[styles.footerSection, { paddingHorizontal: hPad }]}
+            {...(Platform.OS === 'web' ? { 'data-container_name': 'row_app_footer' } as any : {})}
+          >
             <AppFooter />
           </View>
 

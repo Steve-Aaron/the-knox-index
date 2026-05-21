@@ -125,7 +125,7 @@ export function StickyUnlock({ showBar, isRegistered, email }: Props) {
                 <Text style={styles.ctaKicker}>GET ACCESS FOR FREE</Text>
                 <Text style={styles.ctaHeadline}>Want to get complete access?</Text>
                 <Text style={styles.ctaCopy}>
-                  Register via email — free for a limited time only
+                  Register via email — free for a limited time only.
                 </Text>
               </View>
               <View style={styles.ctaBtn}>
@@ -725,48 +725,48 @@ const styles = StyleSheet.create({
     ...Platform.select({ web: { position: 'fixed' } as any, default: {} }),
   },
   ctaBar: {
-    backgroundColor:   'rgba(12,12,28,0.94)',
+    backgroundColor:   'rgba(12,12,28,0.96)',
     borderWidth:       1,
     borderColor:       accent.indigo,
     borderRadius:      radius.xl,
-    paddingHorizontal: spacing.xl,
-    paddingVertical:   spacing.lg,
-    maxWidth:          640,
-    width:             '92%' as any,
+    paddingHorizontal: spacing.xxxl,
+    paddingVertical:   spacing.xxl,
+    maxWidth:          900,
+    width:             '96%' as any,
     ...Platform.select({
       web: {
-        backdropFilter:       'blur(24px)',
-        WebkitBackdropFilter: 'blur(24px)',
-        boxShadow:            '0 8px 48px rgba(124,131,255,0.35)',
+        backdropFilter:       'blur(28px)',
+        WebkitBackdropFilter: 'blur(28px)',
+        boxShadow:            '0 12px 64px rgba(124,131,255,0.40)',
         cursor:               'pointer',
       } as any,
       default: {
         shadowColor:   accent.indigo,
-        shadowOffset:  { width: 0, height: 8 },
-        shadowOpacity: 0.38,
-        shadowRadius:  28,
+        shadowOffset:  { width: 0, height: 12 },
+        shadowOpacity: 0.42,
+        shadowRadius:  40,
       },
     }),
   },
-  ctaInner:     { flexDirection: 'row', alignItems: 'center', gap: spacing.lg },
-  ctaTextGroup: { flex: 1, gap: 3 },
+  ctaInner:     { flexDirection: 'row', alignItems: 'center', gap: spacing.xl },
+  ctaTextGroup: { flex: 1, gap: 6 },
   ctaKicker: {
     ...type.caption,
-    fontSize:      12,
+    fontSize:      13,
     color:         accent.indigo,
     letterSpacing: 1.5,
   },
-  ctaHeadline: { ...type.title,   fontSize: 16, color: neutral.text,    fontWeight: '700' },
-  ctaCopy:     { ...type.body,    fontSize: 12, color: neutral.textMid, lineHeight: 17 },
+  ctaHeadline: { ...type.title,   fontSize: 26, color: neutral.text,    fontWeight: '700' },
+  ctaCopy:     { ...type.body,    fontSize: 16, color: neutral.textMid, lineHeight: 22 },
   ctaBtn: {
     backgroundColor:   accent.indigo,
-    paddingHorizontal: spacing.lg,
-    paddingVertical:   spacing.md,
+    paddingHorizontal: spacing.xxl,
+    paddingVertical:   spacing.lg,
     borderRadius:      radius.pill,
     flexShrink:        0,
-    ...Platform.select({ web: { boxShadow: '0 4px 20px rgba(124,131,255,0.4)' } as any, default: {} }),
+    ...Platform.select({ web: { boxShadow: '0 6px 28px rgba(124,131,255,0.45)' } as any, default: {} }),
   },
-  ctaBtnText: { ...type.caption, color: '#fff', fontSize: 12, fontWeight: '800', letterSpacing: 0.8 },
+  ctaBtnText: { ...type.caption, color: '#fff', fontSize: 14, fontWeight: '800', letterSpacing: 0.8 },
 
   errorToast: {
     position:      'absolute' as any,
