@@ -44,8 +44,9 @@ export function PoliticianDetailPanel({ politician, headlineKey, panelHeight }: 
   // Engagement uses range-specific likes+comments+saves+shares / range views
   // so the figure matches the selected time window. Falls back to yesterday
   // figures when no range posts exist.
-  const avgViews = politician.recentPosts.length > 0
-    ? Math.round(politician.recentPosts.reduce((s, p) => s + p.views, 0) / politician.recentPosts.length)
+  const recentPosts = politician.recentPosts ?? [];
+  const avgViews = recentPosts.length > 0
+    ? Math.round(recentPosts.reduce((s, p) => s + p.views, 0) / recentPosts.length)
     : 0;
 
   const engViews = politician.totals.viewsInRange > 0
@@ -169,7 +170,7 @@ export function PoliticianDetailPanel({ politician, headlineKey, panelHeight }: 
 
           {/* ── Recent posts ─────────────────────────── */}
           <SectionKicker label="Recent posts" />
-          {politician.recentPosts.length === 0 ? (
+          {recentPosts.length === 0 ? (
             <View style={styles.emptyPosts}>
               <Text style={styles.emptyPostsText}>No posts recorded for this account.</Text>
               <Text style={styles.emptyPostsSub}>They may not have posted recently or their content isn't being tracked yet.</Text>
@@ -179,7 +180,7 @@ export function PoliticianDetailPanel({ politician, headlineKey, panelHeight }: 
             style={styles.posts}
             {...(Platform.OS === 'web' ? { 'data-container_name': 'card_recent_posts_list' } as any : {})}
           >
-            {politician.recentPosts.map(post => {
+            {recentPosts.map(post => {
               const engRate = post.views > 0
                 ? +(((post.likes + post.comments + (post.saves ?? 0) + post.shares) / post.views) * 100).toFixed(2)
                 : 0;

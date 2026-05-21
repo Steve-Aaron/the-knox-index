@@ -7,8 +7,6 @@ import {
   Pressable,
   Platform,
   useWindowDimensions,
-  NativeSyntheticEvent,
-  NativeScrollEvent,
 } from 'react-native';
 import { MotiView } from 'moti';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -89,8 +87,6 @@ function DashboardScreenInner() {
   const [range, setRange]           = useState<TimeRange>('yesterday');
   const [sortKey, setSortKey]       = useState<ScoreKey>('knoxFactor');
   const [activeId, setActiveId]     = useState<string>('');
-  const [scrollY, setScrollY]       = useState(0);
-  const [contentHeight, setContentHeight] = useState(0);
   const [showAccounts, setShowAccounts] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
 
@@ -158,13 +154,6 @@ function DashboardScreenInner() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleScroll = useCallback(
-    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-      setScrollY(e.nativeEvent.contentOffset.y);
-    },
-    []
-  );
-
   // Debug URL param: ?debug=full | signup | gate | off
   // Strip the param BEFORE calling setDevPreview so the subsequent
   // window.location.reload() hits the clean URL and doesn't loop.
@@ -186,11 +175,6 @@ function DashboardScreenInner() {
   }, []);
 
   const { isRegistered, email: authEmail } = useAuth();
-
-  // 10% scroll threshold — show CTA bar once reached (no scroll lock)
-  const devPreview          = getDevPreview();
-  const scrollThreshold     = contentHeight > 0 ? contentHeight * 0.10 : Infinity;
-  const hasReachedThreshold = !isRegistered && (scrollY >= scrollThreshold || devPreview === 'gate');
 
   const { politicians, status, isLive, error, retryAttempt, retryTotal, isInitialLoad, refresh } = useLiveData(range);
   const { posts, loading: postsLoading, error: postsError } = usePostsData(range);
@@ -275,10 +259,7 @@ function DashboardScreenInner() {
           style={styles.scrollView}
           contentContainerStyle={styles.scroll}
           showsVerticalScrollIndicator={false}
-          onScroll={handleScroll}
-          scrollEventThrottle={120}
           scrollEnabled
-          onContentSizeChange={(_w, h) => setContentHeight(h)}
         >
 
           {/* ── 1. Title bar ──────────────────────────── */}
@@ -529,8 +510,8 @@ function DashboardScreenInner() {
           </View>
 
         </ScrollView>
-        {/* Sticky registration CTA — appears at 10% scroll depth, hidden once registered */}
-        <StickyUnlock showBar={hasReachedThreshold} isRegistered={isRegistered} email={authEmail} />
+        {/* Sticky registration CTA — visible immediately for unregistered users */}
+        <StickyUnlock showBar={!isRegistered} isRegistered={isRegistered} email={authEmail} />
       </SafeAreaView>
 
       {/* Dev-only preview panel — stripped from production builds */}

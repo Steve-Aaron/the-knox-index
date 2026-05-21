@@ -100,9 +100,9 @@ export async function GET(request: Request): Promise<Response> {
 
     await Promise.all([
       ...politicians.flatMap(p =>
-        p.recentPosts.map(async (post, i) => {
+        (p.recentPosts ?? []).map(async (post, i) => {
           const signed = await signMediaFields(post);
-          p.recentPosts[i] = signed;
+          p.recentPosts![i] = signed;
         })
       ),
       ...politicians.map(async p => {

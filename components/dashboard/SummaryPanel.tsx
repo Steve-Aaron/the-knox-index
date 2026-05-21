@@ -86,7 +86,7 @@ export function SummaryPanel({ politicians, panelHeight }: Props) {
     );
     const top = sorted[0];
     const allPosts = politicians.flatMap(p =>
-      p.recentPosts.map(post => ({ ...post, politician: p }))
+      (p.recentPosts ?? []).map(post => ({ ...post, politician: p }))
     );
     const mostViral = [...allPosts].sort((a, b) => b.views - a.views)[0];
     const totalFollowers = politicians.reduce(
@@ -122,15 +122,15 @@ export function SummaryPanel({ politicians, panelHeight }: Props) {
   // Top 6 posts by views across all politicians
   const topBangers = useMemo(() => {
     return politicians
-      .flatMap(p => p.recentPosts.map(post => ({ post, politician: p })))
+      .flatMap(p => (p.recentPosts ?? []).map(post => ({ post, politician: p })))
       .sort((a, b) => b.post.views - a.post.views)
       .slice(0, 6);
   }, [politicians]);
 
   // Posting activity stats: who posted vs who didn't
   const postingStats = useMemo(() => {
-    const posted    = politicians.filter(p => p.recentPosts.length > 0);
-    const silent    = politicians.filter(p => p.recentPosts.length === 0);
+    const posted    = politicians.filter(p => (p.recentPosts ?? []).length > 0);
+    const silent    = politicians.filter(p => (p.recentPosts ?? []).length === 0);
     // Unique party labels among those who posted
     const partiesPosted = [...new Set(posted.map(p => p.partyLabel))].sort();
     return { posted: posted.length, silent: silent.length, partiesPosted };

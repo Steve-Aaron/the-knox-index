@@ -81,7 +81,7 @@ export interface PostRecord {
   postUrl:         string;
   postDate:        string;
   style:           string;
-  topics:          string[];
+  topics?:         string[];
   views:           number;
   likes:           number;
   comments:        number;
@@ -154,7 +154,7 @@ export interface Politician {
   country: string;          // ISO-style short e.g. "UK"
   avatarInitials: string;   // two-letter fallback
   avatarUrl?: string;       // signed GCS photo URL from account.avatar
-  accountTypes: AccountType[];  // all types — a politician may have several (e.g. party_leader + member_of_parliament)
+  accountTypes?: AccountType[];  // all types — a politician may have several (e.g. party_leader + member_of_parliament)
   totals: {
     posts:          number;
     followers:      number;
@@ -176,5 +176,5 @@ export interface Politician {
     sharesInRange:   number;
   };
   scores: TopTrumpScores;
-  recentPosts: RecentPost[];
+  recentPosts?: RecentPost[];
 }

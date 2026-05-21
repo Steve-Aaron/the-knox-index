@@ -706,7 +706,7 @@ function PostCard({ post, index, benchmarks, onPress, drag, isActive, compact }:
                   <Text style={styles.tagText}>{fmtLabel(post.style)}</Text>
                 </View>
               ) : null}
-              {post.topics.slice(0, 3).map(t => (
+              {(post.topics ?? []).slice(0, 3).map(t => (
                 <View key={t} style={styles.topicTag}>
                   <Text style={styles.tagText}>{fmtLabel(t)}</Text>
                 </View>

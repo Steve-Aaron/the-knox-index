@@ -56,7 +56,7 @@ export function RankBoard({ politicians, activeId, headlineKey, timeRangeLabel, 
     const countFor = (v: ViewType) => {
       const types = VIEW_ACCOUNT_TYPES[v];
       if (!types) return politicians.length;
-      return politicians.filter(p => p.accountTypes.some(t => types.includes(t))).length;
+      return politicians.filter(p => p.accountTypes?.some(t => types.includes(t))).length;
     };
     return {
       all:                  politicians.length,
@@ -70,7 +70,7 @@ export function RankBoard({ politicians, activeId, headlineKey, timeRangeLabel, 
 
   const partyOptions = useMemo<PartyKey[]>(() => {
     const types = VIEW_ACCOUNT_TYPES[viewType];
-    const base = types ? politicians.filter(p => p.accountTypes.some(t => types.includes(t))) : politicians;
+    const base = types ? politicians.filter(p => p.accountTypes?.some(t => types.includes(t))) : politicians;
     const seen = new Set<PartyKey>();
     base.forEach(p => seen.add(p.partyKey));
     return Array.from(seen).sort();
@@ -84,7 +84,7 @@ export function RankBoard({ politicians, activeId, headlineKey, timeRangeLabel, 
 
   const ranked = useMemo(() => {
     const types = VIEW_ACCOUNT_TYPES[viewType];
-    let base = types ? politicians.filter(p => p.accountTypes.some(t => types.includes(t))) : politicians;
+    let base = types ? politicians.filter(p => p.accountTypes?.some(t => types.includes(t))) : politicians;
     // Only include accounts that posted at least once in the selected range.
     base = base.filter(p => p.totals.postsInRange > 0);
     if (partyFilter) base = base.filter(p => p.partyKey === partyFilter);

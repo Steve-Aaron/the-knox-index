@@ -66,7 +66,7 @@ export function KeyFindingsBar({ politicians, range = 'yesterday' }: Props) {
       (a, b) => b.scores.knoxFactor - a.scores.knoxFactor
     )[0];
     const allPosts = politicians.flatMap(p =>
-      p.recentPosts.map(post => ({ ...post, politician: p }))
+      (p.recentPosts ?? []).map(post => ({ ...post, politician: p }))
     );
     const mostViral        = [...allPosts].sort((a, b) => b.views - a.views)[0];
     const totalViews       = allPosts.reduce((s, p) => s + p.views, 0);

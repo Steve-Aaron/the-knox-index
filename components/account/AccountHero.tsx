@@ -166,8 +166,9 @@ export function AccountHero({ politician, overallRank, totalCount, rangeLabel }:
   const colour    = party[politician.partyKey];
   const delta     = fmtDelta(politician.totals.followerChange);
 
-  const avgViews = politician.recentPosts.length > 0
-    ? Math.round(politician.recentPosts.reduce((s, p) => s + p.views, 0) / politician.recentPosts.length)
+  const recentPosts = politician.recentPosts ?? [];
+  const avgViews = recentPosts.length > 0
+    ? Math.round(recentPosts.reduce((s, p) => s + p.views, 0) / recentPosts.length)
     : 0;
 
   const engViews = politician.totals.viewsInRange > 0
@@ -234,9 +235,9 @@ export function AccountHero({ politician, overallRank, totalCount, rangeLabel }:
           </View>
 
           {/* Account type chips */}
-          {politician.accountTypes.filter(t => t !== 'other').length > 0 && (
+          {(politician.accountTypes ?? []).filter(t => t !== 'other').length > 0 && (
             <View style={styles.chipRow}>
-              {politician.accountTypes
+              {(politician.accountTypes ?? [])
                 .filter(t => t !== 'other')
                 .map(t => <TypeChip key={t} accountType={t} />)}
             </View>
