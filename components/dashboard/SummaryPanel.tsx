@@ -2,8 +2,8 @@ import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react'
 import { View, Text, ScrollView, StyleSheet, Platform } from 'react-native';
 import { track } from '@/lib/analytics';
 import { MotiView } from 'moti';
-import type { BriefResponse } from '@/data/types';
-import { GlassSurface } from '@/components/primitives/GlassSurface';
+import type { BriefsApiResponse } from '@/data/types';
+import { DashCard } from '@/components/primitives/DashCard';
 import { DevLabel } from '@/components/primitives/DevLabel';
 import { PostBangerCard } from './PostBangerCard';
 import { neutral, party, glass, accent, brand } from '@/theme/colors';
@@ -29,7 +29,7 @@ interface Props {
 const INSIGHT_COLOURS = [accent.mint, accent.indigo, accent.amber];
 
 export function SummaryPanel({ politicians, panelHeight }: Props) {
-  const [brief, setBrief]             = useState<BriefResponse | null>(null);
+  const [brief, setBrief]             = useState<BriefsApiResponse | null>(null);
   const [briefLoading, setBriefLoading] = useState(true);
   const [briefError, setBriefError]   = useState<string | null>(null);
 
@@ -53,41 +53,28 @@ export function SummaryPanel({ politicians, panelHeight }: Props) {
   useEffect(() => () => { if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current); }, []);
 
   useEffect(() => {
-    // Hold the loading state for at least MIN_LOADING_MS so the UI feels
-    // like Gemini is genuinely thinking. The /api/brief response is now
-    // edge-cached for 12h and frequently returns instantly, which made
-    // the previous flash-of-content feel jarring.
-    const MIN_LOADING_MS = 2500;
-    const startedAt = Date.now();
     let cancelled = false;
 
     setBriefLoading(true);
     setBriefError(null);
 
-    const settle = (apply: () => void) => {
-      const elapsed = Date.now() - startedAt;
-      const wait = Math.max(0, MIN_LOADING_MS - elapsed);
-      setTimeout(() => {
-        if (cancelled) return;
-        apply();
-        setBriefLoading(false);
-      }, wait);
-    };
-
-    fetch('/api/brief')
+    fetch('/api/briefs')
       .then(async r => {
-        if (!r.ok) {
-          // Do NOT echo body.detail into the error — see lib/errors.ts.
-          throw new Error(`HTTP ${r.status}`);
-        }
-        return await r.json() as { brief: BriefResponse };
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return await r.json() as BriefsApiResponse;
       })
-      .then(data => settle(() => setBrief(data.brief)))
+      .then(data => {
+        if (cancelled) return;
+        setBrief(data);
+        setBriefLoading(false);
+      })
       .catch(e => {
+        if (cancelled) return;
         const uiMessage = e instanceof Error && /^HTTP \d+$/.test(e.message)
           ? e.message
           : 'Briefing unavailable';
-        settle(() => setBriefError(uiMessage));
+        setBriefError(uiMessage);
+        setBriefLoading(false);
       });
 
     return () => { cancelled = true; };
@@ -161,7 +148,7 @@ export function SummaryPanel({ politicians, panelHeight }: Props) {
     : {};
 
   return (
-    <GlassSurface style={wrapStyle} radius={radius.lg} topAccent={[...brand.gradient]} flatTop {...hoverProps}>
+    <DashCard style={wrapStyle} {...hoverProps}>
       <DevLabel name="SummaryPanel" />
 
       <ScrollView
@@ -174,8 +161,19 @@ export function SummaryPanel({ politicians, panelHeight }: Props) {
           animate={{ opacity: 1, translateY: 0 }}
           transition={{ type: 'timing', duration: 320 }}
         >
-          <Text style={styles.kicker}>WEEKLY BRIEFING</Text>
-          <Text style={styles.title}>This week on TikTok</Text>
+          <View style={styles.headerRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.kicker}>DAILY BRIEFING</Text>
+              <Text style={styles.title}>Today on TikTok</Text>
+            </View>
+            {brief && !brief.isToday && (
+              <View style={styles.staleBadge}>
+                <Text style={styles.staleBadgeText}>
+                  {brief.brief.briefDate}
+                </Text>
+              </View>
+            )}
+          </View>
         </MotiView>
 
         {/* ── AI narrative ─────────────────────────── */}
@@ -188,15 +186,15 @@ export function SummaryPanel({ politicians, panelHeight }: Props) {
             <View style={[styles.narrativeBar, { backgroundColor: accent.indigo }]} />
             {briefLoading ? (
               <Text style={[styles.narrativeText, styles.narrativeLoading]}>
-                Generating briefing…
+                Loading briefing…
               </Text>
-            ) : brief?.narrative ? (
-              <Text style={styles.narrativeText}>{brief.narrative}</Text>
+            ) : brief?.brief.briefDailySummary ? (
+              <Text style={styles.narrativeText}>{brief.brief.briefDailySummary}</Text>
             ) : (
               <Text style={[styles.narrativeText, styles.narrativeLoading]}>
                 {briefError
                   ? `Error: ${briefError}`
-                  : 'Briefing unavailable — live data required.'}
+                  : 'No briefing available yet — check back later.'}
               </Text>
             )}
           </View>
@@ -271,7 +269,7 @@ export function SummaryPanel({ politicians, panelHeight }: Props) {
         ) : null}
 
         {/* ── AI-generated top insights ────────────── */}
-        {(brief?.insights?.length || briefLoading) ? (
+        {(brief?.brief.topNarrativesThisWeek?.length || briefLoading) ? (
           <>
             <Text style={styles.sectionKicker}>TOP NARRATIVES THIS WEEK</Text>
             <View style={styles.narratives}>
@@ -279,7 +277,7 @@ export function SummaryPanel({ politicians, panelHeight }: Props) {
                 ? [0, 1, 2].map(i => (
                     <View key={i} style={[styles.narrativeItem, styles.narrativeSkeleton]} />
                   ))
-                : brief!.insights.map((n, i) => (
+                : brief!.brief.topNarrativesThisWeek.map((n, i) => (
                     <MotiView
                       key={i}
                       from={{ opacity: 0, translateY: 8 }}
@@ -300,7 +298,7 @@ export function SummaryPanel({ politicians, panelHeight }: Props) {
           </>
         ) : null}
       </ScrollView>
-    </GlassSurface>
+    </DashCard>
   );
 }
 
@@ -312,6 +310,28 @@ const styles = StyleSheet.create({
   },
 
   // Header
+  headerRow: {
+    flexDirection:  'row',
+    alignItems:     'flex-start',
+    justifyContent: 'space-between',
+    gap:            spacing.md,
+  },
+  staleBadge: {
+    backgroundColor: 'rgba(251,191,36,0.12)',
+    borderWidth:     1,
+    borderColor:     'rgba(251,191,36,0.3)',
+    borderRadius:    radius.pill,
+    paddingHorizontal: spacing.sm,
+    paddingVertical:   3,
+    alignSelf:       'flex-start',
+    marginTop:       4,
+  },
+  staleBadgeText: {
+    fontFamily:    font.bold,
+    fontSize:      9,
+    color:         '#fbbf24',
+    letterSpacing: 0.6,
+  },
   kicker: {
     ...type.caption,
     color: neutral.textDim,

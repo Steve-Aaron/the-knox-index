@@ -23,7 +23,7 @@ export const neutral = {
   strokeHi:  '#7C919A',   // grey — hover / focus borders
   text:      '#F4F5FF',   // white — primary text
   textMid:   '#7C919A',   // grey — secondary text
-  textDim:   '#4D575C',   // dark grey — tertiary text
+  textDim:   '#FAFAFA',   // --textColorDim — tertiary text
 };
 
 /**
@@ -34,7 +34,7 @@ export const neutral = {
 export const party = {
   labour:       { base: '#E4002B', glow: '#FF4F6E' },
   conservative: { base: '#1a5eb8', glow: '#4d8fdd' },
-  libdem:       { base: '#FAA61A', glow: '#FFC96B' },
+  libdem:       { base: '#FDBB30', glow: '#FFE082' },
   snp:          { base: '#FFF95D', glow: '#FFFBA6' },
   green:        { base: '#00C951', glow: '#5FE890' },
   reform:       { base: '#12B6CF', glow: '#5DE3F4' },

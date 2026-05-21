@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, Pressable, Platform } from 'react-native';
-import { GlassSurface } from '@/components/primitives/GlassSurface';
+import { DashCard } from '@/components/primitives/DashCard';
 import { DevLabel } from '@/components/primitives/DevLabel';
 import { InfoTip } from '@/components/primitives/InfoTip';
 import { SkeletonBlock } from '@/components/primitives/SkeletonBlock';
@@ -56,7 +56,7 @@ export function RankBoard({ politicians, activeId, headlineKey, timeRangeLabel, 
     const countFor = (v: ViewType) => {
       const types = VIEW_ACCOUNT_TYPES[v];
       if (!types) return politicians.length;
-      return politicians.filter(p => types.includes(p.accountType)).length;
+      return politicians.filter(p => p.accountTypes.some(t => types.includes(t))).length;
     };
     return {
       all:                  politicians.length,
@@ -70,7 +70,7 @@ export function RankBoard({ politicians, activeId, headlineKey, timeRangeLabel, 
 
   const partyOptions = useMemo<PartyKey[]>(() => {
     const types = VIEW_ACCOUNT_TYPES[viewType];
-    const base = types ? politicians.filter(p => types.includes(p.accountType)) : politicians;
+    const base = types ? politicians.filter(p => p.accountTypes.some(t => types.includes(t))) : politicians;
     const seen = new Set<PartyKey>();
     base.forEach(p => seen.add(p.partyKey));
     return Array.from(seen).sort();
@@ -84,7 +84,7 @@ export function RankBoard({ politicians, activeId, headlineKey, timeRangeLabel, 
 
   const ranked = useMemo(() => {
     const types = VIEW_ACCOUNT_TYPES[viewType];
-    let base = types ? politicians.filter(p => types.includes(p.accountType)) : politicians;
+    let base = types ? politicians.filter(p => p.accountTypes.some(t => types.includes(t))) : politicians;
     // Only include accounts that posted at least once in the selected range.
     base = base.filter(p => p.totals.postsInRange > 0);
     if (partyFilter) base = base.filter(p => p.partyKey === partyFilter);
@@ -98,7 +98,7 @@ export function RankBoard({ politicians, activeId, headlineKey, timeRangeLabel, 
   };
 
   return (
-    <GlassSurface style={wrapStyle} radius={radius.lg} topAccent={[...brand.gradient]} flatTop>
+    <DashCard style={wrapStyle}>
       <DevLabel name="RankBoard" />
 
       {/* Fixed header — stays at the top */}
@@ -204,7 +204,7 @@ export function RankBoard({ politicians, activeId, headlineKey, timeRangeLabel, 
             })
         }
       </ScrollView>
-    </GlassSurface>
+    </DashCard>
   );
 }
 

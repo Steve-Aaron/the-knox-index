@@ -1,161 +1,132 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { View, Text, Pressable, StyleSheet, Platform } from 'react-native';
+import { MotiView } from 'moti';
 import { getDevPreview, setDevPreview, type DevPreviewState } from '@/lib/devPreview';
-import { accent, neutral, glass } from '@/theme/colors';
+import { neutral, glass } from '@/theme/colors';
 import { spacing, radius } from '@/theme/spacing';
 import { font } from '@/theme/typography';
 
 /**
  * DevPanel
  * ---------
- * Floating dev-only overlay rendered in the bottom-left corner.
- * Lets you force any UI state without clicking a real magic link.
+ * Persistent floating toolbar docked bottom-centre.
+ * Shows the active dev preview state and lets you tap any state to switch.
+ * Renders only in __DEV__ + web. Zero runtime cost in production.
  *
- * Visible only in __DEV__ + web builds. Renders nothing in production.
- *
- * States:
- *   Gate   — unregistered at scroll threshold (CTA bar visible)
- *   Signup — registered, not yet profiled (profiling modal fires)
- *   Full   — registered and profiled (fully unlocked)
- *   Reset  — clears all overrides and auth state back to anonymous
- *
- * One job: control dev preview state.
+ * One job: control dev preview state without typing URLs.
  */
 
-if (!__DEV__ || Platform.OS !== 'web') {
-  // Bail out entirely in production or non-web — no runtime cost at all
-}
-
-const BUTTONS: { state: DevPreviewState | 'off'; label: string; color: string }[] = [
+const STATES: { state: DevPreviewState; label: string; color: string }[] = [
+  { state: 'off',    label: 'Off',    color: '#6C6C82' },
   { state: 'gate',   label: 'Gate',   color: '#FFB547' },
   { state: 'signup', label: 'Signup', color: '#7C83FF' },
   { state: 'full',   label: 'Full',   color: '#3DFFC0' },
-  { state: 'off',    label: 'Reset',  color: '#6C6C82' },
 ];
 
 export function DevPanel() {
-  const [expanded, setExpanded] = useState(false);
-  const current = getDevPreview();
-
   if (!__DEV__ || Platform.OS !== 'web') return null;
+
+  const current = getDevPreview();
 
   return (
     <View style={styles.wrap} pointerEvents="box-none">
-      {expanded && (
-        <View style={styles.panel}>
-          <Text style={styles.heading}>DEV PREVIEW</Text>
-          <View style={styles.btnRow}>
-            {BUTTONS.map(({ state, label, color }) => {
-              const active = state === current || (state === 'off' && current === 'off');
-              return (
-                <Pressable
-                  key={state}
-                  onPress={() => setDevPreview(state as DevPreviewState)}
-                  style={({ pressed }) => [
-                    styles.btn,
-                    { borderColor: color },
-                    active && { backgroundColor: color + '28' },
-                    pressed && { opacity: 0.75 },
-                  ]}
-                >
-                  <Text style={[styles.btnText, { color }]}>{label}</Text>
-                </Pressable>
-              );
-            })}
-          </View>
-          {current !== 'off' && (
-            <Text style={styles.status}>
-              Active: <Text style={{ color: neutral.text }}>{current}</Text>
-            </Text>
-          )}
-        </View>
-      )}
-
-      <Pressable
-        onPress={() => setExpanded(v => !v)}
-        style={({ pressed }) => [styles.toggle, pressed && { opacity: 0.75 }]}
+      <MotiView
+        from={{ opacity: 0, translateY: 12 }}
+        animate={{ opacity: 1, translateY: 0 }}
+        transition={{ type: 'timing', duration: 240 }}
+        style={styles.bar}
       >
-        <Text style={styles.toggleText}>{expanded ? '✕' : '⚙ DEV'}</Text>
-      </Pressable>
+        <Text style={styles.label}>DEV</Text>
+        <View style={styles.divider} />
+        {STATES.map(({ state, label, color }) => {
+          const active = state === current;
+          return (
+            <Pressable
+              key={state}
+              onPress={() => setDevPreview(state)}
+              style={({ pressed }) => [
+                styles.pill,
+                active && { backgroundColor: color + '28', borderColor: color },
+                pressed && { opacity: 0.7 },
+              ]}
+            >
+              {active && (
+                <View style={[styles.activeDot, { backgroundColor: color }]} />
+              )}
+              <Text style={[styles.pillText, { color: active ? color : neutral.textDim }]}>
+                {label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </MotiView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   wrap: {
-    position:  'absolute' as any,
-    bottom:    spacing.xl,
-    left:      spacing.base,
-    zIndex:    9999,
-    alignItems: 'flex-start',
-    gap:       spacing.xs,
+    position:       'absolute' as any,
+    bottom:         spacing.xl,
+    left:           0,
+    right:          0,
+    alignItems:     'center',
+    zIndex:         9999,
+    pointerEvents:  'box-none' as any,
     ...Platform.select({ web: { position: 'fixed' } as any, default: {} }),
   },
-  panel: {
-    backgroundColor: 'rgba(10,10,20,0.96)',
-    borderWidth:     1,
-    borderColor:     glass.border,
-    borderRadius:    radius.md,
-    padding:         spacing.md,
-    gap:             spacing.sm,
-    minWidth:        200,
-    ...Platform.select({
-      web: {
-        backdropFilter:       'blur(16px)',
-        WebkitBackdropFilter: 'blur(16px)',
-        boxShadow:            '0 8px 32px rgba(0,0,0,0.6)',
-      } as any,
-      default: {},
-    }),
-  },
-  heading: {
-    fontFamily:    font.bold,
-    fontSize:      12,
-    color:         neutral.textDim,
-    letterSpacing: 1.5,
-  },
-  btnRow: {
-    flexDirection: 'row',
-    flexWrap:      'wrap',
-    gap:           spacing.xs,
-  },
-  btn: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical:   5,
-    borderRadius:      radius.pill,
-    borderWidth:       1,
-    ...Platform.select({ web: { cursor: 'pointer' } as any, default: {} }),
-  },
-  btnText: {
-    fontFamily: font.bold,
-    fontSize:   12,
-    letterSpacing: 0.5,
-  },
-  status: {
-    fontFamily: font.ui,
-    fontSize:   12,
-    color:      neutral.textDim,
-  },
-  toggle: {
-    backgroundColor: 'rgba(10,10,20,0.9)',
-    borderWidth:     1,
-    borderColor:     glass.border,
-    borderRadius:    radius.pill,
+  bar: {
+    flexDirection:  'row',
+    alignItems:     'center',
+    gap:            spacing.xs,
+    backgroundColor: 'rgba(10,10,20,0.90)',
+    borderWidth:    1,
+    borderColor:    glass.border,
+    borderRadius:   radius.pill,
     paddingHorizontal: spacing.md,
     paddingVertical:   6,
     ...Platform.select({
       web: {
-        cursor:               'pointer',
-        backdropFilter:       'blur(12px)',
-        WebkitBackdropFilter: 'blur(12px)',
+        backdropFilter:       'blur(16px)',
+        WebkitBackdropFilter: 'blur(16px)',
+        boxShadow:            '0 4px 24px rgba(0,0,0,0.55)',
+        cursor:               'default',
       } as any,
       default: {},
     }),
   },
-  toggleText: {
-    fontFamily: font.bold,
-    fontSize:   12,
-    color:      accent.indigo,
-    letterSpacing: 0.8,
+  label: {
+    fontFamily:    font.bold,
+    fontSize:      10,
+    color:         neutral.textDim,
+    letterSpacing: 1.8,
+    paddingHorizontal: 2,
+  },
+  divider: {
+    width:           1,
+    height:          14,
+    backgroundColor: glass.border,
+    marginHorizontal: 2,
+  },
+  pill: {
+    flexDirection:    'row',
+    alignItems:       'center',
+    gap:              5,
+    paddingHorizontal: spacing.sm,
+    paddingVertical:   4,
+    borderRadius:     radius.pill,
+    borderWidth:      1,
+    borderColor:      'transparent',
+    ...Platform.select({ web: { cursor: 'pointer' } as any, default: {} }),
+  },
+  activeDot: {
+    width:        6,
+    height:       6,
+    borderRadius: 3,
+  },
+  pillText: {
+    fontFamily:    font.bold,
+    fontSize:      11,
+    letterSpacing: 0.4,
   },
 });

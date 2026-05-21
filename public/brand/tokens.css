@@ -17,7 +17,8 @@
   --color-stroke-hi:   #3A3A55;
   --color-text:        #ECECF2;
   --color-text-mid:    #A8A8BA;
-  --color-text-dim:    #6C6C82;
+  --color-text-dim:    #FAFAFA;
+  --textColorDim:      #FAFAFA;
 
   /* ── Accent ──────────────────────────────────────────── */
   --color-indigo:      #7C83FF;

@@ -24,6 +24,10 @@ build/
 # Project docs — briefs, reviews, planning notes
 docs/
 
+# Email templates — design files, previews, drafts
+# Not for publishing upstream; managed separately
+email/
+
 # OS
 .DS_Store
 Thumbs.db

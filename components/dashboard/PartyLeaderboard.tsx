@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { View, Text, Pressable, StyleSheet, Platform } from 'react-native';
-import { GlassSurface } from '@/components/primitives/GlassSurface';
+import { DashCard } from '@/components/primitives/DashCard';
 import { DevLabel } from '@/components/primitives/DevLabel';
 import { InfoTip } from '@/components/primitives/InfoTip';
 import { neutral, glass, party, brand } from '@/theme/colors';
@@ -124,7 +124,7 @@ export function PartyLeaderboard({ politicians, range = 'week' }: Props) {
   const max = rows[0];
 
   return (
-    <GlassSurface style={styles.wrap} radius={radius.lg} topAccent={[...brand.gradient]} flatTop>
+    <DashCard style={styles.wrap}>
       <DevLabel name="PartyLeaderboard" />
 
       <View style={styles.header}>
@@ -228,7 +228,7 @@ export function PartyLeaderboard({ politicians, range = 'week' }: Props) {
           );
         })}
       </View>
-    </GlassSurface>
+    </DashCard>
   );
 }
 

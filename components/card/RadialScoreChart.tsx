@@ -12,7 +12,7 @@ import type { TopTrumpScores, ScoreKey } from '@/data/types';
  * PostScript asset name on native ('Montserrat_600SemiBold' etc.).
  * Expo Google Fonts registers both forms at load time via @expo-google-fonts.
  */
-const SVG_FONT_LABEL  = Platform.select({ web: 'Figtree', default: 'Figtree_600SemiBold' });
+const SVG_FONT_LABEL  = Platform.select({ web: 'Figtree, sans-serif', default: 'Figtree_600SemiBold' });
 const SVG_WEIGHT_LABEL: string = '600';
 import { timing } from '@/theme/motion';
 import { DevLabel } from '@/components/primitives/DevLabel';
@@ -248,16 +248,17 @@ export function RadialScoreChart({ scores, partyKey, size = 440, highlightKey, r
         {geometry.labelPoints.map((p, idx) => (
           <Rect
             key={`hit-${idx}`}
-            x={p.x - 30}
-            y={p.y - 10}
-            width={60}
-            height={20}
+            x={p.x - 56}
+            y={p.y - 14}
+            width={112}
+            height={28}
             fill="transparent"
             onPressIn={() => setHoveredIdx(idx)}
             onPressOut={() => setHoveredIdx(null)}
             {...(Platform.OS === 'web' ? {
               onMouseEnter: () => setHoveredIdx(idx),
               onMouseLeave: () => setHoveredIdx(null),
+              style: { cursor: 'pointer' },
             } as any : {})}
           />
         ))}

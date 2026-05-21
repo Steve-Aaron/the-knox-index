@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Platform, useWindowDimensions } from 'react-native';
 import { MotiView } from 'moti';
-import { GlassSurface } from '@/components/primitives/GlassSurface';
+import { DashCard } from '@/components/primitives/DashCard';
 import { DevLabel } from '@/components/primitives/DevLabel';
 import { InfoTip } from '@/components/primitives/InfoTip';
 import { SkeletonBlock } from '@/components/primitives/SkeletonBlock';
@@ -178,7 +178,7 @@ export function KeyFindingsBar({ politicians, range = 'yesterday' }: Props) {
   ));
 
   return (
-    <GlassSurface style={styles.strip} radius={radius.md} topAccent={[...brand.gradient]}>
+    <DashCard style={styles.strip}>
       <DevLabel name="KeyFindingsBar" />
 
       {politicians.length === 0 ? (
@@ -197,7 +197,7 @@ export function KeyFindingsBar({ politicians, range = 'yesterday' }: Props) {
           {tileNodes}
         </ScrollView>
       )}
-    </GlassSurface>
+    </DashCard>
   );
 }
 

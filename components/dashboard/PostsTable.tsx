@@ -15,7 +15,7 @@ import DraggableFlatList, {
 } from 'react-native-draggable-flatlist';
 import { ShimmerImage } from '@/components/primitives/ShimmerImage';
 import { MotiView } from 'moti';
-import { GlassSurface } from '@/components/primitives/GlassSurface';
+import { DashCard } from '@/components/primitives/DashCard';
 import { DevLabel } from '@/components/primitives/DevLabel';
 import { BoxWhisker } from '@/components/primitives/BoxWhisker';
 import { InfoTip } from '@/components/primitives/InfoTip';
@@ -28,6 +28,7 @@ import { spacing, radius } from '@/theme/spacing';
 import { formatters } from '@/components/primitives/CountUp';
 import type { PostRecord, PostBenchmarks } from '@/data/types';
 import { track } from '@/lib/analytics';
+import { fmtLabel } from '@/lib/format';
 
 /**
  * PostsTable
@@ -259,7 +260,7 @@ export function PostsTable({
   }, []);
 
   return (
-    <GlassSurface style={styles.wrap} radius={radius.lg} flatTop>
+    <DashCard style={styles.wrap} topAccent={undefined}>
       <DevLabel name="PostsTable" />
       <View style={[styles.accentStrip, { backgroundColor: accent.pink }]} />
 
@@ -505,7 +506,7 @@ export function PostsTable({
           onClose={() => setSelected(null)}
         />
       ) : null}
-    </GlassSurface>
+    </DashCard>
   );
 }
 
@@ -702,12 +703,12 @@ function PostCard({ post, index, benchmarks, onPress, drag, isActive, compact }:
             <View style={styles.tags}>
               {post.style ? (
                 <View style={styles.styleTag}>
-                  <Text style={styles.tagText}>{post.style}</Text>
+                  <Text style={styles.tagText}>{fmtLabel(post.style)}</Text>
                 </View>
               ) : null}
               {post.topics.slice(0, 3).map(t => (
                 <View key={t} style={styles.topicTag}>
-                  <Text style={styles.tagText}>{t}</Text>
+                  <Text style={styles.tagText}>{fmtLabel(t)}</Text>
                 </View>
               ))}
             </View>

@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { GlassSurface } from '@/components/primitives/GlassSurface';
+import { DashCard } from '@/components/primitives/DashCard';
 import { DevLabel } from '@/components/primitives/DevLabel';
 import { InfoTip } from '@/components/primitives/InfoTip';
 import { neutral, glass, accent } from '@/theme/colors';
@@ -66,7 +66,7 @@ export function TopicCloud({ posts, rangeLabel, topN = 24 }: Props) {
   }, [posts, topN]);
 
   return (
-    <GlassSurface style={styles.wrap} radius={radius.lg}>
+    <DashCard style={styles.wrap}>
       <DevLabel name="TopicCloud" />
 
       <View style={styles.header}>
@@ -95,7 +95,7 @@ export function TopicCloud({ posts, rangeLabel, topN = 24 }: Props) {
           })}
         </View>
       )}
-    </GlassSurface>
+    </DashCard>
   );
 }
 
