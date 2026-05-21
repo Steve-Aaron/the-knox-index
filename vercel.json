@@ -1,45 +1,40 @@
 {
+  "buildCommand": "rm -rf dist && npx expo export --platform web",
   "outputDirectory": "dist/client",
   "installCommand": "npm install",
   "devCommand": "npx expo start --web",
   "env": {
     "EXPO_OFFLINE": "1"
   },
+  "functions": {
+    "api/[...all].ts": {
+      "includeFiles": "dist/server/**",
+      "maxDuration": 30
+    }
+  },
   "headers": [
     {
       "source": "/",
       "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-cache, no-store, must-revalidate"
-        },
-        {
-          "key": "Pragma",
-          "value": "no-cache"
-        },
-        {
-          "key": "Expires",
-          "value": "0"
-        }
+        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" },
+        { "key": "Pragma",        "value": "no-cache" },
+        { "key": "Expires",       "value": "0" }
       ]
     },
     {
       "source": "/_expo/static/(.*)",
       "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "public, max-age=31536000, immutable"
-        }
+        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
       ]
     },
     {
       "source": "/assets/(.*)",
       "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "public, max-age=31536000, immutable"
-        }
+        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
       ]
     }
+  ],
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/api/[...all]" }
   ]
 }
