@@ -3,6 +3,7 @@ import { Pressable, Text, StyleSheet, Linking, View, Platform } from 'react-nati
 import { glass, neutral } from '@/theme/colors';
 import { radius, spacing } from '@/theme/spacing';
 import { type } from '@/theme/typography';
+import { DevLabel } from '@/components/primitives/DevLabel';
 
 /**
  * LinkPill
@@ -36,6 +37,7 @@ export function LinkPill({ label, url, accentColour, iconGlyph = '↗' }: Props)
       ]}
     >
       <View style={styles.tiktok}>
+        <DevLabel name="LinkPill" />
         <Text style={[styles.tiktokMark, { color: accentColour ?? neutral.text }]}>
           ▶
         </Text>

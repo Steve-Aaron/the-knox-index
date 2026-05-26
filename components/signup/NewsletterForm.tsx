@@ -14,6 +14,7 @@ import { neutral, glass, accent } from '@/theme/colors';
 import { spacing, radius } from '@/theme/spacing';
 import { font } from '@/theme/typography';
 import { SEGMENTS, INTERESTS } from '@/data/profileOptions';
+import { DevLabel } from '@/components/primitives/DevLabel';
 
 /**
  * NewsletterForm
@@ -396,6 +397,7 @@ export function NewsletterForm() {
   // ── Wrapper with step indicator ──────────────────────────────────────────────
   return (
     <View style={styles.form}>
+      <DevLabel name="NewsletterForm" />
       <StepIndicator current={step} />
       {step === 1 && renderStep1()}
       {step === 2 && renderStep2()}

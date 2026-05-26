@@ -2,7 +2,6 @@ import React, { useMemo, useState } from 'react';
 import { View, Text, Pressable, StyleSheet, Platform } from 'react-native';
 import { DashCard } from '@/components/primitives/DashCard';
 import { DevLabel } from '@/components/primitives/DevLabel';
-import { InfoTip } from '@/components/primitives/InfoTip';
 import { neutral, glass, party, brand } from '@/theme/colors';
 import type { PartyKey } from '@/theme/colors';
 import { spacing, radius } from '@/theme/spacing';
@@ -41,8 +40,10 @@ const RANGE_KICKER: Record<TimeRange, string> = {
 type SortKey = 'views' | 'postsThisWeek' | 'engagement' | 'accounts';
 
 interface Props {
-  politicians: Politician[];
-  range?: TimeRange;
+  politicians:    Politician[];
+  range?:         TimeRange;
+  onPartySelect?: (partyKey: PartyKey | null) => void;
+  activeParty?:   PartyKey | null;
 }
 
 interface PartyRow {
@@ -75,7 +76,7 @@ const PARTY_LABELS: Partial<Record<PartyKey, string>> = {
   unknown:      'Unknown',
 };
 
-export function PartyLeaderboard({ politicians, range = 'week' }: Props) {
+export function PartyLeaderboard({ politicians, range = 'week', onPartySelect, activeParty }: Props) {
   const [sortKey, setSortKey] = useState<SortKey>('views');
   const postsPeriodLabel = POSTS_PERIOD[range];
   const rangeKicker = RANGE_KICKER[range];
@@ -124,7 +125,11 @@ export function PartyLeaderboard({ politicians, range = 'week' }: Props) {
   const max = rows[0];
 
   return (
-    <DashCard style={styles.wrap}>
+    <DashCard
+      style={styles.wrap}
+      infoText="Politicians grouped by party and totalled. Use this to answer 'which party is dominating TikTok this week' and 'which party is most active'. Tap a party row to filter the post feed below."
+      infoTitle="Party League"
+    >
       <DevLabel name="PartyLeaderboard" />
 
       <View style={styles.header}>
@@ -133,10 +138,6 @@ export function PartyLeaderboard({ politicians, range = 'week' }: Props) {
             <Text style={styles.kicker}>PARTY LEAGUE · {rangeKicker}</Text>
             <Text style={styles.title}>Who's winning the parties' war?</Text>
           </View>
-          <InfoTip
-            text="Politicians grouped by party and totalled. Use this to answer 'which party is dominating TikTok this week' and 'which party is most active'."
-            width={260}
-          />
         </View>
 
         <View style={styles.sortRow}>
@@ -179,25 +180,32 @@ export function PartyLeaderboard({ politicians, range = 'week' }: Props) {
             ? `${row.engagementRate.toFixed(2)}%`
             : formatters.compact(headlineValue);
 
+          const isActive = activeParty === row.key;
+
           return (
             <Pressable
               key={row.key}
-              onPress={() => track('party_leaderboard_row_tapped', {
-                party_key:       row.key,
-                party_label:     row.label,
-                rank:            i + 1,
-                sort_key:        sortKey,
-                total_views:     row.totalViews,
-                total_posts:     row.totalPosts,
-                engagement_rate: +row.engagementRate.toFixed(2),
-              })}
+              onPress={() => {
+                track('party_leaderboard_row_tapped', {
+                  party_key:       row.key,
+                  party_label:     row.label,
+                  rank:            i + 1,
+                  sort_key:        sortKey,
+                  total_views:     row.totalViews,
+                  total_posts:     row.totalPosts,
+                  engagement_rate: +row.engagementRate.toFixed(2),
+                });
+                // Toggle: tap the same party again to clear the filter
+                onPartySelect?.(isActive ? null : row.key);
+              }}
               style={({ pressed, hovered }: any) => [
                 styles.row,
-                hovered && { backgroundColor: 'rgba(255,255,255,0.03)' },
+                isActive && { backgroundColor: colour.base + '18', borderRadius: 8 },
+                hovered && !isActive && { backgroundColor: 'rgba(255,255,255,0.03)' },
                 pressed && { opacity: 0.75 },
               ]}
             >
-              <Text style={styles.rank}>{i + 1}</Text>
+              <Text style={[styles.rank, isActive && { color: colour.glow }]}>{i + 1}</Text>
               <View style={[styles.partyDot, { backgroundColor: colour.base }]} />
               <View style={styles.rowMain}>
                 <View style={styles.rowTopLine}>

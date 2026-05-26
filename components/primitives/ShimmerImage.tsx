@@ -3,6 +3,7 @@ import { View, Image, StyleSheet, ImageStyle, ViewStyle } from 'react-native';
 import { MotiView } from 'moti';
 import { Easing } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
+import { DevLabel } from '@/components/primitives/DevLabel';
 
 /**
  * ShimmerImage
@@ -36,6 +37,7 @@ export function ShimmerImage({
 
   return (
     <View style={[styles.wrap, wrapStyle]}>
+      <DevLabel name="ShimmerImage" />
       {/* Shimmer skeleton */}
       {showShimmer && (
         <View style={[StyleSheet.absoluteFill, styles.shimmerBase]}>

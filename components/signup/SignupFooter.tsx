@@ -4,6 +4,7 @@ import { neutral, glass, accent } from '@/theme/colors';
 import { spacing, radius } from '@/theme/spacing';
 import { font } from '@/theme/typography';
 import { BRAND } from '@/brand/constants';
+import { DevLabel } from '@/components/primitives/DevLabel';
 
 /**
  * SignupFooter
@@ -24,6 +25,7 @@ const LINKS = [
 export function SignupFooter() {
   return (
     <View style={styles.wrap}>
+      <DevLabel name="SignupFooter" />
       <View style={styles.divider} />
 
       <Text style={styles.copyright}>

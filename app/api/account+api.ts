@@ -104,7 +104,7 @@ function transformPost(row: BQPostRow): RecentPost {
     shares:    row.shares       ?? 0,
     saves:     row.saves        ?? 0,
     summary:   row.videoSummary || undefined,
-    style:     row.style        || undefined,
+    styles:    Array.isArray(row.styles) ? row.styles.filter(Boolean) : undefined,
     coverJpeg: row.coverJpeg    || undefined,
     videoMp4:  row.videoMp4     || undefined,
     postUrl:   row.postUrl      || undefined,

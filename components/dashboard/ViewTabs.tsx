@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, Pressable, ScrollView, StyleSheet, Platform } from 'react-native';
 import { MotiView } from 'moti';
 import type { AccountType } from '@/data/types';
+import { DevLabel } from '@/components/primitives/DevLabel';
 import { neutral, glass, accent } from '@/theme/colors';
 import { spacing, radius } from '@/theme/spacing';
 import { type } from '@/theme/typography';
@@ -67,6 +68,7 @@ export function ViewTabs({ value, onChange, counts }: Props) {
       showsHorizontalScrollIndicator={false}
       contentContainerStyle={styles.row}
     >
+      <DevLabel name="ViewTabs" />
       {TABS.map(tab => {
         const active = value === tab.value;
         const count  = counts?.[tab.value];

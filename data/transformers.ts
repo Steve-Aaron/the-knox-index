@@ -50,7 +50,7 @@ export interface BQAccountRow {
 
 /** post rows — linked to account via post.profile = account.profile */
 export interface BQPostRow {
-  postId:        number;
+  postId:        string;
   profile:       string;    // matches account.profile
   caption:       string;
   videoSummary:  string;
@@ -64,7 +64,7 @@ export interface BQPostRow {
   postUrl:       string;
   coverJpeg:     string;
   videoMp4:      string;
-  style:         string;
+  styles:        string[] | null;
 }
 
 // Re-export for backward compat; use toPartyKeyPublic from partyUtils for new code.
@@ -252,6 +252,10 @@ function toDateStr(v: unknown): string | undefined {
 
 function transformPost(row: BQPostRow): RecentPost {
   return {
+    // postId is already a STRING from the SQL CAST — wrap in String() as a
+    // belt-and-braces safeguard for any future codepath that hands us a
+    // number again. TikTok IDs exceed Number.MAX_SAFE_INTEGER so we must
+    // never let them be parsed as JS Number.
     postId:    String(row.postId),
     caption:   row.caption      ?? '(no caption)',
     views:     row.views        ?? 0,
@@ -260,7 +264,7 @@ function transformPost(row: BQPostRow): RecentPost {
     shares:    row.shares       ?? 0,
     saves:     row.saves        ?? 0,
     summary:   row.videoSummary || undefined,
-    style:     row.style        || undefined,
+    styles:    Array.isArray(row.styles) ? row.styles.filter(Boolean) : undefined,
     coverJpeg: row.coverJpeg    || undefined,
     videoMp4:  row.videoMp4     || undefined,
     postUrl:   row.postUrl      || undefined,

@@ -3,6 +3,7 @@ import { View, Text, Image, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { party, PartyKey, neutral } from '@/theme/colors';
 import { font } from '@/theme/typography';
+import { DevLabel } from '@/components/primitives/DevLabel';
 
 /**
  * CardAvatar
@@ -28,6 +29,7 @@ export function CardAvatar({ partyKey, initials, size = 56, avatarUrl }: Props) 
 
   return (
     <View style={{ width: ring, height: ring, alignItems: 'center', justifyContent: 'center' }}>
+      <DevLabel name="CardAvatar" />
       {/* Party-colour gradient ring */}
       <LinearGradient
         colors={[colour.base, colour.glow]}

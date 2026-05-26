@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { CardAvatar } from './CardAvatar';
+import { DevLabel } from '@/components/primitives/DevLabel';
 import { PartyKey, neutral } from '@/theme/colors';
 import { type } from '@/theme/typography';
 import { spacing } from '@/theme/spacing';
@@ -22,6 +23,7 @@ interface Props {
 export function CardHeader({ name, role, partyLabel, partyKey, initials, avatarUrl }: Props) {
   return (
     <View style={styles.row}>
+      <DevLabel name="CardHeader" />
       <CardAvatar partyKey={partyKey} initials={initials} avatarUrl={avatarUrl} />
       <View style={styles.text}>
         <Text style={styles.name} numberOfLines={1}>

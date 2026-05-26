@@ -11,29 +11,41 @@ import { track } from '@/lib/analytics';
 import { neutral, accent } from '@/theme/colors';
 import { font } from '@/theme/typography';
 import { spacing, radius } from '@/theme/spacing';
+import { DevLabel } from '@/components/primitives/DevLabel';
 
 /**
- * InfoTip
- * --------
- * A small ? badge that opens a centred modal card on press (click on web,
- * tap on native). Fires a helper_clicked analytics event with the topic.
+ * InfoTip + InfoTipModal
+ * -----------------------
+ * Two related exports:
  *
- * On web a fixed full-screen backdrop sits behind the card so any click
- * outside dismisses it. On native a large absolute Pressable captures
- * outside taps with the same effect.
+ *   <InfoTip text="..." />
+ *     A small ? badge that opens a centred modal card on click. The badge is
+ *     the trigger. This is the canonical helper pattern used across the app
+ *     ('Performance radar', 'Reach looks healthy for size', and every DashCard
+ *     helper).
  *
- * Props:
- *   text      — the explanation shown in the modal
- *   topic     — short label for analytics (defaults to first 40 chars of text)
- *   align     — kept for backwards compat, not used in modal mode
- *   placement — kept for backwards compat, not used in modal mode
- *   width     — max width of the modal card (default 280)
+ *   <InfoTipModal visible onClose text="..." />
+ *     The same modal, but controlled externally. Use this when the trigger is
+ *     not a ? badge — e.g. the dots on the radial chart, where the data point
+ *     itself is the clickable target. Visual language and behaviour are
+ *     identical to the badge-driven InfoTip: centred card, dimmed backdrop,
+ *     'WHAT DOES THIS MEAN?' kicker, X close, click-outside dismiss, same
+ *     `helper_clicked` analytics event.
+ *
+ * Both components render the same `<ModalShell>` internally so styling stays
+ * in lockstep. Tweaking the modal once updates every consumer.
  */
+
+// ── Badge-driven InfoTip ──────────────────────────────────────────────────────
+
 interface Props {
   text:        string;
   topic?:      string;
+  /** kept for backwards compatibility, not used in modal mode */
   align?:      'left' | 'right';
+  /** kept for backwards compatibility, not used in modal mode */
   placement?:  'below' | 'above';
+  /** max width of the modal card (default 280) */
   width?:      number;
 }
 
@@ -51,6 +63,7 @@ export function InfoTip({ text, topic, width = 280 }: Props) {
 
   return (
     <View style={styles.wrap}>
+      <DevLabel name="InfoTip" />
       {/* Badge */}
       <Pressable
         onPress={open}
@@ -65,51 +78,47 @@ export function InfoTip({ text, topic, width = 280 }: Props) {
         <Text style={[styles.icon, visible && styles.iconActive]}>?</Text>
       </Pressable>
 
-      {/* Modal overlay */}
-      {visible && (
-        Platform.OS === 'web' ? (
-          /* ── Web: fixed full-screen backdrop + centred card ── */
-          <View style={styles.backdropFixed as any}>
-            {/* Dimmed backdrop — captures outside clicks */}
-            <Pressable style={styles.backdropHit} onPress={close} />
-            {/* Card — centred in viewport */}
-            <View style={styles.centreWrap} pointerEvents="box-none">
-              <MotiView
-                from={{ opacity: 0, scale: 0.94 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ type: 'timing', duration: 180 }}
-                style={[styles.card, { maxWidth: width }] as any}
-              >
-                <ModalBody text={text} onClose={close} />
-              </MotiView>
-            </View>
-          </View>
-        ) : (
-          /* ── Native: large absolute backdrop around the badge ── */
-          <View style={styles.backdropAbsolute} pointerEvents="box-none">
-            <Pressable style={StyleSheet.absoluteFillObject} onPress={close} />
-            <MotiView
-              from={{ opacity: 0, scale: 0.94 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ type: 'timing', duration: 180 }}
-              style={[styles.card, { maxWidth: width }]}
-            >
-              <ModalBody text={text} onClose={close} />
-            </MotiView>
-          </View>
-        )
-      )}
+      <InfoTipModal
+        visible={visible}
+        onClose={close}
+        text={text}
+        width={width}
+      />
     </View>
   );
 }
 
-// ── Modal body ────────────────────────────────────────────────────────────────
+// ── Controlled InfoTipModal ───────────────────────────────────────────────────
 
-function ModalBody({ text, onClose }: { text: string; onClose: () => void }) {
-  return (
+interface ModalProps {
+  visible:  boolean;
+  onClose:  () => void;
+  /** Optional kicker shown at the top of the card. Defaults to 'What does this mean?'. */
+  title?:   string;
+  /**
+   * Body text. Use either `text` or `children` — not both. `children` wins if
+   * present, so callers needing rich content (e.g. a big metric + caption) can
+   * pass their own JSX.
+   */
+  text?:    string;
+  children?: React.ReactNode;
+  width?:   number;
+}
+
+export function InfoTipModal({
+  visible,
+  onClose,
+  title    = 'What does this mean?',
+  text,
+  children,
+  width    = 280,
+}: ModalProps) {
+  if (!visible) return null;
+
+  const body = (
     <>
       <View style={styles.modalHeader}>
-        <Text style={styles.modalTitle}>What does this mean?</Text>
+        <Text style={styles.modalTitle}>{title}</Text>
         <Pressable
           onPress={onClose}
           style={({ pressed }) => [styles.closeBtn, pressed && { opacity: 0.6 }]}
@@ -119,8 +128,42 @@ function ModalBody({ text, onClose }: { text: string; onClose: () => void }) {
           <Text style={styles.closeBtnText}>✕</Text>
         </Pressable>
       </View>
-      <Text style={styles.modalText}>{text}</Text>
+      {children ? children : (text ? <Text style={styles.modalText}>{text}</Text> : null)}
     </>
+  );
+
+  if (Platform.OS === 'web') {
+    // Web: fixed full-screen backdrop + centred card
+    return (
+      <View style={styles.backdropFixed as any}>
+        <Pressable style={styles.backdropHit} onPress={onClose} />
+        <View style={styles.centreWrap} pointerEvents="box-none">
+          <MotiView
+            from={{ opacity: 0, scale: 0.94 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ type: 'timing', duration: 180 }}
+            style={[styles.card, { maxWidth: width }] as any}
+          >
+            {body}
+          </MotiView>
+        </View>
+      </View>
+    );
+  }
+
+  // Native: large absolute backdrop around the call site
+  return (
+    <View style={styles.backdropAbsolute} pointerEvents="box-none">
+      <Pressable style={StyleSheet.absoluteFillObject} onPress={onClose} />
+      <MotiView
+        from={{ opacity: 0, scale: 0.94 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ type: 'timing', duration: 180 }}
+        style={[styles.card, { maxWidth: width }]}
+      >
+        {body}
+      </MotiView>
+    </View>
   );
 }
 
@@ -170,8 +213,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   backdropHit: {
+    // Dim the page behind the modal so the radial chart and other surfaces
+    // are obscured. 0.78 alpha + a stronger card background below keeps the
+    // helper sitting visibly on top.
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.55)',
+    backgroundColor: 'rgba(0,0,0,0.78)',
   },
   centreWrap: {
     position:       'absolute' as any,
@@ -185,7 +231,7 @@ const styles = StyleSheet.create({
     pointerEvents:  'none' as any,
   },
 
-  // Native: large absolute area around the badge
+  // Native: large absolute area around the call site
   backdropAbsolute: {
     position:       'absolute',
     top:            -200,
@@ -197,10 +243,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
 
-  // Shared modal card
+  // Shared modal card — fully opaque so chart/page content behind never
+  // shows through. The card sits above an 0.78-alpha backdrop and inside
+  // a fixed/absolute centre-wrap with the highest in-app z-index.
   card: {
     width:           '100%',
-    backgroundColor: '#0d0d1a',
+    backgroundColor: '#0B0B14',
+    opacity:         1,
     borderWidth:     1,
     borderColor:     'rgba(124,131,255,0.35)',
     borderRadius:    radius.lg,
@@ -208,9 +257,11 @@ const styles = StyleSheet.create({
     gap:             spacing.sm,
     ...Platform.select({
       web: {
+        backgroundColor: '#0B0B14',
         boxShadow: '0 16px 48px rgba(0,0,0,0.85), 0 0 0 1px rgba(124,131,255,0.12)',
         zIndex:    99999,
         pointerEvents: 'auto',
+        isolation: 'isolate',
       } as any,
       default: {
         shadowColor:   '#000',

@@ -3,6 +3,7 @@ import { View, StyleSheet, Platform, ViewStyle } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { glass, brand } from '@/theme';
+import { DevLabel } from '@/components/primitives/DevLabel';
 
 /**
  * GlassSurface
@@ -52,6 +53,7 @@ export function GlassSurface({
 
   const inner = (
     <>
+      <DevLabel name="GlassSurface" />
       {/* Knox Product Gradient background */}
       <LinearGradient
         colors={brand.productGradient as unknown as [string, string]}

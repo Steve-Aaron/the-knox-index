@@ -22,7 +22,7 @@ import { generateContent } from '@/lib/gemini';
 import { safeErrorDetail } from '@/lib/errors';
 
 interface PostRow {
-  postId:        number;
+  postId:        string;
   profile:       string;
   name:          string;
   party:         string;
@@ -39,7 +39,7 @@ interface PostRow {
 
 const FETCH_SQL = (postId: string) => `
   SELECT
-    p.postId,
+    CAST(p.postId AS STRING) AS postId,
     p.profile,
     a.name,
     a.party,

@@ -129,8 +129,11 @@ const styles = StyleSheet.create({
 
   fadeLeft: {
     left: 0,
+    // React Native (via RN-Web) rejects the CSS shorthand `background`. Split
+    // into long-form `backgroundImage` so the gradient still renders on web
+    // without triggering the 'Invalid style property of background' warning.
     ...Platform.select({
-      web: { background: 'linear-gradient(to right, #1F1D1D 0%, transparent 100%)' } as any,
+      web: { backgroundImage: 'linear-gradient(to right, #1F1D1D 0%, transparent 100%)' } as any,
       default: {},
     }),
   },
@@ -138,7 +141,7 @@ const styles = StyleSheet.create({
   fadeRight: {
     right: 0,
     ...Platform.select({
-      web: { background: 'linear-gradient(to left, #1F1D1D 0%, transparent 100%)' } as any,
+      web: { backgroundImage: 'linear-gradient(to left, #1F1D1D 0%, transparent 100%)' } as any,
       default: {},
     }),
   },

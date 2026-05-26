@@ -10,6 +10,7 @@ import { breakpoints } from '@/theme/breakpoints';
 import { type, font } from '@/theme/typography';
 import { fmtLabel } from '@/lib/format';
 import type { RecentPost } from '@/data/types';
+import { DevLabel } from '@/components/primitives/DevLabel';
 
 /**
  * AccountPostCard
@@ -77,6 +78,7 @@ export function AccountPostCard({ post, partyKey, name, delay = 0 }: Props) {
           ]}
           accessibilityRole={hasVideo ? 'button' : undefined}
         >
+          <DevLabel name="account-post-card" />
           {/* ── Thumbnail column ────────────────────────────────────────── */}
           <View style={[styles.coverCol, { width: coverWidth }]}>
             {hasCover ? (
@@ -119,11 +121,13 @@ export function AccountPostCard({ post, partyKey, name, delay = 0 }: Props) {
               </View>
             ) : null}
 
-            {post.style ? (
+            {(post.styles ?? []).length > 0 ? (
               <View style={styles.tagRow}>
-                <View style={[styles.tag, { borderColor: colour.base + '55', backgroundColor: colour.base + '15' }]}>
-                  <Text style={[styles.tagText, { color: colour.base }]}>{fmtLabel(post.style)}</Text>
-                </View>
+                {(post.styles ?? []).map(s => (
+                  <View key={s} style={[styles.tag, { borderColor: colour.base + '55', backgroundColor: colour.base + '15' }]}>
+                    <Text style={[styles.tagText, { color: colour.base }]}>{fmtLabel(s)}</Text>
+                  </View>
+                ))}
               </View>
             ) : null}
 
@@ -157,6 +161,7 @@ export function AccountPostCard({ post, partyKey, name, delay = 0 }: Props) {
         politicianName={name}
         partyKey={partyKey}
         views={post.views}
+        styles={post.styles}
         onClose={() => setOpen(false)}
       />
     </>

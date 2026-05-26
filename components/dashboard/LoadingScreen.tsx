@@ -18,6 +18,7 @@ import { MotiView } from 'moti';
 import { LinearGradient } from 'expo-linear-gradient';
 import { neutral, accent, party } from '@/theme/colors';
 import { font } from '@/theme/typography';
+import { DevLabel } from '@/components/primitives/DevLabel';
 
 /**
  * LoadingScreen
@@ -151,6 +152,7 @@ export function LoadingScreen({ visible }: Props) {
 
   return (
     <Animated.View style={[styles.root, screenStyle]} pointerEvents="none">
+      <DevLabel name="LoadingScreen" />
       {/* Radial background glow */}
       <LinearGradient
         colors={['#0D0D24', '#07070B']}

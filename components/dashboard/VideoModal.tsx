@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef } from 'react';
+import { DevLabel } from '@/components/primitives/DevLabel';
 import {
   Modal,
   View,
@@ -12,10 +13,12 @@ import {
 } from 'react-native';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import { MotiView } from 'moti';
-import { neutral, glass, accent } from '@/theme/colors';
+import { neutral, glass, accent, party as partyColours } from '@/theme/colors';
+import type { PartyKey } from '@/theme/colors';
 import { spacing, radius } from '@/theme/spacing';
 import { type } from '@/theme/typography';
 import { track } from '@/lib/analytics';
+import { StyleChip } from '@/components/primitives/StyleChip';
 
 /**
  * VideoModal
@@ -42,6 +45,11 @@ interface Props {
   politicianName?: string;
   partyKey?:       string;
   views?:          number;
+  /** Content-style tags ingested with the post (e.g. FIELD_VISIT, PIECE_TO_CAMERA). */
+  styles?:         string[];
+  /** 0-indexed feed position at time the post card was pressed. Stamped on
+   *  all VideoModal analytics events to allow funnel breakdowns by position. */
+  positionInFeed?: number;
   onClose:         () => void;
 }
 
@@ -117,8 +125,12 @@ function VideoPlayer({ uri, onPlayStarted }: { uri: string; onPlayStarted: () =>
 
 export function VideoModal({
   visible, videoMp4, coverJpeg, caption, postUrl,
-  postId, politicianName, partyKey, views, onClose,
+  postId, politicianName, partyKey, views, styles: postStyles, positionInFeed, onClose,
 }: Props) {
+  // Tint the style chips with the politician's party colour when known.
+  const partyColour = partyKey && (partyKey in partyColours)
+    ? partyColours[partyKey as PartyKey].glow
+    : undefined;
   // Track when the modal first becomes visible (video opened) and when it closes.
   const prevVisibleRef  = useRef(false);
   const openedAtRef     = useRef<number | null>(null);
@@ -135,6 +147,7 @@ export function VideoModal({
         politician_name:  politicianName  ?? null,
         party:            partyKey        ?? null,
         views:            views           ?? null,
+        position_in_feed: positionInFeed  ?? null,
       });
       // If the post has no video, record a cover-fallback impression separately.
       if (!hasMp4 && coverJpeg) {
@@ -142,6 +155,7 @@ export function VideoModal({
           post_id:         postId          ?? null,
           politician_name: politicianName  ?? null,
           party:           partyKey        ?? null,
+          position_in_feed: positionInFeed ?? null,
         });
       }
     } else if (!visible && prevVisibleRef.current) {
@@ -156,10 +170,11 @@ export function VideoModal({
         party:            partyKey       ?? null,
         had_video:        Boolean(videoMp4),
         watch_duration_s: watchDurationS,
+        position_in_feed: positionInFeed ?? null,
       });
     }
     prevVisibleRef.current = visible;
-  }, [visible, videoMp4, coverJpeg, postId, politicianName, partyKey, views]);
+  }, [visible, videoMp4, coverJpeg, postId, politicianName, partyKey, views, positionInFeed]);
 
   // Fired once when the video actually begins playing (not just when the modal opens).
   const handlePlayStarted = useCallback(() => {
@@ -167,8 +182,9 @@ export function VideoModal({
       post_id:         postId         ?? null,
       politician_name: politicianName ?? null,
       party:           partyKey       ?? null,
+      position_in_feed: positionInFeed ?? null,
     });
-  }, [postId, politicianName, partyKey]);
+  }, [postId, politicianName, partyKey, positionInFeed]);
 
   return (
     <Modal
@@ -185,6 +201,7 @@ export function VideoModal({
           transition={{ type: 'timing', duration: 220 }}
           style={styles.card}
         >
+          <DevLabel name="post-video-modal" />
           {/* Stop backdrop tap propagating through to content */}
           <Pressable style={styles.cardInner} onPress={e => e.stopPropagation?.()}>
 
@@ -207,6 +224,14 @@ export function VideoModal({
               {caption ? (
                 <Text style={styles.caption}>{caption}</Text>
               ) : null}
+
+              {postStyles && postStyles.length > 0 ? (
+                <View style={styles.styleRow}>
+                  {postStyles.map(s => (
+                    <StyleChip key={s} label={s} tint={partyColour} />
+                  ))}
+                </View>
+              ) : null}
             </ScrollView>
 
             {/* Sticky footer — always visible at the bottom of the card */}
@@ -219,6 +244,7 @@ export function VideoModal({
                       post_id:         postId         ?? null,
                       politician_name: politicianName ?? null,
                       party:           partyKey       ?? null,
+                      position_in_feed: positionInFeed ?? null,
                     });
                     Linking.openURL(postUrl);
                   }}
@@ -320,6 +346,15 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 20,
     padding: spacing.md,
+  },
+
+  // Style chip strip — sits beneath the caption inside the scrollable body
+  styleRow: {
+    flexDirection: 'row',
+    flexWrap:      'wrap',
+    gap:           spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.md,
   },
 
   // Footer: never scrolls, always anchored to the card bottom

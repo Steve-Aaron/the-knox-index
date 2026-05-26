@@ -97,6 +97,21 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* ── Text selection — Knox gradient magenta ──────────────────
+   Applies across the whole product. Uses the third stop of the
+   Knox brand gradient (#E83C91) so any text the user highlights
+   sits in the Knox palette instead of the browser default blue.
+   The light text colour stays high-contrast against the magenta
+   fill. -moz-selection is the Firefox-prefixed twin.            */
+::selection {
+  background-color: rgba(232, 60, 145, 0.40);
+  color:            var(--color-text);
+}
+::-moz-selection {
+  background-color: rgba(232, 60, 145, 0.40);
+  color:            var(--color-text);
+}
+
 /* ── Registration wall blur transition ───────────────────── */
 .tki-gated {
   position: relative;

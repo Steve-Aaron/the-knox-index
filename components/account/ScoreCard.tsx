@@ -4,6 +4,7 @@ import { MotiView } from 'moti';
 import { CardAvatar } from '@/components/card/CardAvatar';
 import { DashCard } from '@/components/primitives/DashCard';
 import { CountUp } from '@/components/primitives/CountUp';
+import { DevLabel } from '@/components/primitives/DevLabel';
 import { neutral, glass, party } from '@/theme/colors';
 import { spacing, radius } from '@/theme/spacing';
 import { type, font } from '@/theme/typography';
@@ -86,6 +87,7 @@ export function ScoreCard({ metricKey, score, ranking, accentColor, targetId, de
       transition={{ type: 'timing', duration: 300, delay }}
       style={styles.motionWrap}
     >
+      <DevLabel name="ScoreCard" />
       <DashCard style={styles.card} topAccent={undefined}>
         {/* Accent bar keyed to this metric */}
         <View style={[styles.accentBar, { backgroundColor: accentColor }]} />

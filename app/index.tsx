@@ -41,6 +41,7 @@ import { spacing, radius } from '@/theme/spacing';
 import { type } from '@/theme/typography';
 import { breakpoints } from '@/theme/breakpoints';
 import type { ScoreKey } from '@/data/types';
+import type { PartyKey } from '@/theme/colors';
 
 /**
  * Home screen — three-zone layout:
@@ -88,7 +89,42 @@ function DashboardScreenInner() {
   const [sortKey, setSortKey]       = useState<ScoreKey>('knoxFactor');
   const [activeId, setActiveId]     = useState<string>('');
   const [showAccounts, setShowAccounts] = useState(false);
+  const [partyFilter, setPartyFilter] = useState<PartyKey | null>(null);
+  const [styleFilter, setStyleFilter] = useState<string | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
+  const postsSectionRef = useRef<View>(null);
+
+  // Selecting a style from the Style League below the feed should bring the
+  // filtered feed into view — otherwise the user has no signal the filter took.
+  const handleStyleSelect = useCallback((s: string | null) => {
+    setStyleFilter(s);
+    if (s && postsSectionRef.current) {
+      // measure() gives us the y of the posts section relative to its parent
+      // ScrollView, then we scroll to it with a slight offset for breathing room.
+      const sv: any = scrollViewRef.current;
+      const innerNode = sv?.getInnerViewNode?.() ?? sv;
+      postsSectionRef.current.measureLayout(
+        innerNode,
+        (_x, y) => scrollViewRef.current?.scrollTo({ y: Math.max(0, y - 16), animated: true }),
+        () => {/* measure failed — silently ignore */},
+      );
+    }
+  }, []);
+
+  // Tapping a row in the PartyLeaderboard widget also changes the post feed's
+  // party filter via shared parent state. Fire `party_filter_changed` here so
+  // the analytics event tracks every filter state change regardless of which
+  // UI surface triggered it. The leaderboard-specific event
+  // `party_leaderboard_row_tapped` is still fired separately from inside
+  // PartyLeaderboard itself — the two events measure different intents and
+  // both are useful.
+  const handlePartyLeaderboardSelect = useCallback((pk: PartyKey | null) => {
+    track('party_filter_changed', {
+      party:  pk ?? 'all',
+      source: 'leaderboard',
+    });
+    setPartyFilter(pk);
+  }, []);
 
   // Area 4: enhanced sort/range handlers that carry previous values
   const prevSortRef  = useRef<ScoreKey>('knoxFactor');
@@ -386,7 +422,7 @@ function DashboardScreenInner() {
                 {...(Platform.OS === 'web' ? { 'data-container_name': 'card_politician_detail_col' } as any : {})}
               >
                 {active
-                  ? <PoliticianDetailPanel politician={active} headlineKey={sortKey} panelHeight={PANEL_HEIGHT} />
+                  ? <PoliticianDetailPanel politician={active} headlineKey={sortKey} range={range} panelHeight={PANEL_HEIGHT} />
                   : <SkeletonBlock height={PANEL_HEIGHT} style={{ borderRadius: 22 }} />}
               </View>
               <View
@@ -424,7 +460,7 @@ function DashboardScreenInner() {
                   {...(Platform.OS === 'web' ? { 'data-container_name': 'card_politician_detail_col' } as any : {})}
                 >
                   {active
-                    ? <PoliticianDetailPanel politician={active} headlineKey={sortKey} panelHeight={PANEL_HEIGHT} />
+                    ? <PoliticianDetailPanel politician={active} headlineKey={sortKey} range={range} panelHeight={PANEL_HEIGHT} />
                     : <SkeletonBlock height={PANEL_HEIGHT} style={{ borderRadius: 22 }} />}
                 </View>
               </View>
@@ -444,7 +480,7 @@ function DashboardScreenInner() {
                 isRegistered={isRegistered}
               />
               {active
-                ? <PoliticianDetailPanel politician={active} headlineKey={sortKey} />
+                ? <PoliticianDetailPanel politician={active} headlineKey={sortKey} range={range} />
                 : <SkeletonBlock height={400} style={{ borderRadius: 22 }} />}
               <SummaryPanel politicians={politicians} />
             </View>
@@ -456,12 +492,21 @@ function DashboardScreenInner() {
             style={[styles.partySection, { paddingHorizontal: hPad }]}
             {...(Platform.OS === 'web' ? { 'data-container_name': 'row_party_leaderboard' } as any : {})}
           >
-            <PartyLeaderboard politicians={politicians} range={range} />
+            <PartyLeaderboard
+              politicians={politicians}
+              range={range}
+              activeParty={partyFilter}
+              onPartySelect={handlePartyLeaderboardSelect}
+            />
           </View>
 
           {/* ── 6. Posts table ────────────────────────── */}
           <View
-            ref={sectionRef('post_feed') as any}
+            ref={(node: any) => {
+              // Compose two refs: one for section-scroll analytics, one for measure-scroll.
+              (sectionRef('post_feed') as any)(node);
+              (postsSectionRef as any).current = node;
+            }}
             style={[styles.postsSection, { paddingHorizontal: hPad }]}
             {...(Platform.OS === 'web' ? { 'data-container_name': 'row_posts_table' } as any : {})}
           >
@@ -474,6 +519,10 @@ function DashboardScreenInner() {
                 onClearPolitician={() => handleSetActiveId('')}
                 benchmarks={benchmarks ?? undefined}
                 isRegistered={isRegistered}
+                externalPartyFilter={partyFilter}
+                onPartyFilterChange={setPartyFilter}
+                externalStyleFilter={styleFilter}
+                onStyleFilterChange={setStyleFilter}
               />
             </ErrorBoundary>
           </View>
@@ -485,7 +534,12 @@ function DashboardScreenInner() {
             {...(Platform.OS === 'web' ? { 'data-container_name': 'row_style_topics_insights' } as any : {})}
           >
             <View style={styles.insightsCol}>
-              <StyleBreakdown posts={posts} rangeLabel={RANGE_LABELS[range]} />
+              <StyleBreakdown
+                posts={posts}
+                rangeLabel={RANGE_LABELS[range]}
+                activeStyle={styleFilter}
+                onStyleSelect={handleStyleSelect}
+              />
             </View>
             <View style={styles.insightsCol}>
               <TopicCloud posts={posts} rangeLabel={RANGE_LABELS[range]} />

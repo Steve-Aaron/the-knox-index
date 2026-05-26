@@ -2,7 +2,6 @@ import React, { useMemo, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, Pressable, Platform } from 'react-native';
 import { DashCard } from '@/components/primitives/DashCard';
 import { DevLabel } from '@/components/primitives/DevLabel';
-import { InfoTip } from '@/components/primitives/InfoTip';
 import { SkeletonBlock } from '@/components/primitives/SkeletonBlock';
 import { RankBoardRow } from './RankBoardRow';
 import { ViewTabs, VIEW_ACCOUNT_TYPES, type ViewType } from './ViewTabs';
@@ -98,14 +97,17 @@ export function RankBoard({ politicians, activeId, headlineKey, timeRangeLabel, 
   };
 
   return (
-    <DashCard style={wrapStyle}>
+    <DashCard
+      style={wrapStyle}
+      infoText="Politicians ranked from highest to lowest by the selected score. Tap any row to see their full profile and recent posts in the panel to the right. Use the party chips to scope the leaderboard to a single party."
+      infoTitle="Leaderboard"
+    >
       <DevLabel name="RankBoard" />
 
       {/* Fixed header — stays at the top */}
       <View style={styles.header}>
         <View style={styles.kickerRow}>
           <Text style={styles.kicker}>LEADERBOARD</Text>
-          <InfoTip text="Politicians ranked from highest to lowest by the selected score. Tap any row to see their full profile and recent posts in the panel to the right. Use the party chips to scope the leaderboard to a single party." />
         </View>
         <Text style={styles.title}>The Leaderboard</Text>
         <Text style={styles.meta}>

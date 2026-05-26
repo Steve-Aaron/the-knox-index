@@ -20,6 +20,7 @@ import { spacing, radius } from '@/theme/spacing';
 import { type, font } from '@/theme/typography';
 import { track } from '@/lib/analytics';
 import { SEGMENTS, INTERESTS } from '@/data/profileOptions';
+import { DevLabel } from '@/components/primitives/DevLabel';
 
 /**
  * StickyUnlock
@@ -106,6 +107,7 @@ export function StickyUnlock({ showBar, isRegistered, email }: Props) {
 
   return (
     <>
+      <DevLabel name="unlock-paywall-bar" />
       {/* ── Sticky CTA bar ────────────────────────────────────────────── */}
       {shouldShowBar && (
         <MotiView

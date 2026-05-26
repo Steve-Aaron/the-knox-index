@@ -178,8 +178,12 @@ export function KeyFindingsBar({ politicians, range = 'yesterday' }: Props) {
   ));
 
   return (
-    <DashCard style={styles.strip}>
-      <DevLabel name="KeyFindingsBar" />
+    <DashCard
+      style={styles.strip}
+      infoText="Five live headline stats across all tracked political accounts. Each tile updates as the selected time range changes. Tap ? on any tile's label for an explanation of that specific metric."
+      infoTitle="Key Stats"
+    >
+      <DevLabel name="header-scorecard" />
 
       {politicians.length === 0 ? (
         // Skeleton — always a plain row (no scroll needed, flex:1 tiles)
@@ -205,6 +209,7 @@ const styles = StyleSheet.create({
   strip: {
     width: '100%',
     overflow: 'hidden',
+    paddingHorizontal: 24,
   },
   // Desktop inner row — tiles flex equally
   row: {

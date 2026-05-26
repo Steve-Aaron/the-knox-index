@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { InfoTip } from '@/components/primitives/InfoTip';
+import { DevLabel } from '@/components/primitives/DevLabel';
 import { neutral, accent } from '@/theme/colors';
 import { spacing, radius } from '@/theme/spacing';
 import { type, font } from '@/theme/typography';
@@ -75,6 +76,7 @@ export function FollowerQualityFlag({ politician }: Props) {
 
   return (
     <View style={[styles.wrap, { borderColor: tint + '55', backgroundColor: tint + '12' }]}>
+      <DevLabel name="FollowerQualityFlag" />
       <View style={styles.row}>
         <Text style={[styles.dot, { color: tint }]}>●</Text>
         <Text style={[styles.label, { color: tint }]}>{verdict.label}</Text>

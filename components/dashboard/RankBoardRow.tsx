@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, Pressable, StyleSheet, Platform } from 'react-native';
 import { CardAvatar } from '@/components/card/CardAvatar';
 import { CountUp } from '@/components/primitives/CountUp';
+import { DevLabel } from '@/components/primitives/DevLabel';
 import { neutral, party, glass, accent } from '@/theme/colors';
 import { spacing, radius } from '@/theme/spacing';
 import { type } from '@/theme/typography';
@@ -41,6 +42,7 @@ export function RankBoardRow({ politician, rank, headlineKey, active, onPress }:
         pressed ? { opacity: 0.8 } : null,
       ]}
     >
+      <DevLabel name="RankBoardRow" />
       <Text style={[styles.rank, silent ? styles.rankSilent : { color: colour.glow }]}>
         #{rank}
       </Text>

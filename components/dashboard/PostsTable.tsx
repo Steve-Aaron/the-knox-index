@@ -122,6 +122,12 @@ interface Props {
   benchmarks?:            PostBenchmarks;
   /** When false, the post feed is hidden behind a registration gate. */
   isRegistered?:          boolean;
+  /** Controlled party filter — set externally (e.g. from PartyLeaderboard). */
+  externalPartyFilter?:   PartyKey | null;
+  onPartyFilterChange?:   (pk: PartyKey | null) => void;
+  /** Controlled style filter — set externally (e.g. from StyleBreakdown). */
+  externalStyleFilter?:   string | null;
+  onStyleFilterChange?:   (style: string | null) => void;
 }
 
 export function PostsTable({
@@ -132,16 +138,39 @@ export function PostsTable({
   onClearPolitician,
   benchmarks,
   isRegistered = false,
+  externalPartyFilter,
+  onPartyFilterChange,
+  externalStyleFilter,
+  onStyleFilterChange,
 }: Props) {
   const { width: windowWidth } = useWindowDimensions();
   const isMobile = windowWidth < breakpoints.tablet;
 
-  const [sortKey, setSortKey]       = useState<SortKey>('views');
-  const [wingFilter, setWingFilter] = useState<Wing | null>(null);
-  const [partyFilter, setPartyFilter] = useState<PartyKey | null>(null);
+  const [sortKey, setSortKey]         = useState<SortKey>('views');
+  const [wingFilter, setWingFilter]   = useState<Wing | null>(null);
+  const [internalPartyFilter, setInternalPartyFilter] = useState<PartyKey | null>(null);
+
+  // Use external party filter if provided (controlled), otherwise internal
+  const partyFilter = externalPartyFilter !== undefined ? externalPartyFilter : internalPartyFilter;
+  const setPartyFilter = useCallback((pk: PartyKey | null) => {
+    setInternalPartyFilter(pk);
+    onPartyFilterChange?.(pk);
+  }, [onPartyFilterChange]);
   const [minViews, setMinViews]     = useState<number>(0);
   const [minLikes, setMinLikes]     = useState<number>(0);
-  const [selected, setSelected]     = useState<PostRecord | null>(null);
+  const [internalStyleFilter, setInternalStyleFilter] = useState<string | null>(null);
+  // External style filter (from StyleBreakdown) takes precedence when supplied.
+  const styleFilter = externalStyleFilter !== undefined ? externalStyleFilter : internalStyleFilter;
+  const setStyleFilter = useCallback((s: string | null) => {
+    setInternalStyleFilter(s);
+    onStyleFilterChange?.(s);
+  }, [onStyleFilterChange]);
+  const [topicFilter, setTopicFilter] = useState<string | null>(null);
+  // `selected` carries the post AND the feed position at time of press, so
+  // VideoModal can stamp position_in_feed on its analytics events. Keeping
+  // them together avoids a race where filter/sort changes the index while
+  // the modal is open.
+  const [selected, setSelected]     = useState<{ post: PostRecord; positionInFeed: number } | null>(null);
 
   // Draggable order — starts from filtered; resets when filters or sort change.
   const [orderedPosts, setOrderedPosts] = useState<PostRecord[]>([]);
@@ -193,12 +222,20 @@ export function PostsTable({
     if (minLikes > 0) {
       base = base.filter(p => p.likes >= minLikes);
     }
+    if (styleFilter) {
+      const sf = styleFilter.toLowerCase();
+      base = base.filter(p => (p.styles ?? []).some(s => s.toLowerCase() === sf));
+    }
+    if (topicFilter) {
+      const tf = topicFilter.toLowerCase();
+      base = base.filter(p => (p.topics ?? []).some(t => t.toLowerCase() === tf));
+    }
     return [...base].sort((a, b) => {
       if (sortKey === 'postDate') return b.postDate.localeCompare(a.postDate);
       if (sortKey === 'virality') return viralityRatio(b) - viralityRatio(a);
       return (b[sortKey] as number) - (a[sortKey] as number);
     });
-  }, [posts, sortKey, wingFilter, partyFilter, activePoliticianName, minViews, minLikes]);
+  }, [posts, sortKey, wingFilter, partyFilter, activePoliticianName, minViews, minLikes, styleFilter, topicFilter]);
 
   // Keep the ref in sync so analytics handlers always read the current count.
   filteredCountRef.current = filtered.length;
@@ -220,26 +257,10 @@ export function PostsTable({
       position_in_feed: index,
       sort_key:        sortKey,
     });
-    setSelected(post);
+    // Snapshot position alongside the post so VideoModal can stamp it on
+    // downstream events (video_opened/play/closed/tiktok_link_tapped).
+    setSelected({ post, positionInFeed: index });
   }, [sortKey]);
-
-  // Render item for DraggableFlatList.
-  const renderItem = useCallback(({ item: post, getIndex, drag, isActive }: RenderItemParams<PostRecord>) => {
-    const index = getIndex() ?? 0;
-    return (
-      <ScaleDecorator activeScale={1.03}>
-        <PostCard
-          post={post}
-          index={index}
-          benchmarks={benchmarks}
-          onPress={() => !isActive && handleCardPress(post, index)}
-          drag={drag}
-          isActive={isActive}
-          compact={isMobile}
-        />
-      </ScaleDecorator>
-    );
-  }, [benchmarks, isMobile, handleCardPress]);
 
   // Area 5: alignment filter — also clears party to avoid empty stale combinations
   const handleWingChange = useCallback((w: Wing | null) => {
@@ -255,9 +276,45 @@ export function PostsTable({
     track('party_filter_changed', {
       party:        pk ?? 'all',
       result_count: filteredCountRef.current,
+      source:       'feed_chips',
     });
     setPartyFilter(pk);
   }, []);
+
+  const handleStyleFilter = useCallback((style: string | null) => {
+    track('style_filter_changed', { style: style ?? 'all', result_count: filteredCountRef.current });
+    // Toggle: tap the same style again to clear
+    const next = style && styleFilter?.toLowerCase() === style.toLowerCase() ? null : style;
+    setStyleFilter(next);
+  }, [styleFilter, setStyleFilter]);
+
+  const handleTopicFilter = useCallback((topic: string | null) => {
+    track('topic_filter_changed', { topic: topic ?? 'all', result_count: filteredCountRef.current });
+    setTopicFilter(prev => prev?.toLowerCase() === topic?.toLowerCase() ? null : topic);
+  }, []);
+
+  // Render item for DraggableFlatList.
+  const renderItem = useCallback(({ item: post, getIndex, drag, isActive }: RenderItemParams<PostRecord>) => {
+    const index = getIndex() ?? 0;
+    return (
+      <ScaleDecorator activeScale={1.03}>
+        <PostCard
+          post={post}
+          index={index}
+          benchmarks={benchmarks}
+          onPress={() => !isActive && handleCardPress(post, index)}
+          drag={drag}
+          isActive={isActive}
+          compact={isMobile}
+          activeStyleFilter={styleFilter}
+          activeTopicFilter={topicFilter}
+          onStylePress={handleStyleFilter}
+          onTopicPress={handleTopicFilter}
+          sortKey={sortKey}
+        />
+      </ScaleDecorator>
+    );
+  }, [benchmarks, isMobile, handleCardPress, styleFilter, topicFilter, handleStyleFilter, handleTopicFilter, sortKey]);
 
   return (
     <DashCard style={styles.wrap} topAccent={undefined}>
@@ -439,14 +496,32 @@ export function PostsTable({
         {activePoliticianName ? (
           <View style={styles.filterSection}>
             <Text style={styles.filterLabel}>SHOWING</Text>
-            <Pressable
-              onPress={onClearPolitician}
-              style={[styles.polPill]}
-            >
+            <Pressable onPress={onClearPolitician} style={styles.polPill}>
               <Text style={styles.polPillText}>{activePoliticianName}</Text>
               <Text style={styles.polPillClose}>×</Text>
             </Pressable>
             <Text style={styles.filterHint}>Tap × to show all politicians</Text>
+          </View>
+        ) : null}
+
+        {/* ── Active style / topic pills ────────────── */}
+        {(styleFilter || topicFilter) ? (
+          <View style={styles.filterSection}>
+            <Text style={styles.filterLabel}>TAGGED</Text>
+            <View style={styles.filterChips}>
+              {styleFilter ? (
+                <Pressable onPress={() => setStyleFilter(null)} style={styles.tagFilterPill}>
+                  <Text style={styles.tagFilterPillText}>{fmtLabel(styleFilter)}</Text>
+                  <Text style={styles.polPillClose}>×</Text>
+                </Pressable>
+              ) : null}
+              {topicFilter ? (
+                <Pressable onPress={() => setTopicFilter(null)} style={styles.tagFilterPill}>
+                  <Text style={styles.tagFilterPillText}>{fmtLabel(topicFilter)}</Text>
+                  <Text style={styles.polPillClose}>×</Text>
+                </Pressable>
+              ) : null}
+            </View>
           </View>
         ) : null}
 
@@ -495,14 +570,16 @@ export function PostsTable({
       {selected ? (
         <VideoModal
           visible
-          videoMp4={selected.videoMp4}
-          coverJpeg={selected.coverJpeg}
-          caption={selected.caption}
-          postUrl={selected.postUrl}
-          postId={selected.postId}
-          politicianName={selected.politicianName}
-          partyKey={selected.partyKey}
-          views={selected.views}
+          videoMp4={selected.post.videoMp4}
+          coverJpeg={selected.post.coverJpeg}
+          caption={selected.post.caption}
+          postUrl={selected.post.postUrl}
+          postId={selected.post.postId}
+          politicianName={selected.post.politicianName}
+          partyKey={selected.post.partyKey}
+          views={selected.post.views}
+          styles={selected.post.styles}
+          positionInFeed={selected.positionInFeed}
           onClose={() => setSelected(null)}
         />
       ) : null}
@@ -513,21 +590,66 @@ export function PostsTable({
 // ── PostCard ──────────────────────────────────────────────────────────────────
 
 interface CardProps {
-  post:        PostRecord;
-  index:       number;
-  benchmarks?: PostBenchmarks;
-  onPress:     () => void;
-  drag?:       () => void;
-  isActive?:   boolean;
+  post:              PostRecord;
+  index:             number;
+  benchmarks?:       PostBenchmarks;
+  onPress:           () => void;
+  drag?:             () => void;
+  isActive?:         boolean;
   /** compact=true → stacked layout for narrow screens */
-  compact?:    boolean;
+  compact?:          boolean;
+  activeStyleFilter?: string | null;
+  activeTopicFilter?: string | null;
+  onStylePress?:     (style: string) => void;
+  onTopicPress?:     (topic: string) => void;
+  /** Current sort key — included in post_dwell event for analytics context */
+  sortKey?:          SortKey;
 }
 
-function PostCard({ post, index, benchmarks, onPress, drag, isActive, compact }: CardProps) {
+/**
+ * Minimum dwell to record. Posts mount briefly during list windowing/recycling
+ * and during fast scrolls — anything under 500ms is noise, not attention.
+ */
+const POST_DWELL_MIN_MS = 500;
+
+function PostCard({ post, index, benchmarks, onPress, drag, isActive, compact, activeStyleFilter, activeTopicFilter, onStylePress, onTopicPress, sortKey }: CardProps) {
   const colour = party[post.partyKey];
   const engRate = post.views > 0
     ? +((post.likes + post.comments + post.saves + post.shares) / post.views * 100).toFixed(2)
     : 0;
+
+  // Dwell tracking: mount → unmount measures how long this card was on screen
+  // during the user's session. Fires on unmount (scroll-past, filter change,
+  // page navigation). Captures attention even for posts the user never clicks.
+  // Capped to POST_DWELL_MIN_MS to suppress windowing/recycle noise.
+  const dwellStartRef = useRef<number>(Date.now());
+  useEffect(() => {
+    // Snapshot props at effect setup time so the cleanup can read them after
+    // the component has begun unmounting (React would otherwise null them out).
+    const startTs       = dwellStartRef.current;
+    const postId        = post.postId;
+    const politicianName = post.politicianName;
+    const partyKey      = post.partyKey;
+    const positionInFeed = index;
+    const sortKeySnap   = sortKey;
+
+    return () => {
+      const dwellMs = Date.now() - startTs;
+      if (dwellMs < POST_DWELL_MIN_MS) return;
+      track('post_dwell', {
+        post_id:          postId,
+        politician_name:  politicianName,
+        party:            partyKey,
+        dwell_ms:         dwellMs,
+        position_in_feed: positionInFeed,
+        sort_key:         sortKeySnap ?? null,
+      });
+    };
+    // Empty deps: we only want this to fire once on unmount. Re-renders due to
+    // sort/filter changes that keep the same post mounted are still part of the
+    // same dwell session.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Generated summary — starts from the BQ value, can be updated live
   const [summary, setSummary]       = useState<string>(post.videoSummary ?? '');
@@ -701,16 +823,38 @@ function PostCard({ post, index, benchmarks, onPress, drag, isActive, compact }:
             </View>
             <Text style={styles.caption} numberOfLines={2}>{post.caption}</Text>
             <View style={styles.tags}>
-              {post.style ? (
-                <View style={styles.styleTag}>
-                  <Text style={styles.tagText}>{fmtLabel(post.style)}</Text>
-                </View>
-              ) : null}
-              {(post.topics ?? []).slice(0, 3).map(t => (
-                <View key={t} style={styles.topicTag}>
-                  <Text style={styles.tagText}>{fmtLabel(t)}</Text>
-                </View>
-              ))}
+              {(post.styles ?? []).map(s => {
+                const isActive = activeStyleFilter?.toLowerCase() === s.toLowerCase();
+                return (
+                  <Pressable
+                    key={s}
+                    onPress={() => onStylePress?.(s)}
+                    style={({ pressed }) => [
+                      styles.styleTag,
+                      isActive && styles.tagActive,
+                      pressed && { opacity: 0.7 },
+                    ]}
+                  >
+                    <Text style={[styles.tagText, isActive && styles.tagTextActive]}>{fmtLabel(s)}</Text>
+                  </Pressable>
+                );
+              })}
+              {(post.topics ?? []).slice(0, 3).map(t => {
+                const isActive = activeTopicFilter?.toLowerCase() === t.toLowerCase();
+                return (
+                  <Pressable
+                    key={t}
+                    onPress={() => onTopicPress?.(t)}
+                    style={({ pressed }) => [
+                      styles.topicTag,
+                      isActive && styles.tagActive,
+                      pressed && { opacity: 0.7 },
+                    ]}
+                  >
+                    <Text style={[styles.tagText, isActive && styles.tagTextActive]}>{fmtLabel(t)}</Text>
+                  </Pressable>
+                );
+              })}
             </View>
           </View>
         </View>
@@ -1179,6 +1323,23 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   tagText: { fontFamily: font.bold, fontSize: 12, color: neutral.textMid },
+  tagActive: {
+    backgroundColor: 'rgba(124,131,255,0.35)',
+    borderColor: accent.indigo,
+  },
+  tagTextActive: { color: accent.indigo },
+  tagFilterPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(124,131,255,0.15)',
+    borderWidth: 1,
+    borderColor: accent.indigo,
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+  },
+  tagFilterPillText: { fontFamily: font.bold, fontSize: 12, color: accent.indigo },
 
   // Box-and-whisker distribution section
   distributionSection: {

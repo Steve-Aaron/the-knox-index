@@ -1,25 +1,26 @@
 import React from 'react';
+import { View, StyleSheet, Platform } from 'react-native';
 import type { ViewStyle } from 'react-native';
 import { GlassSurface } from '@/components/primitives/GlassSurface';
+import { InfoTip } from '@/components/primitives/InfoTip';
+import { DevLabel } from '@/components/primitives/DevLabel';
 import { brand } from '@/theme/colors';
-import { radius as defaultRadius } from '@/theme/spacing';
+import { radius as defaultRadius, spacing } from '@/theme/spacing';
 
 /**
  * DashCard
  * ---------
- * Standard surface for every dashboard panel. One job: be the single card
- * primitive so all panels share identical radius, accent, and flatTop behaviour
- * without each component managing those props manually.
+ * Standard surface for every dashboard panel.
  *
- * Defaults:
- *   radius    = radius.lg  (22)
- *   flatTop   = true       (squared top-left + top-right, rounded bottom)
- *   topAccent = brand.gradient (horizontal Knox gradient bar)
+ * Optionally accepts `infoText`. When provided, the shared `InfoTip` helper
+ * is rendered in the top-right corner of the card. All helper behaviour —
+ * the ? badge, the centred modal, the analytics event, the close affordance
+ * — lives inside InfoTip so every helper in the app looks and behaves
+ * identically (matching the 'Reach looks healthy for size' helper).
  *
- * Override any default by passing the prop explicitly. Pass
- * topAccent={undefined} to suppress the accent bar when a component
- * renders its own (e.g. PostsTable's pink strip, PoliticianDetailPanel's
- * party-colour strip).
+ * `infoTitle` is accepted but ignored — it is kept on the type so existing
+ * call sites continue to compile. The InfoTip modal always shows the canonical
+ * 'What does this mean?' header.
  */
 
 interface Props {
@@ -29,6 +30,10 @@ interface Props {
   flatTop?:    boolean;
   topAccent?:  string | readonly string[] | undefined;
   intensity?:  number;
+  /** Explanation shown when the ? helper is pressed. Rendered via InfoTip. */
+  infoText?:   string;
+  /** Deprecated: kept for backwards compatibility, no longer rendered. */
+  infoTitle?:  string;
 }
 
 export function DashCard({
@@ -38,6 +43,7 @@ export function DashCard({
   flatTop   = true,
   topAccent = [...brand.gradient] as string[],
   intensity,
+  infoText,
 }: Props) {
   return (
     <GlassSurface
@@ -47,7 +53,31 @@ export function DashCard({
       topAccent={topAccent}
       intensity={intensity}
     >
+      <DevLabel name="DashCard" />
       {children}
+
+      {/* ── Shared helper in the top-right corner ──────────────────── */}
+      {infoText ? (
+        <View
+          style={styles.helperSlot}
+          pointerEvents="box-none"
+          {...(Platform.OS === 'web' ? { 'data-component': 'DashCardHelper' } as any : {})}
+        >
+          <InfoTip text={infoText} width={320} />
+        </View>
+      ) : null}
     </GlassSurface>
   );
 }
+
+const styles = StyleSheet.create({
+  // Anchor InfoTip in the top-right corner of the card. The wrapping View
+  // exists so InfoTip's absolute backdrop has a stable parent, and so the
+  // slot itself can be addressed via data-component for instrumentation.
+  helperSlot: {
+    position: 'absolute',
+    top:      spacing.sm,
+    right:    spacing.sm,
+    zIndex:   10,
+  },
+});

@@ -60,7 +60,7 @@ export interface RecentPost {
   shares:    number;
   saves?:    number;
   summary?:  string;    // AI-generated summary from n8n / Gemini
-  style?:    string;
+  styles?:   string[];
   topic?:    string;
   coverJpeg?: string;
   videoMp4?:  string;
@@ -80,7 +80,7 @@ export interface PostRecord {
   videoMp4:        string;
   postUrl:         string;
   postDate:        string;
-  style:           string;
+  styles:          string[];
   topics?:         string[];
   views:           number;
   likes:           number;

@@ -15,6 +15,7 @@ import { font } from '@/theme/typography';
 import { type } from '@/theme/typography';
 import { spacing, radius } from '@/theme/spacing';
 import { formatters } from '@/components/primitives/CountUp';
+import { DevLabel } from '@/components/primitives/DevLabel';
 import type { Politician } from '@/data/types';
 
 /**
@@ -69,6 +70,7 @@ export function AccountsInterstitial({ politicians, onClose, onRefresh }: Props)
   return (
     /* ── Backdrop ───────────────────────────────────────────────── */
     <View style={styles.backdrop}>
+      <DevLabel name="AccountsInterstitial" />
       <Pressable style={StyleSheet.absoluteFillObject} onPress={onClose} />
 
       {/* ── Sheet ───────────────────────────────────────────────── */}

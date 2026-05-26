@@ -131,21 +131,21 @@ export function buildPostsSQL(range: Range): string {
   const dateFilter = rangeDateFilter(range);
   return `
   SELECT
-    postId,
-    LTRIM(profile, '@') AS profile,
-    caption,
-    videoSummary,
-    COALESCE(views,    0) AS views,
-    COALESCE(likes,    0) AS likes,
-    COALESCE(comments, 0) AS comments,
-    COALESCE(shares,   0) AS shares,
-    COALESCE(saves,    0) AS saves,
-    COALESCE(reposts,  0) AS reposts,
-    CAST(postDate AS STRING) AS postDate,
-    postUrl,
-    coverJpeg,
-    videoMp4,
-    style
+    CAST(p.postId AS STRING) AS postId,
+    LTRIM(p.profile, '@') AS profile,
+    p.caption,
+    p.videoSummary,
+    COALESCE(p.views,    0) AS views,
+    COALESCE(p.likes,    0) AS likes,
+    COALESCE(p.comments, 0) AS comments,
+    COALESCE(p.shares,   0) AS shares,
+    COALESCE(p.saves,    0) AS saves,
+    COALESCE(p.reposts,  0) AS reposts,
+    CAST(p.postDate AS STRING) AS postDate,
+    p.postUrl,
+    p.coverJpeg,
+    p.videoMp4,
+    ARRAY_AGG(DISTINCT s.name IGNORE NULLS) AS styles
   FROM (
     SELECT
       *,
@@ -157,8 +157,14 @@ export function buildPostsSQL(range: Range): string {
     WHERE videoSummary IS NOT NULL
       AND videoMp4     IS NOT NULL
       AND ${dateFilter}
-  )
-  WHERE _rn <= 5
+  ) p
+  LEFT JOIN ${tableRef('post_x_style')} pxs ON p.postId = pxs.postId
+  LEFT JOIN ${tableRef('style')} s ON pxs.styleId = s.id
+  WHERE p._rn <= 5
+  GROUP BY
+    p.postId, p.profile, p.caption, p.videoSummary,
+    p.views, p.likes, p.comments, p.shares, p.saves, p.reposts,
+    p.postDate, p.postUrl, p.coverJpeg, p.videoMp4
 `;
 }
 
@@ -172,27 +178,33 @@ export function buildAccountPostsSQL(handle: string, range: Range, limit = 20): 
   const safe = sanitiseHandle(handle);
   return `
   SELECT
-    postId,
-    LTRIM(profile, '@') AS profile,
-    caption,
-    videoSummary,
-    COALESCE(views,    0) AS views,
-    COALESCE(likes,    0) AS likes,
-    COALESCE(comments, 0) AS comments,
-    COALESCE(shares,   0) AS shares,
-    COALESCE(saves,    0) AS saves,
-    COALESCE(reposts,  0) AS reposts,
-    CAST(postDate AS STRING) AS postDate,
-    postUrl,
-    coverJpeg,
-    videoMp4,
-    style
-  FROM ${tableRef('post')}
-  WHERE LTRIM(profile, '@') = '${safe}'
-    AND videoSummary IS NOT NULL
-    AND videoMp4     IS NOT NULL
+    CAST(p.postId AS STRING) AS postId,
+    LTRIM(p.profile, '@') AS profile,
+    p.caption,
+    p.videoSummary,
+    COALESCE(p.views,    0) AS views,
+    COALESCE(p.likes,    0) AS likes,
+    COALESCE(p.comments, 0) AS comments,
+    COALESCE(p.shares,   0) AS shares,
+    COALESCE(p.saves,    0) AS saves,
+    COALESCE(p.reposts,  0) AS reposts,
+    CAST(p.postDate AS STRING) AS postDate,
+    p.postUrl,
+    p.coverJpeg,
+    p.videoMp4,
+    ARRAY_AGG(DISTINCT s.name IGNORE NULLS) AS styles
+  FROM ${tableRef('post')} p
+  LEFT JOIN ${tableRef('post_x_style')} pxs ON p.postId = pxs.postId
+  LEFT JOIN ${tableRef('style')} s ON pxs.styleId = s.id
+  WHERE LTRIM(p.profile, '@') = '${safe}'
+    AND p.videoSummary IS NOT NULL
+    AND p.videoMp4     IS NOT NULL
     AND ${dateFilter}
-  ORDER BY postDate DESC
+  GROUP BY
+    p.postId, p.profile, p.caption, p.videoSummary,
+    p.views, p.likes, p.comments, p.shares, p.saves, p.reposts,
+    p.postDate, p.postUrl, p.coverJpeg, p.videoMp4
+  ORDER BY MAX(p.postDate) DESC
   LIMIT ${limit}
 `;
 }
@@ -206,26 +218,32 @@ export function buildAllAccountPostsSQL(handle: string, limit = 200): string {
   const safe = sanitiseHandle(handle);
   return `
   SELECT
-    postId,
-    LTRIM(profile, '@') AS profile,
-    caption,
-    videoSummary,
-    COALESCE(views,    0) AS views,
-    COALESCE(likes,    0) AS likes,
-    COALESCE(comments, 0) AS comments,
-    COALESCE(shares,   0) AS shares,
-    COALESCE(saves,    0) AS saves,
-    COALESCE(reposts,  0) AS reposts,
-    CAST(postDate AS STRING) AS postDate,
-    postUrl,
-    coverJpeg,
-    videoMp4,
-    style
-  FROM ${tableRef('post')}
-  WHERE LTRIM(profile, '@') = '${safe}'
-    AND videoSummary IS NOT NULL
-    AND videoMp4     IS NOT NULL
-  ORDER BY postDate DESC
+    CAST(p.postId AS STRING) AS postId,
+    LTRIM(p.profile, '@') AS profile,
+    p.caption,
+    p.videoSummary,
+    COALESCE(p.views,    0) AS views,
+    COALESCE(p.likes,    0) AS likes,
+    COALESCE(p.comments, 0) AS comments,
+    COALESCE(p.shares,   0) AS shares,
+    COALESCE(p.saves,    0) AS saves,
+    COALESCE(p.reposts,  0) AS reposts,
+    CAST(p.postDate AS STRING) AS postDate,
+    p.postUrl,
+    p.coverJpeg,
+    p.videoMp4,
+    ARRAY_AGG(DISTINCT s.name IGNORE NULLS) AS styles
+  FROM ${tableRef('post')} p
+  LEFT JOIN ${tableRef('post_x_style')} pxs ON p.postId = pxs.postId
+  LEFT JOIN ${tableRef('style')} s ON pxs.styleId = s.id
+  WHERE LTRIM(p.profile, '@') = '${safe}'
+    AND p.videoSummary IS NOT NULL
+    AND p.videoMp4     IS NOT NULL
+  GROUP BY
+    p.postId, p.profile, p.caption, p.videoSummary,
+    p.views, p.likes, p.comments, p.shares, p.saves, p.reposts,
+    p.postDate, p.postUrl, p.coverJpeg, p.videoMp4
+  ORDER BY MAX(p.postDate) DESC
   LIMIT ${limit}
 `;
 }

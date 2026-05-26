@@ -7,6 +7,7 @@ import { LinkPill } from '@/components/primitives/LinkPill';
 import { RadialScoreChart } from '@/components/card/RadialScoreChart';
 import type { RawScoreValues } from '@/components/card/RadialScoreChart';
 import { DashCard } from '@/components/primitives/DashCard';
+import { DevLabel } from '@/components/primitives/DevLabel';
 import { neutral, party, glass, accent } from '@/theme/colors';
 import { spacing, radius } from '@/theme/spacing';
 import { type, font } from '@/theme/typography';
@@ -196,6 +197,7 @@ export function AccountHero({ politician, overallRank, totalCount, rangeLabel }:
       transition={{ type: 'timing', duration: 320 }}
       style={[styles.container, isDesktop ? styles.containerDesktop : styles.containerMobile]}
     >
+      <DevLabel name="AccountHero" />
 
       {/* ── Card A: Persona ─────────────────────────────────────────────── */}
       <DashCard style={styles.card} topAccent={undefined}>

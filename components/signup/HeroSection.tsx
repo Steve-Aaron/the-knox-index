@@ -4,6 +4,7 @@ import { spacing } from '@/theme/spacing';
 import { breakpoints } from '@/theme/breakpoints';
 import { HeroLeft } from './HeroLeft';
 import { HeroRight } from './HeroRight';
+import { DevLabel } from '@/components/primitives/DevLabel';
 
 /**
  * HeroSection
@@ -26,6 +27,7 @@ export function HeroSection() {
       styles.section,
       isDesktop ? styles.sectionRow : styles.sectionCol,
     ]}>
+      <DevLabel name="HeroSection" />
       {/* Left: HeroText + NewsletterForm */}
       <View style={[styles.col, isDesktop && styles.colLeft]}>
         <HeroLeft />

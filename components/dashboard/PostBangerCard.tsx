@@ -15,6 +15,7 @@ import { neutral, glass, party, accent } from '@/theme/colors';
 import { type, font } from '@/theme/typography';
 import { spacing, radius } from '@/theme/spacing';
 import { formatters } from '@/components/primitives/CountUp';
+import { StyleChip } from '@/components/primitives/StyleChip';
 import type { RecentPost } from '@/data/types';
 import type { PartyKey } from '@/theme/colors';
 
@@ -95,6 +96,13 @@ export function PostBangerCard({ post, politicianName, partyKey, delay = 0 }: Pr
                 {politicianName}
               </Text>
             </View>
+            {(post.styles ?? []).length > 0 ? (
+              <View style={styles.styleRow}>
+                {(post.styles ?? []).slice(0, 3).map(s => (
+                  <StyleChip key={s} label={s} tint={colour.glow} compact />
+                ))}
+              </View>
+            ) : null}
             {post.postUrl ? (
               <Pressable
                 onPress={e => { e.stopPropagation?.(); Linking.openURL(post.postUrl!); }}
@@ -113,6 +121,11 @@ export function PostBangerCard({ post, politicianName, partyKey, delay = 0 }: Pr
         coverJpeg={post.coverJpeg}
         caption={post.caption}
         postUrl={post.postUrl}
+        postId={post.postId}
+        politicianName={politicianName}
+        partyKey={partyKey}
+        views={post.views}
+        styles={post.styles}
         onClose={() => setModalOpen(false)}
       />
     </>
@@ -211,6 +224,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
+  },
+  styleRow: {
+    flexDirection: 'row',
+    flexWrap:      'wrap',
+    gap:           4,
+    paddingTop:    2,
   },
   partyDot: {
     width: 6,

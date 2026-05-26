@@ -1,12 +1,13 @@
 import React, { useMemo } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Platform } from 'react-native';
 import { DashCard } from '@/components/primitives/DashCard';
 import { DevLabel } from '@/components/primitives/DevLabel';
-import { InfoTip } from '@/components/primitives/InfoTip';
 import { neutral, glass, accent } from '@/theme/colors';
 import { spacing, radius } from '@/theme/spacing';
 import { type, font } from '@/theme/typography';
 import type { PostRecord } from '@/data/types';
+import { fmtLabel } from '@/lib/format';
+import { track } from '@/lib/analytics';
 
 /**
  * StyleBreakdown
@@ -18,25 +19,35 @@ import type { PostRecord } from '@/data/types';
  */
 
 interface Props {
-  posts:       PostRecord[];
-  rangeLabel?: string;
-  topN?:       number;
+  posts:           PostRecord[];
+  rangeLabel?:     string;
+  topN?:           number;
+  /** Currently-active style filter (lowercased). When set, that row is highlighted. */
+  activeStyle?:    string | null;
+  /** Fired when the user taps a row. Toggles off if the same row is tapped again. */
+  onStyleSelect?:  (style: string | null) => void;
 }
 
 const PALETTE = [accent.indigo, accent.mint, accent.pink, accent.amber];
 
-export function StyleBreakdown({ posts, rangeLabel, topN = 8 }: Props) {
+export function StyleBreakdown({ posts, rangeLabel, topN = 8, activeStyle, onStyleSelect }: Props) {
+  // Each row carries both the display label and the raw key — the raw key is
+  // what we hand back to the parent so filters compare against post.styles
+  // exactly as stored.
   const rows = useMemo(() => {
     const counts = new Map<string, number>();
     for (const p of posts) {
-      const key = (p.style || '').trim().toLowerCase();
-      if (!key) continue;
-      counts.set(key, (counts.get(key) ?? 0) + 1);
+      for (const s of p.styles ?? []) {
+        const key = s.trim().toLowerCase();
+        if (!key) continue;
+        counts.set(key, (counts.get(key) ?? 0) + 1);
+      }
     }
     const total = Array.from(counts.values()).reduce((s, c) => s + c, 0);
     return Array.from(counts.entries())
       .map(([key, count]) => ({
-        label: key.charAt(0).toUpperCase() + key.slice(1),
+        key,
+        label: fmtLabel(key),
         count,
         share: total > 0 ? count / total : 0,
       }))
@@ -45,20 +56,39 @@ export function StyleBreakdown({ posts, rangeLabel, topN = 8 }: Props) {
   }, [posts, topN]);
 
   const max = rows[0];
+  const activeKey = activeStyle?.toLowerCase() ?? null;
+
+  const handlePress = (key: string) => {
+    const next = activeKey === key ? null : key;
+    track('style_league_row_tapped', {
+      style:        key,
+      will_become:  next ?? 'cleared',
+      result_count: posts.filter(p => (p.styles ?? []).some(s => s.toLowerCase() === key)).length,
+    });
+    onStyleSelect?.(next);
+  };
 
   return (
-    <DashCard style={styles.wrap}>
+    <DashCard
+      style={styles.wrap}
+      infoText="Each post is tagged with a content style during ingestion. This chart counts how often each style appears across the currently visible feed."
+      infoTitle="Style Mix"
+    >
       <DevLabel name="StyleBreakdown" />
 
       <View style={styles.header}>
-        <View>
-          <Text style={styles.kicker}>STYLE MIX{rangeLabel ? ` · ${rangeLabel.toUpperCase()}` : ''}</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.kicker}>STYLE LEAGUE{rangeLabel ? ` · ${rangeLabel.toUpperCase()}` : ''}</Text>
           <Text style={styles.title}>What style of TikToks are MPs making?</Text>
+          {onStyleSelect ? (
+            <Text style={styles.hint}>Tap any style to filter the post feed.</Text>
+          ) : null}
         </View>
-        <InfoTip
-          text="Each post is tagged with a content style during ingestion. This chart counts how often each style appears across the currently visible feed."
-          width={260}
-        />
+        {activeKey ? (
+          <Pressable onPress={() => onStyleSelect?.(null)} style={styles.clearBtn}>
+            <Text style={styles.clearBtnText}>Clear filter ×</Text>
+          </Pressable>
+        ) : null}
       </View>
 
       {rows.length === 0 ? (
@@ -68,9 +98,25 @@ export function StyleBreakdown({ posts, rangeLabel, topN = 8 }: Props) {
           {rows.map((row, i) => {
             const tint = PALETTE[i % PALETTE.length];
             const fraction = max && max.count > 0 ? row.count / max.count : 0;
+            const isActive = activeKey === row.key;
+            const dimmed   = activeKey != null && !isActive;
             return (
-              <View key={row.label} style={styles.row}>
-                <Text style={styles.label} numberOfLines={1}>{row.label}</Text>
+              <Pressable
+                key={row.key}
+                onPress={() => handlePress(row.key)}
+                accessibilityRole="button"
+                accessibilityLabel={`Filter posts by ${row.label}`}
+                style={({ pressed, hovered }: any) => [
+                  styles.row,
+                  isActive && { borderColor: tint, backgroundColor: `${tint}1a` },
+                  hovered && !isActive && { backgroundColor: 'rgba(255,255,255,0.03)' },
+                  dimmed && { opacity: 0.55 },
+                  pressed && { opacity: 0.78 },
+                ]}
+              >
+                <Text style={[styles.label, isActive && { color: tint }]} numberOfLines={1}>
+                  {row.label}
+                </Text>
                 <View style={styles.barWrap}>
                   <View style={styles.barTrack}>
                     <View
@@ -84,7 +130,7 @@ export function StyleBreakdown({ posts, rangeLabel, topN = 8 }: Props) {
                 <Text style={[styles.value, { color: tint }]}>
                   {row.count} <Text style={styles.share}>· {Math.round(row.share * 100)}%</Text>
                 </Text>
-              </View>
+              </Pressable>
             );
           })}
         </View>
@@ -119,9 +165,43 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
+    flexDirection:     'row',
+    alignItems:        'center',
+    gap:               spacing.sm,
+    borderWidth:       1,
+    borderColor:       'transparent',
+    borderRadius:      radius.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical:   spacing.xs,
+    marginHorizontal:  -spacing.sm,
+    ...Platform.select({
+      web: {
+        transitionProperty: 'background-color, border-color, opacity',
+        transitionDuration: '160ms',
+        cursor:             'pointer',
+      } as any,
+      default: {},
+    }),
+  },
+  hint: {
+    ...type.caption,
+    color:    neutral.textDim,
+    fontSize: 11,
+    marginTop: 2,
+  },
+  clearBtn: {
+    borderWidth:       1,
+    borderColor:       accent.indigo,
+    backgroundColor:   'rgba(124,131,255,0.12)',
+    borderRadius:      radius.pill,
+    paddingHorizontal: spacing.md,
+    paddingVertical:   4,
+    ...Platform.select({ web: { cursor: 'pointer' } as any, default: {} }),
+  },
+  clearBtnText: {
+    ...type.caption,
+    color:    accent.indigo,
+    fontSize: 12,
   },
   label: {
     ...type.body,

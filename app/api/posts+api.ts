@@ -16,7 +16,7 @@ import { toPartyKeyPublic } from '@/data/partyUtils';
 import type { PostRecord } from '@/data/types';
 
 interface BQPostRecordRow {
-  postId:           number;
+  postId:           string;
   profile:          string;
   politicianName:   string;
   party:            string;
@@ -26,7 +26,7 @@ interface BQPostRecordRow {
   videoMp4:         string;
   postUrl:          string;
   postDate:         string;
-  style:            string;
+  styles:           string[] | null;
   topics:           string[] | null;
   views:            number;
   likes:            number;
@@ -38,7 +38,7 @@ interface BQPostRecordRow {
 
 const POSTS_SQL = (limit: number, since: string | null) => `
   SELECT
-    p.postId,
+    CAST(p.postId AS STRING) AS postId,
     p.profile,
     a.name        AS politicianName,
     a.party,
@@ -48,25 +48,27 @@ const POSTS_SQL = (limit: number, since: string | null) => `
     p.videoMp4,
     COALESCE(p.postUrl,     '')  AS postUrl,
     CAST(p.postDate AS STRING)   AS postDate,
-    COALESCE(p.style,       '')  AS style,
     COALESCE(p.views,    0)      AS views,
     COALESCE(p.likes,    0)      AS likes,
     COALESCE(p.comments, 0)      AS comments,
     COALESCE(p.shares,   0)      AS shares,
     COALESCE(p.saves,    0)      AS saves,
     COALESCE(a.totalFollowers, 0) AS accountFollowers,
-    ARRAY_AGG(DISTINCT t.name IGNORE NULLS) AS topics
+    ARRAY_AGG(DISTINCT t.name IGNORE NULLS) AS topics,
+    ARRAY_AGG(DISTINCT s.name IGNORE NULLS) AS styles
   FROM ${tableRef('post')} p
   LEFT JOIN ${tableRef('account')} a ON LTRIM(p.profile, '@') = LTRIM(a.profile, '@')
   LEFT JOIN ${tableRef('post_x_topic')} pt ON p.postId = pt.postId
   LEFT JOIN ${tableRef('topic')} t ON pt.topicId = t.id
+  LEFT JOIN ${tableRef('post_x_style')} pxs ON p.postId = pxs.postId
+  LEFT JOIN ${tableRef('style')} s ON pxs.styleId = s.id
   WHERE p.videoSummary IS NOT NULL
     AND p.videoMp4     IS NOT NULL
     ${since ? `AND p.postDate >= DATE '${since}'` : ''}
   GROUP BY
     p.postId, p.profile, a.name, a.party,
     p.caption, p.videoSummary, p.coverJpeg, p.videoMp4,
-    p.postUrl, p.postDate, p.style,
+    p.postUrl, p.postDate,
     p.views, p.likes, p.comments, p.shares, p.saves,
     a.totalFollowers
   ORDER BY p.postDate DESC, p.views DESC
@@ -99,7 +101,7 @@ export async function GET(request: Request): Promise<Response> {
       videoMp4:       r.videoMp4     ?? '',
       postUrl:        r.postUrl      ?? '',
       postDate:       r.postDate     ?? '',
-      style:          r.style        ?? '',
+      styles:         Array.isArray(r.styles) ? r.styles.filter(Boolean) : [],
       topics:         Array.isArray(r.topics) ? r.topics.filter(Boolean) : [],
       views:          r.views        ?? 0,
       likes:          r.likes        ?? 0,

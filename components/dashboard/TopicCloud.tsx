@@ -2,7 +2,6 @@ import React, { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { DashCard } from '@/components/primitives/DashCard';
 import { DevLabel } from '@/components/primitives/DevLabel';
-import { InfoTip } from '@/components/primitives/InfoTip';
 import { neutral, glass, accent } from '@/theme/colors';
 import { spacing, radius } from '@/theme/spacing';
 import { type, font } from '@/theme/typography';
@@ -66,7 +65,11 @@ export function TopicCloud({ posts, rangeLabel, topN = 24 }: Props) {
   }, [posts, topN]);
 
   return (
-    <DashCard style={styles.wrap}>
+    <DashCard
+      style={styles.wrap}
+      infoText="Each post is tagged with one or more topics during ingestion. The pills are sized and tinted by how often each topic shows up in the visible feed."
+      infoTitle="Subjects"
+    >
       <DevLabel name="TopicCloud" />
 
       <View style={styles.header}>
@@ -74,10 +77,6 @@ export function TopicCloud({ posts, rangeLabel, topN = 24 }: Props) {
           <Text style={styles.kicker}>SUBJECTS{rangeLabel ? ` · ${rangeLabel.toUpperCase()}` : ''}</Text>
           <Text style={styles.title}>What's being talked about?</Text>
         </View>
-        <InfoTip
-          text="Each post is tagged with one or more topics during ingestion. The pills are sized and tinted by how often each topic shows up in the visible feed."
-          width={260}
-        />
       </View>
 
       {entries.length === 0 ? (

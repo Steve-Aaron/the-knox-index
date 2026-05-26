@@ -5,6 +5,7 @@ import Animated, { useSharedValue, withSpring, useAnimatedProps } from 'react-na
 import { neutral } from '@/theme/colors';
 import { type, font } from '@/theme/typography';
 import type { MetricBenchmark } from '@/data/types';
+import { DevLabel } from '@/components/primitives/DevLabel';
 
 /**
  * BoxWhisker
@@ -131,6 +132,7 @@ export function BoxWhisker({ label, value, benchmark, colour, format, scaleType 
 
   return (
     <View style={styles.wrap} onLayout={onLayout}>
+      <DevLabel name="BoxWhisker" />
 
       {/* ── Header: label + value + zone badge ── */}
       <View style={styles.header}>

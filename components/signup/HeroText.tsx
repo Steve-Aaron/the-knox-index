@@ -4,6 +4,7 @@ import { neutral, accent } from '@/theme/colors';
 import { spacing } from '@/theme/spacing';
 import { font } from '@/theme/typography';
 import { breakpoints } from '@/theme/breakpoints';
+import { DevLabel } from '@/components/primitives/DevLabel';
 
 /**
  * HeroText
@@ -28,6 +29,7 @@ export function HeroText() {
 
   return (
     <View style={styles.wrap}>
+      <DevLabel name="HeroText" />
       <Text style={styles.kicker}>{COPY.kicker}</Text>
 
       <Text style={[styles.heading, isDesktop && styles.headingLg]}>

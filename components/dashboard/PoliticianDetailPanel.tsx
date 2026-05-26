@@ -16,12 +16,14 @@ import { RadialScoreChart, RawScoreValues } from '@/components/card/RadialScoreC
 import { LinkPill } from '@/components/primitives/LinkPill';
 import { InfoTip } from '@/components/primitives/InfoTip';
 import { CountUp, formatters } from '@/components/primitives/CountUp';
+import { StyleChip } from '@/components/primitives/StyleChip';
 import { FollowerQualityFlag } from './FollowerQualityFlag';
 import { neutral, party, glass } from '@/theme/colors';
 import { font } from '@/theme/typography';
 import { spacing, radius } from '@/theme/spacing';
 import { type } from '@/theme/typography';
 import type { Politician, ScoreKey } from '@/data/types';
+import type { TimeRange } from '@/components/dashboard/TimeRangePicker';
 
 /**
  * PoliticianDetailPanel
@@ -32,12 +34,14 @@ import type { Politician, ScoreKey } from '@/data/types';
  * politician changes. One job.
  */
 interface Props {
-  politician: Politician;
+  politician:  Politician;
   headlineKey: ScoreKey;
+  /** Selected dashboard time range. Drives the frequency axis wording. */
+  range:       TimeRange;
   panelHeight?: number;
 }
 
-export function PoliticianDetailPanel({ politician, headlineKey, panelHeight }: Props) {
+export function PoliticianDetailPanel({ politician, headlineKey, range, panelHeight }: Props) {
   const colour = party[politician.partyKey];
 
   // Raw values shown in the dot-hover popup on the radar chart.
@@ -58,9 +62,19 @@ export function PoliticianDetailPanel({ politician, headlineKey, panelHeight }: 
         politician.totals.savesInRange + politician.totals.sharesInRange
       : politician.totals.likesToday + politician.totals.commentsToday + politician.totals.savesToday);
 
+  // Frequency display is range-aware:
+  //  - 'yesterday' / 'week'  → always show posts in the past 7 days
+  //  - 'month' / 'year' / 'lifetime' → use the range-bound figure (postsInRange)
+  // The matching axis label/desc inside RadialScoreChart switches off the same
+  // `range` prop, so the number and the wording stay in sync.
+  const isShortRange = range === 'yesterday' || range === 'week';
+  const frequencyValue = isShortRange
+    ? politician.totals.postsThisWeek
+    : politician.totals.postsInRange;
+
   const rawValues: RawScoreValues = {
     views:      avgViews,
-    frequency:  politician.totals.postsInRange > 0 ? politician.totals.postsInRange : politician.totals.postsThisWeek,
+    frequency:  frequencyValue,
     engagement: engViews > 0 ? (engNumerator / engViews) * 100 : 0,
     followers:  politician.totals.followers,
     knoxFactor: politician.scores.knoxFactor,
@@ -73,7 +87,12 @@ export function PoliticianDetailPanel({ politician, headlineKey, panelHeight }: 
   };
 
   return (
-    <DashCard style={wrapStyle} topAccent={undefined}>
+    <DashCard
+      style={wrapStyle}
+      topAccent={undefined}
+      infoText="Full profile for the selected politician. The radar chart shows their score 0–100 relative to every other tracked account across views, engagement, posting frequency, followers and Knox Factor (the average). Recent posts are listed below."
+      infoTitle="Politician Profile"
+    >
       <DevLabel name="PoliticianDetailPanel" />
       {/* Horizontal party-colour strip along the top */}
       <View
@@ -132,6 +151,7 @@ export function PoliticianDetailPanel({ politician, headlineKey, panelHeight }: 
               partyKey={politician.partyKey}
               highlightKey={headlineKey}
               rawValues={rawValues}
+              range={range}
               size={300}
             />
           </View>
@@ -211,6 +231,15 @@ export function PoliticianDetailPanel({ politician, headlineKey, panelHeight }: 
                   {/* AI summary — falls back to nothing when missing so the layout stays tight */}
                   {post.summary ? (
                     <Text style={styles.postSummary} numberOfLines={3}>{post.summary}</Text>
+                  ) : null}
+
+                  {/* Content styles — surface what kind of post this is */}
+                  {(post.styles ?? []).length > 0 ? (
+                    <View style={styles.postStyles}>
+                      {(post.styles ?? []).slice(0, 4).map(s => (
+                        <StyleChip key={s} label={s} tint={colour.glow} compact />
+                      ))}
+                    </View>
                   ) : null}
 
                   {/* Date + 4 stats: Views, Likes, Comments, Shares */}
@@ -448,6 +477,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 16,
     fontStyle: 'italic',
+  },
+  postStyles: {
+    flexDirection: 'row',
+    flexWrap:      'wrap',
+    gap:           4,
   },
   engRow: {
     flexDirection: 'row',
