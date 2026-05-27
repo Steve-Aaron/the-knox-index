@@ -23,7 +23,7 @@ const __dir = path.dirname(fileURLToPath(import.meta.url));
 
 // ── Config ────────────────────────────────────────────────────────────────────
 // Set this to your template ID after the first upload to update instead of create.
-const EXISTING_TEMPLATE_ID = null; // e.g. 12
+const EXISTING_TEMPLATE_ID = 1;
 
 // ── Load API key ──────────────────────────────────────────────────────────────
 const envPath = path.resolve(__dir, '../../.env.local');
@@ -58,7 +58,7 @@ async function brevo(method, endpoint, body) {
 const payload = {
   sender:      { name: 'The Knox Index', email: 'hello@knoxdigi.com' },
   templateName: 'TKI Daily Briefing',
-  subject:     'The Knox Index — {{params.BRIEFING_DATE}}',
+  subject:     '{{ params.subjectLine }}',
   htmlContent,
   isActive:    true,
 };
@@ -87,6 +87,10 @@ if (EXISTING_TEMPLATE_ID) {
     process.exit(1);
   }
 }
+
+// ── Print a clickable file:// link to the local rendered preview ─────────────
+const previewFile = path.resolve(__dir, '../briefing_preview.html');
+console.log(`\n→ Local preview: file://${previewFile}`);
 
 // ── Also check existing templates ────────────────────────────────────────────
 console.log('\nExisting Brevo transactional templates:');

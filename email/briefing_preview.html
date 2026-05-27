@@ -1,952 +1,539 @@
 <!DOCTYPE html>
-<html lang="en" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
+<html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta http-equiv="X-UA-Compatible" content="IE=edge">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="color-scheme" content="light dark">
-  <meta name="supported-color-schemes" content="light dark">
-  <!--[if mso]><noscript><xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml></noscript><![endif]-->
-  <title>The Knox Index — Wednesday 20 May 2026</title>
-  <!--[if !mso]><!-->
-  <link href="https://fonts.googleapis.com/css2?family=Figtree:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet" type="text/css">
-  <!--<![endif]-->
-  <style>
-    @import url('https://fonts.googleapis.com/css2?family=Figtree:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&display=swap');
+<meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<meta name="color-scheme" content="light">
+<title>The Knox Index — Tuesday, 26 May 2026</title>
 
-    /* ── Reset ──────────────────────────────────────────────────── */
-    *, *::before, *::after { box-sizing: border-box; }
-    body   { margin:0; padding:0; -webkit-text-size-adjust:100%; -ms-text-size-adjust:100%; }
-    table  { border-collapse:collapse; mso-table-lspace:0; mso-table-rspace:0; }
-    img    { border:0; outline:none; text-decoration:none; -ms-interpolation-mode:bicubic; display:block; max-width:100%; }
-    a      { text-decoration:none; }
-
-    /* ── Light mode (default) ────────────────────────────────────── */
-    .bg-page        { background-color: #EDEDF5 !important; }
-    .bg-card        { background-color: #FFFFFF !important; }
-    .bg-post        { background-color: #F8F8FD !important; }
-    .bg-post-lead   { background-color: #F4F4FC !important; }
-    .bg-performer   { background-color: #F2F3FF !important; }
-    .bg-forward     { background-color: #EEEEFF !important; }
-    .border-post    { border: 1px solid #E4E4F0 !important; }
-    .border-performer { border: 1px solid #CACBFF !important; }
-    .border-forward { border: 1px solid #CCCCFF !important; }
-    .divider        { background-color: #E5E5EF !important; }
-    .bar-track      { background-color: #E5E5F5 !important; }
-    .col-primary    { color: #0F0F1A !important; }
-    .col-secondary  { color: #5A5A7A !important; }
-    .col-accent     { color: #7C83FF !important; }
-    .col-footer     { color: #9090A8 !important; }
-    .chip-bg        { background-color: #ECEDFA !important; }
-    .chip-col       { color: #3A3A5C !important; }
-    .chip-label     { color: #7878A0 !important; }
-
-    /* ── Dark mode ──────────────────────────────────────────────── */
-    @media (prefers-color-scheme: dark) {
-      .bg-page        { background-color: #07070E !important; }
-      .bg-card        { background-color: #0D0D1C !important; }
-      .bg-post        { background-color: #121228 !important; }
-      .bg-post-lead   { background-color: #14143A !important; }
-      .bg-performer   { background-color: rgba(124,131,255,0.09) !important; }
-      .bg-forward     { background-color: rgba(124,131,255,0.08) !important; }
-      .border-post    { border: 1px solid rgba(255,255,255,0.08) !important; }
-      .border-performer { border: 1px solid rgba(124,131,255,0.28) !important; }
-      .border-forward { border: 1px solid rgba(124,131,255,0.22) !important; }
-      .divider        { background-color: rgba(255,255,255,0.07) !important; }
-      .bar-track      { background-color: rgba(255,255,255,0.07) !important; }
-      .col-primary    { color: #EEEEF8 !important; }
-      .col-secondary  { color: #8888AA !important; }
-      .col-accent     { color: #9BA3FF !important; }
-      .col-footer     { color: #555570 !important; }
-      .chip-bg        { background-color: rgba(255,255,255,0.07) !important; }
-      .chip-col       { color: #CCCCE8 !important; }
-      .chip-label     { color: #6868A0 !important; }
-      .badge-outline  { color: #9BA3FF !important; border-color: rgba(124,131,255,0.35) !important; }
-      .donut-track    { stroke: rgba(255,255,255,0.10) !important; }
-    }
-
-    /* ── Mobile ─────────────────────────────────────────────────── */
-    @media only screen and (max-width: 620px) {
-      .wrapper      { padding: 0 !important; }
-      .card         { border-radius: 0 !important; }
-      .section      { padding: 28px 20px !important; }
-      .post-pad     { padding: 22px 18px !important; }
-      .hdr-pad      { padding: 22px 18px 18px !important; }
-      .perf-pad     { padding: 20px 18px !important; }
-      .hide-mob     { display: none !important; }
-      .posts-pad    { padding-left: 0 !important; padding-right: 0 !important; }
-      .posts-wrap   { border-radius: 0 !important; }
-      .chip-td      { width: 25% !important; }
-      .stat-td      { display: block !important; width: 100% !important; padding-bottom: 8px !important; }
-      .donut-td     { display: none !important; }
-    }
-  </style>
-</head>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
 <!--
-  ══════════════════════════════════════════════════════════════════════════════
-  THE KNOX INDEX — DAILY BRIEFING TEMPLATE  v2
-  For use with Brevo transactional email API.
-
-  PARAM REFERENCE — pass these in the `params` object of your Brevo API call:
-
+  PARAM REFERENCE
+  ───────────────
   Global:
-    BRIEFING_DATE     e.g. "Wednesday 21 May 2025"
-    PREVIEW_TEXT      inbox preview line (75 chars max)
-    INTRO_SUMMARY     2–4 sentence daily editorial paragraph
-    WEEKLY_SUMMARY    3–5 sentence weekly context paragraph
-    SIGNUP_URL        default: https://theknoxindex.com/signup
-    PRIVACY_URL       default: https://theknoxindex.com/privacy
+    subjectLine    — drives the email subject (referenced by Brevo template payload)
+    previewLine    — drives BOTH the hidden inbox preheader AND a body paragraph
+                     inside the daily-brief card, sitting between the greeting
+                     and the INTRO_SUMMARY
+    BRIEFING_DATE, INTRO_SUMMARY, WEEKLY_SUMMARY, SIGNUP_URL, PRIVACY_URL
 
-  Top Performer (new) — ALL STATS ARE FOR TODAY'S TOP POST, not the profile aggregate:
-    TOP_NAME          e.g. "Keir Starmer"
-    TOP_PROFILE       e.g. "keirstarmer"   (no @ prefix)
-    TOP_PARTY         e.g. "Labour"
-    TOP_VIEWS         post views today: "2.4M"
-    TOP_VIRALITY      post virality (views÷followers): "1.3×"
-    TOP_ENG_RATE      post engagement rate: "4.2%"
-    TOP_ENG_PCT       0–100 integer, normalised where 100 = 10%+ post engagement rate
-                      n8n formula: Math.min(Math.round(raw_eng_rate / 10 * 100), 100)
-                      Example: 4.2% raw → TOP_ENG_PCT = 42
+  Performer of the Day:
+    TOP_NAME, TOP_PROFILE, TOP_PARTY,
+    TOP_VIEWS, TOP_VIRALITY, TOP_ENG_RATE
 
-  Per post (n = 1 to 5):
-    POST{n}_CATEGORY  e.g. "MOST VIEWED" / "2ND MOST VIEWED" / "MOST VIRAL" / "HIGHEST ENGAGEMENT"
-    POST{n}_NAME      e.g. "Keir Starmer"
-    POST{n}_PROFILE   e.g. "keirstarmer"   (no @ prefix)
-    POST{n}_PARTY     e.g. "Labour"
-    POST{n}_SUMMARY   2–3 sentence video summary from BigQuery videoSummary
-    POST{n}_VIEWS     formatted views value: "2.4M"
-    POST{n}_VIRALITY  formatted virality score: "1.3×"
-    POST{n}_ENG_RATE  formatted engagement rate: "4.2%"
-    POST{n}_VIEWS_PCT 0–100 integer for primary bar fill percentage
-    POST{n}_URL       TikTok post URL
-    POST{n}_THUMBNAIL_URL  TikTok thumbnail image URL (optional — card works without it)
-    POST{n}_LIKES     formatted: "12.3K"
-    POST{n}_COMMENTS  formatted: "1.2K"
-    POST{n}_SAVES     formatted: "3.4K"
+  Narratives this week (1..4):
+    NARRATIVE{n}_HEADLINE, NARRATIVE{n}_BODY
 
-  Contact merge (Brevo automatic):
-    contact.FIRSTNAME
-  ══════════════════════════════════════════════════════════════════════════════
+  Posts (1..5):
+    POST{n}_CATEGORY, POST{n}_NAME, POST{n}_PROFILE, POST{n}_PARTY,
+    POST{n}_SUMMARY, POST{n}_VIEWS, POST{n}_VIRALITY, POST{n}_ENG_RATE,
+    POST{n}_LIKES, POST{n}_COMMENTS, POST{n}_SAVES,
+    POST{n}_URL, POST{n}_THUMBNAIL_URL
+
+  Layout:
+    • Single 360px-max 'main' container, mobile-first
+    • Every section is a 'block' with identical card styling
+    • Posts use 33%/66% split: image left, text right
 -->
 
-<div style="background:#1a1a3e;color:#fff;text-align:center;padding:10px 20px;font-family:sans-serif;font-size:12px;letter-spacing:0.5px;">
-  <strong>⚡ PREVIEW MODE</strong> — Sample data only &nbsp;·&nbsp; 
-  <span style="opacity:0.7;">briefing_template.html v2</span>
-</div>
-<body class="bg-page" style="margin:0;padding:0;background-color:#EDEDF5;">
+<style>
+  body, table, td, p, a { -webkit-text-size-adjust:100%; -ms-text-size-adjust:100%; }
+  body { margin:0; padding:0; background:#EDEDF5; }
+  table { border-collapse:collapse; mso-table-lspace:0; mso-table-rspace:0; }
+  img { border:0; outline:none; max-width:100%; display:block; -ms-interpolation-mode:bicubic; }
+  a { text-decoration:none; color:#7C83FF; }
 
-<!-- Preview text -->
-<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;font-size:1px;color:#EDEDF5;">
-  Starmer goes viral: 2.4M views — plus today's 5 posts ranked.&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;
-</div>
+  /* Hide preheader from rendered email */
+  .preheader { display:none !important; visibility:hidden; opacity:0; height:0; width:0; overflow:hidden; mso-hide:all; font-size:1px; line-height:1px; }
 
-<!-- ════════════════════════════════════════════════════════════════════
-     OUTER WRAPPER
-════════════════════════════════════════════════════════════════════ -->
-<table class="wrapper bg-page" width="100%" cellpadding="0" cellspacing="0" role="presentation"
-       style="background-color:#EDEDF5;padding:28px 16px;">
-  <tr><td align="center">
+  /* Main container — 360px max-width on every viewport */
+  .main { width:100%; max-width:360px; }
 
-    <!-- ══════════════════════════════════════════════════════════
-         MAIN CARD  600px
-    ══════════════════════════════════════════════════════════ -->
-    <table class="card bg-card" width="100%" cellpadding="0" cellspacing="0" role="presentation"
-           style="max-width:600px;background-color:#FFFFFF;border-radius:12px;overflow:hidden;">
+  /* Cap image height per post; object-fit:cover frames the thumbnail */
+  .post-thumb { width:108px; height:192px; display:block; }
 
-      <!-- Top accent bar -->
-      <tr><td style="height:4px;background-color:#7C83FF;font-size:0;line-height:0;">&nbsp;</td></tr>
+  /* Mobile tweaks: keep the same 360px constraint so layout is rock-stable */
+  @media only screen and (max-width:380px) {
+    .main { width:100% !important; }
+  }
+</style>
+</head>
 
-      <!-- ════════════════════════════════════════════════════════
-           HEADER
-      ════════════════════════════════════════════════════════ -->
-      <tr>
-        <td class="hdr-pad" style="padding:26px 40px 20px;">
-          <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
-            <tr>
-              <td valign="middle">
-                <p class="col-accent" style="margin:0 0 3px;font-size:11px;letter-spacing:3px;color:#7C83FF;font-family:'Figtree','Montserrat',Cambria,sans-serif;font-weight:700;text-transform:uppercase;">
-                  THE KNOX INDEX
-                </p>
-                <p class="col-secondary" style="margin:0;font-size:13px;color:#5A5A7A;font-family:'Figtree','Montserrat',Cambria,sans-serif;font-weight:500;">
-                  Wednesday 20 May 2026
-                </p>
-              </td>
-              <td class="hide-mob" align="right" valign="middle">
-                <p class="col-secondary" style="margin:0;font-size:10px;letter-spacing:1.5px;color:#9090A8;font-family:'Figtree','Montserrat',Cambria,sans-serif;font-weight:500;text-transform:uppercase;">
-                  Political TikTok Intelligence
-                </p>
-              </td>
-            </tr>
-          </table>
-        </td>
-      </tr>
+<body style="margin:0;padding:0;background:#EDEDF5;font-family:'Figtree',Helvetica,Arial,sans-serif;">
 
-      <!-- Divider -->
-      <tr><td class="divider" style="height:1px;background-color:#E5E5EF;font-size:0;line-height:0;">&nbsp;</td></tr>
+<!-- Preheader: text-only line preview in inbox -->
+<div class="preheader">Keir Starmer ditched the policy talk for a casual observation about the sun and watched the views roll in. While the SNP grinds away at the constitution, the Liberal Democrats are proving that making the opposition look ridiculous is still the shortest path to an audience.</div>
+
+<!-- Page background + 100px top spacer + centered main container -->
+<table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#EDEDF5;">
+  <tr><td style="height:100px;font-size:0;line-height:0;">&nbsp;</td></tr>
+  <tr>
+    <td align="center" style="padding:0 16px;">
 
       <!-- ════════════════════════════════════════════════════════
-           GREETING + DAILY INTRO
+           MAIN — 360px max-width
+           Every block below is wrapped in an identical card style.
       ════════════════════════════════════════════════════════ -->
-      <tr>
-        <td class="section" style="padding:32px 40px 28px;">
+      <table class="main" cellpadding="0" cellspacing="0" role="presentation" width="360" style="width:360px;max-width:360px;">
 
-          <p class="col-primary" style="margin:0 0 16px;font-size:17px;line-height:1.6;color:#0F0F1A;font-family:'Figtree','Montserrat',Cambria,sans-serif;font-weight:600;">
-            Good morningSarah,
-          </p>
+        <!-- ── BLOCK: Header ──────────────────────────────────── -->
+        <tr>
+          <td style="padding:0 0 14px;">
+            <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#FFFFFF;border:1px solid #E4E4F0;border-radius:12px;">
+              <tr>
+                <td style="padding:18px 20px;">
+                  <p style="margin:0 0 4px;font-size:10px;letter-spacing:2.5px;color:#7C83FF;font-family:'Figtree',Helvetica,Arial,sans-serif;font-weight:700;text-transform:uppercase;">
+                    The Knox Index
+                  </p>
+                  <p style="margin:0;font-size:13px;color:#5A5A7A;font-family:'Figtree',Helvetica,Arial,sans-serif;">
+                    Tuesday, 26 May 2026
+                  </p>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
 
-          <!-- Daily editorial intro — populated by n8n each morning -->
-          <p class="col-primary" style="margin:0;font-size:16px;line-height:1.75;color:#0F0F1A;font-family:'Figtree','Montserrat',Cambria,sans-serif;">
-            Labour dominated political TikTok today. Keir Starmer's clip on housing policy crossed 2.4M views within six hours — a virality score nearly four times his follower count. The Conservatives' messaging strategy meanwhile produced two of today's top five for engagement, but failed to break the 500K views threshold on either.
-          </p>
+        <!-- ── BLOCK: Greeting + Daily Summary ─────────────────── -->
+        <tr>
+          <td style="padding:0 0 14px;">
+            <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#FFFFFF;border:1px solid #E4E4F0;border-radius:12px;">
+              <tr>
+                <td style="padding:18px 20px;">
+                  <p style="margin:0 0 10px;font-size:10px;letter-spacing:2.5px;color:#7C83FF;font-family:'Figtree',Helvetica,Arial,sans-serif;font-weight:700;text-transform:uppercase;">
+                    Today's Brief
+                  </p>
+                  <p style="margin:0 0 12px;font-size:15px;font-weight:600;color:#0F0F1A;font-family:'Figtree',Helvetica,Arial,sans-serif;">
+                    Good morning Steve,
+                  </p>
+                  
+                  <p style="margin:0 0 12px;font-size:14px;line-height:1.6;color:#0F0F1A;font-family:'Figtree',Helvetica,Arial,sans-serif;">
+                    Keir Starmer ditched the policy talk for a casual observation about the sun and watched the views roll in. While the SNP grinds away at the constitution, the Liberal Democrats are proving that making the opposition look ridiculous is still the shortest path to an audience.
+                  </p>
+                  
+                  <p style="margin:0;font-size:13px;line-height:1.7;color:#3A3A5C;font-family:'Figtree',Helvetica,Arial,sans-serif;">
+                    On 2026-05-26, Keir Starmer secured the top spot with 122,721 views by leaning into a highly casual, non-political observation about the warm weather. The SNP followed with 46,553 views by focusing on core constitutional friction through a parliamentary speech on self-determination, while the Liberal Democrats generated 36,802 views by using a humorous clip to question Conservative behavior. High performance on this day was driven by extreme contrast: either completely stepping outside of politics or leaning heavily into direct, simplified conflict.
+                  </p>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
 
-        </td>
-      </tr>
+        <!-- ── BLOCK: Scorecards (3 columns) ───────────────────────
+             Card 1: total MP posts + 'across X MPs (XX%)' with SVG donut.
+             Card 2: total views abbreviated.
+             Card 3: post engagement rate (1dp).
+             MSO fallback for Outlook desktop (which strips SVG).
+        ─────────────────────────────────────────────────────────── -->
+        <tr>
+          <td style="padding:0 0 14px;">
+            <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#FFFFFF;border:1px solid #E4E4F0;border-radius:12px;">
+              <tr>
+                <td style="padding:18px 12px;">
+                  <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
+                    <tr>
 
-      <!-- ════════════════════════════════════════════════════════
-           TOP PERFORMER OF THE DAY
-           Params: TOP_NAME, TOP_PROFILE, TOP_PARTY,
-                   TOP_VIEWS, TOP_FOLLOWERS, TOP_ENG_RATE,
-                   TOP_VIRALITY, TOP_ENG_PCT (0–100)
-      ════════════════════════════════════════════════════════ -->
-      <tr>
-        <td style="padding:0 40px 8px;">
-          <p class="col-accent" style="margin:0 0 10px;font-size:11px;letter-spacing:3px;color:#7C83FF;font-family:'Figtree','Montserrat',Cambria,sans-serif;font-weight:700;text-transform:uppercase;">
-            Performer of the Day
-          </p>
-          <table class="bg-performer border-performer" width="100%" cellpadding="0" cellspacing="0" role="presentation"
-                 style="background-color:#F2F3FF;border:1px solid #CACBFF;border-radius:10px;overflow:hidden;">
-            <tr>
-              <td class="perf-pad" style="padding:22px 26px;" valign="middle">
-                <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
-                  <tr>
-                    <!-- Left: performer info -->
-                    <td valign="middle">
-                      <p class="col-primary" style="margin:0 0 4px;font-size:22px;font-weight:800;color:#0F0F1A;font-family:'Figtree','Montserrat',Cambria,sans-serif;line-height:1.2;">
-                        Keir Starmer
-                      </p>
-                      <p class="col-secondary" style="margin:0 0 10px;font-size:13px;color:#5A5A7A;font-family:'Figtree','Montserrat',Cambria,sans-serif;">
-                        @keirstarmer&nbsp;&middot;&nbsp;
-                        <span style="display:inline-block;background-color:#7C83FF;color:#FFFFFF;font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;padding:2px 7px;border-radius:3px;font-family:'Figtree','Montserrat',Cambria,sans-serif;vertical-align:middle;">
-                          Labour
-                        </span>
-                      </p>
-                      <p class="col-secondary" style="margin:0 0 16px;font-size:11px;color:#9090A8;font-family:'Figtree','Montserrat',Cambria,sans-serif;font-weight:500;letter-spacing:0.2px;">
-                        Stats for today's top post
-                      </p>
-                      <!-- Stat chips row -->
-                      <table cellpadding="0" cellspacing="0" role="presentation">
-                        <tr>
-                          <td style="padding-right:8px;">
-                            <table class="chip-bg" cellpadding="0" cellspacing="0" role="presentation"
-                                   style="background-color:#ECEDFA;border-radius:6px;">
-                              <tr><td style="padding:8px 12px;text-align:center;white-space:nowrap;">
-                                <p class="chip-label" style="margin:0 0 2px;font-size:10px;letter-spacing:1px;color:#7878A0;font-family:'Figtree','Montserrat',Cambria,sans-serif;font-weight:600;text-transform:uppercase;">Post Views</p>
-                                <p class="chip-col" style="margin:0;font-size:14px;font-weight:700;color:#3A3A5C;font-family:'Figtree','Montserrat',Cambria,sans-serif;">2.4M</p>
-                              </td></tr>
-                            </table>
-                          </td>
-                          <td style="padding-right:8px;">
-                            <table class="chip-bg" cellpadding="0" cellspacing="0" role="presentation"
-                                   style="background-color:#ECEDFA;border-radius:6px;">
-                              <tr><td style="padding:8px 12px;text-align:center;white-space:nowrap;">
-                                <p class="chip-label" style="margin:0 0 2px;font-size:10px;letter-spacing:1px;color:#7878A0;font-family:'Figtree','Montserrat',Cambria,sans-serif;font-weight:600;text-transform:uppercase;">Eng Rate</p>
-                                <p class="chip-col" style="margin:0;font-size:14px;font-weight:700;color:#3A3A5C;font-family:'Figtree','Montserrat',Cambria,sans-serif;">4.8%</p>
-                              </td></tr>
-                            </table>
-                          </td>
-                          <td>
-                            <table class="chip-bg" cellpadding="0" cellspacing="0" role="presentation"
-                                   style="background-color:#ECEDFA;border-radius:6px;">
-                              <tr><td style="padding:8px 12px;text-align:center;white-space:nowrap;">
-                                <p class="chip-label" style="margin:0 0 2px;font-size:10px;letter-spacing:1px;color:#7878A0;font-family:'Figtree','Montserrat',Cambria,sans-serif;font-weight:600;text-transform:uppercase;">Virality</p>
-                                <p class="chip-col" style="margin:0;font-size:14px;font-weight:700;color:#3A3A5C;font-family:'Figtree','Montserrat',Cambria,sans-serif;">3.9×</p>
-                              </td></tr>
-                            </table>
-                          </td>
-                        </tr>
-                      </table>
-                    </td>
+                      <!-- Card 1: MP posts -->
+                      <td width="33%" valign="top" style="text-align:center;padding:0 4px;border-right:1px solid #E4E4F0;">
+                        <p style="margin:0 0 6px;font-size:22px;font-weight:800;color:#0F0F1A;font-family:'Figtree',Helvetica,Arial,sans-serif;line-height:1.1;">
+                          5
+                        </p>
+                        <p style="margin:0 0 8px;font-size:10px;letter-spacing:0.5px;color:#5A5A7A;font-family:'Figtree',Helvetica,Arial,sans-serif;line-height:1.3;">
+                          across — MPs
+                        </p>
+                        <!--[if !mso]><!-->
+                        <table cellpadding="0" cellspacing="0" role="presentation" align="center">
+                          <tr><td style="text-align:center;line-height:0;">
+                            <svg width="48" height="48" viewBox="0 0 36 36" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Percentage of MPs who posted">
+                              <circle cx="18" cy="18" r="15.9" pathLength="100" fill="none" stroke="#E5E5F0" stroke-width="3"/>
+                              <circle cx="18" cy="18" r="15.9" pathLength="100" fill="none" stroke="#7C83FF" stroke-width="3"
+                                      stroke-dasharray="0 100" stroke-linecap="round"
+                                      transform="rotate(-90 18 18)"/>
+                              <text x="18" y="21" text-anchor="middle" font-family="Figtree, Helvetica, Arial, sans-serif"
+                                    font-size="10" font-weight="700" fill="#0F0F1A">0%</text>
+                            </svg>
+                          </td></tr>
+                        </table>
+                        <!--<![endif]-->
+                        <!--[if mso]>
+                        <p style="margin:6px 0 0;text-align:center;font-size:14px;font-weight:700;color:#7C83FF;font-family:Arial,sans-serif;">0%</p>
+                        <![endif]-->
+                      </td>
 
-                    <!-- Right: SVG donut (hidden in Outlook via MSO, hidden on mobile) -->
-                    <td class="donut-td" width="100" align="center" valign="middle" style="padding-left:16px;">
-                      <!--[if !mso]><!-->
-                      <svg width="88" height="88" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"
-                           style="display:block;overflow:visible;" role="img" aria-label="Engagement rate gauge">
-                        <!-- Track ring -->
-                        <circle class="donut-track" cx="50" cy="50" r="38"
-                                fill="none" stroke="#E5E5F0" stroke-width="8"/>
-                        <!-- Filled ring — TOP_ENG_PCT * 2.388 = dasharray length (circumference ≈ 238.8) -->
-                        <circle cx="50" cy="50" r="38"
-                                fill="none" stroke="#7C83FF" stroke-width="8"
-                                stroke-linecap="round"
-                                stroke-dasharray="114.6 238.8"
-                                transform="rotate(-90 50 50)"/>
-                        <!-- Centre label -->
-                        <text x="50" y="46" text-anchor="middle"
-                              font-family="'Figtree','Montserrat',Cambria,sans-serif"
-                              font-size="13" font-weight="700" fill="#0F0F1A">
-                          4.8%
-                        </text>
-                        <text x="50" y="60" text-anchor="middle"
-                              font-family="'Figtree','Montserrat',Cambria,sans-serif"
-                              font-size="8" font-weight="600" fill="#9090A8"
-                              letter-spacing="1">
-                          ENG
-                        </text>
-                      </svg>
-                      <!--<![endif]-->
-                      <!--[if mso]>
-                      <p style="margin:0;text-align:center;font-size:22px;font-weight:700;font-family:Arial,sans-serif;color:#7C83FF;">4.8%</p>
-                      <p style="margin:4px 0 0;text-align:center;font-size:9px;letter-spacing:2px;font-family:Arial,sans-serif;color:#9090A8;text-transform:uppercase;">Eng Rate</p>
-                      <![endif]-->
-                    </td>
+                      <!-- Card 2: total views -->
+                      <td width="34%" valign="top" style="text-align:center;padding:0 4px;border-right:1px solid #E4E4F0;">
+                        <p style="margin:0 0 6px;font-size:22px;font-weight:800;color:#0F0F1A;font-family:'Figtree',Helvetica,Arial,sans-serif;line-height:1.1;">
+                          223.7K
+                        </p>
+                        <p style="margin:0;font-size:10px;letter-spacing:0.5px;color:#5A5A7A;font-family:'Figtree',Helvetica,Arial,sans-serif;line-height:1.3;">
+                          Total Views
+                        </p>
+                      </td>
 
-                  </tr>
-                </table>
-              </td>
-            </tr>
-          </table>
-        </td>
-      </tr>
+                      <!-- Card 3: engagement rate -->
+                      <td width="33%" valign="top" style="text-align:center;padding:0 4px;">
+                        <p style="margin:0 0 6px;font-size:22px;font-weight:800;color:#0F0F1A;font-family:'Figtree',Helvetica,Arial,sans-serif;line-height:1.1;">
+                          11.8%
+                        </p>
+                        <p style="margin:0;font-size:10px;letter-spacing:0.5px;color:#5A5A7A;font-family:'Figtree',Helvetica,Arial,sans-serif;line-height:1.3;">
+                          Eng. Rate
+                        </p>
+                      </td>
 
-      <!-- Spacer -->
-      <tr><td style="height:20px;font-size:0;line-height:0;">&nbsp;</td></tr>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
 
-      <!-- Divider -->
-      <tr><td class="divider" style="height:1px;background-color:#E5E5EF;font-size:0;line-height:0;">&nbsp;</td></tr>
+        <!-- ── BLOCK: Performer of the Day ─────────────────────── -->
+        <tr>
+          <td style="padding:0 0 14px;">
+            <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#FFFFFF;border:1px solid #E4E4F0;border-radius:12px;">
+              <tr>
+                <td style="padding:18px 20px;">
+                  <p style="margin:0 0 10px;font-size:10px;letter-spacing:2.5px;color:#7C83FF;font-family:'Figtree',Helvetica,Arial,sans-serif;font-weight:700;text-transform:uppercase;">
+                    Performer of the Day
+                  </p>
+                  <p style="margin:0 0 2px;font-size:18px;font-weight:800;color:#0F0F1A;font-family:'Figtree',Helvetica,Arial,sans-serif;line-height:1.2;">
+                    Keir Starmer
+                  </p>
+                  <p style="margin:0 0 14px;font-size:12px;color:#5A5A7A;font-family:'Figtree',Helvetica,Arial,sans-serif;">
+                    @keirstarmer &middot; labour
+                  </p>
+                  <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
+                    <tr>
+                      <td width="33%" style="padding-right:4px;">
+                        <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#ECEDFA;border-radius:6px;">
+                          <tr><td style="padding:8px 4px;text-align:center;">
+                            <p style="margin:0 0 2px;font-size:9px;letter-spacing:1px;color:#7878A0;font-family:'Figtree',Helvetica,Arial,sans-serif;font-weight:600;text-transform:uppercase;">Views</p>
+                            <p style="margin:0;font-size:13px;font-weight:700;color:#3A3A5C;font-family:'Figtree',Helvetica,Arial,sans-serif;">122.7K</p>
+                          </td></tr>
+                        </table>
+                      </td>
+                      <td width="34%" style="padding:0 2px;">
+                        <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#ECEDFA;border-radius:6px;">
+                          <tr><td style="padding:8px 4px;text-align:center;">
+                            <p style="margin:0 0 2px;font-size:9px;letter-spacing:1px;color:#7878A0;font-family:'Figtree',Helvetica,Arial,sans-serif;font-weight:600;text-transform:uppercase;">Virality</p>
+                            <p style="margin:0;font-size:13px;font-weight:700;color:#3A3A5C;font-family:'Figtree',Helvetica,Arial,sans-serif;">0.4×</p>
+                          </td></tr>
+                        </table>
+                      </td>
+                      <td width="33%" style="padding-left:4px;">
+                        <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#ECEDFA;border-radius:6px;">
+                          <tr><td style="padding:8px 4px;text-align:center;">
+                            <p style="margin:0 0 2px;font-size:9px;letter-spacing:1px;color:#7878A0;font-family:'Figtree',Helvetica,Arial,sans-serif;font-weight:600;text-transform:uppercase;">Eng</p>
+                            <p style="margin:0;font-size:13px;font-weight:700;color:#3A3A5C;font-family:'Figtree',Helvetica,Arial,sans-serif;">9.8%</p>
+                          </td></tr>
+                        </table>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
 
-      <!-- ════════════════════════════════════════════════════════
-           TODAY'S TOP POSTS — section label
-      ════════════════════════════════════════════════════════ -->
-      <tr>
-        <td style="padding:26px 40px 6px;">
-          <p class="col-accent" style="margin:0;font-size:11px;letter-spacing:3px;color:#7C83FF;font-family:'Figtree','Montserrat',Cambria,sans-serif;font-weight:700;text-transform:uppercase;">
-            Today's Top Posts
-          </p>
-        </td>
-      </tr>
+        <!-- ── SECTION LABEL: Today's Top Posts ────────────────── -->
+        <tr>
+          <td style="padding:8px 4px 12px;">
+            <p style="margin:0;font-size:10px;letter-spacing:2.5px;color:#7C83FF;font-family:'Figtree',Helvetica,Arial,sans-serif;font-weight:700;text-transform:uppercase;">
+              Today's Top Posts
+            </p>
+          </td>
+        </tr>
 
+        <!-- ── BLOCK: Post 1 (image 33% / text 66%) ─────────────── -->
+        <tr>
+          <td style="padding:0 0 14px;">
+            <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#FFFFFF;border:1px solid #E4E4F0;border-radius:12px;">
+              <tr>
+                <td width="33%" valign="top" style="width:33%;padding:14px 0 14px 14px;">
+                  
+                  <a href="https://www.tiktok.com/@keirstarmer/video/7644197422708673814" style="display:block;line-height:0;">
+                    <img src="https://storage.googleapis.com/tiktok-content-scraper/keirstarmer/2026-05-26/7644197422708673814.webp?GoogleAccessId=website-bigquery-viewer%40project-ariadne.iam.gserviceaccount.com&Expires=1779961785&Signature=s8HMWq2aijCKuJdOqKx4bn%2FUd4TbDyrWtA9Cgbuw5V34TjnOE9IDFclgwkGomcFUki0Nbd67XWUCGDbo3HpiXSeH2vz2dC83E528fXkkzPobmRyH%2FS%2BsDd7ld2e4Rg2KKCPnkqmA89llzCb4bHX5Q9cfWj3%2BinmSkuGjnge80uebr4%2FBU181z%2FT8GtKQc0dzDAtqbIyEJKGo0CXKcksfTStyU141vDhXN8ALYhhfklSHuvlcQ0keFD%2BEiluMRSZZUrIbnzGT5ThC93rSftid7Ixs%2FOOhLkxkR3hL5Kd5KBWfR0elZtlmqVHREVRH%2FACi45mUcD9PX9qEpf7Ml0qJZw%3D%3D" alt="Keir Starmer" class="post-thumb" width="108" height="192" style="display:block;width:108px;height:192px;border-radius:8px;">
+                  </a>
+                  
+                </td>
+                <td width="67%" valign="top" style="width:67%;padding:14px 16px 14px 12px;">
+                  <p style="margin:0 0 8px;">
+                    <span style="display:inline-block;background:#7C83FF;color:#FFFFFF;font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;padding:3px 8px;border-radius:3px;font-family:'Figtree',Helvetica,Arial,sans-serif;">
+                      MOST VIEWED
+                    </span>
+                  </p>
+                  <p style="margin:0 0 2px;font-size:14px;font-weight:800;color:#0F0F1A;font-family:'Figtree',Helvetica,Arial,sans-serif;line-height:1.2;">
+                    Keir Starmer
+                  </p>
+                  <p style="margin:0 0 8px;font-size:11px;color:#5A5A7A;font-family:'Figtree',Helvetica,Arial,sans-serif;">
+                    @keirstarmer &middot; labour
+                  </p>
+                  <p style="margin:0 0 10px;font-size:12px;line-height:1.55;color:#3A3A5C;font-family:'Figtree',Helvetica,Arial,sans-serif;">
+                    Keir Starmer stands in an outdoor location while commenting on the warm weather conditions. The video maintains a casual, informal tone as he addresses the heat directly to the camera.
+                  </p>
+                  <p style="margin:0 0 10px;font-size:11px;color:#5A5A7A;font-family:'Figtree',Helvetica,Arial,sans-serif;line-height:1.5;">
+                    <strong style="color:#0F0F1A;font-weight:700;">122.7K</strong> views &middot;
+                    <strong style="color:#0F0F1A;font-weight:700;">0.4×</strong> virality &middot;
+                    <strong style="color:#0F0F1A;font-weight:700;">9.8%</strong> eng
+                  </p>
+                  <a href="https://www.tiktok.com/@keirstarmer/video/7644197422708673814" style="display:inline-block;background:#7C83FF;color:#FFFFFF;font-size:11px;font-weight:700;letter-spacing:0.3px;padding:8px 14px;border-radius:6px;font-family:'Figtree',Helvetica,Arial,sans-serif;">
+                    Watch on TikTok ↗
+                  </a>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
 
-<!-- ════════════════════════════════════════════════════════════════
-     POST 1 — MOST VIEWED  (solid indigo badge, lead card)
-     New params: POST1_THUMBNAIL_URL, POST1_LIKES, POST1_COMMENTS,
-                 POST1_SAVES, POST1_ENG_RATE
-════════════════════════════════════════════════════════════════ -->
-<tr>
-  <td class="posts-pad" style="padding:10px 40px 6px;">
-    <table class="bg-post-lead border-post" width="100%" cellpadding="0" cellspacing="0" role="presentation"
-           style="background-color:#F4F4FC;border:1px solid #E4E4F0;border-radius:10px;overflow:hidden;">
+        <!-- ── BLOCK: Post 2 ───────────────────────────────────── -->
+        <tr>
+          <td style="padding:0 0 14px;">
+            <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#FFFFFF;border:1px solid #E4E4F0;border-radius:12px;">
+              <tr>
+                <td width="33%" valign="top" style="width:33%;padding:14px 0 14px 14px;">
+                  
+                  <a href="https://www.tiktok.com/@thesnp/video/7644183185672375575" style="display:block;line-height:0;">
+                    <img src="https://storage.googleapis.com/tiktok-content-scraper/thesnp/2026-05-26/7644183185672375575.webp?GoogleAccessId=website-bigquery-viewer%40project-ariadne.iam.gserviceaccount.com&Expires=1779961785&Signature=KzpzvvELHq92J7KmoYhOvYxT4DXI0de0XMHDoZ03AY0GkMCtaIGy56xwCqN%2B%2Bjx8xhcbzaHRvGoK9jFIXwBgPWs7%2FtwlqucTtGpdARLUClgeuoQlRm0T%2FN98cjuV4Dn0DFsvumfwpEykRl1ymlXuu6iJsj7GQH69L5XBb9dnw7YDDPEP01jFabakZ%2F81MLjMIyUszpVMc9%2By9p1qRHQxCcCAQJhPBL1e%2Bq8r7av0rzWKw1wEp%2FBDvsBTfLX4TxZXqlXRxy5CSO9jCz3nId9i745xmV4sKfsFNH68qIf2IMpTXsOn%2F%2B2x4sXwitMMi3jzXqnKhDoxp6ryLlBSDlMBog%3D%3D" alt="The SNP" class="post-thumb" width="108" height="192" style="display:block;width:108px;height:192px;border-radius:8px;">
+                  </a>
+                  
+                </td>
+                <td width="67%" valign="top" style="width:67%;padding:14px 16px 14px 12px;">
+                  <p style="margin:0 0 8px;">
+                    <span style="display:inline-block;background:#7C83FF;color:#FFFFFF;font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;padding:3px 8px;border-radius:3px;font-family:'Figtree',Helvetica,Arial,sans-serif;">
+                      2ND MOST VIEWED
+                    </span>
+                  </p>
+                  <p style="margin:0 0 2px;font-size:14px;font-weight:800;color:#0F0F1A;font-family:'Figtree',Helvetica,Arial,sans-serif;line-height:1.2;">
+                    The SNP
+                  </p>
+                  <p style="margin:0 0 8px;font-size:11px;color:#5A5A7A;font-family:'Figtree',Helvetica,Arial,sans-serif;">
+                    @thesnp &middot; snp
+                  </p>
+                  <p style="margin:0 0 10px;font-size:12px;line-height:1.55;color:#3A3A5C;font-family:'Figtree',Helvetica,Arial,sans-serif;">
+                    This video features a speech delivered within the Scottish Parliament chamber advocating for Scotland's right to determine its own future. The footage focuses on a formal parliamentary address emphasizing the call for self-determination and political agency.
+                  </p>
+                  <p style="margin:0 0 10px;font-size:11px;color:#5A5A7A;font-family:'Figtree',Helvetica,Arial,sans-serif;line-height:1.5;">
+                    <strong style="color:#0F0F1A;font-weight:700;">46.6K</strong> views &middot;
+                    <strong style="color:#0F0F1A;font-weight:700;">2.2×</strong> virality &middot;
+                    <strong style="color:#0F0F1A;font-weight:700;">10.3%</strong> eng
+                  </p>
+                  <a href="https://www.tiktok.com/@thesnp/video/7644183185672375575" style="display:inline-block;background:#7C83FF;color:#FFFFFF;font-size:11px;font-weight:700;letter-spacing:0.3px;padding:8px 14px;border-radius:6px;font-family:'Figtree',Helvetica,Arial,sans-serif;">
+                    Watch on TikTok ↗
+                  </a>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
 
-      <!-- Thumbnail (optional) -->
-      
-      <tr>
-        <td style="padding:0;line-height:0;">
-          <div style="width:100%;height:200px;background:#7C83FF;display:flex;align-items:center;justify-content:center;">
-            <span style="color:rgba(255,255,255,0.7);font-family:sans-serif;font-size:12px;letter-spacing:2px;font-weight:600;text-transform:uppercase;">Most Viewed · Thumbnail</span>
-          </div>
-        </td>
-      </tr>
+        <!-- ── BLOCK: Post 3 ───────────────────────────────────── -->
+        <tr>
+          <td style="padding:0 0 14px;">
+            <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#FFFFFF;border:1px solid #E4E4F0;border-radius:12px;">
+              <tr>
+                <td width="33%" valign="top" style="width:33%;padding:14px 0 14px 14px;">
+                  
+                  <a href="https://www.tiktok.com/@libdems/video/7644211200565251350" style="display:block;line-height:0;">
+                    <img src="https://storage.googleapis.com/tiktok-content-scraper/libdems/2026-05-26/7644211200565251350.webp?GoogleAccessId=website-bigquery-viewer%40project-ariadne.iam.gserviceaccount.com&Expires=1779961785&Signature=jP2565XfpKmKyT1sfkAwsEl84P3qTxSWF62WDFChquH7%2FiWojAuCkYsUQTbuGMl7s0nP6HELRda0HCWhNbZD64DvrENzZzz48co6e0sGWvDxShFct5nx%2FDBJKbYKhvVw9iwCf4G3VyyPL89Abo37IVi5X7AUHCvEVYIKxlLlKQIyggfxQgNKRD5f1ZkF9Kg4Oh29KeA5ClEJigexYQ6Bu7sCEu2Ph2UK5XGrZ1LTJliOvFDU6EyzIBFGF3QwxmEgdEfSAavKH1YZ82keVe%2FkyjK94NTERWrYDhLR3ZM9a5WGZwfv60thcqph%2BDyMveyKZtydwFhxZcA2QYK1syvL2Q%3D%3D" alt="Liberal Democrats" class="post-thumb" width="108" height="192" style="display:block;width:108px;height:192px;border-radius:8px;">
+                  </a>
+                  
+                </td>
+                <td width="67%" valign="top" style="width:67%;padding:14px 16px 14px 12px;">
+                  <p style="margin:0 0 8px;">
+                    <span style="display:inline-block;background:#7C83FF;color:#FFFFFF;font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;padding:3px 8px;border-radius:3px;font-family:'Figtree',Helvetica,Arial,sans-serif;">
+                      3RD MOST VIEWED
+                    </span>
+                  </p>
+                  <p style="margin:0 0 2px;font-size:14px;font-weight:800;color:#0F0F1A;font-family:'Figtree',Helvetica,Arial,sans-serif;line-height:1.2;">
+                    Liberal Democrats
+                  </p>
+                  <p style="margin:0 0 8px;font-size:11px;color:#5A5A7A;font-family:'Figtree',Helvetica,Arial,sans-serif;">
+                    @libdems &middot; liberal_democrats
+                  </p>
+                  <p style="margin:0 0 10px;font-size:12px;line-height:1.55;color:#3A3A5C;font-family:'Figtree',Helvetica,Arial,sans-serif;">
+                    The video uses a short, humorous clip to cast doubt on the actions of the Conservative Party. It employs a popular internet-native comedic format to frame their behavior as suspicious or questionable.
+                  </p>
+                  <p style="margin:0 0 10px;font-size:11px;color:#5A5A7A;font-family:'Figtree',Helvetica,Arial,sans-serif;line-height:1.5;">
+                    <strong style="color:#0F0F1A;font-weight:700;">36.8K</strong> views &middot;
+                    <strong style="color:#0F0F1A;font-weight:700;">0.4×</strong> virality &middot;
+                    <strong style="color:#0F0F1A;font-weight:700;">15.1%</strong> eng
+                  </p>
+                  <a href="https://www.tiktok.com/@libdems/video/7644211200565251350" style="display:inline-block;background:#7C83FF;color:#FFFFFF;font-size:11px;font-weight:700;letter-spacing:0.3px;padding:8px 14px;border-radius:6px;font-family:'Figtree',Helvetica,Arial,sans-serif;">
+                    Watch on TikTok ↗
+                  </a>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
 
-      <tr>
-        <td class="post-pad" style="padding:22px 26px;">
+        <!-- ── BLOCK: Post 4 ───────────────────────────────────── -->
+        <tr>
+          <td style="padding:0 0 14px;">
+            <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#FFFFFF;border:1px solid #E4E4F0;border-radius:12px;">
+              <tr>
+                <td width="33%" valign="top" style="width:33%;padding:14px 0 14px 14px;">
+                  
+                  <a href="https://www.tiktok.com/@scotlibdems/video/7644214082588921110" style="display:block;line-height:0;">
+                    <img src="https://storage.googleapis.com/tiktok-content-scraper/scotlibdems/2026-05-26/7644214082588921110.webp?GoogleAccessId=website-bigquery-viewer%40project-ariadne.iam.gserviceaccount.com&Expires=1779961785&Signature=YEdLVteUPbfIbKawoQe0xbIxnXo4MJPcdJiDrk8RP2%2FvE6xfSbZNn40pgWPe0X2STPP6Rvrlg7q5Tmeey%2BkrfxCBIvRoxNK4%2BsvCvihigCxNS8C7RNT1k7Zb85wju7EaTSStGD%2BUaOdJ0vLqNMKMsZEdHeAD3aTx2jqizqfes%2Feaq1kHc2vm6S3mTdf7rzi9GAtAXZ8FaPUUdAg6RUuN9O6ArytPpQJTN0y%2BmLqvqDca%2FMt44IL%2B81oVpj6Z%2BnkHVCPlDTAxFakwnPiw0kY6X1wmXIHhWXIxdiCIY8WjCNCU%2BjL%2BJs%2Bm0vblSJTaC2BEYSQoHztv9hB%2BQRYrxhdCbg%3D%3D" alt="Scottish Liberal Democrats" class="post-thumb" width="108" height="192" style="display:block;width:108px;height:192px;border-radius:8px;">
+                  </a>
+                  
+                </td>
+                <td width="67%" valign="top" style="width:67%;padding:14px 16px 14px 12px;">
+                  <p style="margin:0 0 8px;">
+                    <span style="display:inline-block;background:#7C83FF;color:#FFFFFF;font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;padding:3px 8px;border-radius:3px;font-family:'Figtree',Helvetica,Arial,sans-serif;">
+                      MOST VIRAL
+                    </span>
+                  </p>
+                  <p style="margin:0 0 2px;font-size:14px;font-weight:800;color:#0F0F1A;font-family:'Figtree',Helvetica,Arial,sans-serif;line-height:1.2;">
+                    Scottish Liberal Democrats
+                  </p>
+                  <p style="margin:0 0 8px;font-size:11px;color:#5A5A7A;font-family:'Figtree',Helvetica,Arial,sans-serif;">
+                    @scotlibdems &middot; liberal_democrats
+                  </p>
+                  <p style="margin:0 0 10px;font-size:12px;line-height:1.55;color:#3A3A5C;font-family:'Figtree',Helvetica,Arial,sans-serif;">
+                    A Liberal Democrat representative delivers a critique of the Scottish government, arguing that their focus on independence is a distraction from urgent public service issues. The video uses a direct-to-camera format to contrast the priority of sovereignty debates against the immediate needs of the NHS, cost of living, and infrastructure.
+                  </p>
+                  <p style="margin:0 0 10px;font-size:11px;color:#5A5A7A;font-family:'Figtree',Helvetica,Arial,sans-serif;line-height:1.5;">
+                    <strong style="color:#0F0F1A;font-weight:700;">9.3K</strong> views &middot;
+                    <strong style="color:#0F0F1A;font-weight:700;">11.2×</strong> virality &middot;
+                    <strong style="color:#0F0F1A;font-weight:700;">5.7%</strong> eng
+                  </p>
+                  <a href="https://www.tiktok.com/@scotlibdems/video/7644214082588921110" style="display:inline-block;background:#7C83FF;color:#FFFFFF;font-size:11px;font-weight:700;letter-spacing:0.3px;padding:8px 14px;border-radius:6px;font-family:'Figtree',Helvetica,Arial,sans-serif;">
+                    Watch on TikTok ↗
+                  </a>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
 
-          <!-- Badge -->
-          <p style="margin:0 0 12px;">
-            <span style="display:inline-block;background-color:#7C83FF;color:#FFFFFF;font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;padding:4px 10px;border-radius:4px;font-family:'Figtree','Montserrat',Cambria,sans-serif;">
-              MOST VIEWED
-            </span>
-          </p>
+        <!-- ── BLOCK: Post 5 ───────────────────────────────────── -->
+        <tr>
+          <td style="padding:0 0 14px;">
+            <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#FFFFFF;border:1px solid #E4E4F0;border-radius:12px;">
+              <tr>
+                <td width="33%" valign="top" style="width:33%;padding:14px 0 14px 14px;">
+                  
+                  <a href="https://www.tiktok.com/@ed.davey/video/7644257530603949315" style="display:block;line-height:0;">
+                    <img src="https://storage.googleapis.com/tiktok-content-scraper/ed.davey/2026-05-26/7644257530603949315.webp?GoogleAccessId=website-bigquery-viewer%40project-ariadne.iam.gserviceaccount.com&Expires=1779961785&Signature=hqLecVSCB%2FloXjdysXZ6ggB1k%2Fs6y1Aax6zcGSxjPldEzf6rC5zwhr7X4xqeM33VzHqKQpOBhIIL6sh53FZpn%2Bzd57S%2FGh31fynJQ333OcWe8LFWQmJ2Re0RvF5h%2FOGieVPEoh2ZTBd4z8L4D%2BiFxkdNLXKdVEea2ELcu5crifHkU6v96rIVYxxPa6usHP4m8ononHfleEL4ckzUM71j2Ic8voouFeEQ5AyT4ASZaPUs%2BTknmRAety9aaBb3KCiqrZhN0L3syHvUFxtMpPhNnaLB6aBL641NzIN%2FYQZrrF9AnYvuHpOFA4%2FAfdbjjj5Wsbs%2FCAoPyRSBcBViAop00g%3D%3D" alt="Ed Davey" class="post-thumb" width="108" height="192" style="display:block;width:108px;height:192px;border-radius:8px;">
+                  </a>
+                  
+                </td>
+                <td width="67%" valign="top" style="width:67%;padding:14px 16px 14px 12px;">
+                  <p style="margin:0 0 8px;">
+                    <span style="display:inline-block;background:#7C83FF;color:#FFFFFF;font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;padding:3px 8px;border-radius:3px;font-family:'Figtree',Helvetica,Arial,sans-serif;">
+                      HIGHEST ENGAGEMENT
+                    </span>
+                  </p>
+                  <p style="margin:0 0 2px;font-size:14px;font-weight:800;color:#0F0F1A;font-family:'Figtree',Helvetica,Arial,sans-serif;line-height:1.2;">
+                    Ed Davey
+                  </p>
+                  <p style="margin:0 0 8px;font-size:11px;color:#5A5A7A;font-family:'Figtree',Helvetica,Arial,sans-serif;">
+                    @ed.davey &middot; liberal_democrats
+                  </p>
+                  <p style="margin:0 0 10px;font-size:12px;line-height:1.55;color:#3A3A5C;font-family:'Figtree',Helvetica,Arial,sans-serif;">
+                    Ed Davey delivers a sharp critique of Nigel Farage, accusing him of profiting from Brexit while the public faces economic hardship. The video functions as a direct political attack, utilizing a structured narrative to contrast Farage's personal wealth with the broader cost-of-living crisis.
+                  </p>
+                  <p style="margin:0 0 10px;font-size:11px;color:#5A5A7A;font-family:'Figtree',Helvetica,Arial,sans-serif;line-height:1.5;">
+                    <strong style="color:#0F0F1A;font-weight:700;">8.4K</strong> views &middot;
+                    <strong style="color:#0F0F1A;font-weight:700;">1.1×</strong> virality &middot;
+                    <strong style="color:#0F0F1A;font-weight:700;">17.9%</strong> eng
+                  </p>
+                  <a href="https://www.tiktok.com/@ed.davey/video/7644257530603949315" style="display:inline-block;background:#7C83FF;color:#FFFFFF;font-size:11px;font-weight:700;letter-spacing:0.3px;padding:8px 14px;border-radius:6px;font-family:'Figtree',Helvetica,Arial,sans-serif;">
+                    Watch on TikTok ↗
+                  </a>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
 
-          <!-- Politician -->
-          <p class="col-primary" style="margin:0 0 3px;font-size:20px;font-weight:800;color:#0F0F1A;font-family:'Figtree','Montserrat',Cambria,sans-serif;line-height:1.2;">
-            Keir Starmer
-          </p>
-          <p class="col-secondary" style="margin:0 0 14px;font-size:13px;color:#5A5A7A;font-family:'Figtree','Montserrat',Cambria,sans-serif;">
-            @keirstarmer&nbsp;&middot;&nbsp;Labour
-          </p>
+        <!-- ── SECTION LABEL: This Week ────────────────────────── -->
+        <tr>
+          <td style="padding:8px 4px 12px;">
+            <p style="margin:0;font-size:10px;letter-spacing:2.5px;color:#7C83FF;font-family:'Figtree',Helvetica,Arial,sans-serif;font-weight:700;text-transform:uppercase;">
+              This Week in Political TikTok
+            </p>
+          </td>
+        </tr>
 
-          <!-- Summary -->
-          <p class="col-primary" style="margin:0 0 20px;font-size:16px;line-height:1.75;color:#0F0F1A;font-family:'Figtree','Montserrat',Cambria,sans-serif;">
-            Starmer posted a two-minute walkthrough of Labour's new housing pledge, promising 1.5 million homes by 2030. The clip received unusually high saves, suggesting viewers are bookmarking the policy detail rather than simply scrolling past — a strong signal of genuine political resonance.
-          </p>
+        <!-- ── BLOCK: Weekly Summary ───────────────────────────── -->
+        <tr>
+          <td style="padding:0 0 14px;">
+            <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#FFFFFF;border:1px solid #E4E4F0;border-radius:12px;">
+              <tr>
+                <td style="padding:18px 20px;">
+                  <p style="margin:0;font-size:13px;line-height:1.7;color:#3A3A5C;font-family:'Figtree',Helvetica,Arial,sans-serif;">
+                    This week's political TikTok activity was dominated by Reform UK's Robert Jenrick, who secured the highest overall engagement with 1,750,326 views (43.20x virality) on a single post regarding Henry Nowak. However, Labour's Dave Robertson MP achieved the week's highest virality rate of 335.49x (80,518 views) with a post addressing local community failures in Lichfield and Burntwood. High-performing content was characterized by sharp policy attacks, behind-the-scenes parliamentary call-outs, and highly relatable local infrastructure grievances.
+                  </p>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
 
-          <!-- Views bar + key post stats -->
-          <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="margin-bottom:8px;">
-            <tr>
-              <td valign="bottom" style="padding-right:14px;">
-                <p class="col-secondary" style="margin:0 0 3px;font-size:9px;letter-spacing:1.5px;color:#5A5A7A;font-family:'Figtree','Montserrat',Cambria,sans-serif;font-weight:600;text-transform:uppercase;">Views</p>
-                <p class="col-primary" style="margin:0;font-size:13px;font-weight:700;color:#0F0F1A;font-family:'Figtree','Montserrat',Cambria,sans-serif;">2.4M</p>
-              </td>
-              <td valign="bottom" style="padding-right:14px;">
-                <p class="col-secondary" style="margin:0 0 3px;font-size:9px;letter-spacing:1.5px;color:#5A5A7A;font-family:'Figtree','Montserrat',Cambria,sans-serif;font-weight:600;text-transform:uppercase;">Virality</p>
-                <p class="col-primary" style="margin:0;font-size:13px;font-weight:700;color:#0F0F1A;font-family:'Figtree','Montserrat',Cambria,sans-serif;">3.9×</p>
-              </td>
-              <td valign="bottom">
-                <p style="margin:0 0 3px;font-size:9px;letter-spacing:1.5px;color:#7070C0;font-family:'Figtree','Montserrat',Cambria,sans-serif;font-weight:600;text-transform:uppercase;">Eng Rate</p>
-                <p style="margin:0;font-size:13px;font-weight:700;color:#5058D0;font-family:'Figtree','Montserrat',Cambria,sans-serif;">4.8%</p>
-              </td>
-            </tr>
-          </table>
-          <table class="bar-track" width="100%" cellpadding="0" cellspacing="0" role="presentation"
-                 style="background-color:#E5E5F5;border-radius:4px;overflow:hidden;height:6px;margin-bottom:16px;">
-            <tr>
-              <td width="100%" style="background-color:#7C83FF;height:6px;border-radius:4px 0 0 4px;font-size:0;line-height:0;">&nbsp;</td>
-              <td style="height:6px;font-size:0;line-height:0;">&nbsp;</td>
-            </tr>
-          </table>
-          <!-- Detail: Likes | Comments | Saves -->
-          <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="margin-bottom:20px;">
-            <tr>
-              <td class="chip-td" width="33%" style="padding-right:6px;">
-                <table class="chip-bg" width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background-color:#ECEDFA;border-radius:6px;">
-                  <tr><td style="padding:8px 10px;text-align:center;">
-                    <p class="chip-label" style="margin:0 0 2px;font-size:9px;letter-spacing:1px;color:#7878A0;font-family:'Figtree','Montserrat',Cambria,sans-serif;font-weight:600;text-transform:uppercase;">Likes</p>
-                    <p class="chip-col" style="margin:0;font-size:13px;font-weight:700;color:#3A3A5C;font-family:'Figtree','Montserrat',Cambria,sans-serif;">84.2K</p>
-                  </td></tr>
-                </table>
-              </td>
-              <td class="chip-td" width="33%" style="padding-right:6px;">
-                <table class="chip-bg" width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background-color:#ECEDFA;border-radius:6px;">
-                  <tr><td style="padding:8px 10px;text-align:center;">
-                    <p class="chip-label" style="margin:0 0 2px;font-size:9px;letter-spacing:1px;color:#7878A0;font-family:'Figtree','Montserrat',Cambria,sans-serif;font-weight:600;text-transform:uppercase;">Comments</p>
-                    <p class="chip-col" style="margin:0;font-size:13px;font-weight:700;color:#3A3A5C;font-family:'Figtree','Montserrat',Cambria,sans-serif;">6.1K</p>
-                  </td></tr>
-                </table>
-              </td>
-              <td class="chip-td" width="33%">
-                <table class="chip-bg" width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background-color:#ECEDFA;border-radius:6px;">
-                  <tr><td style="padding:8px 10px;text-align:center;">
-                    <p class="chip-label" style="margin:0 0 2px;font-size:9px;letter-spacing:1px;color:#7878A0;font-family:'Figtree','Montserrat',Cambria,sans-serif;font-weight:600;text-transform:uppercase;">Saves</p>
-                    <p class="chip-col" style="margin:0;font-size:13px;font-weight:700;color:#3A3A5C;font-family:'Figtree','Montserrat',Cambria,sans-serif;">22.3K</p>
-                  </td></tr>
-                </table>
-              </td>
-            </tr>
-          </table>
+        <!-- ── BLOCK: Narrative 1 ──────────────────────────────── -->
+        
 
-          <a href="https://www.tiktok.com/@keirstarmer/video/001"
-                   style="display:inline-block;background-color:#7C83FF;color:#FFFFFF;text-decoration:none;font-size:13px;font-weight:700;letter-spacing:0.3px;padding:11px 22px;border-radius:7px;font-family:'Figtree','Montserrat',Cambria,sans-serif;">
-                  Watch on TikTok ↗
-                </a>
-              </td>
-            </tr>
-          </table>
+        <!-- ── BLOCK: Narrative 2 ──────────────────────────────── -->
+        
 
-        </td>
-      </tr>
-    </table>
-  </td>
-</tr>
-<!-- END POST 1 -->
+        <!-- ── BLOCK: Narrative 3 ──────────────────────────────── -->
+        
 
+        <!-- ── BLOCK: Narrative 4 ──────────────────────────────── -->
+        
 
-<!-- ════════════════════════════════════════════════════════════════
-     POST 2 — 2ND MOST VIEWED  (outlined badge)
-════════════════════════════════════════════════════════════════ -->
-<tr>
-  <td class="posts-pad" style="padding:6px 40px;">
-    <table class="bg-post border-post" width="100%" cellpadding="0" cellspacing="0" role="presentation"
-           style="background-color:#F8F8FD;border:1px solid #E4E4F0;border-radius:10px;overflow:hidden;">
+        <!-- ── BLOCK: Forward to Subscribe CTA ─────────────────── -->
+        <tr>
+          <td style="padding:0 0 14px;">
+            <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#EEEEFF;border:1px solid #CCCCFF;border-radius:12px;">
+              <tr>
+                <td style="padding:18px 20px;">
+                  <p style="margin:0 0 6px;font-size:9px;letter-spacing:2px;color:#7C83FF;font-family:'Figtree',Helvetica,Arial,sans-serif;font-weight:700;text-transform:uppercase;">
+                    Was this forwarded to you?
+                  </p>
+                  <p style="margin:0 0 10px;font-size:14px;font-weight:800;color:#0F0F1A;font-family:'Figtree',Helvetica,Arial,sans-serif;line-height:1.3;">
+                    Get the briefing political insiders read first.
+                  </p>
+                  <p style="margin:0 0 14px;font-size:12px;line-height:1.6;color:#5A5A7A;font-family:'Figtree',Helvetica,Arial,sans-serif;">
+                    Every weekday morning at 8:00AM. UK politicians on TikTok, condensed to a five-minute read.
+                  </p>
+                  <a href="https://theknoxindex.com/signup" style="display:inline-block;background:#7C83FF;color:#FFFFFF;font-size:12px;font-weight:700;letter-spacing:0.3px;padding:10px 18px;border-radius:6px;font-family:'Figtree',Helvetica,Arial,sans-serif;">
+                    Subscribe free ↗
+                  </a>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
 
-      
-      <tr>
-        <td style="padding:0;line-height:0;">
-          <div style="width:100%;height:180px;background:#8890FF;display:flex;align-items:center;justify-content:center;">
-            <span style="color:rgba(255,255,255,0.7);font-family:sans-serif;font-size:12px;letter-spacing:2px;font-weight:600;text-transform:uppercase;">2nd Most Viewed · Thumbnail</span>
-          </div>
-        </td>
-      </tr>
+        <!-- ── BLOCK: Footer ───────────────────────────────────── -->
+        <tr>
+          <td style="padding:8px 0 40px;">
+            <p style="margin:0 0 6px;text-align:center;font-size:11px;color:#7878A0;font-family:'Figtree',Helvetica,Arial,sans-serif;">
+              The Knox Index &middot; Knox Digital &middot; London, UK
+            </p>
+            <p style="margin:0;text-align:center;font-size:11px;color:#9090A8;font-family:'Figtree',Helvetica,Arial,sans-serif;">
+              <a href="#unsubscribe-preview" style="color:#7878A0;text-decoration:underline;">Unsubscribe</a>
+              &nbsp;&middot;&nbsp;
+              <a href="https://theknoxindex.com/privacy" style="color:#7878A0;text-decoration:underline;">Privacy</a>
+            </p>
+          </td>
+        </tr>
 
-      <tr>
-        <td class="post-pad" style="padding:22px 26px;">
-          <p style="margin:0 0 12px;">
-            <span class="badge-outline" style="display:inline-block;background-color:transparent;color:#7C83FF;font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;padding:3px 9px;border-radius:4px;border:1px solid rgba(124,131,255,0.4);font-family:'Figtree','Montserrat',Cambria,sans-serif;">
-              2ND MOST VIEWED
-            </span>
-          </p>
-          <p class="col-primary" style="margin:0 0 3px;font-size:19px;font-weight:800;color:#0F0F1A;font-family:'Figtree','Montserrat',Cambria,sans-serif;line-height:1.2;">
-            Rishi Sunak
-          </p>
-          <p class="col-secondary" style="margin:0 0 14px;font-size:13px;color:#5A5A7A;font-family:'Figtree','Montserrat',Cambria,sans-serif;">
-            @rishisunak&nbsp;&middot;&nbsp;Conservative
-          </p>
-          <p class="col-primary" style="margin:0 0 20px;font-size:15px;line-height:1.75;color:#0F0F1A;font-family:'Figtree','Montserrat',Cambria,sans-serif;">
-            Sunak's response video to the housing announcement leaned heavily on fiscal credibility, contrasting Labour's projections with current planning approval rates. It performed strongly on reach but engagement remained moderate — an audience that watched but didn't interact.
-          </p>
+      </table>
+      <!-- END MAIN -->
 
-          <!-- Views bar + key post stats -->
-          <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="margin-bottom:8px;">
-            <tr>
-              <td valign="bottom" style="padding-right:14px;">
-                <p class="col-secondary" style="margin:0 0 3px;font-size:9px;letter-spacing:1.5px;color:#5A5A7A;font-family:'Figtree','Montserrat',Cambria,sans-serif;font-weight:600;text-transform:uppercase;">Views</p>
-                <p class="col-primary" style="margin:0;font-size:13px;font-weight:700;color:#0F0F1A;font-family:'Figtree','Montserrat',Cambria,sans-serif;">1.8M</p>
-              </td>
-              <td valign="bottom" style="padding-right:14px;">
-                <p class="col-secondary" style="margin:0 0 3px;font-size:9px;letter-spacing:1.5px;color:#5A5A7A;font-family:'Figtree','Montserrat',Cambria,sans-serif;font-weight:600;text-transform:uppercase;">Virality</p>
-                <p class="col-primary" style="margin:0;font-size:13px;font-weight:700;color:#0F0F1A;font-family:'Figtree','Montserrat',Cambria,sans-serif;">2.1×</p>
-              </td>
-              <td valign="bottom">
-                <p style="margin:0 0 3px;font-size:9px;letter-spacing:1.5px;color:#7070C0;font-family:'Figtree','Montserrat',Cambria,sans-serif;font-weight:600;text-transform:uppercase;">Eng Rate</p>
-                <p style="margin:0;font-size:13px;font-weight:700;color:#5058D0;font-family:'Figtree','Montserrat',Cambria,sans-serif;">2.3%</p>
-              </td>
-            </tr>
-          </table>
-          <table class="bar-track" width="100%" cellpadding="0" cellspacing="0" role="presentation"
-                 style="background-color:#E5E5F5;border-radius:4px;overflow:hidden;height:6px;margin-bottom:16px;">
-            <tr>
-              <td width="75%" style="background-color:#7C83FF;height:6px;border-radius:4px 0 0 4px;font-size:0;line-height:0;">&nbsp;</td>
-              <td style="height:6px;font-size:0;line-height:0;">&nbsp;</td>
-            </tr>
-          </table>
-          <!-- Detail: Likes | Comments | Saves -->
-          <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="margin-bottom:18px;">
-            <tr>
-              <td class="chip-td" width="33%" style="padding-right:6px;">
-                <table class="chip-bg" width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background-color:#ECEDFA;border-radius:6px;">
-                  <tr><td style="padding:7px 8px;text-align:center;">
-                    <p class="chip-label" style="margin:0 0 2px;font-size:9px;letter-spacing:1px;color:#7878A0;font-family:'Figtree','Montserrat',Cambria,sans-serif;font-weight:600;text-transform:uppercase;">Likes</p>
-                    <p class="chip-col" style="margin:0;font-size:12px;font-weight:700;color:#3A3A5C;font-family:'Figtree','Montserrat',Cambria,sans-serif;">31.4K</p>
-                  </td></tr>
-                </table>
-              </td>
-              <td class="chip-td" width="33%" style="padding-right:6px;">
-                <table class="chip-bg" width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background-color:#ECEDFA;border-radius:6px;">
-                  <tr><td style="padding:7px 8px;text-align:center;">
-                    <p class="chip-label" style="margin:0 0 2px;font-size:9px;letter-spacing:1px;color:#7878A0;font-family:'Figtree','Montserrat',Cambria,sans-serif;font-weight:600;text-transform:uppercase;">Comments</p>
-                    <p class="chip-col" style="margin:0;font-size:12px;font-weight:700;color:#3A3A5C;font-family:'Figtree','Montserrat',Cambria,sans-serif;">4.8K</p>
-                  </td></tr>
-                </table>
-              </td>
-              <td class="chip-td" width="33%">
-                <table class="chip-bg" width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background-color:#ECEDFA;border-radius:6px;">
-                  <tr><td style="padding:7px 8px;text-align:center;">
-                    <p class="chip-label" style="margin:0 0 2px;font-size:9px;letter-spacing:1px;color:#7878A0;font-family:'Figtree','Montserrat',Cambria,sans-serif;font-weight:600;text-transform:uppercase;">Saves</p>
-                    <p class="chip-col" style="margin:0;font-size:12px;font-weight:700;color:#3A3A5C;font-family:'Figtree','Montserrat',Cambria,sans-serif;">9.7K</p>
-                  </td></tr>
-                </table>
-              </td>
-            </tr>
-          </table>
-
-          <a href="https://www.tiktok.com/@rishisunak/video/002"
-             style="display:inline-block;background-color:#7C83FF;color:#FFFFFF;text-decoration:none;font-size:13px;font-weight:700;letter-spacing:0.3px;padding:10px 20px;border-radius:7px;font-family:'Figtree','Montserrat',Cambria,sans-serif;">
-            Watch on TikTok ↗
-          </a>
-        </td>
-      </tr>
-    </table>
-  </td>
-</tr>
-<!-- END POST 2 -->
-
-
-<!-- ════════════════════════════════════════════════════════════════
-     POST 3 — 3RD MOST VIEWED  (outlined badge)
-════════════════════════════════════════════════════════════════ -->
-<tr>
-  <td class="posts-pad" style="padding:6px 40px;">
-    <table class="bg-post border-post" width="100%" cellpadding="0" cellspacing="0" role="presentation"
-           style="background-color:#F8F8FD;border:1px solid #E4E4F0;border-radius:10px;overflow:hidden;">
-
-      
-      <tr>
-        <td style="padding:0;line-height:0;">
-          <div style="width:100%;height:180px;background:#9AA0FF;display:flex;align-items:center;justify-content:center;">
-            <span style="color:rgba(255,255,255,0.7);font-family:sans-serif;font-size:12px;letter-spacing:2px;font-weight:600;text-transform:uppercase;">3rd Most Viewed · Thumbnail</span>
-          </div>
-        </td>
-      </tr>
-
-      <tr>
-        <td class="post-pad" style="padding:22px 26px;">
-          <p style="margin:0 0 12px;">
-            <span class="badge-outline" style="display:inline-block;background-color:transparent;color:#7C83FF;font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;padding:3px 9px;border-radius:4px;border:1px solid rgba(124,131,255,0.4);font-family:'Figtree','Montserrat',Cambria,sans-serif;">
-              3RD MOST VIEWED
-            </span>
-          </p>
-          <p class="col-primary" style="margin:0 0 3px;font-size:19px;font-weight:800;color:#0F0F1A;font-family:'Figtree','Montserrat',Cambria,sans-serif;line-height:1.2;">
-            Angela Rayner
-          </p>
-          <p class="col-secondary" style="margin:0 0 14px;font-size:13px;color:#5A5A7A;font-family:'Figtree','Montserrat',Cambria,sans-serif;">
-            @angelarayner&nbsp;&middot;&nbsp;Labour
-          </p>
-          <p class="col-primary" style="margin:0 0 20px;font-size:15px;line-height:1.75;color:#0F0F1A;font-family:'Figtree','Montserrat',Cambria,sans-serif;">
-            A candid behind-the-scenes clip from Deputy PM Rayner at Westminster, filmed on a phone between meetings. Raw, unscripted content like this consistently outperforms produced content for Labour — this one was no exception, pulling 1.3M views on minimal production value.
-          </p>
-
-          <!-- Views bar + key post stats -->
-          <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="margin-bottom:8px;">
-            <tr>
-              <td valign="bottom" style="padding-right:14px;">
-                <p class="col-secondary" style="margin:0 0 3px;font-size:9px;letter-spacing:1.5px;color:#5A5A7A;font-family:'Figtree','Montserrat',Cambria,sans-serif;font-weight:600;text-transform:uppercase;">Views</p>
-                <p class="col-primary" style="margin:0;font-size:13px;font-weight:700;color:#0F0F1A;font-family:'Figtree','Montserrat',Cambria,sans-serif;">1.3M</p>
-              </td>
-              <td valign="bottom" style="padding-right:14px;">
-                <p class="col-secondary" style="margin:0 0 3px;font-size:9px;letter-spacing:1.5px;color:#5A5A7A;font-family:'Figtree','Montserrat',Cambria,sans-serif;font-weight:600;text-transform:uppercase;">Virality</p>
-                <p class="col-primary" style="margin:0;font-size:13px;font-weight:700;color:#0F0F1A;font-family:'Figtree','Montserrat',Cambria,sans-serif;">2.7×</p>
-              </td>
-              <td valign="bottom">
-                <p style="margin:0 0 3px;font-size:9px;letter-spacing:1.5px;color:#7070C0;font-family:'Figtree','Montserrat',Cambria,sans-serif;font-weight:600;text-transform:uppercase;">Eng Rate</p>
-                <p style="margin:0;font-size:13px;font-weight:700;color:#5058D0;font-family:'Figtree','Montserrat',Cambria,sans-serif;">3.6%</p>
-              </td>
-            </tr>
-          </table>
-          <table class="bar-track" width="100%" cellpadding="0" cellspacing="0" role="presentation"
-                 style="background-color:#E5E5F5;border-radius:4px;overflow:hidden;height:6px;margin-bottom:16px;">
-            <tr>
-              <td width="54%" style="background-color:#7C83FF;height:6px;border-radius:4px 0 0 4px;font-size:0;line-height:0;">&nbsp;</td>
-              <td style="height:6px;font-size:0;line-height:0;">&nbsp;</td>
-            </tr>
-          </table>
-          <!-- Detail: Likes | Comments | Saves -->
-          <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="margin-bottom:18px;">
-            <tr>
-              <td class="chip-td" width="33%" style="padding-right:6px;">
-                <table class="chip-bg" width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background-color:#ECEDFA;border-radius:6px;">
-                  <tr><td style="padding:7px 8px;text-align:center;">
-                    <p class="chip-label" style="margin:0 0 2px;font-size:9px;letter-spacing:1px;color:#7878A0;font-family:'Figtree','Montserrat',Cambria,sans-serif;font-weight:600;text-transform:uppercase;">Likes</p>
-                    <p class="chip-col" style="margin:0;font-size:12px;font-weight:700;color:#3A3A5C;font-family:'Figtree','Montserrat',Cambria,sans-serif;">52.1K</p>
-                  </td></tr>
-                </table>
-              </td>
-              <td class="chip-td" width="33%" style="padding-right:6px;">
-                <table class="chip-bg" width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background-color:#ECEDFA;border-radius:6px;">
-                  <tr><td style="padding:7px 8px;text-align:center;">
-                    <p class="chip-label" style="margin:0 0 2px;font-size:9px;letter-spacing:1px;color:#7878A0;font-family:'Figtree','Montserrat',Cambria,sans-serif;font-weight:600;text-transform:uppercase;">Comments</p>
-                    <p class="chip-col" style="margin:0;font-size:12px;font-weight:700;color:#3A3A5C;font-family:'Figtree','Montserrat',Cambria,sans-serif;">3.3K</p>
-                  </td></tr>
-                </table>
-              </td>
-              <td class="chip-td" width="33%">
-                <table class="chip-bg" width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background-color:#ECEDFA;border-radius:6px;">
-                  <tr><td style="padding:7px 8px;text-align:center;">
-                    <p class="chip-label" style="margin:0 0 2px;font-size:9px;letter-spacing:1px;color:#7878A0;font-family:'Figtree','Montserrat',Cambria,sans-serif;font-weight:600;text-transform:uppercase;">Saves</p>
-                    <p class="chip-col" style="margin:0;font-size:12px;font-weight:700;color:#3A3A5C;font-family:'Figtree','Montserrat',Cambria,sans-serif;">11.8K</p>
-                  </td></tr>
-                </table>
-              </td>
-            </tr>
-          </table>
-
-          <a href="https://www.tiktok.com/@angelarayner/video/003"
-             style="display:inline-block;background-color:#7C83FF;color:#FFFFFF;text-decoration:none;font-size:13px;font-weight:700;letter-spacing:0.3px;padding:10px 20px;border-radius:7px;font-family:'Figtree','Montserrat',Cambria,sans-serif;">
-            Watch on TikTok ↗
-          </a>
-        </td>
-      </tr>
-    </table>
-  </td>
-</tr>
-<!-- END POST 3 -->
-
-
-<!-- ════════════════════════════════════════════════════════════════
-     POST 4 — MOST VIRAL  (amber badge)
-     Bar metric: virality score
-════════════════════════════════════════════════════════════════ -->
-<tr>
-  <td class="posts-pad" style="padding:6px 40px;">
-    <table class="bg-post border-post" width="100%" cellpadding="0" cellspacing="0" role="presentation"
-           style="background-color:#F8F8FD;border:1px solid #E4E4F0;border-radius:10px;overflow:hidden;">
-
-      
-      <tr>
-        <td style="padding:0;line-height:0;">
-          <div style="width:100%;height:180px;background:#F5A623;display:flex;align-items:center;justify-content:center;">
-            <span style="color:rgba(255,255,255,0.7);font-family:sans-serif;font-size:12px;letter-spacing:2px;font-weight:600;text-transform:uppercase;">Most Viral · Thumbnail</span>
-          </div>
-        </td>
-      </tr>
-
-      <tr>
-        <td class="post-pad" style="padding:22px 26px;">
-          <p style="margin:0 0 12px;">
-            <span style="display:inline-block;background-color:#F5A623;color:#FFFFFF;font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;padding:4px 10px;border-radius:4px;font-family:'Figtree','Montserrat',Cambria,sans-serif;">
-              MOST VIRAL
-            </span>
-          </p>
-          <p class="col-primary" style="margin:0 0 3px;font-size:19px;font-weight:800;color:#0F0F1A;font-family:'Figtree','Montserrat',Cambria,sans-serif;line-height:1.2;">
-            Nigel Farage
-          </p>
-          <p class="col-secondary" style="margin:0 0 14px;font-size:13px;color:#5A5A7A;font-family:'Figtree','Montserrat',Cambria,sans-serif;">
-            @nigel.farage&nbsp;&middot;&nbsp;Reform UK
-          </p>
-          <p class="col-primary" style="margin:0 0 20px;font-size:15px;line-height:1.75;color:#0F0F1A;font-family:'Figtree','Montserrat',Cambria,sans-serif;">
-            A sharp 45-second clip on net migration figures that spread significantly beyond Farage's existing follower base. A virality score of 6.2× means the post was served to over six times his followers — TikTok's algorithm amplifying content that provokes strong reactions, regardless of political alignment.
-          </p>
-
-          <!-- Views bar + key post stats -->
-          <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="margin-bottom:8px;">
-            <tr>
-              <td valign="bottom" style="padding-right:14px;">
-                <p class="col-secondary" style="margin:0 0 3px;font-size:9px;letter-spacing:1.5px;color:#5A5A7A;font-family:'Figtree','Montserrat',Cambria,sans-serif;font-weight:600;text-transform:uppercase;">Views</p>
-                <p class="col-primary" style="margin:0;font-size:13px;font-weight:700;color:#0F0F1A;font-family:'Figtree','Montserrat',Cambria,sans-serif;">940K</p>
-              </td>
-              <td valign="bottom" style="padding-right:14px;">
-                <p class="col-secondary" style="margin:0 0 3px;font-size:9px;letter-spacing:1.5px;color:#5A5A7A;font-family:'Figtree','Montserrat',Cambria,sans-serif;font-weight:600;text-transform:uppercase;">Virality</p>
-                <p class="col-primary" style="margin:0;font-size:13px;font-weight:700;color:#0F0F1A;font-family:'Figtree','Montserrat',Cambria,sans-serif;">6.2×</p>
-              </td>
-              <td valign="bottom">
-                <p style="margin:0 0 3px;font-size:9px;letter-spacing:1.5px;color:#C08000;font-family:'Figtree','Montserrat',Cambria,sans-serif;font-weight:600;text-transform:uppercase;">Eng Rate</p>
-                <p style="margin:0;font-size:13px;font-weight:700;color:#B07000;font-family:'Figtree','Montserrat',Cambria,sans-serif;">5.1%</p>
-              </td>
-            </tr>
-          </table>
-          <table class="bar-track" width="100%" cellpadding="0" cellspacing="0" role="presentation"
-                 style="background-color:#E5E5F5;border-radius:4px;overflow:hidden;height:6px;margin-bottom:16px;">
-            <tr>
-              <td width="72%" style="background-color:#F5A623;height:6px;border-radius:4px 0 0 4px;font-size:0;line-height:0;">&nbsp;</td>
-              <td style="height:6px;font-size:0;line-height:0;">&nbsp;</td>
-            </tr>
-          </table>
-          <!-- Detail: Likes | Comments | Saves -->
-          <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="margin-bottom:18px;">
-            <tr>
-              <td class="chip-td" width="33%" style="padding-right:6px;">
-                <table class="chip-bg" width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background-color:#ECEDFA;border-radius:6px;">
-                  <tr><td style="padding:7px 8px;text-align:center;">
-                    <p class="chip-label" style="margin:0 0 2px;font-size:9px;letter-spacing:1px;color:#7878A0;font-family:'Figtree','Montserrat',Cambria,sans-serif;font-weight:600;text-transform:uppercase;">Likes</p>
-                    <p class="chip-col" style="margin:0;font-size:12px;font-weight:700;color:#3A3A5C;font-family:'Figtree','Montserrat',Cambria,sans-serif;">41.8K</p>
-                  </td></tr>
-                </table>
-              </td>
-              <td class="chip-td" width="33%" style="padding-right:6px;">
-                <table class="chip-bg" width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background-color:#ECEDFA;border-radius:6px;">
-                  <tr><td style="padding:7px 8px;text-align:center;">
-                    <p class="chip-label" style="margin:0 0 2px;font-size:9px;letter-spacing:1px;color:#7878A0;font-family:'Figtree','Montserrat',Cambria,sans-serif;font-weight:600;text-transform:uppercase;">Comments</p>
-                    <p class="chip-col" style="margin:0;font-size:12px;font-weight:700;color:#3A3A5C;font-family:'Figtree','Montserrat',Cambria,sans-serif;">12.6K</p>
-                  </td></tr>
-                </table>
-              </td>
-              <td class="chip-td" width="33%">
-                <table class="chip-bg" width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background-color:#ECEDFA;border-radius:6px;">
-                  <tr><td style="padding:7px 8px;text-align:center;">
-                    <p class="chip-label" style="margin:0 0 2px;font-size:9px;letter-spacing:1px;color:#7878A0;font-family:'Figtree','Montserrat',Cambria,sans-serif;font-weight:600;text-transform:uppercase;">Saves</p>
-                    <p class="chip-col" style="margin:0;font-size:12px;font-weight:700;color:#3A3A5C;font-family:'Figtree','Montserrat',Cambria,sans-serif;">8.2K</p>
-                  </td></tr>
-                </table>
-              </td>
-            </tr>
-          </table>
-
-          <a href="https://www.tiktok.com/@nigel.farage/video/004"
-             style="display:inline-block;background-color:#F5A623;color:#FFFFFF;text-decoration:none;font-size:13px;font-weight:700;letter-spacing:0.3px;padding:10px 20px;border-radius:7px;font-family:'Figtree','Montserrat',Cambria,sans-serif;">
-            Watch on TikTok ↗
-          </a>
-        </td>
-      </tr>
-    </table>
-  </td>
-</tr>
-<!-- END POST 4 -->
-
-
-<!-- ════════════════════════════════════════════════════════════════
-     POST 5 — HIGHEST ENGAGEMENT  (mint badge)
-     Bar metric: engagement rate
-════════════════════════════════════════════════════════════════ -->
-<tr>
-  <td class="posts-pad" style="padding:6px 40px 12px;">
-    <table class="bg-post border-post" width="100%" cellpadding="0" cellspacing="0" role="presentation"
-           style="background-color:#F8F8FD;border:1px solid #E4E4F0;border-radius:10px;overflow:hidden;">
-
-      
-      <tr>
-        <td style="padding:0;line-height:0;">
-          <div style="width:100%;height:180px;background:#3FE6B1;display:flex;align-items:center;justify-content:center;">
-            <span style="color:rgba(255,255,255,0.7);font-family:sans-serif;font-size:12px;letter-spacing:2px;font-weight:600;text-transform:uppercase;">Highest Engagement · Thumbnail</span>
-          </div>
-        </td>
-      </tr>
-
-      <tr>
-        <td class="post-pad" style="padding:22px 26px;">
-          <p style="margin:0 0 12px;">
-            <span style="display:inline-block;background-color:#3FE6B1;color:#0A2A1E;font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;padding:4px 10px;border-radius:4px;font-family:'Figtree','Montserrat',Cambria,sans-serif;">
-              HIGHEST ENGAGEMENT
-            </span>
-          </p>
-          <p class="col-primary" style="margin:0 0 3px;font-size:19px;font-weight:800;color:#0F0F1A;font-family:'Figtree','Montserrat',Cambria,sans-serif;line-height:1.2;">
-            Ed Davey
-          </p>
-          <p class="col-secondary" style="margin:0 0 14px;font-size:13px;color:#5A5A7A;font-family:'Figtree','Montserrat',Cambria,sans-serif;">
-            @edwardtdavey&nbsp;&middot;&nbsp;Lib Dem
-          </p>
-          <p class="col-primary" style="margin:0 0 20px;font-size:15px;line-height:1.75;color:#0F0F1A;font-family:'Figtree','Montserrat',Cambria,sans-serif;">
-            Davey's stunt video — paddleboarding with constituents to highlight flood risk — generated a 7.4% engagement rate, the highest of any UK political account this week. Low view count for a top-five post (320K), but an extraordinary proportion of viewers liked, commented, or saved it.
-          </p>
-
-          <!-- Views bar + key post stats -->
-          <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="margin-bottom:8px;">
-            <tr>
-              <td valign="bottom" style="padding-right:14px;">
-                <p class="col-secondary" style="margin:0 0 3px;font-size:9px;letter-spacing:1.5px;color:#5A5A7A;font-family:'Figtree','Montserrat',Cambria,sans-serif;font-weight:600;text-transform:uppercase;">Views</p>
-                <p class="col-primary" style="margin:0;font-size:13px;font-weight:700;color:#0F0F1A;font-family:'Figtree','Montserrat',Cambria,sans-serif;">320K</p>
-              </td>
-              <td valign="bottom" style="padding-right:14px;">
-                <p class="col-secondary" style="margin:0 0 3px;font-size:9px;letter-spacing:1.5px;color:#5A5A7A;font-family:'Figtree','Montserrat',Cambria,sans-serif;font-weight:600;text-transform:uppercase;">Virality</p>
-                <p class="col-primary" style="margin:0;font-size:13px;font-weight:700;color:#0F0F1A;font-family:'Figtree','Montserrat',Cambria,sans-serif;">1.8×</p>
-              </td>
-              <td valign="bottom">
-                <p style="margin:0 0 3px;font-size:9px;letter-spacing:1.5px;color:#1A9A6A;font-family:'Figtree','Montserrat',Cambria,sans-serif;font-weight:600;text-transform:uppercase;">Eng Rate</p>
-                <p style="margin:0;font-size:13px;font-weight:700;color:#0A7A5A;font-family:'Figtree','Montserrat',Cambria,sans-serif;">7.4%</p>
-              </td>
-            </tr>
-          </table>
-          <table class="bar-track" width="100%" cellpadding="0" cellspacing="0" role="presentation"
-                 style="background-color:#E5E5F5;border-radius:4px;overflow:hidden;height:6px;margin-bottom:16px;">
-            <tr>
-              <td width="40%" style="background-color:#3FE6B1;height:6px;border-radius:4px 0 0 4px;font-size:0;line-height:0;">&nbsp;</td>
-              <td style="height:6px;font-size:0;line-height:0;">&nbsp;</td>
-            </tr>
-          </table>
-          <!-- Detail: Likes | Comments | Saves -->
-          <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="margin-bottom:18px;">
-            <tr>
-              <td class="chip-td" width="33%" style="padding-right:6px;">
-                <table class="chip-bg" width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background-color:#ECEDFA;border-radius:6px;">
-                  <tr><td style="padding:7px 8px;text-align:center;">
-                    <p class="chip-label" style="margin:0 0 2px;font-size:9px;letter-spacing:1px;color:#7878A0;font-family:'Figtree','Montserrat',Cambria,sans-serif;font-weight:600;text-transform:uppercase;">Likes</p>
-                    <p class="chip-col" style="margin:0;font-size:12px;font-weight:700;color:#3A3A5C;font-family:'Figtree','Montserrat',Cambria,sans-serif;">18.9K</p>
-                  </td></tr>
-                </table>
-              </td>
-              <td class="chip-td" width="33%" style="padding-right:6px;">
-                <table class="chip-bg" width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background-color:#ECEDFA;border-radius:6px;">
-                  <tr><td style="padding:7px 8px;text-align:center;">
-                    <p class="chip-label" style="margin:0 0 2px;font-size:9px;letter-spacing:1px;color:#7878A0;font-family:'Figtree','Montserrat',Cambria,sans-serif;font-weight:600;text-transform:uppercase;">Comments</p>
-                    <p class="chip-col" style="margin:0;font-size:12px;font-weight:700;color:#3A3A5C;font-family:'Figtree','Montserrat',Cambria,sans-serif;">2.1K</p>
-                  </td></tr>
-                </table>
-              </td>
-              <td class="chip-td" width="33%">
-                <table class="chip-bg" width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background-color:#ECEDFA;border-radius:6px;">
-                  <tr><td style="padding:7px 8px;text-align:center;">
-                    <p class="chip-label" style="margin:0 0 2px;font-size:9px;letter-spacing:1px;color:#7878A0;font-family:'Figtree','Montserrat',Cambria,sans-serif;font-weight:600;text-transform:uppercase;">Saves</p>
-                    <p class="chip-col" style="margin:0;font-size:12px;font-weight:700;color:#3A3A5C;font-family:'Figtree','Montserrat',Cambria,sans-serif;">2.7K</p>
-                  </td></tr>
-                </table>
-              </td>
-            </tr>
-          </table>
-
-          <a href="https://www.tiktok.com/@edwardtdavey/video/005"
-             style="display:inline-block;background-color:#3FE6B1;color:#0A2A1E;text-decoration:none;font-size:13px;font-weight:700;letter-spacing:0.3px;padding:10px 20px;border-radius:7px;font-family:'Figtree','Montserrat',Cambria,sans-serif;">
-            Watch on TikTok ↗
-          </a>
-        </td>
-      </tr>
-    </table>
-  </td>
-</tr>
-<!-- END POST 5 -->
-
-
-      <!-- Divider -->
-      <tr><td class="divider" style="height:1px;background-color:#E5E5EF;font-size:0;line-height:0;">&nbsp;</td></tr>
-
-      <!-- ════════════════════════════════════════════════════════
-           WEEKLY SUMMARY
-           Populate weekly — or daily via n8n with rolling 7-day context
-      ════════════════════════════════════════════════════════ -->
-      <tr>
-        <td class="section" style="padding:32px 40px 30px;">
-
-          <p class="col-accent" style="margin:0 0 14px;font-size:11px;letter-spacing:3px;color:#7C83FF;font-family:'Figtree','Montserrat',Cambria,sans-serif;font-weight:700;text-transform:uppercase;">
-            This Week in Political TikTok
-          </p>
-
-          <!-- Weekly editorial context — update weekly or generate via n8n/Gemini -->
-          <p class="col-primary" style="margin:0;font-size:16px;line-height:1.75;color:#0F0F1A;font-family:'Figtree','Montserrat',Cambria,sans-serif;">
-            Seven days in, Labour holds a commanding lead in both total views (41.2M) and engagement rate (avg 3.8%). Reform UK continues to punch above its weight on virality — three of this week's top-ten most-shared clips belong to Farage or Reform-aligned accounts. The Lib Dems are largely absent from the top twenty. Watch for the Welsh Senedd cohort: two accounts have doubled their follower counts since Monday.
-          </p>
-
-        </td>
-      </tr>
-
-      <!-- Divider -->
-      <tr><td class="divider" style="height:1px;background-color:#E5E5EF;font-size:0;line-height:0;">&nbsp;</td></tr>
-
-      <!-- ════════════════════════════════════════════════════════
-           FORWARD TO SUBSCRIBE — persuasive version
-      ════════════════════════════════════════════════════════ -->
-      <tr>
-        <td style="padding:28px 40px;">
-          <table class="bg-forward border-forward" width="100%" cellpadding="0" cellspacing="0" role="presentation"
-                 style="background-color:#EEEEFF;border:1px solid #CCCCFF;border-radius:10px;">
-            <tr>
-              <td style="padding:26px 28px;">
-
-                <p class="col-accent" style="margin:0 0 10px;font-size:11px;letter-spacing:2.5px;color:#7C83FF;font-family:'Figtree','Montserrat',Cambria,sans-serif;font-weight:700;text-transform:uppercase;">
-                  Was this forwarded to you?
-                </p>
-
-                <p class="col-primary" style="margin:0 0 8px;font-size:18px;font-weight:800;color:#0F0F1A;font-family:'Figtree','Montserrat',Cambria,sans-serif;line-height:1.25;">
-                  Get the briefing that political insiders read first.
-                </p>
-
-                <p class="col-secondary" style="margin:0 0 20px;font-size:15px;line-height:1.75;color:#5A5A7A;font-family:'Figtree','Montserrat',Cambria,sans-serif;">
-                  Every morning at 8:00AM, The Knox Index lands in your inbox with the TikTok data that matters — who's gaining ground, which content is cutting through, and where the political narrative is shifting. It takes five minutes to read. It takes zero minutes to miss the story without it.
-                </p>
-
-                <table cellpadding="0" cellspacing="0" role="presentation">
-                  <tr>
-                    <td>
-                      <a href="https://theknoxindex.com/signup"
-                         style="display:inline-block;background-color:#7C83FF;color:#FFFFFF;text-decoration:none;font-size:13px;font-weight:700;letter-spacing:0.3px;padding:13px 26px;border-radius:7px;font-family:'Figtree','Montserrat',Cambria,sans-serif;">
-                        Subscribe free — it takes 30 seconds →
-                      </a>
-                    </td>
-                  </tr>
-                </table>
-
-                <p class="col-secondary" style="margin:14px 0 0;font-size:12px;color:#7878A0;font-family:'Figtree','Montserrat',Cambria,sans-serif;">
-                  No card required. Unsubscribe any time. Read by political professionals across Westminster and beyond.
-                </p>
-
-              </td>
-            </tr>
-          </table>
-        </td>
-      </tr>
-
-      <!-- ════════════════════════════════════════════════════════
-           FOOTER
-      ════════════════════════════════════════════════════════ -->
-      <tr><td class="divider" style="height:1px;background-color:#E5E5EF;font-size:0;line-height:0;">&nbsp;</td></tr>
-      <tr>
-        <td style="padding:20px 40px 26px;">
-          <p class="col-footer" style="margin:0 0 5px;font-size:11px;color:#9090A8;font-family:'Figtree','Montserrat',Cambria,sans-serif;line-height:1.7;">
-            <strong style="color:#9090A8;font-weight:600;">The Knox Index</strong> &nbsp;&middot;&nbsp; Knox Digital Ltd &nbsp;&middot;&nbsp; London, UK
-          </p>
-          <p class="col-footer" style="margin:0;font-size:11px;color:#9090A8;font-family:'Figtree','Montserrat',Cambria,sans-serif;line-height:1.7;">
-            You're receiving this because you subscribed at
-            <a href="https://theknoxindex.com/signup"
-               style="color:#9090A8;text-decoration:underline;">theknoxindex.com</a>.
-            &nbsp;&middot;&nbsp;
-            <!-- Brevo required unsubscribe link — do not modify -->
-            <a href="https://theknoxindex.com/unsubscribe" style="color:#9090A8;text-decoration:underline;">Unsubscribe</a>
-            &nbsp;&middot;&nbsp;
-            <a href="https://theknoxindex.com/privacy"
-               style="color:#9090A8;text-decoration:underline;">Privacy Policy</a>
-          </p>
-        </td>
-      </tr>
-      <!-- Bottom accent bar -->
-      <tr><td style="height:3px;background-color:#7C83FF;font-size:0;line-height:0;">&nbsp;</td></tr>
-
-    </table>
-    <!-- END MAIN CARD -->
-
-    <!-- Spacer -->
-    <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
-      <tr><td style="height:28px;font-size:0;line-height:0;">&nbsp;</td></tr>
-    </table>
-
-  </td></tr>
+    </td>
+  </tr>
 </table>
-<!-- END OUTER WRAPPER -->
 
 </body>
 </html>

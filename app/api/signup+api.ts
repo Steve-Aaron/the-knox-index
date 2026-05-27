@@ -10,12 +10,13 @@
  *   company            string   — optional
  *   segment            string   — optional (from SEGMENTS data)
  *   interests          string[] — optional (from INTERESTS data)
- *   consentBriefing    boolean  — daily briefing emails
- *   consentUpdates     boolean  — product update emails
- *   consentKnox        boolean  — wider Knox Digital contact
+ *   consentBriefing    boolean  — daily briefing emails (mirrors list #4)
+ *   consentUpdates     boolean  — product update emails (mirrors list #7)
+ *   consentKnox        boolean  — wider Knox Digital contact (mirrors list #8)
  *
  * Actions:
- *   1. Upserts Brevo contact with attributes + list membership
+ *   1. Upserts Brevo contact with attributes + list membership in one call
+ *      (via lib/brevo.ts — list IDs are the canonical subscription state)
  *   2. Sends a welcome confirmation email to the subscriber
  *   3. Fires an internal notification (fire-and-forget)
  *
@@ -24,6 +25,7 @@
  */
 
 import { BRAND } from '@/brand/constants';
+import { upsertWithConsent } from '@/lib/brevo';
 
 const BREVO_API_KEY    = process.env.BREVO_API_KEY ?? '';
 const BREVO_BASE       = 'https://api.brevo.com/v3';
@@ -32,17 +34,11 @@ const FROM_NAME        = BRAND.name;
 const NOTIFY_EMAIL     = BRAND.contact.email;   // steve+tki@knoxdigi.com
 const EMAIL_RE         = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-// Brevo list ID for the public newsletter. Set BREVO_SIGNUP_LIST_ID in your
-// environment (.env / Vercel project settings) to automatically add subscribers
-// to a specific list. Leave unset to skip list assignment.
-const LIST_ID = process.env.BREVO_SIGNUP_LIST_ID
-  ? [Number(process.env.BREVO_SIGNUP_LIST_ID)]
-  : [];
+// ── Helper: POST transactional email to Brevo ─────────────────────────────────
+// (Contact upserts go through lib/brevo.ts — this is only used for emails.)
 
-// ── Helper: POST to Brevo ─────────────────────────────────────────────────────
-
-async function brevo(path: string, body: unknown): Promise<{ ok: boolean; status: number }> {
-  const res = await fetch(`${BREVO_BASE}${path}`, {
+async function sendEmail(body: unknown): Promise<{ ok: boolean; status: number }> {
+  const res = await fetch(`${BREVO_BASE}/smtp/email`, {
     method:  'POST',
     headers: {
       'api-key':      BREVO_API_KEY,
@@ -81,27 +77,30 @@ export async function POST(request: Request): Promise<Response> {
   const consentUpdates:   boolean  = Boolean(body?.consentUpdates);
   const consentKnox:      boolean  = Boolean(body?.consentKnox);
 
-  // 1. Upsert Brevo contact
-  const contactPayload: Record<string, unknown> = {
+  // 1. Upsert Brevo contact — attributes + list membership in one call.
+  //    List membership (lists #4 / #7 / #8) is the canonical subscription state;
+  //    the CONSENT_* attributes are mirrors so downstream readers don't need
+  //    a second Brevo round-trip to see consent.
+  upsertWithConsent(
     email,
-    updateEnabled: true,
-    attributes: {
-      SOURCE:          'TKI signup page',
-      COMPANY:         company   || undefined,
-      SEGMENT:         segment   || undefined,
-      INTERESTS:       interests.length ? interests.join(', ') : undefined,
-      PERM_DAILY:      consentBriefing ? 'yes' : 'no',
-      PERM_REPORT:     consentUpdates  ? 'yes' : 'no',
-      PERM_WIDER:      consentKnox     ? 'yes' : 'no',
+    {
+      SOURCE:                     'TKI signup page',
+      COMPANY:                    company || undefined,
+      JOB_ROLE:                   segment || undefined,
+      WHY_USE_KNOX_INDEX:         interests.length ? interests : undefined,
+      CONSENT_DAILY_BRIEFING:     consentBriefing,
+      CONSENT_KNOX_INDEX_UPDATES: consentUpdates,
+      CONSENT_KNOX_DIGITAL:       consentKnox,
     },
-  };
-  if (LIST_ID.length) contactPayload.listIds = LIST_ID;
-
-  brevo('/contacts', contactPayload)
-    .catch((e: any) => console.error('[/api/signup] Brevo upsert error', e));
+    {
+      CONSENT_DAILY_BRIEFING:     consentBriefing,
+      CONSENT_KNOX_INDEX_UPDATES: consentUpdates,
+      CONSENT_KNOX_DIGITAL:       consentKnox,
+    },
+  ).catch((e: any) => console.error('[/api/signup] Brevo upsert error', e));
 
   // 2. Welcome email to subscriber
-  const welcomeRes = await brevo('/smtp/email', {
+  const welcomeRes = await sendEmail({
     sender:      { name: FROM_NAME, email: FROM_EMAIL },
     to:          [{ email }],
     subject:     'You\'re subscribed to The Knox Index',
@@ -114,7 +113,7 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   // 3. Internal notification (fire-and-forget)
-  brevo('/smtp/email', {
+  sendEmail({
     sender:      { name: FROM_NAME, email: FROM_EMAIL },
     to:          [{ email: NOTIFY_EMAIL }],
     subject:     `New signup: ${email}`,

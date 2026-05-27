@@ -39,6 +39,22 @@ if (typeof window !== 'undefined') {
     api_host:    window.location.origin + '/api/mp',
     persistence: 'localStorage',
     ignore_dnt:  true,   // respect user privacy but don't let DNT silently kill events
+
+    // ── Heatmaps + Session Replay (web only) ────────────────────────────────
+    // Heatmaps are derived from session-replay data, so enabling replay is
+    // what unlocks heatmaps in the MixPanel UI. Requires a Growth / Enterprise
+    // plan to view; data collection still happens on lower plans but the UI
+    // will not surface it.
+    //
+    // Privacy defaults below are tuned for a UK political audience under UK
+    // GDPR. They are conservative on purpose — input fields are masked, the
+    // signup form is fully blocked, sensitive copy can be opted out by adding
+    // the `mp-no-record` class to any element.
+    record_sessions_percent: 100,
+    record_mask_text_selector: 'input, textarea, [data-mp-mask], .mp-mask',
+    record_block_selector:     '.mp-no-record, [data-mp-no-record]',
+    record_collect_fonts:      true,
+
     loaded: (mp) => {
       // Ensure any stale opt-out state from a previous session does not persist.
       // opt_in_tracking() is a no-op if the user was already opted in.

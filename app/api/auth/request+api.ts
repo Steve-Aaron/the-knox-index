@@ -21,63 +21,115 @@ const FROM_EMAIL    = 'hello@knoxdigi.com';
 const FROM_NAME     = BRAND.name;
 const EMAIL_RE      = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-async function brevo(path: string, body: unknown) {
-  const res = await fetch(`${BREVO_BASE}${path}`, {
-    method:  'POST',
-    headers: {
-      'api-key':      BREVO_API_KEY,
-      'Content-Type': 'application/json',
-      'Accept':       'application/json',
-    },
-    body: JSON.stringify(body),
-  });
-  return { ok: res.ok || res.status === 204, status: res.status };
+/**
+ * Minimal Brevo POST wrapper.
+ *
+ * Returns `{ ok, status, detail }` and never throws — fetch-level errors
+ * (DNS failures, socket hang-ups during a Vercel cold start) are surfaced
+ * as `ok: false, status: 0` so the caller can decide whether to abort.
+ *
+ * `detail` carries Brevo's response body (truncated). Brevo's failure
+ * messages are specific ("Sender not verified", "List does not exist",
+ * etc.) — logging just the status code makes production debugging
+ * effectively impossible, which is the trap this version exists to close.
+ */
+async function brevo(path: string, body: unknown): Promise<{ ok: boolean; status: number; detail?: string }> {
+  try {
+    const res    = await fetch(`${BREVO_BASE}${path}`, {
+      method:  'POST',
+      headers: {
+        'api-key':      BREVO_API_KEY,
+        'Content-Type': 'application/json',
+        'Accept':       'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+    const ok = res.ok || res.status === 204;
+    if (ok) return { ok, status: res.status };
+    // Capture the failure body so logs name the actual cause.
+    const text = await res.text().catch(() => '');
+    return { ok: false, status: res.status, detail: text.slice(0, 500) };
+  } catch (err: any) {
+    return { ok: false, status: 0, detail: err?.message ?? 'fetch failed' };
+  }
 }
 
 export async function POST(request: Request): Promise<Response> {
-  if (!BREVO_API_KEY) {
-    console.error('[/api/auth/request] BREVO_API_KEY not set');
-    return Response.json({ error: 'Service unavailable' }, { status: 503 });
+  try {
+    if (!BREVO_API_KEY) {
+      console.error('[/api/auth/request] BREVO_API_KEY not set');
+      return Response.json({ error: 'Email service is not configured' }, { status: 503 });
+    }
+
+    let body: any;
+    try { body = await request.json(); } catch {
+      return Response.json({ error: 'Invalid JSON' }, { status: 400 });
+    }
+
+    const email: string = (body?.email ?? '').trim().toLowerCase();
+    if (!EMAIL_RE.test(email)) {
+      return Response.json({ error: 'Invalid email address' }, { status: 400 });
+    }
+
+    // Derive base URL from the request (works on Vercel + local dev)
+    const url     = new URL(request.url);
+    const baseUrl = `${url.protocol}//${url.host}`;
+
+    // createMagicToken depends on Node's `crypto` and on AUTH_SECRET. If the
+    // env var is missing we still produce a (less secure) token, but we want
+    // any crypto-level failure to surface as a clean 500 rather than a
+    // generic Vercel error.
+    let token: string;
+    try {
+      token = createMagicToken(email);
+    } catch (err: any) {
+      console.error('[/api/auth/request] Token generation failed', err?.message ?? err);
+      return Response.json({ error: 'Token generation failed' }, { status: 500 });
+    }
+    const link = `${baseUrl}/api/auth/verify?token=${encodeURIComponent(token)}`;
+
+    // 1. Upsert into Brevo (non-fatal — never blocks email delivery)
+    brevo('/contacts', {
+      email,
+      updateEnabled: true,
+      attributes: { SOURCE: 'TKI magic link' },
+    }).then(r => {
+      if (!r.ok) console.error('[/api/auth/request] Brevo upsert non-ok', r.status, r.detail ?? '');
+    }).catch((e: any) => console.error('[/api/auth/request] Brevo upsert threw', e?.message ?? e));
+
+    // 2. Send the magic link email
+    const emailRes = await brevo('/smtp/email', {
+      sender:      { name: FROM_NAME, email: FROM_EMAIL },
+      to:          [{ email }],
+      subject:     'Your Knox Index access link',
+      htmlContent: magicLinkHtml(link),
+      textContent: magicLinkText(link),
+    });
+
+    if (!emailRes.ok) {
+      // Log the upstream detail every time so Vercel logs contain the actual
+      // Brevo failure (e.g. "Sender not verified", "Permission denied").
+      console.error(
+        '[/api/auth/request] Brevo email failed',
+        'status=', emailRes.status,
+        'detail=', emailRes.detail ?? '(no body)',
+      );
+      // 502 — upstream failure. Distinguishes Brevo-side errors from local bugs.
+      return Response.json(
+        { error: 'Failed to send email — please try again in a moment.' },
+        { status: 502 },
+      );
+    }
+
+    return Response.json({ ok: true }, { status: 200 });
+
+  } catch (err: any) {
+    // Last-resort guard: anything else that can throw (JSON parse edge cases,
+    // env var initialisation, Vercel runtime quirks) must NOT escape as an
+    // opaque Vercel 500 with no body. The client expects JSON either way.
+    console.error('[/api/auth/request] Unhandled error', err?.stack ?? err?.message ?? err);
+    return Response.json({ error: 'Unexpected error' }, { status: 500 });
   }
-
-  let body: any;
-  try { body = await request.json(); } catch {
-    return Response.json({ error: 'Invalid JSON' }, { status: 400 });
-  }
-
-  const email: string = (body?.email ?? '').trim().toLowerCase();
-  if (!EMAIL_RE.test(email)) {
-    return Response.json({ error: 'Invalid email address' }, { status: 400 });
-  }
-
-  // Derive base URL from the request (works on Vercel + local dev)
-  const url     = new URL(request.url);
-  const baseUrl = `${url.protocol}//${url.host}`;
-  const token   = createMagicToken(email);
-  const link    = `${baseUrl}/api/auth/verify?token=${encodeURIComponent(token)}`;
-
-  // 1. Upsert into Brevo (non-fatal)
-  brevo('/contacts', {
-    email,
-    updateEnabled: true,
-    attributes: { SOURCE: 'TKI magic link' },
-  }).catch((e: any) => console.error('[/api/auth/request] Brevo upsert error', e));
-
-  // 2. Send the magic link email
-  const emailRes = await brevo('/smtp/email', {
-    sender:      { name: FROM_NAME, email: FROM_EMAIL },
-    to:          [{ email }],
-    subject:     'Your Knox Index access link',
-    htmlContent: magicLinkHtml(link),
-    textContent: magicLinkText(link),
-  });
-
-  if (!emailRes.ok) {
-    console.error('[/api/auth/request] Brevo email error', emailRes.status);
-    return Response.json({ error: 'Failed to send email' }, { status: 500 });
-  }
-
-  return Response.json({ ok: true }, { status: 200 });
 }
 
 // ── Email templates ───────────────────────────────────────────────────────────

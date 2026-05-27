@@ -27,28 +27,9 @@
  */
 
 import { verifySessionCookie } from '@/lib/auth';
+import { upsertWithConsent, type BrevoValue } from '@/lib/brevo';
 
 const BREVO_API_KEY = process.env.BREVO_API_KEY ?? '';
-const BREVO_BASE    = 'https://api.brevo.com/v3';
-
-// Brevo accepts string, string[] (for multiple-choice), or boolean attributes
-type BrevoValue = string | string[] | boolean;
-
-async function brevoUpdate(
-  email:      string,
-  attributes: Record<string, BrevoValue>,
-): Promise<{ ok: boolean; status: number }> {
-  const res = await fetch(`${BREVO_BASE}/contacts`, {
-    method:  'POST',
-    headers: {
-      'api-key':      BREVO_API_KEY,
-      'Content-Type': 'application/json',
-      'Accept':       'application/json',
-    },
-    body: JSON.stringify({ email, updateEnabled: true, attributes }),
-  });
-  return { ok: res.ok || res.status === 204, status: res.status };
-}
 
 export async function POST(request: Request): Promise<Response> {
   // Auth check
@@ -91,12 +72,21 @@ export async function POST(request: Request): Promise<Response> {
   if (segment)          attributes.JOB_ROLE               = segment;
   if (interests.length) attributes.WHY_USE_KNOX_INDEX     = interests;
 
-  // Always write consent flags — even false is meaningful
+  // Always write consent flags — even false is meaningful. These mirror
+  // Brevo list membership (lists #4 / #7 / #8) which is the source of truth.
   attributes.CONSENT_KNOX_INDEX_UPDATES = consentKnoxUpdates;
-  attributes.CONSENT_DAILY_BRIEFING = consentDailyBriefing;
-  attributes.CONSENT_KNOX_DIGITAL   = consentKnoxDigital;
+  attributes.CONSENT_DAILY_BRIEFING     = consentDailyBriefing;
+  attributes.CONSENT_KNOX_DIGITAL       = consentKnoxDigital;
 
-  const result = await brevoUpdate(email, attributes).catch(e => {
+  const result = await upsertWithConsent(
+    email,
+    attributes,
+    {
+      CONSENT_DAILY_BRIEFING:     consentDailyBriefing,
+      CONSENT_KNOX_INDEX_UPDATES: consentKnoxUpdates,
+      CONSENT_KNOX_DIGITAL:       consentKnoxDigital,
+    },
+  ).catch(e => {
     console.error('[/api/preferences] Brevo error', e);
     return { ok: false, status: 500 };
   });

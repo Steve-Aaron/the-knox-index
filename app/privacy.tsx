@@ -34,7 +34,7 @@ interface Section {
   body:  string;
 }
 
-const LAST_UPDATED = '1 May 2025';
+const LAST_UPDATED = '26 May 2026';
 
 const SECTIONS: Section[] = [
   {
@@ -58,8 +58,12 @@ const SECTIONS: Section[] = [
     body:  'We use cookies to maintain your session and remember your preferences. A session cookie is set when you authenticate via magic link; this expires when you close your browser unless you choose to remain signed in. We also use analytics cookies (via Mixpanel) to understand how users interact with the service. You can manage your cookie preferences at any time via the cookie banner at the bottom of the page.',
   },
   {
+    title: 'Session recording and heatmaps',
+    body:  'To improve the service, we record a sample of user sessions and generate heatmaps of how users interact with the dashboard. These recordings capture mouse movements, clicks, scroll behaviour, and page navigation. They do not capture the contents of form fields — email addresses, passwords, and any other text you type are visually masked in our recordings and are never stored. Sensitive sections of the interface are excluded from recording entirely.\n\nSession recording is provided by Mixpanel and the data is stored on Mixpanel\'s EU servers. We use this data only to diagnose usability issues and to inform product decisions. It is never shared with third parties or used for advertising.\n\nYou can opt out of session recording at any time via the cookie banner or by contacting us at the email below.',
+  },
+  {
     title: 'Third-party services',
-    body:  'We use a small number of trusted third-party services to operate The Knox Index: Brevo for email delivery and contact management, Mixpanel for product analytics, and Vercel/Cloudflare for hosting. Each of these providers processes data on our behalf under data processing agreements and in accordance with their own privacy policies. We do not sell your data to any third party.',
+    body:  'We use a small number of trusted third-party services to operate The Knox Index: Brevo for email delivery and contact management, Mixpanel for product analytics including event tracking, session recording, and heatmaps, and Vercel/Cloudflare for hosting. Each of these providers processes data on our behalf under data processing agreements and in accordance with their own privacy policies. Mixpanel data is hosted on EU servers. We do not sell your data to any third party.',
   },
   {
     title: 'Data retention',
