@@ -16,7 +16,7 @@ export const BRAND = {
   contact: {
     email:    'steve+tki@knoxdigi.com',
     linkedin: 'https://www.linkedin.com/company/knox-digital',
-    website:  'https://theknoxindex.vercel.app',
+    website:  'http://theknoxindex.knox.digital/',
   },
 
   /** Segment options shown in the registration form */

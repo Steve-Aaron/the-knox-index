@@ -27,6 +27,9 @@ interface Props {
   value:         TimeRange;
   onChange:      (next: TimeRange) => void;
   isRegistered?: boolean;
+  /** Fired when an unregistered user taps a locked range. Parent decides
+   *  how to handle (typically: show the registration interstitial). */
+  onLockedTap?:  (range: TimeRange) => void;
 }
 
 const OPTIONS: { key: TimeRange; label: string }[] = [
@@ -39,7 +42,7 @@ const OPTIONS: { key: TimeRange; label: string }[] = [
 
 const LOCKED_RANGES = new Set<TimeRange>(['month', 'year', 'lifetime']);
 
-export function TimeRangePicker({ value, onChange, isRegistered = false }: Props) {
+export function TimeRangePicker({ value, onChange, isRegistered = false, onLockedTap }: Props) {
   const index = OPTIONS.findIndex(o => o.key === value);
   const xPct = useSharedValue(index);
 
@@ -65,7 +68,10 @@ export function TimeRangePicker({ value, onChange, isRegistered = false }: Props
           return (
             <Pressable
               key={opt.key}
-              onPress={() => { if (!locked) onChange(opt.key); }}
+              onPress={() => {
+                if (locked) onLockedTap?.(opt.key);
+                else onChange(opt.key);
+              }}
               style={[styles.option, locked && styles.optionLocked]}
             >
               <Text style={[styles.label, { color: active ? neutral.text : neutral.textMid }]}>

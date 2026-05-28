@@ -2,13 +2,31 @@
  * Knox Index brand palette.
  * Primary surface is #1F1D1D (warm dark). Containers use the Knox Product
  * Gradient. The Knox Gradient is used as a signature accent on key surfaces.
+ *
+ * Strict palette: every UI colour outside party tokens must come from `knox`
+ * (named accents) or the neutral set below. Do not introduce new hex values.
  */
+
+export const knox = {
+  primaryOrange:   '#FF9363',
+  secondaryOrange: '#F67374',
+  primaryPink:     '#E83C91',
+  primaryPurple:   '#933A89',
+  accentPurple:    '#553984',
+} as const;
 
 export const brand = {
   /** Five-stop gradient — horizontal, left-to-right. */
-  gradient: ['#FF9363', '#F67374', '#E83C91', '#933A89', '#553984'] as const,
-  /** Two-stop gradient — vertical, top-to-bottom. Container fill. */
-  productGradient: ['#1F1D1D', '#35393B'] as const,
+  gradient: [knox.primaryOrange, knox.secondaryOrange, knox.primaryPink, knox.primaryPurple, knox.accentPurple] as const,
+  /**
+   * Product gradient — vertical, top-to-bottom.
+   * Holds the darker #1F1D1D for the upper 75% of the surface and only
+   * eases up to the warmer #35393B at the very bottom. Net effect: the
+   * page reads as predominantly dark, with a subtle 'horizon glow' at
+   * the foot. Used by every full-page container.
+   */
+  productGradient:          ['#1F1D1D', '#1F1D1D', '#35393B'] as const,
+  productGradientLocations: [0, 0.75, 1] as const,
   black:    '#1F1D1D',
   grey:     '#7C919A',
   darkGrey: '#4D575C',
@@ -47,11 +65,21 @@ export const party = {
 
 export type PartyKey = keyof typeof party;
 
+/**
+ * Accent tokens map *semantic* roles onto Knox brand colours. The token names
+ * are kept (indigo / pink / mint / amber) so existing components don't churn;
+ * the underlying hex values are now strictly from the Knox palette.
+ *
+ *   indigo → primaryPink     — primary action / focus / selected
+ *   pink   → accentPurple    — feature accents (PostsTable strip, sticky CTA)
+ *   mint   → primaryOrange   — live / positive / success indicators
+ *   amber  → secondaryOrange — warning / loading
+ */
 export const accent = {
-  indigo: '#7C83FF',
-  pink:   '#FF6BD4',
-  mint:   '#3FE6B1',
-  amber:  '#FFB657',
+  indigo: knox.primaryPink,
+  pink:   knox.accentPurple,
+  mint:   knox.primaryOrange,
+  amber:  knox.secondaryOrange,
 };
 
 export const glass = {

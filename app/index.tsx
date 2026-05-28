@@ -11,7 +11,6 @@ import {
 import { MotiView } from 'moti';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { KeyFindingsBar } from '@/components/dashboard/KeyFindingsBar';
 import { PoliticianDetailPanel } from '@/components/dashboard/PoliticianDetailPanel';
 import { SummaryPanel } from '@/components/dashboard/SummaryPanel';
 import { RankBoard } from '@/components/dashboard/RankBoard';
@@ -25,6 +24,10 @@ import { TopicCloud } from '@/components/dashboard/TopicCloud';
 import { ContactFooter } from '@/components/dashboard/ContactFooter';
 import { AppFooter } from '@/components/dashboard/AppFooter';
 import { StickyUnlock } from '@/components/auth/StickyUnlock';
+import { HeaderNav } from '@/components/primitives/HeaderNav';
+import { SquareButton } from '@/components/primitives/SquareButton';
+import { HomeHero } from '@/components/dashboard/HomeHero';
+import { Interstitial } from '@/components/primitives/Interstitial';
 import { DevPanel } from '@/components/primitives/DevPanel';
 import { getDevPreview, setDevPreview, type DevPreviewState } from '@/lib/devPreview';
 import { useAuth } from '@/hooks/useAuth';
@@ -36,7 +39,7 @@ import { useSectionTracking } from '@/hooks/useSectionTracking';
 import { useBenchmarks } from '@/data/useBenchmarks';
 import { SkeletonBlock } from '@/components/primitives/SkeletonBlock';
 import { ErrorBoundary, ErrorScreen } from '@/components/primitives/ErrorBoundary';
-import { neutral, glass, accent, party } from '@/theme/colors';
+import { neutral, glass, accent, party, brand } from '@/theme/colors';
 import { spacing, radius } from '@/theme/spacing';
 import { type } from '@/theme/typography';
 import { breakpoints } from '@/theme/breakpoints';
@@ -93,6 +96,25 @@ function DashboardScreenInner() {
   const [styleFilter, setStyleFilter] = useState<string | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
   const postsSectionRef = useRef<View>(null);
+
+  // Locked time-range interstitial — set to the attempted range when an
+  // unregistered user taps This Month / This Year / Lifetime.
+  const [lockedRangeAttempt, setLockedRangeAttempt] = useState<TimeRange | null>(null);
+
+  // Sticky 'Register' bar should only appear AFTER the user has scrolled past
+  // the hero. Otherwise it competes with the in-hero NewsletterForm.
+  const [pastHero, setPastHero] = useState(false);
+  // Hero entrance animations gate is declared further down once `status` and
+  // `isInitialLoad` from useLiveData are in scope.
+  const [heroReady, setHeroReady] = useState(false);
+  const handleHeroScroll = useCallback((e: any) => {
+    const y      = e?.nativeEvent?.contentOffset?.y ?? 0;
+    const winH   = e?.nativeEvent?.layoutMeasurement?.height ?? 0;
+    // 80% of viewport — gives a bit of overshoot before the bar pops up
+    const thresh = winH > 0 ? winH * 0.8 : 600;
+    if (y > thresh && !pastHero)      setPastHero(true);
+    else if (y <= thresh && pastHero) setPastHero(false);
+  }, [pastHero]);
 
   // Selecting a style from the Style League below the feed should bring the
   // filtered feed into view — otherwise the user has no signal the filter took.
@@ -216,6 +238,18 @@ function DashboardScreenInner() {
   const { posts, loading: postsLoading, error: postsError } = usePostsData(range);
   const { benchmarks } = useBenchmarks();
 
+  // Hero entrance animations are gated until the LoadingScreen has fully
+  // faded out — otherwise the headline 'folds in' under the loading
+  // overlay and the user never sees the animation. LoadingScreen's exit
+  // fade is 600ms (see components/dashboard/LoadingScreen.tsx); we wait
+  // a little longer to ensure it's gone before the hero plays.
+  const loadingDone = !isInitialLoad || status !== 'loading';
+  useEffect(() => {
+    if (!loadingDone || heroReady) return;
+    const t = setTimeout(() => setHeroReady(true), 650);
+    return () => clearTimeout(t);
+  }, [loadingDone, heroReady]);
+
   // Area 10: fire analytics events when data status changes, including recovery timing.
   const prevStatusRef  = useRef(status);
   const errorTimerKey  = 'dashboard_error';
@@ -284,19 +318,33 @@ function DashboardScreenInner() {
 
   return (
     <View style={styles.root}>
+      {/* Knox product gradient — dark for the top 75%, eases to the lighter
+          horizon tone at the very bottom. Stops live in theme/colors.ts. */}
       <LinearGradient
-        colors={['#0D0D18', '#050509']}
+        colors={brand.productGradient as unknown as [string, string, string]}
+        locations={brand.productGradientLocations as unknown as [number, number, number]}
         style={StyleSheet.absoluteFill}
       />
 
       <SafeAreaView style={styles.safe} edges={['top']}>
+        {/* Persistent top nav — logo, signup, contact (TODO), privacy */}
+        <HeaderNav activeRoute="/" />
+
+        {/* <main> wrapper — RN Web maps role="main" to a real <main> HTML tag.
+            RN's TS types don't include 'main' so we cast through unknown. */}
         <ScrollView
           ref={scrollViewRef}
           style={styles.scrollView}
           contentContainerStyle={styles.scroll}
           showsVerticalScrollIndicator={false}
           scrollEnabled
+          accessibilityRole={'main' as unknown as 'menu'}
+          onScroll={handleHeroScroll}
+          scrollEventThrottle={32}
         >
+
+          {/* ── 0. Hero — editorial 100vh layout, includes KeyFindings strip ──── */}
+          <HomeHero politicians={politicians} range={range} ready={heroReady} />
 
           {/* ── 1. Title bar ──────────────────────────── */}
           <View
@@ -308,40 +356,36 @@ function DashboardScreenInner() {
               <Text style={styles.title}>Dashboard</Text>
             </View>
             <View style={styles.titleRight}>
-              {/* Data source pill */}
-              <Pressable onPress={() => { track('accounts_pill_tapped'); setShowAccounts(true); }} style={[
-                styles.hint,
-                isLive && { borderColor: accent.mint },
-                status === 'loading' && { borderColor: accent.amber },
-              ]}>
-                <LiveDot status={status} isLive={isLive} />
-                <Text style={[
-                  styles.hintText,
-                  isLive && { color: accent.mint },
-                  status === 'loading' && { color: accent.amber },
-                ]}>
-                  {status === 'loading' && retryAttempt > 0
+              {/* Square button — opens AccountsInterstitial; fills bottom-to-top on hover */}
+              <SquareButton
+                label={
+                  status === 'loading' && retryAttempt > 0
                     ? `Retrying ${retryAttempt}/${retryTotal}…`
                     : status === 'loading'
                     ? 'Loading…'
-                    : isLive
-                    ? `Live · ${politicians.length} accounts`
-                    : 'Error · tap to retry'}
-                </Text>
-              </Pressable>
+                    : status === 'error'
+                    ? 'Error — tap to retry'
+                    : 'See all TikTok accounts'
+                }
+                variant="live"
+                leading={<LiveDot status={status} isLive={isLive} />}
+                onPress={() => { track('accounts_pill_tapped'); setShowAccounts(true); }}
+              />
               {error ? (
                 <Text style={styles.errorText} numberOfLines={1}>{error}</Text>
               ) : null}
             </View>
           </View>
 
-          {/* ── 2. Key findings strip ─────────────────── */}
+          {/* ── 2. Key findings strip ─────────────────────────────────────
+              KeyFindingsBar lives inside <HomeHero /> so the numbers
+              land above the fold. The ref is kept here as an empty
+              anchor so scroll-depth analytics still fire when the user
+              scrolls past the hero. */}
           <View
             ref={sectionRef('key_findings') as any}
             {...(Platform.OS === 'web' ? { 'data-container_name': 'row_key_findings_bar' } as any : {})}
-          >
-            <KeyFindingsBar politicians={politicians} range={range} />
-          </View>
+          />
 
           {/* ── 3. Controls (stacked, full-width each) ── */}
           <View
@@ -349,7 +393,15 @@ function DashboardScreenInner() {
             {...(Platform.OS === 'web' ? { 'data-container_name': 'row_controls_time_sort' } as any : {})}
           >
             {/* Time range — full width */}
-            <TimeRangePicker value={range} onChange={handleSetRange} isRegistered={isRegistered} />
+            <TimeRangePicker
+              value={range}
+              onChange={handleSetRange}
+              isRegistered={isRegistered}
+              onLockedTap={(r) => {
+                track('locked_range_tapped', { range: r });
+                setLockedRangeAttempt(r);
+              }}
+            />
 
             {/* Sort chips — full-width horizontal scroll */}
             <View style={styles.sortWrap}>
@@ -565,7 +617,7 @@ function DashboardScreenInner() {
 
         </ScrollView>
         {/* Sticky registration CTA — visible immediately for unregistered users */}
-        <StickyUnlock showBar={!isRegistered} isRegistered={isRegistered} email={authEmail} />
+        <StickyUnlock showBar={pastHero && !isRegistered} isRegistered={isRegistered} email={authEmail} />
       </SafeAreaView>
 
       {/* Dev-only preview panel — stripped from production builds */}
@@ -583,6 +635,28 @@ function DashboardScreenInner() {
           onRefresh={refresh}
         />
       )}
+
+      {/* Locked time-range interstitial — unregistered users see this when
+          they tap This Month / This Year / Lifetime. */}
+      <Interstitial
+        visible={lockedRangeAttempt != null}
+        onClose={() => setLockedRangeAttempt(null)}
+        kicker="REGISTER TO UNLOCK"
+        title={
+          lockedRangeAttempt
+            ? `The full ${RANGE_LABELS[lockedRangeAttempt]} view is for registered users.`
+            : ''
+        }
+        text="Free, takes 30 seconds. Magic link sent to your inbox — no password. You'll see every tracked post across this time range, plus party-level filters, virality scoring and CSV export."
+        ctaLabel="Register free"
+        onCta={() => {
+          track('locked_range_register_cta', { range: lockedRangeAttempt ?? 'unknown' });
+          setLockedRangeAttempt(null);
+          // Scroll back to the hero — the NewsletterForm is there
+          scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+        }}
+        secondaryLabel="Maybe later"
+      />
     </View>
   );
 }

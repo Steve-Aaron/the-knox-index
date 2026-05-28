@@ -16,6 +16,7 @@ import { MotiView } from 'moti';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
+import { HeaderNav } from '@/components/primitives/HeaderNav';
 import { useAuth } from '@/hooks/useAuth';
 import { neutral, glass, accent } from '@/theme/colors';
 import { spacing, radius } from '@/theme/spacing';
@@ -242,21 +243,12 @@ export default function PreferencesScreen() {
 
   return (
     <View style={styles.root}>
-      <LinearGradient colors={['#0D0D18', '#050509']} style={StyleSheet.absoluteFill} />
+      {/* Knox product gradient — dark for the top 75%, horizon glow at the foot */}
+      <LinearGradient colors={['#1F1D1D', '#1F1D1D', '#35393B']} locations={[0, 0.75, 1]} style={StyleSheet.absoluteFill} />
 
       <SafeAreaView style={styles.safe} edges={['top']}>
 
-        {/* ── Nav bar ──────────────────────────────────────────── */}
-        <View style={[styles.nav, { paddingHorizontal: hPad }]}>
-          <Pressable
-            onPress={() => router.replace('/')}
-            style={({ pressed }) => [styles.backBtn, pressed && { opacity: 0.65 }]}
-          >
-            <FontAwesome6 name="arrow-left" size={12} color={neutral.textMid} solid />
-            <Text style={styles.backBtnText}>Dashboard</Text>
-          </Pressable>
-          <Text style={styles.navKicker}>THE KNOX INDEX</Text>
-        </View>
+        <HeaderNav activeRoute="/preferences" />
 
         <ScrollView
           contentContainerStyle={[styles.scroll, { paddingHorizontal: hPad }]}

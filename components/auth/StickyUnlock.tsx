@@ -11,6 +11,7 @@ import {
   KeyboardAvoidingView,
   ActivityIndicator,
   Linking,
+  useWindowDimensions,
 } from 'react-native';
 import { MotiView } from 'moti';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -18,6 +19,7 @@ import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { neutral, glass, accent, brand } from '@/theme/colors';
 import { spacing, radius } from '@/theme/spacing';
 import { type, font } from '@/theme/typography';
+import { breakpoints } from '@/theme/breakpoints';
 import { track } from '@/lib/analytics';
 import { SEGMENTS, INTERESTS } from '@/data/profileOptions';
 import { DevLabel } from '@/components/primitives/DevLabel';
@@ -60,6 +62,11 @@ type ModalState = 'hidden' | 'unlock' | 'profiling';
 export function StickyUnlock({ showBar, isRegistered, email }: Props) {
   const [profiled, setProfiled] = useState(false);
   const [modal,    setModal]    = useState<ModalState>('hidden');
+
+  // Mobile re-stacks the CTA — text on top, full-width button below — because
+  // at <768px there isn't room for headline + sub-copy + a pill button on one row.
+  const { width } = useWindowDimensions();
+  const isMobile  = width < breakpoints.tablet;
 
   // ── Hydrate profiled state from localStorage ──────────────────────────────
   useEffect(() => {
@@ -122,15 +129,18 @@ export function StickyUnlock({ showBar, isRegistered, email }: Props) {
             onPress={() => { track('cta_bar_tapped'); setModal('unlock'); }}
             style={({ pressed }) => [styles.ctaBar, pressed && { opacity: 0.95 }]}
           >
-            <View style={styles.ctaInner}>
+            <View style={[styles.ctaInner, isMobile && styles.ctaInnerMobile]}>
               <View style={styles.ctaTextGroup}>
                 <Text style={styles.ctaKicker}>GET ACCESS FOR FREE</Text>
-                <Text style={styles.ctaHeadline}>Want to get complete access?</Text>
-                <Text style={styles.ctaCopy}>
-                  Register via email — free for a limited time only.
-                </Text>
+                <Text style={styles.ctaHeadline}>Want complete access?</Text>
+                {/* Sub-copy is desktop-only — mobile keeps the bar to two lines */}
+                {!isMobile && (
+                  <Text style={styles.ctaCopy}>
+                    Register via email — free for a limited time only.
+                  </Text>
+                )}
               </View>
-              <View style={styles.ctaBtn}>
+              <View style={[styles.ctaBtn, isMobile && styles.ctaBtnMobile]}>
                 <Text style={styles.ctaBtnText}>REGISTER →</Text>
               </View>
             </View>
@@ -726,49 +736,64 @@ const styles = StyleSheet.create({
     pointerEvents: 'box-none' as any,
     ...Platform.select({ web: { position: 'fixed' } as any, default: {} }),
   },
+  // ── CTA bar — sized to roughly half the previous footprint ──────────────
+  // Padding, font sizes and button dimensions are all stepped down so the
+  // bar reads as a single dense pill rather than a panel.
   ctaBar: {
     backgroundColor:   'rgba(12,12,28,0.96)',
     borderWidth:       1,
     borderColor:       accent.indigo,
-    borderRadius:      radius.xl,
-    paddingHorizontal: spacing.xxxl,
-    paddingVertical:   spacing.xxl,
-    maxWidth:          900,
-    width:             '96%' as any,
+    borderRadius:      radius.lg,
+    paddingHorizontal: spacing.xl,
+    paddingVertical:   spacing.md,
+    maxWidth:          560,
+    width:             '94%' as any,
     ...Platform.select({
       web: {
-        backdropFilter:       'blur(28px)',
-        WebkitBackdropFilter: 'blur(28px)',
-        boxShadow:            '0 12px 64px rgba(124,131,255,0.40)',
+        backdropFilter:       'blur(24px)',
+        WebkitBackdropFilter: 'blur(24px)',
+        boxShadow:            '0 8px 36px rgba(124,131,255,0.32)',
         cursor:               'pointer',
       } as any,
       default: {
         shadowColor:   accent.indigo,
-        shadowOffset:  { width: 0, height: 12 },
-        shadowOpacity: 0.42,
-        shadowRadius:  40,
+        shadowOffset:  { width: 0, height: 8 },
+        shadowOpacity: 0.34,
+        shadowRadius:  24,
       },
     }),
   },
-  ctaInner:     { flexDirection: 'row', alignItems: 'center', gap: spacing.xl },
-  ctaTextGroup: { flex: 1, gap: 6 },
+  ctaInner:     { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  // Mobile: stack vertically so the button gets its own row at full-width
+  ctaInnerMobile: {
+    flexDirection: 'column',
+    alignItems:    'stretch',
+    gap:           spacing.sm,
+  },
+  ctaTextGroup: { flex: 1, gap: 2 },
   ctaKicker: {
     ...type.caption,
-    fontSize:      13,
+    fontSize:      11,
     color:         accent.indigo,
-    letterSpacing: 1.5,
+    letterSpacing: 1.2,
   },
-  ctaHeadline: { ...type.title,   fontSize: 26, color: neutral.text,    fontWeight: '700' },
-  ctaCopy:     { ...type.body,    fontSize: 16, color: neutral.textMid, lineHeight: 22 },
+  ctaHeadline: { ...type.title, fontSize: 16, color: neutral.text, fontWeight: '700' },
+  ctaCopy:     { ...type.body,  fontSize: 12, color: neutral.textMid, lineHeight: 16 },
   ctaBtn: {
     backgroundColor:   accent.indigo,
-    paddingHorizontal: spacing.xxl,
-    paddingVertical:   spacing.lg,
+    paddingHorizontal: spacing.lg,
+    paddingVertical:   spacing.sm,
     borderRadius:      radius.pill,
     flexShrink:        0,
-    ...Platform.select({ web: { boxShadow: '0 6px 28px rgba(124,131,255,0.45)' } as any, default: {} }),
+    alignItems:        'center',
+    ...Platform.select({ web: { boxShadow: '0 4px 18px rgba(124,131,255,0.45)' } as any, default: {} }),
   },
-  ctaBtnText: { ...type.caption, color: '#fff', fontSize: 14, fontWeight: '800', letterSpacing: 0.8 },
+  // Mobile: button takes the full width of the stacked column
+  ctaBtnMobile: {
+    alignSelf:       'stretch',
+    paddingVertical: spacing.md,
+  },
+  ctaBtnText: { ...type.caption, color: '#fff', fontSize: 12, fontWeight: '800', letterSpacing: 0.6 },
 
   errorToast: {
     position:      'absolute' as any,

@@ -164,7 +164,6 @@ export function NewsletterForm() {
           {'\n'}We've sent a confirmation to{' '}
           <Text style={{ color: neutral.text }}>{email.trim().toLowerCase()}</Text>.
         </Text>
-        <Text style={styles.finePrint}>100% free · No spam · Unsubscribe any time</Text>
       </MotiView>
     );
   }

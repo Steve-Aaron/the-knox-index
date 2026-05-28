@@ -1,7 +1,9 @@
 import React from 'react';
 import { View, Text, Pressable, StyleSheet, Platform, Linking } from 'react-native';
+import { router } from 'expo-router';
 import { DevLabel } from '@/components/primitives/DevLabel';
-import { neutral, glass, accent } from '@/theme/colors';
+import { KnoxLogo } from '@/components/primitives/KnoxLogo';
+import { neutral, glass, accent, knox } from '@/theme/colors';
 import { spacing, radius } from '@/theme/spacing';
 import { type, font } from '@/theme/typography';
 
@@ -16,10 +18,14 @@ import { type, font } from '@/theme/typography';
 
 const YEAR = new Date().getFullYear();
 
-const LINKS: { label: string; url: string }[] = [
+/** Footer link descriptor. `to` = in-app route, `url` = external. */
+type FooterLink = { label: string; to?: string; url?: string };
+
+const LINKS: FooterLink[] = [
+  { label: 'Sign up',        to:  '/signup' },
+  { label: 'Contact',        to:  '/contact' },
+  { label: 'Privacy',        url: 'https://knoxdigi.com/privacy-policy' },
   { label: 'LinkedIn',       url: 'https://www.linkedin.com/company/knoxdigital' },
-  { label: 'Privacy Policy', url: 'https://knoxdigi.com/privacy-policy' },
-  { label: 'Contact',        url: 'mailto:hello@knoxdigi.com' },
 ];
 
 export function AppFooter() {
@@ -32,12 +38,16 @@ export function AppFooter() {
 
       <View style={styles.inner}>
 
-        {/* Brand block */}
+        {/* Brand block — Knox wordmark + supporting copy */}
         <View style={styles.brandBlock}>
-          <View style={styles.brandRow}>
-            <View style={styles.brandDot} />
-            <Text style={styles.brandName}>THE KNOX INDEX</Text>
-          </View>
+          <Pressable
+            onPress={() => router.push('/')}
+            accessibilityRole="link"
+            accessibilityLabel="Knox Index — home"
+            style={({ pressed }) => [styles.brandRow, pressed && { opacity: 0.75 }]}
+          >
+            <KnoxLogo width={120} />
+          </Pressable>
           <Text style={styles.brandTagline}>
             UK political TikTok intelligence, daily.
           </Text>
@@ -46,19 +56,10 @@ export function AppFooter() {
           </Text>
         </View>
 
-        {/* Nav links */}
+        {/* Nav links — square, fill-from-bottom on hover */}
         <View style={styles.linkGroup}>
           {LINKS.map(l => (
-            <Pressable
-              key={l.label}
-              onPress={() => Linking.openURL(l.url)}
-              style={({ pressed }) => [
-                styles.linkBtn,
-                pressed && { opacity: 0.65 },
-              ]}
-            >
-              <Text style={styles.linkText}>{l.label}</Text>
-            </Pressable>
+            <FooterLinkButton key={l.label} link={l} />
           ))}
         </View>
 
@@ -71,6 +72,33 @@ export function AppFooter() {
         </Text>
       </View>
     </View>
+  );
+}
+
+/**
+ * FooterLinkButton — square-cornered link with the bottom-up fill hover.
+ * Pulled out as a small component so React can hold hover state per link.
+ */
+function FooterLinkButton({ link }: { link: FooterLink }) {
+  const handlePress = () => {
+    if (link.url) Linking.openURL(link.url);
+    else if (link.to) router.push(link.to as any);
+  };
+  return (
+    <Pressable
+      onPress={handlePress}
+      style={({ pressed, hovered }: any) => [
+        styles.linkBtn,
+        hovered && styles.linkBtnHovered,
+        pressed && { opacity: 0.7 },
+      ]}
+    >
+      {({ hovered }: any) => (
+        <Text style={[styles.linkText, hovered && styles.linkTextHovered]}>
+          {link.label}
+        </Text>
+      )}
+    </Pressable>
   );
 }
 
@@ -101,22 +129,8 @@ const styles = StyleSheet.create({
     minWidth: 200,
   },
   brandRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
     marginBottom: spacing.xs,
-  },
-  brandDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: accent.indigo,
-  },
-  brandName: {
-    fontFamily: font.bold,
-    fontSize: 12,
-    color: neutral.text,
-    letterSpacing: 2,
+    ...Platform.select({ web: { cursor: 'pointer' } as any, default: {} }),
   },
   brandTagline: {
     fontFamily: font.ui,
@@ -130,7 +144,7 @@ const styles = StyleSheet.create({
     color: neutral.textDim,
   },
 
-  // Links
+  // Links — square corners, fill from bottom on hover
   linkGroup: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -139,17 +153,39 @@ const styles = StyleSheet.create({
   },
   linkBtn: {
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: glass.border,
-    backgroundColor: glass.fill,
-    ...Platform.select({ web: { cursor: 'pointer' } as any, default: {} }),
+    paddingVertical:   spacing.sm,
+    borderWidth:       1,
+    borderColor:       glass.borderHi,
+    backgroundColor:   glass.fill,
+    ...Platform.select({
+      web: {
+        cursor:             'pointer',
+        transitionProperty: 'border-color, background-color',
+        transitionDuration: '180ms',
+      } as any,
+      default: {},
+    }),
+  },
+  linkBtnHovered: {
+    borderColor:     knox.primaryPink,
+    backgroundColor: 'rgba(232,60,145,0.12)',
   },
   linkText: {
     ...type.caption,
     fontSize: 12,
-    color: neutral.textMid,
+    color:    neutral.textMid,
+    textTransform: 'uppercase' as const,
+    letterSpacing: 1.0,
+    ...Platform.select({
+      web: {
+        transitionProperty: 'color',
+        transitionDuration: '180ms',
+      } as any,
+      default: {},
+    }),
+  },
+  linkTextHovered: {
+    color: '#fff',
   },
 
   // Legal

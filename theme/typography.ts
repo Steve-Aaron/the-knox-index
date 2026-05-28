@@ -1,21 +1,20 @@
 /**
  * typography.ts
  * --------------
- * Figtree type system. All weights loaded in _layout.tsx via
- * @expo-google-fonts/figtree. Numbers use a tabular mono stack so
- * CountUp animations don't jitter horizontally.
+ * Single typeface — Figtree. The Google Fonts CSS link in
+ * components/web/HTMLHead.tsx loads the variable family; this module just
+ * exposes consistent weights so component styles don't need to know which
+ * weight maps to which numeric value.
+ *
+ * One job per export:
+ *   font   — fontFamily values used wherever a style declares one
+ *   weight — explicit fontWeight numbers, for use alongside fontFamily
+ *   type   — pre-baked text role tokens (display / title / body etc.)
  */
 import { Platform } from 'react-native';
 
-// Loaded via useFonts in _layout.tsx — strings must match exactly.
-const F = {
-  regular:   'Figtree_400Regular',
-  medium:    'Figtree_500Medium',
-  semiBold:  'Figtree_600SemiBold',
-  bold:      'Figtree_700Bold',
-  extraBold: 'Figtree_800ExtraBold',
-  black:     'Figtree_900Black',
-};
+/** The single brand typeface. */
+const FIGTREE = 'Figtree';
 
 const mono = Platform.select({
   ios:     'Menlo',
@@ -23,10 +22,28 @@ const mono = Platform.select({
   default: 'ui-monospace, "SF Mono", Menlo, Consolas, monospace',
 });
 
+/**
+ * Font-family tokens. Every weight maps to the same family — Figtree —
+ * because the loaded variable font handles weight via fontWeight, not via
+ * separate family names. Components that previously used `font.bold` will
+ * therefore still render in Figtree; pair with `weight.bold` to actually
+ * get a bold rendering.
+ */
 export const font = {
-  ui:   F.regular,
-  bold: F.bold,
+  ui:   FIGTREE,
+  bold: FIGTREE,
   mono,
+};
+
+/** Numeric font-weight tokens. Use alongside `font.*` family values. */
+export const weight = {
+  light:     '300' as const,
+  regular:   '400' as const,
+  medium:    '500' as const,
+  semiBold:  '600' as const,
+  bold:      '700' as const,
+  extraBold: '800' as const,
+  black:     '900' as const,
 };
 
 /**
@@ -36,13 +53,18 @@ export const font = {
  */
 export const REM = 16;
 
+/**
+ * Pre-baked text role tokens. Each carries fontFamily + fontWeight so
+ * spreading `...type.body` gives a component everything it needs to render
+ * the intended look without setting fontFamily separately.
+ */
 export const type = {
-  display:  { fontFamily: F.black,    fontSize: 44, letterSpacing: -1 },   // 2.75rem
-  title:    { fontFamily: F.bold,     fontSize: 24, letterSpacing: -0.4 }, // 1.5rem
-  subtitle: { fontFamily: F.semiBold, fontSize: 16, letterSpacing: 0.6,  textTransform: 'uppercase' as const }, // 1rem
-  body:     { fontFamily: F.medium,   fontSize: 16 },                      // 1rem
-  caption:  { fontFamily: F.semiBold, fontSize: 12, letterSpacing: 0.8,  textTransform: 'uppercase' as const }, // 0.75rem
-  numberLg: { fontFamily: mono,       fontSize: 36, letterSpacing: -0.5 }, // 2.25rem
-  numberMd: { fontFamily: mono,       fontSize: 20, letterSpacing: -0.3 }, // 1.25rem
-  numberSm: { fontFamily: mono,       fontSize: 16 },                      // 1rem
+  display:  { fontFamily: FIGTREE, fontWeight: weight.black,    fontSize: 44, letterSpacing: -1 },   // 2.75rem
+  title:    { fontFamily: FIGTREE, fontWeight: weight.bold,     fontSize: 24, letterSpacing: -0.4 }, // 1.5rem
+  subtitle: { fontFamily: FIGTREE, fontWeight: weight.semiBold, fontSize: 16, letterSpacing: 0.6,  textTransform: 'uppercase' as const }, // 1rem
+  body:     { fontFamily: FIGTREE, fontWeight: weight.medium,   fontSize: 16 },                      // 1rem
+  caption:  { fontFamily: FIGTREE, fontWeight: weight.semiBold, fontSize: 12, letterSpacing: 0.8,  textTransform: 'uppercase' as const }, // 0.75rem
+  numberLg: { fontFamily: mono,    fontSize: 36, letterSpacing: -0.5 }, // 2.25rem
+  numberMd: { fontFamily: mono,    fontSize: 20, letterSpacing: -0.3 }, // 1.25rem
+  numberSm: { fontFamily: mono,    fontSize: 16 },                       // 1rem
 };

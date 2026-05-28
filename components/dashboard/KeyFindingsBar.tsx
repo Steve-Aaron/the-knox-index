@@ -1,12 +1,11 @@
 import React, { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Platform, useWindowDimensions } from 'react-native';
 import { MotiView } from 'moti';
-import { DashCard } from '@/components/primitives/DashCard';
 import { DevLabel } from '@/components/primitives/DevLabel';
 import { InfoTip } from '@/components/primitives/InfoTip';
 import { SkeletonBlock } from '@/components/primitives/SkeletonBlock';
 import { CountUp, formatters } from '@/components/primitives/CountUp';
-import { neutral, accent, party, brand } from '@/theme/colors';
+import { neutral, accent, party, brand, knox } from '@/theme/colors';
 import { type, font } from '@/theme/typography';
 import { spacing, radius } from '@/theme/spacing';
 import { breakpoints } from '@/theme/breakpoints';
@@ -117,82 +116,67 @@ export function KeyFindingsBar({ politicians, range = 'yesterday' }: Props) {
     ];
   }, [politicians, rangeLabel]);
 
-  // ── Tile nodes — plain JSX, no component defined inside render ──────────────
-  // Entrance animation uses `animate` with a stable value so it only fires once.
-  // Hover lift is applied as an inline style update via `hovered` state — this
-  // does NOT re-trigger the MotiView entrance because `from` is never re-evaluated
-  // after the initial mount (MotiView only reads `from` once).
+  // ── Tile nodes — 'Who Won Davos' style: big number on top, small label below.
+  // No card, no dividers. Each tile owns its own breathing room.
   const tileNodes = tiles.map((tile, i) => (
-    <React.Fragment key={tile.kicker}>
-      {i > 0 && <View style={styles.divider} />}
-      <MotiView
-        from={{ opacity: 0, translateY: -5 }}
-        animate={{ opacity: 1, translateY: 0 }}
-        transition={{ type: 'timing', duration: 280, delay: i * 55 }}
-        style={[
-          styles.tileBox,
-          isDesktop ? styles.tileBoxFlex : { width: TILE_WIDTH_MOBILE },
-          // Hover lift applied as a plain style — does not restart MotiView animation
-          Platform.OS === 'web' && hovered === i ? { transform: [{ translateY: -2 }] } : {},
-        ]}
-        {...(Platform.OS === 'web' ? {
-          onMouseEnter: () => setHovered(i),
-          onMouseLeave: () => setHovered(null),
-        } as any : {})}
-      >
-        <View style={styles.kickerRow}>
-          <Text style={styles.kicker}>{tile.kicker.toUpperCase()}</Text>
-          <InfoTip text={tile.tip} placement="below" width={220} />
-        </View>
-        {tile.numericValue !== undefined ? (
-          <CountUp
-            value={tile.numericValue}
-            format={formatters.compact}
-            style={[styles.valueNumeric, { color: tile.accentColor }]}
-          />
-        ) : (
-          <Text
-            style={[styles.valueText, { color: tile.accentColor }]}
-            numberOfLines={1}
-          >
-            {tile.textValue}
-          </Text>
-        )}
-        {tile.suffix ? (
-          <Text style={styles.suffix} numberOfLines={1}>{tile.suffix}</Text>
-        ) : null}
-      </MotiView>
-    </React.Fragment>
+    <MotiView
+      key={tile.kicker}
+      from={{ opacity: 0, translateY: -5 }}
+      animate={{ opacity: 1, translateY: 0 }}
+      transition={{ type: 'timing', duration: 280, delay: i * 55 }}
+      style={[
+        styles.tileBox,
+        isDesktop ? styles.tileBoxFlex : { width: TILE_WIDTH_MOBILE },
+        Platform.OS === 'web' && hovered === i ? { transform: [{ translateY: -2 }] } : {},
+      ]}
+      {...(Platform.OS === 'web' ? {
+        onMouseEnter: () => setHovered(i),
+        onMouseLeave: () => setHovered(null),
+      } as any : {})}
+    >
+      {/* Hero number on top — drives the visual weight */}
+      {tile.numericValue !== undefined ? (
+        <CountUp
+          value={tile.numericValue}
+          format={formatters.compact}
+          style={[styles.valueNumeric, { color: tile.accentColor }]}
+        />
+      ) : (
+        <Text
+          style={[styles.valueText, { color: tile.accentColor }]}
+          numberOfLines={1}
+        >
+          {tile.textValue}
+        </Text>
+      )}
+      {/* Label below — tiny caps, info-tip inline */}
+      <View style={styles.kickerRow}>
+        <Text style={styles.kicker}>{tile.kicker}</Text>
+        <InfoTip text={tile.tip} placement="below" width={220} />
+      </View>
+      {tile.suffix ? (
+        <Text style={styles.suffix} numberOfLines={1}>{tile.suffix}</Text>
+      ) : null}
+    </MotiView>
   ));
 
-  // ── Skeleton — same unified surface, placeholder blocks per tile ─────────────
+  // ── Skeleton — same shape, big-number-on-top, small-label-below ──────────
   const skeletonNodes = [0, 1, 2, 3, 4].map(i => (
-    <React.Fragment key={i}>
-      {i > 0 && <View style={styles.divider} />}
-      <View style={[styles.tileBox, styles.tileBoxFlex]}>
-        <SkeletonBlock height={14} borderRadius={4} style={{ width: '55%', marginBottom: 8 }} />
-        <SkeletonBlock height={32} borderRadius={6} style={{ width: '70%', marginBottom: 6 }} />
-        <SkeletonBlock height={12} borderRadius={4} style={{ width: '45%' }} />
-      </View>
-    </React.Fragment>
+    <View key={i} style={[styles.tileBox, styles.tileBoxFlex]}>
+      <SkeletonBlock height={56} borderRadius={4} style={{ width: '70%', marginBottom: 10 }} />
+      <SkeletonBlock height={12} borderRadius={4} style={{ width: '55%', marginBottom: 4 }} />
+    </View>
   ));
 
   return (
-    <DashCard
-      style={styles.strip}
-      infoText="Five live headline stats across all tracked political accounts. Each tile updates as the selected time range changes. Tap ? on any tile's label for an explanation of that specific metric."
-      infoTitle="Key Stats"
-    >
+    <View style={styles.strip}>
       <DevLabel name="header-scorecard" />
 
       {politicians.length === 0 ? (
-        // Skeleton — always a plain row (no scroll needed, flex:1 tiles)
         <View style={styles.row}>{skeletonNodes}</View>
       ) : isDesktop ? (
-        // Desktop — flex row, tiles expand equally, no scroll
         <View style={styles.row}>{tileNodes}</View>
       ) : (
-        // Mobile / tablet — horizontal scroll inside the strip
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -201,70 +185,65 @@ export function KeyFindingsBar({ politicians, range = 'yesterday' }: Props) {
           {tileNodes}
         </ScrollView>
       )}
-    </DashCard>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  // Davos-style strip — no card chrome, just big numbers floating on the page.
   strip: {
-    width: '100%',
-    overflow: 'hidden',
-    paddingHorizontal: 24,
+    width:             '100%',
+    paddingHorizontal: spacing.xl,
+    paddingVertical:   spacing.xl,
   },
-  // Desktop inner row — tiles flex equally
   row: {
     flexDirection: 'row',
-    width: '100%',
+    width:         '100%',
+    gap:           spacing.xxl,
   },
-  // Mobile scroll content container
   mobileRow: {
     flexDirection: 'row',
+    gap:           spacing.xl,
   },
-  // Shared tile base — padding, spacing
   tileBox: {
-    padding: spacing.md,
-    paddingVertical: spacing.lg,
-    gap: spacing.xxs,
-    justifyContent: 'center',
+    paddingVertical: spacing.md,
+    gap:             6,
   },
-  // Desktop tile — flex:1 so all 5 split the strip equally
-  tileBoxFlex: {
-    flex: 1,
-  },
-  // Thin vertical divider between tiles
-  divider: {
-    width: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.07)',
-    alignSelf: 'stretch',
-  },
-  kickerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginBottom: 2,
-  },
-  kicker: {
-    ...type.caption,
-    color: neutral.textDim,
-    fontSize: 11,
-    letterSpacing: 0.6,
-  },
+  tileBoxFlex: { flex: 1 },
+
+  // Hero number — large, mono, accent-coloured. The Davos visual signature.
   valueNumeric: {
-    fontFamily: font.mono,
-    fontSize: 28,
-    fontWeight: '700',
-    letterSpacing: -0.8,
+    fontFamily:    font.mono,
+    fontSize:      56,
+    fontWeight:    '700',
+    letterSpacing: -1.5,
+    lineHeight:    60,
   },
   valueText: {
-    fontFamily: font.bold,
-    fontSize: 22,
-    letterSpacing: -0.3,
-    lineHeight: 28,
+    fontFamily:    font.bold,
+    fontWeight:    '700',
+    fontSize:      36,
+    letterSpacing: -0.5,
+    lineHeight:    40,
+  },
+
+  // Tiny label below — uppercase, dim, info-tip inline
+  kickerRow: {
+    flexDirection: 'row',
+    alignItems:    'center',
+    gap:           6,
+    marginTop:     6,
+  },
+  kicker: {
+    fontFamily:    font.ui,
+    color:         neutral.textMid,
+    fontSize:      12,
+    letterSpacing: 1.4,
+    textTransform: 'uppercase',
   },
   suffix: {
     ...type.body,
-    color: neutral.textDim,
+    color:    neutral.textDim,
     fontSize: 12,
-    marginTop: 2,
   },
 });

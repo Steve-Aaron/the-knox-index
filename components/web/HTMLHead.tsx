@@ -138,18 +138,24 @@ export function HTMLHead() {
       <meta property="og:description" content={BRAND.description} />
       <meta property="og:type"        content="website" />
 
-      {/* ── Fonts ────────────────────────────────────────────────── */}
+      {/* ── Figtree — single source of truth for the app's typeface ─────── */}
       <link rel="preconnect" href="https://fonts.googleapis.com" />
       <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
       <link
-        href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap"
+        href="https://fonts.googleapis.com/css2?family=Figtree:ital,wght@0,300..900;1,300..900&display=swap"
         rel="stylesheet"
       />
 
-      {/* ── Icons ────────────────────────────────────────────────── */}
+      {/* Apply Figtree to every text node. Components no longer need to
+          set fontFamily themselves — weights still come through fontWeight. */}
+      <style dangerouslySetInnerHTML={{ __html: `
+        html, body, * { font-family: 'Figtree', sans-serif; }
+      ` }} />
+
+      {/* ── Icons (FontAwesome 7 — web only; native uses bundled FA6) ── */}
       <link
         rel="stylesheet"
-        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css"
       />
 
       {/* ── Brand design tokens ──────────────────────────────────── */}

@@ -96,7 +96,7 @@ export default function PrivacyScreen() {
 
   return (
     <View style={styles.root}>
-      <LinearGradient colors={['#0D0D18', '#050509']} style={StyleSheet.absoluteFill} />
+      <LinearGradient colors={['#1F1D1D', '#1F1D1D', '#35393B']} locations={[0, 0.75, 1]} style={StyleSheet.absoluteFill} />
 
       <SafeAreaView style={styles.safe} edges={['top']}>
 

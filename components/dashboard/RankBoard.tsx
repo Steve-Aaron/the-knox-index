@@ -5,10 +5,10 @@ import { DevLabel } from '@/components/primitives/DevLabel';
 import { SkeletonBlock } from '@/components/primitives/SkeletonBlock';
 import { RankBoardRow } from './RankBoardRow';
 import { ViewTabs, VIEW_ACCOUNT_TYPES, type ViewType } from './ViewTabs';
-import { neutral, glass, party, brand } from '@/theme/colors';
+import { neutral, glass, party, brand, knox } from '@/theme/colors';
 import type { PartyKey } from '@/theme/colors';
 import { spacing, radius } from '@/theme/spacing';
-import { type } from '@/theme/typography';
+import { type, font } from '@/theme/typography';
 import type { Politician, ScoreKey } from '@/data/types';
 
 const PARTY_LABELS: Partial<Record<PartyKey, string>> = {
@@ -175,35 +175,74 @@ export function RankBoard({ politicians, activeId, headlineKey, timeRangeLabel, 
                 <SkeletonBlock key={i} height={h} borderRadius={14} />
               ))
             : <Text style={styles.emptyText}>No accounts match the current filter.</Text>
-          : ranked.map((p, i) => {
-              const blurred = !isRegistered && i >= 5;
-              const row = (
-                <RankBoardRow
-                  key={p.id}
-                  politician={p}
-                  rank={i + 1}
-                  headlineKey={headlineKey}
-                  active={p.id === activeId}
-                  onPress={() => onSelect(p.id)}
-                />
-              );
-              if (!blurred) return row;
+          : (() => {
+              // Split into visible (top 5 for guests, all for registered users)
+              // and locked rows so the registration prompt can sit over the
+              // blurred block instead of being inlined awkwardly between rows.
+              const cutoff = isRegistered ? ranked.length : Math.min(5, ranked.length);
+              const visible = ranked.slice(0, cutoff);
+              const locked  = isRegistered ? [] : ranked.slice(cutoff);
+
               return (
-                <View
-                  key={p.id}
-                  style={[
-                    styles.blurWrap,
-                    Platform.select({
-                      web: { filter: 'blur(3px)', opacity: 0.55 } as any,
-                      default: { opacity: 0.2 },
-                    }),
-                  ]}
-                  pointerEvents="none"
-                >
-                  {row}
-                </View>
+                <>
+                  {visible.map((p, i) => (
+                    <RankBoardRow
+                      key={p.id}
+                      politician={p}
+                      rank={i + 1}
+                      headlineKey={headlineKey}
+                      active={p.id === activeId}
+                      onPress={() => onSelect(p.id)}
+                    />
+                  ))}
+
+                  {locked.length > 0 && (
+                    <View style={styles.lockedSection} pointerEvents="box-none">
+                      {/* Blurred placeholder rows — give the overlay something
+                          to sit on top of so the prompt feels tied to the data
+                          it's hiding rather than floating in empty space. */}
+                      <View
+                        style={[
+                          styles.lockedRows,
+                          Platform.select({
+                            web: { filter: 'blur(3px)', opacity: 0.55 } as any,
+                            default: { opacity: 0.2 },
+                          }),
+                        ]}
+                        pointerEvents="none"
+                      >
+                        {locked.map((p, i) => (
+                          <RankBoardRow
+                            key={p.id}
+                            politician={p}
+                            rank={cutoff + i + 1}
+                            headlineKey={headlineKey}
+                            active={false}
+                            onPress={() => undefined}
+                          />
+                        ))}
+                      </View>
+
+                      {/* Centered prompt — absolutely positioned over the blur */}
+                      <View style={styles.lockedOverlay} pointerEvents="box-none">
+                        <View style={styles.lockedPromptCard}>
+                          <Text style={styles.lockedKicker}>LOCKED</Text>
+                          <Text style={styles.lockedTitle}>
+                            Register to see all {ranked.length} politicians
+                          </Text>
+                          <Text style={styles.lockedBody}>
+                            Unlock the full leaderboard, filter by party and political alignment, and access every post.
+                          </Text>
+                          <View style={styles.lockedButton}>
+                            <Text style={styles.lockedButtonText}>SCROLL DOWN TO REGISTER ↓</Text>
+                          </View>
+                        </View>
+                      </View>
+                    </View>
+                  )}
+                </>
               );
-            })
+            })()
         }
       </ScrollView>
     </DashCard>
@@ -273,5 +312,79 @@ const styles = StyleSheet.create({
     // Platform-specific blur applied inline via Platform.select in the JSX.
     // This style provides only layout — no visual properties here.
     userSelect: 'none' as any,
+  },
+
+  // ── Locked / registration overlay ────────────────────────────────────────
+  lockedSection: {
+    position:  'relative',
+    minHeight: 220,
+    marginTop: spacing.sm,
+  },
+  lockedRows: {
+    gap: spacing.sm,
+  },
+  lockedOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems:      'center',
+    justifyContent:  'center',
+    paddingHorizontal: spacing.md,
+  },
+  lockedPromptCard: {
+    backgroundColor:   'rgba(31,29,29,0.92)',
+    borderWidth:       1,
+    borderColor:       knox.primaryPink,
+    paddingHorizontal: spacing.lg,
+    paddingVertical:   spacing.lg,
+    gap:               6,
+    maxWidth:          340,
+    alignItems:        'center',
+    ...Platform.select({
+      web: {
+        backdropFilter:       'blur(8px)',
+        WebkitBackdropFilter: 'blur(8px)',
+        boxShadow:            '0 16px 48px rgba(232,60,145,0.28)',
+      } as any,
+      default: {
+        shadowColor:   knox.primaryPink,
+        shadowOpacity: 0.4,
+        shadowRadius:  24,
+        shadowOffset:  { width: 0, height: 8 },
+      },
+    }),
+  },
+  lockedKicker: {
+    fontFamily:    font.bold,
+    fontSize:      11,
+    color:         knox.primaryPink,
+    letterSpacing: 2,
+  },
+  lockedTitle: {
+    fontFamily: font.bold,
+    fontSize:   18,
+    color:      neutral.text,
+    textAlign:  'center',
+    lineHeight: 22,
+  },
+  lockedBody: {
+    fontFamily: font.ui,
+    fontSize:   12,
+    color:      neutral.textMid,
+    lineHeight: 17,
+    textAlign:  'center',
+    marginTop:  4,
+  },
+  lockedButton: {
+    marginTop:         spacing.sm,
+    borderWidth:       1,
+    borderColor:       knox.primaryPink,
+    backgroundColor:   'rgba(232,60,145,0.12)',
+    paddingHorizontal: spacing.md,
+    paddingVertical:   spacing.sm,
+  },
+  lockedButtonText: {
+    fontFamily:    font.bold,
+    fontSize:      11,
+    color:         knox.primaryPink,
+    letterSpacing: 1.2,
   },
 });

@@ -8,6 +8,7 @@ import {
   Platform,
   useWindowDimensions,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { breakpoints } from '@/theme/breakpoints';
 import DraggableFlatList, {
   ScaleDecorator,
@@ -319,7 +320,6 @@ export function PostsTable({
   return (
     <DashCard style={styles.wrap} topAccent={undefined}>
       <DevLabel name="PostsTable" />
-      <View style={[styles.accentStrip, { backgroundColor: accent.pink }]} />
 
       <View style={styles.inner}>
 
@@ -717,7 +717,17 @@ function PostCard({ post, index, benchmarks, onPress, drag, isActive, compact, a
               </View>
             }
           />
-          <View style={[styles.partyStripe, { backgroundColor: colour.base }]} />
+          {/* Party-coloured corner halo — replaces the old left-edge line.
+              Radiates from the top-left of the cover so the party identity
+              still reads but the card feels lit from within rather than
+              ruled into a column. */}
+          <LinearGradient
+            colors={[`${colour.glow}55`, 'transparent']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0.7, y: 0.7 }}
+            style={styles.coverHalo}
+            pointerEvents="none"
+          />
           <View style={styles.viewsBadge}>
             <Text style={styles.viewsNum}>{formatters.compact(post.views)}</Text>
             <Text style={styles.viewsLbl}> views</Text>
@@ -889,7 +899,6 @@ const GAP = 40 ; // set the gap between the snapping elements
 
 const styles = StyleSheet.create({
   wrap: { overflow: 'hidden' },
-  accentStrip: { height: 3, width: '100%', opacity: 0.7 },
   inner: { padding: spacing.lg, gap: spacing.md },
 
   // Header
@@ -1134,10 +1143,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   coverPlayIcon: { fontSize: 24, color: neutral.textDim },
-  partyStripe: {
-    position: 'absolute',
-    left: 0, top: 0, bottom: 0,
-    width: 3,
+  // ── Cover halo — replaces the old left-edge party line ───────────────────
+  // Soft radial gradient from the top-left corner, party-coloured. Adds
+  // identity without the 'sidebar rule' feel of a 3px vertical stripe.
+  coverHalo: {
+    position: 'absolute' as any,
+    top: 0, left: 0, right: 0, bottom: 0,
   },
   viewsBadge: {
     position: 'absolute',

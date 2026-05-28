@@ -16,6 +16,7 @@ import { ScoreCard } from '@/components/account/ScoreCard';
 import { AccountPostCard } from '@/components/account/AccountPostCard';
 import { SkeletonBlock } from '@/components/primitives/SkeletonBlock';
 import { DevPanel } from '@/components/primitives/DevPanel';
+import { HeaderNav } from '@/components/primitives/HeaderNav';
 import { neutral, accent } from '@/theme/colors';
 import { spacing } from '@/theme/spacing';
 import { type, font } from '@/theme/typography';
@@ -119,15 +120,15 @@ export default function AccountPage() {
 
   return (
     <View style={styles.root}>
-      {/* Background gradient — matches main dashboard */}
+      {/* Knox product gradient — dark for the top 75%, horizon glow at the foot */}
       <LinearGradient
-        colors={['#1A0B2E', '#0D1117', '#0A1628']}
-        start={{ x: 0.2, y: 0 }}
-        end={{ x: 0.8, y: 1 }}
+        colors={['#1F1D1D', '#1F1D1D', '#35393B']}
+        locations={[0, 0.75, 1]}
         style={StyleSheet.absoluteFill}
       />
 
       <SafeAreaView style={styles.safeArea}>
+        <HeaderNav />
         <ScrollView
           showsVerticalScrollIndicator={false}
           contentContainerStyle={[styles.scroll, { paddingHorizontal: hPad }]}

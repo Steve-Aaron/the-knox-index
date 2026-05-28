@@ -31,8 +31,10 @@ import { SignupFooter }        from './SignupFooter';
 export function SignupPage() {
   return (
     <View style={styles.root}>
+      {/* Knox product gradient — dark for the top 75%, horizon glow at the foot */}
       <LinearGradient
-        colors={['#1A1820', '#1F1D1D']}
+        colors={['#1F1D1D', '#1F1D1D', '#35393B']}
+        locations={[0, 0.75, 1]}
         style={StyleSheet.absoluteFill}
       />
 

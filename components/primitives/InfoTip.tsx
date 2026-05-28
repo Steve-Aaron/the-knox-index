@@ -12,6 +12,7 @@ import { neutral, accent } from '@/theme/colors';
 import { font } from '@/theme/typography';
 import { spacing, radius } from '@/theme/spacing';
 import { DevLabel } from '@/components/primitives/DevLabel';
+import { Interstitial } from '@/components/primitives/Interstitial';
 
 /**
  * InfoTip + InfoTipModal
@@ -105,65 +106,29 @@ interface ModalProps {
   width?:   number;
 }
 
+// Helper popovers render as edge-to-edge interstitials — the (?) click is
+// a takeover, not a tooltip. The `title` becomes the kicker tag so visitors
+// still see 'WHAT DOES THIS MEAN?' framing.
 export function InfoTipModal({
   visible,
   onClose,
   title    = 'What does this mean?',
   text,
   children,
-  width    = 280,
+  // width retained for backwards compatibility; ignored — interstitial is
+  // intentionally full-screen.
+  width: _width,
 }: ModalProps) {
-  if (!visible) return null;
-
-  const body = (
-    <>
-      <View style={styles.modalHeader}>
-        <Text style={styles.modalTitle}>{title}</Text>
-        <Pressable
-          onPress={onClose}
-          style={({ pressed }) => [styles.closeBtn, pressed && { opacity: 0.6 }]}
-          accessibilityRole="button"
-          accessibilityLabel="Close"
-        >
-          <Text style={styles.closeBtnText}>✕</Text>
-        </Pressable>
-      </View>
-      {children ? children : (text ? <Text style={styles.modalText}>{text}</Text> : null)}
-    </>
-  );
-
-  if (Platform.OS === 'web') {
-    // Web: fixed full-screen backdrop + centred card
-    return (
-      <View style={styles.backdropFixed as any}>
-        <Pressable style={styles.backdropHit} onPress={onClose} />
-        <View style={styles.centreWrap} pointerEvents="box-none">
-          <MotiView
-            from={{ opacity: 0, scale: 0.94 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ type: 'timing', duration: 180 }}
-            style={[styles.card, { maxWidth: width }] as any}
-          >
-            {body}
-          </MotiView>
-        </View>
-      </View>
-    );
-  }
-
-  // Native: large absolute backdrop around the call site
   return (
-    <View style={styles.backdropAbsolute} pointerEvents="box-none">
-      <Pressable style={StyleSheet.absoluteFillObject} onPress={onClose} />
-      <MotiView
-        from={{ opacity: 0, scale: 0.94 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ type: 'timing', duration: 180 }}
-        style={[styles.card, { maxWidth: width }]}
-      >
-        {body}
-      </MotiView>
-    </View>
+    <Interstitial
+      visible={visible}
+      onClose={onClose}
+      kicker={title.toUpperCase()}
+      text={text}
+      fullScreen
+    >
+      {children}
+    </Interstitial>
   );
 }
 

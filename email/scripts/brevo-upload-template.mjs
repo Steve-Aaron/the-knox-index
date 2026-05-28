@@ -32,11 +32,25 @@ const keyMatch = envText.match(/^BREVO_API_KEY=["']?([^"'\r\n]+)["']?/m);
 if (!keyMatch) { console.error('BREVO_API_KEY not found in .env.local'); process.exit(1); }
 const API_KEY = keyMatch[1].trim();
 
-// ── Load template HTML ────────────────────────────────────────────────────────
+// ── Load template HTML + resolve <!-- INCLUDE: x --> markers ─────────────────
 const templatePath = path.resolve(__dir, '../briefing_template.html');
-const htmlContent  = fs.readFileSync(templatePath, 'utf8');
+const componentsDir = path.resolve(__dir, '../components');
+
+function resolveIncludes(html) {
+  return html.replace(/<!--\s*INCLUDE:\s*([^\s]+)\s*-->/g, (_, fname) => {
+    const componentPath = path.join(componentsDir, fname);
+    if (!fs.existsSync(componentPath)) {
+      throw new Error(`Include not found: ${componentPath}`);
+    }
+    console.log(`  ↳ inlining ${fname}`);
+    return fs.readFileSync(componentPath, 'utf8');
+  });
+}
+
+const rawTemplate  = fs.readFileSync(templatePath, 'utf8');
+const htmlContent  = resolveIncludes(rawTemplate);
 console.log(`Template file: ${templatePath}`);
-console.log(`Template size: ${(htmlContent.length / 1024).toFixed(1)} KB`);
+console.log(`Template size: ${(htmlContent.length / 1024).toFixed(1)} KB (after resolving ${(rawTemplate.match(/<!--\s*INCLUDE:/g) || []).length} includes)`);
 
 // ── Brevo API ─────────────────────────────────────────────────────────────────
 async function brevo(method, endpoint, body) {
