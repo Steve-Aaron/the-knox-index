@@ -7,21 +7,26 @@
  * cookie — unauthenticated requests are rejected with 401.
  *
  * Body: {
- *   firstName?:             string,
- *   lastName?:              string,
- *   company?:               string,
- *   linkedin?:              string,
- *   segment?:               string,
- *   interests?:             string[],
- *   consentKnoxUpdates?:    boolean,
- *   consentDailyBriefing?:  boolean,
- *   consentKnoxDigital?:    boolean,
+ *   firstName?:              string,
+ *   lastName?:               string,
+ *   company?:                string,
+ *   linkedin?:               string,
+ *   segment?:                string,
+ *   interests?:              string[],
+ *   consentKnoxUpdates?:     boolean,
+ *   consentDailyBriefing?:   boolean,
+ *   consentWeeklyBriefing?:  boolean,
+ *   consentKnoxDigital?:     boolean,
  * }
+ *
+ * Daily and Weekly are mutually exclusive (UI enforces this; we coerce
+ * defensively below so a malformed client can't end up on both lists).
  *
  * Brevo attributes updated:
  *   FIRSTNAME, LASTNAME, COMPANY, LINKEDIN,
  *   JOB_ROLE, WHY_USE_KNOX_INDEX (array → multiple-choice),
- *   CONSENT_KNOX_INDEX_UPDATES, CONSENT_DAILY_BRIEFING, CONSENT_KNOX_DIGITAL
+ *   CONSENT_KNOX_INDEX_UPDATES, CONSENT_DAILY_BRIEFING,
+ *   CONSENT_WEEKLY_BRIEFING, CONSENT_KNOX_DIGITAL
  *
  * One job: persist user preferences to Brevo on behalf of an authenticated user.
  */
@@ -60,9 +65,16 @@ export async function POST(request: Request): Promise<Response> {
     ? body.interests.map((x: any) => String(x).slice(0, 64)).slice(0, 10)
     : [];
 
-  const consentKnoxUpdates:   boolean = !!body?.consentKnoxUpdates;
-  const consentDailyBriefing: boolean = !!body?.consentDailyBriefing;
-  const consentKnoxDigital:   boolean = !!body?.consentKnoxDigital;
+  const consentKnoxUpdates:    boolean = !!body?.consentKnoxUpdates;
+  const consentKnoxDigital:    boolean = !!body?.consentKnoxDigital;
+  // Briefing frequency is mutually exclusive — coerce defensively so a
+  // malformed client request can never put a user on both lists. If both
+  // booleans come in true, daily wins (matches FrequencyPicker's tiebreak).
+  let consentDailyBriefing:  boolean = !!body?.consentDailyBriefing;
+  let consentWeeklyBriefing: boolean = !!body?.consentWeeklyBriefing;
+  if (consentDailyBriefing && consentWeeklyBriefing) {
+    consentWeeklyBriefing = false;
+  }
 
   const attributes: Record<string, BrevoValue> = {};
   if (firstName)        attributes.FIRSTNAME              = firstName;
@@ -73,9 +85,11 @@ export async function POST(request: Request): Promise<Response> {
   if (interests.length) attributes.WHY_USE_KNOX_INDEX     = interests;
 
   // Always write consent flags — even false is meaningful. These mirror
-  // Brevo list membership (lists #4 / #7 / #8) which is the source of truth.
+  // Brevo list membership (lists #4 / #7 / #8 / #9) which is the source
+  // of truth.
   attributes.CONSENT_KNOX_INDEX_UPDATES = consentKnoxUpdates;
   attributes.CONSENT_DAILY_BRIEFING     = consentDailyBriefing;
+  attributes.CONSENT_WEEKLY_BRIEFING    = consentWeeklyBriefing;
   attributes.CONSENT_KNOX_DIGITAL       = consentKnoxDigital;
 
   const result = await upsertWithConsent(
@@ -83,6 +97,7 @@ export async function POST(request: Request): Promise<Response> {
     attributes,
     {
       CONSENT_DAILY_BRIEFING:     consentDailyBriefing,
+      CONSENT_WEEKLY_BRIEFING:    consentWeeklyBriefing,
       CONSENT_KNOX_INDEX_UPDATES: consentKnoxUpdates,
       CONSENT_KNOX_DIGITAL:       consentKnoxDigital,
     },

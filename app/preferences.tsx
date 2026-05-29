@@ -17,6 +17,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { HeaderNav } from '@/components/primitives/HeaderNav';
+import { FrequencyPicker } from '@/components/primitives/FrequencyPicker';
 import { useAuth } from '@/hooks/useAuth';
 import { neutral, glass, accent } from '@/theme/colors';
 import { spacing, radius } from '@/theme/spacing';
@@ -40,15 +41,16 @@ import { track } from '@/lib/analytics';
 
 // ── localStorage keys ─────────────────────────────────────────────────────────
 const LS = {
-  FIRSTNAME:        'tki_firstname',
-  LASTNAME:         'tki_lastname',
-  COMPANY:          'tki_company',
-  LINKEDIN:         'tki_linkedin',
-  SEGMENT:          'tki_segment',
-  INTERESTS:        'tki_interests',
-  CONSENT_UPDATES:  'tki_consent_updates',
-  CONSENT_BRIEFING: 'tki_consent_briefing',
-  CONSENT_KNOX:     'tki_consent_knox',
+  FIRSTNAME:         'tki_firstname',
+  LASTNAME:          'tki_lastname',
+  COMPANY:           'tki_company',
+  LINKEDIN:          'tki_linkedin',
+  SEGMENT:           'tki_segment',
+  INTERESTS:         'tki_interests',
+  CONSENT_UPDATES:   'tki_consent_updates',
+  CONSENT_BRIEFING:  'tki_consent_briefing',          // legacy daily-only flag
+  CONSENT_WEEKLY:    'tki_consent_weekly_briefing',   // new — paired with above
+  CONSENT_KNOX:      'tki_consent_knox',
 };
 
 function readLS(key: string): string {
@@ -127,7 +129,11 @@ export default function PreferencesScreen() {
   const [interests,       setInterests]       = useState<string[]>([]);
   const [otherText,       setOtherText]       = useState('');
   const [consentUpdates,  setConsentUpdates]  = useState(true);
-  const [consentBriefing, setConsentBriefing] = useState(true);
+  // Briefing is a mutually-exclusive pair (Daily / Weekly / None). State
+  // stays as two booleans to mirror Brevo; the FrequencyPicker enforces
+  // exclusion so we never end up with both true.
+  const [consentDaily,    setConsentDaily]    = useState(false);
+  const [consentWeekly,   setConsentWeekly]   = useState(false);
   const [consentKnox,     setConsentKnox]     = useState(false);
   const [saveState,        setSaveState]       = useState<SaveState>('idle');
   const [copied,           setCopied]          = useState(false);
@@ -150,10 +156,15 @@ export default function PreferencesScreen() {
       setSegment(seg || null);
     }
     setInterests(readLSArray(LS.INTERESTS));
-    const savedUpdates  = readLS(LS.CONSENT_UPDATES);
-    const savedBriefing = readLS(LS.CONSENT_BRIEFING);
-    setConsentUpdates(savedUpdates   === '' ? true : savedUpdates   === '1');
-    setConsentBriefing(savedBriefing === '' ? true : savedBriefing  === '1');
+    const savedUpdates = readLS(LS.CONSENT_UPDATES);
+    setConsentUpdates(savedUpdates === '' ? true : savedUpdates === '1');
+    // Briefing pair — read both keys. If the legacy daily-only key was set
+    // but the new weekly key is missing, the existing daily subscription
+    // carries over unchanged. New users with no history land on 'none'.
+    const savedDaily  = readLS(LS.CONSENT_BRIEFING);
+    const savedWeekly = readLS(LS.CONSENT_WEEKLY);
+    setConsentDaily(savedDaily   === '1');
+    setConsentWeekly(savedWeekly === '1');
     setConsentKnox(readLS(LS.CONSENT_KNOX) === '1');
   }, []);
 
@@ -201,9 +212,10 @@ export default function PreferencesScreen() {
       localStorage.setItem(LS.LINKEDIN,         linkedin.trim());
       localStorage.setItem(LS.SEGMENT,          resolvedSegment);
       localStorage.setItem(LS.INTERESTS,        JSON.stringify(interests));
-      localStorage.setItem(LS.CONSENT_UPDATES,  consentUpdates  ? '1' : '0');
-      localStorage.setItem(LS.CONSENT_BRIEFING, consentBriefing ? '1' : '0');
-      localStorage.setItem(LS.CONSENT_KNOX,     consentKnox     ? '1' : '0');
+      localStorage.setItem(LS.CONSENT_UPDATES,  consentUpdates ? '1' : '0');
+      localStorage.setItem(LS.CONSENT_BRIEFING, consentDaily   ? '1' : '0');
+      localStorage.setItem(LS.CONSENT_WEEKLY,   consentWeekly  ? '1' : '0');
+      localStorage.setItem(LS.CONSENT_KNOX,     consentKnox    ? '1' : '0');
       localStorage.setItem('tki_profiled', '1');
     }
 
@@ -213,23 +225,25 @@ export default function PreferencesScreen() {
         credentials: 'same-origin',
         headers:     { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          firstName:            firstName.trim(),
-          lastName:             lastName.trim(),
-          company:              company.trim(),
-          linkedin:             linkedin.trim(),
-          segment:              resolvedSegment,
+          firstName:             firstName.trim(),
+          lastName:              lastName.trim(),
+          company:               company.trim(),
+          linkedin:              linkedin.trim(),
+          segment:               resolvedSegment,
           interests,
-          consentKnoxUpdates:   consentUpdates,
-          consentDailyBriefing: consentBriefing,
-          consentKnoxDigital:   consentKnox,
+          consentKnoxUpdates:    consentUpdates,
+          consentDailyBriefing:  consentDaily,
+          consentWeeklyBriefing: consentWeekly,
+          consentKnoxDigital:    consentKnox,
         }),
       });
       track('preferences_saved', {
-        has_name:        !!(firstName.trim() || lastName.trim()),
-        segment:         resolvedSegment,
-        interests_count: interests.length,
-        consent_updates: consentUpdates,
-        consent_briefing: consentBriefing,
+        has_name:                !!(firstName.trim() || lastName.trim()),
+        segment:                 resolvedSegment,
+        interests_count:         interests.length,
+        consent_updates:         consentUpdates,
+        consent_daily_briefing:  consentDaily,
+        consent_weekly_briefing: consentWeekly,
       });
       setSaveState('saved');
       setTimeout(() => setSaveState('idle'), 2400);
@@ -237,7 +251,7 @@ export default function PreferencesScreen() {
       setSaveState('error');
       setTimeout(() => setSaveState('idle'), 3000);
     }
-  }, [firstName, lastName, company, linkedin, segment, otherText, interests, consentUpdates, consentBriefing, consentKnox]);
+  }, [firstName, lastName, company, linkedin, segment, otherText, interests, consentUpdates, consentDaily, consentWeekly, consentKnox]);
 
   if (loading || !isRegistered) return null;
 
@@ -538,14 +552,25 @@ export default function PreferencesScreen() {
               <Text style={styles.cardHint}>Optional</Text>
             </View>
 
-            <View style={styles.consentCard}>
-              <ConsentRow
-                checked={consentBriefing}
-                onToggle={() => setConsentBriefing(v => !v)}
-                label="The Knox Index Daily Briefing"
-                desc="A morning email with the top political TikTok stories of the day, delivered to your inbox."
+            {/* Briefing frequency — Daily / Weekly / None radio-style picker.
+                Sits above the other consent rows because it's the primary
+                marketing-comms choice. */}
+            <View style={styles.briefingBlock}>
+              <Text style={styles.briefingLabel}>The Knox Index Briefing</Text>
+              <Text style={styles.briefingDesc}>
+                A digest of the top political TikTok stories — pick how often you'd like it.
+              </Text>
+              <FrequencyPicker
+                daily={consentDaily}
+                weekly={consentWeekly}
+                onChange={({ daily, weekly }) => {
+                  setConsentDaily(daily);
+                  setConsentWeekly(weekly);
+                }}
               />
-              <View style={styles.consentDivider} />
+            </View>
+
+            <View style={styles.consentCard}>
               <ConsentRow
                 checked={consentUpdates}
                 onToggle={() => setConsentUpdates(v => !v)}
@@ -800,6 +825,24 @@ const styles = StyleSheet.create({
     backgroundColor: accent.indigo,
     alignItems:      'center',
     justifyContent:  'center',
+  },
+
+  // Briefing frequency block (sits above the other consent rows)
+  briefingBlock: {
+    gap: spacing.sm,
+  },
+  briefingLabel: {
+    fontFamily: font.bold,
+    fontWeight: '700',
+    fontSize:   16,
+    color:      neutral.text,
+  },
+  briefingDesc: {
+    fontFamily: font.ui,
+    fontSize:   12,
+    color:      neutral.textDim,
+    lineHeight: 16,
+    marginBottom: spacing.xs,
   },
 
   // Consent

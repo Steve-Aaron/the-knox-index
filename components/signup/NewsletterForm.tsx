@@ -15,6 +15,7 @@ import { spacing, radius } from '@/theme/spacing';
 import { font } from '@/theme/typography';
 import { SEGMENTS, INTERESTS } from '@/data/profileOptions';
 import { DevLabel } from '@/components/primitives/DevLabel';
+import { FrequencyPicker } from '@/components/primitives/FrequencyPicker';
 
 /**
  * NewsletterForm
@@ -100,7 +101,12 @@ export function NewsletterForm() {
   const [company,         setCompany]         = useState('');
   const [segment,         setSegment]         = useState<string | null>(null);
   const [interests,       setInterests]       = useState<string[]>([]);
-  const [consentBriefing, setConsentBriefing] = useState(true);
+  // Briefing frequency — two mutually-exclusive booleans matching the
+  // Brevo consent model. Default to 'daily' so a one-click signup still
+  // produces a useful subscription; the picker lets users pick weekly or
+  // opt out entirely before submit.
+  const [consentDaily,    setConsentDaily]    = useState(true);
+  const [consentWeekly,   setConsentWeekly]   = useState(false);
   const [consentUpdates,  setConsentUpdates]  = useState(true);
   const [consentKnox,     setConsentKnox]     = useState(false);
   const [formState,       setFormState]       = useState<FormState>('idle');
@@ -130,11 +136,15 @@ export function NewsletterForm() {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          email:            email.trim().toLowerCase(),
-          company:          company.trim(),
-          segment:          segment ?? '',
+          email:                 email.trim().toLowerCase(),
+          company:               company.trim(),
+          segment:               segment ?? '',
           interests,
-          consentBriefing,
+          // Old daily-only flag kept for back-compat with /api/signup;
+          // weekly flag is new. Server enforces mutual exclusion.
+          consentBriefing:       consentDaily,
+          consentDailyBriefing:  consentDaily,
+          consentWeeklyBriefing: consentWeekly,
           consentUpdates,
           consentKnox,
         }),
@@ -145,7 +155,7 @@ export function NewsletterForm() {
       setFormState('error');
       setTimeout(() => setFormState('idle'), 4000);
     }
-  }, [email, company, segment, interests, consentBriefing, consentUpdates, consentKnox, formState]);
+  }, [email, company, segment, interests, consentDaily, consentWeekly, consentUpdates, consentKnox, formState]);
 
   // ── Success ─────────────────────────────────────────────────────────────────
   if (formState === 'success') {
@@ -333,14 +343,20 @@ export function NewsletterForm() {
         </View>
       </View>
 
-      <View style={styles.consentCard}>
-        <ConsentRow
-          checked={consentBriefing}
-          onToggle={() => setConsentBriefing(v => !v)}
-          label="Daily Briefing"
-          desc="Morning email with top political TikTok stories."
+      {/* Briefing frequency — Daily / Weekly / None radio-style picker */}
+      <View style={styles.briefingBlock}>
+        <Text style={styles.briefingLabel}>The Knox Index Briefing</Text>
+        <FrequencyPicker
+          daily={consentDaily}
+          weekly={consentWeekly}
+          onChange={({ daily, weekly }) => {
+            setConsentDaily(daily);
+            setConsentWeekly(weekly);
+          }}
         />
-        <View style={styles.consentDivider} />
+      </View>
+
+      <View style={styles.consentCard}>
         <ConsentRow
           checked={consentUpdates}
           onToggle={() => setConsentUpdates(v => !v)}
@@ -516,6 +532,17 @@ const styles = StyleSheet.create({
 
   chipTextActive: {
     color: accent.indigo,
+  },
+
+  // Briefing frequency block (sits above the consent rows on step 3)
+  briefingBlock: {
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  briefingLabel: {
+    fontFamily: font.bold,
+    fontSize:   14,
+    color:      neutral.text,
   },
 
   // Consent

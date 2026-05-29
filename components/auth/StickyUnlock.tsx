@@ -23,6 +23,7 @@ import { breakpoints } from '@/theme/breakpoints';
 import { track } from '@/lib/analytics';
 import { SEGMENTS, INTERESTS } from '@/data/profileOptions';
 import { DevLabel } from '@/components/primitives/DevLabel';
+import { FrequencyPicker } from '@/components/primitives/FrequencyPicker';
 
 /**
  * StickyUnlock
@@ -406,7 +407,11 @@ function ProfilingModal({ email, onClose, onDone }: ProfilingModalProps) {
   const [otherText, setOtherText] = useState('');
   const [interests, setInterests] = useState<string[]>([]);
   const [consentUpdates,  setConsentUpdates]  = useState(true);
-  const [consentBriefing, setConsentBriefing] = useState(true);
+  // Briefing frequency — mutually-exclusive pair. Default to 'daily' so
+  // a user who skims through accepts the same subscription they would
+  // have under the old single-toggle flow.
+  const [consentDaily,    setConsentDaily]    = useState(true);
+  const [consentWeekly,   setConsentWeekly]   = useState(false);
   const [consentKnox,     setConsentKnox]     = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -434,9 +439,10 @@ function ProfilingModal({ email, onClose, onDone }: ProfilingModalProps) {
       localStorage.setItem('tki_linkedin',         linkedin.trim());
       localStorage.setItem('tki_segment',          resolvedSegment);
       localStorage.setItem('tki_interests',        JSON.stringify(interests));
-      localStorage.setItem('tki_consent_updates',  consentUpdates  ? '1' : '0');
-      localStorage.setItem('tki_consent_briefing', consentBriefing ? '1' : '0');
-      localStorage.setItem('tki_consent_knox',     consentKnox     ? '1' : '0');
+      localStorage.setItem('tki_consent_updates',          consentUpdates ? '1' : '0');
+      localStorage.setItem('tki_consent_briefing',         consentDaily   ? '1' : '0');
+      localStorage.setItem('tki_consent_weekly_briefing',  consentWeekly  ? '1' : '0');
+      localStorage.setItem('tki_consent_knox',             consentKnox    ? '1' : '0');
     }
 
     try {
@@ -455,25 +461,27 @@ function ProfilingModal({ email, onClose, onDone }: ProfilingModalProps) {
         credentials: 'same-origin',
         headers:     { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          firstName:            firstName.trim(),
-          lastName:             lastName.trim(),
-          company:              company.trim(),
-          linkedin:             linkedin.trim(),
-          segment:              resolvedSegment,
+          firstName:             firstName.trim(),
+          lastName:              lastName.trim(),
+          company:               company.trim(),
+          linkedin:              linkedin.trim(),
+          segment:               resolvedSegment,
           interests,
-          consentKnoxUpdates:   consentUpdates,
-          consentDailyBriefing: consentBriefing,
-          consentKnoxDigital:   consentKnox,
+          consentKnoxUpdates:    consentUpdates,
+          consentDailyBriefing:  consentDaily,
+          consentWeeklyBriefing: consentWeekly,
+          consentKnoxDigital:    consentKnox,
         }),
       });
     } catch { /* non-fatal */ }
 
     track('user_profiled', {
-      segment:         resolvedSegment ?? null,
-      interests:       interests.join(','),
-      interests_count: interests.length,
-      consent_updates: consentUpdates,
-      consent_briefing: consentBriefing,
+      segment:                 resolvedSegment ?? null,
+      interests:               interests.join(','),
+      interests_count:         interests.length,
+      consent_updates:         consentUpdates,
+      consent_daily_briefing:  consentDaily,
+      consent_weekly_briefing: consentWeekly,
     });
 
     setLoading(false);
@@ -661,14 +669,20 @@ function ProfilingModal({ email, onClose, onDone }: ProfilingModalProps) {
                 <Text style={proStyles.sectionTitle}>Stay in the loop</Text>
                 <Text style={proStyles.sectionHint}>Optional</Text>
               </View>
-              <View style={proStyles.consentCard}>
-                <ConsentRow
-                  checked={consentBriefing}
-                  onToggle={() => setConsentBriefing(v => !v)}
-                  label="The Knox Index Daily Briefing"
-                  desc="A morning email with the top political TikTok stories of the day, delivered to your inbox."
+              {/* Briefing frequency — Daily / Weekly / None */}
+              <View style={proStyles.briefingBlock}>
+                <Text style={proStyles.briefingLabel}>The Knox Index Briefing</Text>
+                <FrequencyPicker
+                  daily={consentDaily}
+                  weekly={consentWeekly}
+                  onChange={({ daily, weekly }) => {
+                    setConsentDaily(daily);
+                    setConsentWeekly(weekly);
+                  }}
                 />
-                <View style={proStyles.consentDivider} />
+              </View>
+
+              <View style={proStyles.consentCard}>
                 <ConsentRow
                   checked={consentUpdates}
                   onToggle={() => setConsentUpdates(v => !v)}
@@ -1052,6 +1066,17 @@ const proStyles = StyleSheet.create({
     backgroundColor: accent.indigo,
     alignItems:      'center',
     justifyContent:  'center',
+  },
+
+  // Briefing frequency block (sits above the consent rows)
+  briefingBlock: {
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  briefingLabel: {
+    fontFamily: font.bold,
+    fontSize:   16,
+    color:      neutral.text,
   },
 
   // Consent

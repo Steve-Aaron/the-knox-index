@@ -25,12 +25,50 @@ const BREVO_BASE    = 'https://api.brevo.com/v3';
  *   4 → Knox Index Daily Briefing
  *   7 → Knox Index Updates (product news, reports)
  *   8 → Knox Digital (wider company contact)
+ *   9 → Knox Index Weekly Briefing
+ *
+ * Daily and Weekly are mutually exclusive in the UI; the
+ * `frequencyToConsents()` helper below enforces it on the way down.
  */
 export const BREVO_LISTS: Readonly<Record<string, number>> = {
   CONSENT_DAILY_BRIEFING:     Number(process.env.BREVO_LIST_DAILY_BRIEFING   ?? 4),
   CONSENT_KNOX_INDEX_UPDATES: Number(process.env.BREVO_LIST_KNOX_UPDATES     ?? 7),
   CONSENT_KNOX_DIGITAL:       Number(process.env.BREVO_LIST_KNOX_DIGITAL     ?? 8),
+  CONSENT_WEEKLY_BRIEFING:    Number(process.env.BREVO_LIST_WEEKLY_BRIEFING  ?? 9),
 };
+
+/**
+ * UI-friendly briefing frequency, derived from the daily/weekly consent
+ * pair. Use this when reading; for writes, go through
+ * `frequencyToConsents()` so the boolean pair is always mutually
+ * exclusive in Brevo's list state.
+ */
+export type BriefingFrequency = 'daily' | 'weekly' | 'none';
+
+/**
+ * Map a single frequency choice to the boolean pair our consent system
+ * already understands. Picking `daily` adds to list 4 and removes from
+ * list 9; picking `weekly` does the reverse; `none` removes from both.
+ */
+export function frequencyToConsents(freq: BriefingFrequency): {
+  CONSENT_DAILY_BRIEFING:  boolean;
+  CONSENT_WEEKLY_BRIEFING: boolean;
+} {
+  return {
+    CONSENT_DAILY_BRIEFING:  freq === 'daily',
+    CONSENT_WEEKLY_BRIEFING: freq === 'weekly',
+  };
+}
+
+/** Inverse helper — read state from the consent pair. */
+export function consentsToFrequency(c: {
+  CONSENT_DAILY_BRIEFING?:  boolean;
+  CONSENT_WEEKLY_BRIEFING?: boolean;
+}): BriefingFrequency {
+  if (c.CONSENT_DAILY_BRIEFING)  return 'daily';
+  if (c.CONSENT_WEEKLY_BRIEFING) return 'weekly';
+  return 'none';
+}
 
 export type BrevoValue = string | string[] | boolean | number;
 export type BrevoResult = { ok: boolean; status: number };
