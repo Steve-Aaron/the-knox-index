@@ -44,7 +44,6 @@ interface ActiveMarker {
   location: typeof UK_MARKER_LOCATIONS[number];
   post:     RecentPost;
   partyKey: PartyKey;
-  /** TikTok handle of the politician who posted the video — used as the card label. */
   handle:   string;
 }
 
