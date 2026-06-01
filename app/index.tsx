@@ -39,6 +39,8 @@ import { useSectionTracking } from '@/hooks/useSectionTracking';
 import { useBenchmarks } from '@/data/useBenchmarks';
 import { SkeletonBlock } from '@/components/primitives/SkeletonBlock';
 import { ErrorBoundary, ErrorScreen } from '@/components/primitives/ErrorBoundary';
+import { Kicker } from '@/components/ui/Kicker';
+import { Title } from '@/components/ui/Title';
 import { neutral, glass, accent, party, brand } from '@/theme/colors';
 import { spacing, radius } from '@/theme/spacing';
 import { type } from '@/theme/typography';
@@ -352,8 +354,8 @@ function DashboardScreenInner() {
             {...(Platform.OS === 'web' ? { 'data-container_name': 'row_title_bar' } as any : {})}
           >
             <View>
-              <Text style={styles.kicker}>THE KNOX INDEX · DAILY BRIEF</Text>
-              <Text style={styles.title}>Dashboard</Text>
+              <Kicker tone='dim'>THE KNOX INDEX · DAILY BRIEF</Kicker>
+              <Title style={{ marginTop: 2 }}>Dashboard</Title>
             </View>
             <View style={styles.titleRight}>
               {/* Square button — opens AccountsInterstitial; fills bottom-to-top on hover */}
@@ -481,7 +483,7 @@ function DashboardScreenInner() {
                 style={styles.col}
                 {...(Platform.OS === 'web' ? { 'data-container_name': 'card_summary_panel_col' } as any : {})}
               >
-                <SummaryPanel politicians={politicians} panelHeight={PANEL_HEIGHT} />
+                <SummaryPanel politicians={politicians} range={range} panelHeight={PANEL_HEIGHT} />
               </View>
             </View>
           ) : isTablet ? (
@@ -516,7 +518,7 @@ function DashboardScreenInner() {
                     : <SkeletonBlock height={PANEL_HEIGHT} style={{ borderRadius: 22 }} />}
                 </View>
               </View>
-              <SummaryPanel politicians={politicians} />
+              <SummaryPanel politicians={politicians} range={range} />
             </View>
           ) : (
             <View
@@ -534,7 +536,7 @@ function DashboardScreenInner() {
               {active
                 ? <PoliticianDetailPanel politician={active} headlineKey={sortKey} range={range} />
                 : <SkeletonBlock height={400} style={{ borderRadius: 22 }} />}
-              <SummaryPanel politicians={politicians} />
+              <SummaryPanel politicians={politicians} range={range} />
             </View>
           )}
 
@@ -755,16 +757,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     flexWrap: 'wrap',
     gap: spacing.sm,
-  },
-  kicker: {
-    ...type.caption,
-    color: neutral.textDim,
-    fontSize: 12,
-  },
-  title: {
-    ...type.title,
-    color: neutral.text,
-    marginTop: 2,
   },
   titleRight: {
     alignItems: 'flex-end',

@@ -72,7 +72,7 @@ export function AccountPostCard({ post, partyKey, name, delay = 0 }: Props) {
         <Pressable
           onPress={() => { if (hasVideo) setOpen(true); }}
           style={({ pressed, hovered }: any) => [
-            styles.card,
+            styles.accountPostCard,
             hovered && { borderColor: colour.base },
             pressed && { opacity: 0.88 },
           ]}
@@ -169,7 +169,7 @@ export function AccountPostCard({ post, partyKey, name, delay = 0 }: Props) {
 }
 
 const styles = StyleSheet.create({
-  card: {
+  accountPostCard: {
     flexDirection:   'row',
     borderWidth:     1,
     borderColor:     glass.border,

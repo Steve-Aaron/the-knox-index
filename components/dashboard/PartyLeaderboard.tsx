@@ -2,6 +2,8 @@ import React, { useMemo, useState } from 'react';
 import { View, Text, Pressable, StyleSheet, Platform } from 'react-native';
 import { DashCard } from '@/components/primitives/DashCard';
 import { DevLabel } from '@/components/primitives/DevLabel';
+import { Kicker } from '@/components/ui/Kicker';
+import { Title } from '@/components/ui/Title';
 import { neutral, glass, party, brand } from '@/theme/colors';
 import type { PartyKey } from '@/theme/colors';
 import { spacing, radius } from '@/theme/spacing';
@@ -135,8 +137,8 @@ export function PartyLeaderboard({ politicians, range = 'week', onPartySelect, a
       <View style={styles.header}>
         <View style={styles.titleRow}>
           <View>
-            <Text style={styles.kicker}>PARTY LEAGUE · {rangeKicker}</Text>
-            <Text style={styles.title}>Who's winning the parties' war?</Text>
+            <Kicker tone='dim'>PARTY LEAGUE · {rangeKicker}</Kicker>
+            <Title style={{ fontSize: 20, marginTop: 2 }}>Who's winning the parties' war?</Title>
           </View>
         </View>
 
@@ -253,17 +255,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-end',
     justifyContent: 'space-between',
-  },
-  kicker: {
-    ...type.caption,
-    color: neutral.textDim,
-    fontSize: 12,
-  },
-  title: {
-    ...type.title,
-    color: neutral.text,
-    fontSize: 20,
-    marginTop: 2,
   },
   sortRow: {
     flexDirection: 'row',

@@ -22,6 +22,8 @@ import { BoxWhisker } from '@/components/primitives/BoxWhisker';
 import { InfoTip } from '@/components/primitives/InfoTip';
 import { SkeletonBlock } from '@/components/primitives/SkeletonBlock';
 import { VideoModal } from './VideoModal';
+import { Kicker } from '@/components/ui/Kicker';
+import { Title } from '@/components/ui/Title';
 import { neutral, party, glass, accent } from '@/theme/colors';
 import type { PartyKey } from '@/theme/colors';
 import { type, font } from '@/theme/typography';
@@ -326,12 +328,12 @@ export function PostsTable({
         {/* ── Header: title + sort chips ─────────────── */}
         <View style={styles.header}>
           <View>
-            <Text style={styles.kicker}>ALL POSTS</Text>
+            <Kicker tone='dim'>ALL POSTS</Kicker>
             <View style={styles.titleRow}>
-              <Text style={styles.title}>
+              <Title style={{ fontSize: 20 }}>
                 Post Feed
                 {rangeLabel ? <Text style={styles.titleRange}> · {rangeLabel}</Text> : null}
-              </Text>
+              </Title>
               {/* Result count — updates immediately so users can see the filter is working */}
               <View style={styles.countBadge}>
                 <Text style={styles.countText}>{filtered.length}</Text>
@@ -686,7 +688,7 @@ function PostCard({ post, index, benchmarks, onPress, drag, isActive, compact, a
       <Pressable
         onPress={onPress}
         style={({ pressed, hovered }: any) => [
-          compact ? styles.cardCompact : styles.card,
+          compact ? styles.cardCompact : styles.postCard,
           isActive && styles.cardDragging,
           hovered && { borderColor: colour.base },
           pressed && { opacity: 0.84 },
@@ -909,9 +911,7 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: spacing.md,
   },
-  kicker: { ...type.caption, color: neutral.textDim, fontSize: 12 },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: 2 },
-  title: { ...type.title, color: neutral.text, fontSize: 20 },
   titleRange: { ...type.body, color: neutral.textDim, fontSize: 16 },
   countBadge: {
     backgroundColor: accent.pink + '22',
@@ -1076,7 +1076,7 @@ const styles = StyleSheet.create({
   },
 
   // Card — fixed to CARD_H so it fills the list window exactly; one card = one view
-  card: {
+  postCard: {
     flexDirection: 'row',
     alignItems: 'stretch',
     height: CARD_H,

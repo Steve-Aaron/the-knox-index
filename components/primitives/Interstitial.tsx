@@ -1,10 +1,13 @@
 import React from 'react';
+import ReactDOM from 'react-dom';
 import { View, Text, Pressable, StyleSheet, Platform } from 'react-native';
 import { MotiView } from 'moti';
 import { neutral, glass, knox, brand } from '@/theme/colors';
 import { spacing } from '@/theme/spacing';
 import { font } from '@/theme/typography';
 import { DevLabel } from '@/components/primitives/DevLabel';
+import { Kicker } from '@/components/ui/Kicker';
+import { Title } from '@/components/ui/Title';
 
 /**
  * Interstitial
@@ -57,7 +60,7 @@ export function Interstitial({
       from={{ opacity: 0, scale: fullScreen ? 1 : 0.96, translateY: fullScreen ? 0 : 12 }}
       animate={{ opacity: 1, scale: 1, translateY: 0 }}
       transition={{ type: 'timing', duration: 220 }}
-      style={[styles.card, fullScreen && styles.cardFullScreen]}
+      style={[styles.modalCard, fullScreen && styles.cardFullScreen]}
     >
       <DevLabel name="Interstitial" />
       {/* Top gradient bar — Knox brand identity */}
@@ -71,7 +74,7 @@ export function Interstitial({
 
       <View style={[styles.body, fullScreen && styles.bodyFullScreen]}>
         <View style={styles.header}>
-          {kicker ? <Text style={styles.kicker}>{kicker}</Text> : null}
+          {kicker ? <Kicker style={{ color: knox.primaryPink, letterSpacing: 2 }}>{kicker}</Kicker> : null}
           <Pressable
             onPress={onClose}
             style={({ pressed }) => [styles.closeBtn, pressed && { opacity: 0.6 }]}
@@ -82,7 +85,7 @@ export function Interstitial({
           </Pressable>
         </View>
 
-        {title ? <Text style={styles.title}>{title}</Text> : null}
+        {title ? <Title style={{ fontSize: 32, lineHeight: 38, letterSpacing: -0.6 }}>{title}</Title> : null}
 
         {children ? children : (
           text ? <Text style={styles.text}>{text}</Text> : null
@@ -117,7 +120,12 @@ export function Interstitial({
   );
 
   if (Platform.OS === 'web') {
-    return (
+    // Portal to document.body so the modal escapes any ancestor that has a
+    // CSS transform / filter / perspective set. Those properties re-anchor
+    // `position: fixed` to the transformed ancestor instead of the viewport,
+    // which previously trapped this modal inside MotiView animation wrappers
+    // (e.g. PoliticianDetailPanel's translateX entry animation).
+    const node = (
       <View style={styles.backdropFixed as any}>
         <Pressable style={styles.backdropHit} onPress={onClose} />
         <View
@@ -136,6 +144,11 @@ export function Interstitial({
         </View>
       </View>
     );
+    // SSR guard — document is undefined on the server render pass.
+    if (typeof document === 'undefined' || !document.body) {
+      return node;
+    }
+    return ReactDOM.createPortal(node, document.body);
   }
 
   return (
@@ -198,7 +211,7 @@ const styles = StyleSheet.create({
 
   // Card — large, generous. Caps at 720px so it doesn't stretch absurdly
   // on ultrawide monitors but otherwise fills the available width.
-  card: {
+  modalCard: {
     width:           '100%',
     maxWidth:        720,
     backgroundColor: '#1F1D1D',
@@ -260,12 +273,6 @@ const styles = StyleSheet.create({
     alignItems:     'flex-start',
     justifyContent: 'space-between',
   },
-  kicker: {
-    fontFamily:    font.bold,
-    fontSize:      12,
-    color:         knox.primaryPink,
-    letterSpacing: 2,
-  },
   closeBtn: {
     width:           28,
     height:          28,
@@ -281,13 +288,6 @@ const styles = StyleSheet.create({
     color:      neutral.textMid,
     fontSize:   13,
     lineHeight: 13,
-  },
-  title: {
-    fontFamily:    font.bold,
-    fontSize:      32,
-    lineHeight:    38,
-    color:         neutral.text,
-    letterSpacing: -0.6,
   },
   text: {
     fontFamily: font.ui,

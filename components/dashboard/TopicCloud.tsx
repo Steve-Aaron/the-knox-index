@@ -2,6 +2,8 @@ import React, { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { DashCard } from '@/components/primitives/DashCard';
 import { DevLabel } from '@/components/primitives/DevLabel';
+import { Kicker } from '@/components/ui/Kicker';
+import { Title } from '@/components/ui/Title';
 import { neutral, glass, accent } from '@/theme/colors';
 import { spacing, radius } from '@/theme/spacing';
 import { type, font } from '@/theme/typography';
@@ -74,8 +76,8 @@ export function TopicCloud({ posts, rangeLabel, topN = 24 }: Props) {
 
       <View style={styles.header}>
         <View>
-          <Text style={styles.kicker}>SUBJECTS{rangeLabel ? ` · ${rangeLabel.toUpperCase()}` : ''}</Text>
-          <Text style={styles.title}>What's being talked about?</Text>
+          <Kicker tone='dim'>SUBJECTS{rangeLabel ? ` · ${rangeLabel.toUpperCase()}` : ''}</Kicker>
+          <Title style={{ fontSize: 16, marginTop: 2 }}>What's being talked about?</Title>
         </View>
       </View>
 
@@ -128,17 +130,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-end',
     justifyContent: 'space-between',
-  },
-  kicker: {
-    ...type.caption,
-    color: neutral.textDim,
-    fontSize: 12,
-  },
-  title: {
-    ...type.title,
-    color: neutral.text,
-    fontSize: 16,
-    marginTop: 2,
   },
   cloud: {
     flexDirection: 'row',

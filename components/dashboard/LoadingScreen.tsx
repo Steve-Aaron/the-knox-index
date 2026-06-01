@@ -19,6 +19,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { neutral, accent, party } from '@/theme/colors';
 import { font } from '@/theme/typography';
 import { DevLabel } from '@/components/primitives/DevLabel';
+import { Kicker } from '@/components/ui/Kicker';
 
 /**
  * LoadingScreen
@@ -167,7 +168,7 @@ export function LoadingScreen({ visible }: Props) {
         transition={{ type: 'timing', duration: 500, delay: 100 }}
         style={styles.brandWrap}
       >
-        <Text style={styles.kicker}>POLITICAL INTELLIGENCE</Text>
+        <Kicker tone='dim' style={{ letterSpacing: 3 }}>POLITICAL INTELLIGENCE</Kicker>
         <Text style={styles.brand}>THE KNOX INDEX</Text>
         <Text style={styles.sub}>DAILY BRIEF</Text>
       </MotiView>
@@ -298,12 +299,6 @@ const styles = StyleSheet.create({
   brandWrap: {
     alignItems: 'center',
     gap: 4,
-  },
-  kicker: {
-    fontFamily: font.bold,
-    fontSize: 12,
-    color: neutral.textDim,
-    letterSpacing: 3,
   },
   brand: {
     fontFamily: font.bold,

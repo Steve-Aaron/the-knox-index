@@ -42,6 +42,25 @@ const METRIC_COLORS: Record<ScoreKey, string> = {
 
 const SCORE_ORDER: ScoreKey[] = ['knoxFactor', 'views', 'engagement', 'frequency', 'followers'];
 
+/**
+ * Convert a range label ('This week', 'Lifetime', etc.) into the lowercase
+ * phrase used in the Knox Factor description. 'Lifetime' becomes 'overall'
+ * so the sentence reads naturally.
+ */
+function timePeriodPhrase(rangeLabel: string): string {
+  const lower = rangeLabel.toLowerCase();
+  return lower === 'lifetime' ? 'overall' : lower;
+}
+
+/**
+ * Build the dynamic Knox Factor blurb for the score card.
+ * Strips any leading '@' from the handle to avoid '@@'.
+ */
+function knoxDescription(handle: string, rangeLabel: string): string {
+  const cleanHandle = handle.replace(/^@/, '');
+  return `Our custom evaluation on how successful @${cleanHandle}'s TikTok account is doing ${timePeriodPhrase(rangeLabel)}`;
+}
+
 function SectionHeader({ title }: { title: string }) {
   return (
     <View style={sectionStyles.wrap}>
@@ -168,6 +187,11 @@ export default function AccountPage() {
                       ranking={data.rankings[key]}
                       accentColor={METRIC_COLORS[key]}
                       targetId={data.politician.id}
+                      description={
+                        key === 'knoxFactor'
+                          ? knoxDescription(data.politician.handle, data.rangeLabel)
+                          : undefined
+                      }
                       delay={i * 60}
                     />
                   ))}

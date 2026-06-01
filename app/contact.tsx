@@ -3,6 +3,8 @@ import { View, Text, StyleSheet, ScrollView, Pressable, Linking, Platform } from
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { HeaderNav } from '@/components/primitives/HeaderNav';
+import { Kicker } from '@/components/ui/Kicker';
+import { Title } from '@/components/ui/Title';
 import { neutral, glass, knox, brand } from '@/theme/colors';
 import { spacing } from '@/theme/spacing';
 import { font, type } from '@/theme/typography';
@@ -28,8 +30,8 @@ export default function ContactScreen() {
         <HeaderNav activeRoute="/contact" />
 
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-          <Text style={styles.kicker}>TODO</Text>
-          <Text style={styles.title}>Contact page</Text>
+          <Kicker style={{ color: knox.primaryPink, letterSpacing: 2 }}>TODO</Kicker>
+          <Title size='display' style={{ fontSize: 40, letterSpacing: -0.5 }}>Contact page</Title>
           <Text style={styles.body}>
             This page is a placeholder while we build the dedicated contact form.
             In the meantime, drop us a line at{' '}
@@ -63,18 +65,6 @@ const styles = StyleSheet.create({
     maxWidth:  720,
     alignSelf: 'center' as any,
     width:     '100%' as any,
-  },
-  kicker: {
-    fontFamily:    font.bold,
-    fontSize:      12,
-    color:         knox.primaryPink,
-    letterSpacing: 2,
-  },
-  title: {
-    fontFamily: font.bold,
-    fontSize:   40,
-    color:      neutral.text,
-    letterSpacing: -0.5,
   },
   body: {
     ...type.body,

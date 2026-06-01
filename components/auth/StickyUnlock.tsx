@@ -24,6 +24,8 @@ import { track } from '@/lib/analytics';
 import { SEGMENTS, INTERESTS } from '@/data/profileOptions';
 import { DevLabel } from '@/components/primitives/DevLabel';
 import { FrequencyPicker } from '@/components/primitives/FrequencyPicker';
+import { LinkedinInput } from '@/components/primitives/LinkedinInput';
+import { buildLinkedinUrl } from '@/lib/linkedin';
 
 /**
  * StickyUnlock
@@ -402,7 +404,10 @@ function ProfilingModal({ email, onClose, onDone }: ProfilingModalProps) {
   const [firstName, setFirstName] = useState('');
   const [lastName,  setLastName]  = useState('');
   const [company,   setCompany]   = useState('');
-  const [linkedin,  setLinkedin]  = useState('');
+  // Stores JUST the handle. Full URL is reconstructed via buildLinkedinUrl
+  // at submit time so the rest of the system (Brevo, downstream emails)
+  // continues to receive a complete URL.
+  const [linkedinHandle, setLinkedinHandle] = useState('');
   const [segment,   setSegment]   = useState<string | null>(null);
   const [otherText, setOtherText] = useState('');
   const [interests, setInterests] = useState<string[]>([]);
@@ -429,6 +434,9 @@ function ProfilingModal({ email, onClose, onDone }: ProfilingModalProps) {
       ? `other:${otherText.trim()}`
       : segment ?? '';
 
+    // Reconstruct full LinkedIn URL from the captured handle for storage/Brevo.
+    const linkedinUrl = buildLinkedinUrl(linkedinHandle);
+
     const storedEmail = email ?? (Platform.OS === 'web' ? (localStorage.getItem('tki_email') ?? '') : '');
 
     // Write to localStorage
@@ -436,7 +444,7 @@ function ProfilingModal({ email, onClose, onDone }: ProfilingModalProps) {
       localStorage.setItem('tki_firstname',        firstName.trim());
       localStorage.setItem('tki_lastname',         lastName.trim());
       localStorage.setItem('tki_company',          company.trim());
-      localStorage.setItem('tki_linkedin',         linkedin.trim());
+      localStorage.setItem('tki_linkedin',         linkedinUrl);
       localStorage.setItem('tki_segment',          resolvedSegment);
       localStorage.setItem('tki_interests',        JSON.stringify(interests));
       localStorage.setItem('tki_consent_updates',          consentUpdates ? '1' : '0');
@@ -464,7 +472,7 @@ function ProfilingModal({ email, onClose, onDone }: ProfilingModalProps) {
           firstName:             firstName.trim(),
           lastName:              lastName.trim(),
           company:               company.trim(),
-          linkedin:              linkedin.trim(),
+          linkedin:              linkedinUrl,
           segment:               resolvedSegment,
           interests,
           consentKnoxUpdates:    consentUpdates,
@@ -569,17 +577,10 @@ function ProfilingModal({ email, onClose, onDone }: ProfilingModalProps) {
                 </View>
                 <View style={proStyles.detailsField}>
                   <Text style={proStyles.fieldLabel}>LINKEDIN</Text>
-                  <TextInput
-                    value={linkedin}
-                    onChangeText={setLinkedin}
-                    placeholder="linkedin.com/in/janesmith"
-                    placeholderTextColor={neutral.textDim}
-                    style={proStyles.textInput}
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    keyboardType="url"
-                    returnKeyType="next"
-                    {...Platform.select({ web: { outlineStyle: 'none' } as any, default: {} })}
+                  <LinkedinInput
+                    value={linkedinHandle}
+                    onChange={setLinkedinHandle}
+                    inputStyle={proStyles.textInput}
                   />
                 </View>
               </View>

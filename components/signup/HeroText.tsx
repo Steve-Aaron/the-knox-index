@@ -5,6 +5,7 @@ import { spacing } from '@/theme/spacing';
 import { font } from '@/theme/typography';
 import { breakpoints } from '@/theme/breakpoints';
 import { DevLabel } from '@/components/primitives/DevLabel';
+import { Kicker } from '@/components/ui/Kicker';
 
 /**
  * HeroText
@@ -30,7 +31,7 @@ export function HeroText() {
   return (
     <View style={styles.wrap}>
       <DevLabel name="HeroText" />
-      <Text style={styles.kicker}>{COPY.kicker}</Text>
+      <Kicker style={{ fontSize: 11, letterSpacing: 3 }}>{COPY.kicker}</Kicker>
 
       <Text style={[styles.heading, isDesktop && styles.headingLg]}>
         {COPY.line1}
@@ -48,14 +49,6 @@ export function HeroText() {
 const styles = StyleSheet.create({
   wrap: {
     gap: spacing.lg,
-  },
-
-  kicker: {
-    fontFamily:    font.bold,
-    fontSize:      11,
-    letterSpacing: 3,
-    color:         accent.indigo,
-    textTransform: 'uppercase',
   },
 
   heading: {

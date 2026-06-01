@@ -56,7 +56,7 @@ export function PostBangerCard({ post, politicianName, partyKey, delay = 0 }: Pr
         <Pressable
           onPress={handlePress}
           style={({ pressed, hovered }: any) => [
-            styles.card,
+            styles.postBangerCard,
             hovered && { borderColor: colour.base },
             pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] },
           ]}
@@ -133,7 +133,7 @@ export function PostBangerCard({ post, politicianName, partyKey, delay = 0 }: Pr
 }
 
 const styles = StyleSheet.create({
-  card: {
+  postBangerCard: {
     width: 180,
     backgroundColor: glass.card,
     borderWidth: 1,

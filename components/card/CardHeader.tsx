@@ -5,6 +5,7 @@ import { DevLabel } from '@/components/primitives/DevLabel';
 import { PartyKey, neutral } from '@/theme/colors';
 import { type } from '@/theme/typography';
 import { spacing } from '@/theme/spacing';
+import { layout } from '@/theme/layoutTokens';
 
 /**
  * CardHeader
@@ -41,11 +42,7 @@ export function CardHeader({ name, role, partyLabel, partyKey, initials, avatarU
 }
 
 const styles = StyleSheet.create({
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-  },
+  row: { ...layout.row, gap: spacing.md },
   text: {
     flex: 1,
     gap: 2,

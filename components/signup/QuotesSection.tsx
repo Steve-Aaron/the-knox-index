@@ -3,6 +3,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import { neutral, accent } from '@/theme/colors';
 import { spacing } from '@/theme/spacing';
 import { font } from '@/theme/typography';
+import { Kicker } from '@/components/ui/Kicker';
 
 /**
  * QuotesSection
@@ -23,7 +24,7 @@ interface QuotesSectionProps {
 export function QuotesSection({ children }: QuotesSectionProps) {
   return (
     <View style={styles.section}>
-      <Text style={styles.kicker}>REVIEWS</Text>
+      <Kicker style={{ fontSize: 11, letterSpacing: 3, textAlign: 'center' }}>REVIEWS</Kicker>
       <Text style={styles.heading}>What professionals are saying</Text>
       <View style={styles.cardsWrapper}>
         {children}
@@ -38,15 +39,6 @@ const styles = StyleSheet.create({
     paddingVertical:   spacing.xxxl,
     paddingHorizontal: '5%',
     gap:               spacing.xl,
-  },
-
-  kicker: {
-    fontFamily:    font.bold,
-    fontSize:      11,
-    letterSpacing: 3,
-    color:         accent.indigo,
-    textTransform: 'uppercase',
-    textAlign:     'center',
   },
 
   heading: {

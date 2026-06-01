@@ -9,6 +9,8 @@ import {
   Linking,
 } from 'react-native';
 import { MotiView } from 'moti';
+import { Kicker } from '@/components/ui/Kicker';
+import { Title } from '@/components/ui/Title';
 import { neutral, glass, accent, party } from '@/theme/colors';
 import type { PartyKey } from '@/theme/colors';
 import { font } from '@/theme/typography';
@@ -83,10 +85,10 @@ export function AccountsInterstitial({ politicians, onClose, onRefresh }: Props)
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.headerLeft}>
-            <Text style={styles.kicker}>TRACKED ACCOUNTS</Text>
-            <Text style={styles.title}>
+            <Kicker style={{ letterSpacing: 1.2 }}>TRACKED ACCOUNTS</Kicker>
+            <Title style={{ fontSize: 16, letterSpacing: -0.3 }}>
               {sorted.length} politicians · {formatters.compact(totalFollowers)} followers
-            </Text>
+            </Title>
           </View>
           <Pressable
             onPress={onClose}
@@ -233,18 +235,6 @@ const styles = StyleSheet.create({
   headerLeft: {
     flex: 1,
     gap:  4,
-  },
-  kicker: {
-    ...type.caption,
-    color:         accent.indigo,
-    fontSize:      12,
-    letterSpacing: 1.2,
-  },
-  title: {
-    fontFamily:    font.bold,
-    fontSize:      16,
-    color:         neutral.text,
-    letterSpacing: -0.3,
   },
   closeBtn: {
     width:           28,

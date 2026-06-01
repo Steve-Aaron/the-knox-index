@@ -2,6 +2,8 @@ import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, Pressable, Platform } from 'react-native';
 import { DashCard } from '@/components/primitives/DashCard';
 import { DevLabel } from '@/components/primitives/DevLabel';
+import { Kicker } from '@/components/ui/Kicker';
+import { Title } from '@/components/ui/Title';
 import { neutral, glass, accent } from '@/theme/colors';
 import { spacing, radius } from '@/theme/spacing';
 import { type, font } from '@/theme/typography';
@@ -78,8 +80,8 @@ export function StyleBreakdown({ posts, rangeLabel, topN = 8, activeStyle, onSty
 
       <View style={styles.header}>
         <View style={{ flex: 1 }}>
-          <Text style={styles.kicker}>STYLE LEAGUE{rangeLabel ? ` · ${rangeLabel.toUpperCase()}` : ''}</Text>
-          <Text style={styles.title}>What style of TikToks are MPs making?</Text>
+          <Kicker tone='dim'>STYLE LEAGUE{rangeLabel ? ` · ${rangeLabel.toUpperCase()}` : ''}</Kicker>
+          <Title style={{ fontSize: 16, marginTop: 2 }}>What style of TikToks are MPs making?</Title>
           {onStyleSelect ? (
             <Text style={styles.hint}>Tap any style to filter the post feed.</Text>
           ) : null}
@@ -149,17 +151,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-end',
     justifyContent: 'space-between',
-  },
-  kicker: {
-    ...type.caption,
-    color: neutral.textDim,
-    fontSize: 12,
-  },
-  title: {
-    ...type.title,
-    color: neutral.text,
-    fontSize: 16,
-    marginTop: 2,
   },
   list: {
     gap: spacing.sm,

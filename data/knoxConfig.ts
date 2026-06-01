@@ -6,27 +6,39 @@
  * Knox Factor is The Knox Index's composite performance score (0–100) that
  * combines four normalised metrics into a single headline number.
  *
+ * ## Model: per-axis contribution caps
+ *
+ *   Each axis is normalised 0–100 upstream, then contributes UP TO its
+ *   cap value to the final score. Caps are absolute point ceilings, not
+ *   weights — they do not auto-normalise.
+ *
+ *   The caps deliberately sum to MORE than 100 (currently 140) so that
+ *   different shapes of strength can each reach the ceiling:
+ *     - Pure virality + engagement maxes at 50 + 50 = 100
+ *     - Pure frequency + followers maxes at 20 + 20 = 40
+ *     - A well-rounded account hits 100 easily
+ *   The raw composite is then clamped to 100.
+ *
  * ## How to tune the score:
  *
- *   weights      — Relative importance of each axis. They are normalised
- *                  to sum to 1 before averaging, so only the ratios matter.
- *                  Increase virality to reward reach; increase engagement
- *                  to reward quality interaction; etc.
+ *   caps           — Maximum point contribution per axis. Edit ratios to
+ *                    shift emphasis; the sum may exceed 100 by design.
  *
- *   scorePower   — Exponent applied after the weighted average.
- *                  < 1 → boosts top performers into the 80s–90s (default 0.65)
- *                  = 1 → linear (no curve)
- *                  > 1 → punishes mid-range performers
+ *   curveStrength  — Exponent on the Moz-DA-style compression curve, which
+ *                    pulls displayed scores toward the 50 pivot.
+ *                      > 1  → slight reward below 50, slight punishment above
+ *                      = 1  → linear (no curve)
+ *                      < 1  → opposite (rewards extremes — not usually wanted)
  *
- *   minScore     — Floor score for any account that has posted at all, so
- *                  inactive accounts that have any activity aren't shown as 0.
+ *   minScore       — Floor score for any account that has posted at all,
+ *                    so accounts with marginal activity don't render as 0.
  *
  * ## Current defaults:
- *   virality x3, engagement x2.5, followers x1.5, frequency x1
- *   Power curve 0.65 → linear 50 → displayed ~61, linear 90 → displayed ~93
+ *   virality 50, engagement 50, frequency 20, followers 20  (caps sum 140)
+ *   curveStrength 1.3 → raw 30 ≈ 35, raw 50 = 50, raw 70 ≈ 65, raw 90 ≈ 87
  */
 
-export interface KnoxWeights {
+export interface KnoxCaps {
   virality:    number;   // avg post views relative to followers
   engagement:  number;   // (likes + comments + shares) / views
   followers:   number;   // total follower count
@@ -36,24 +48,30 @@ export interface KnoxWeights {
 /** ─── EDIT THESE TO REBALANCE THE SCORE ─────────────────────────────────── */
 export const KNOX_OPTIONS = {
 
-  /** Relative weights — only ratios matter, they are auto-normalised. */
-  weights: {
-    virality:    3.0,   // TikTok virality is the primary signal
-    engagement:  2.5,   // Quality interaction per view
-    followers:   1.5,   // Audience size matters but is slower-moving
-    frequency:   1.0,   // Posting consistency
-  } satisfies KnoxWeights,
+  /**
+   * Per-axis point caps. Each axis contributes up to its cap value to the
+   * composite. Caps may sum to more than 100 by design — final total is
+   * clamped to 100 so multiple shapes of strength can hit the ceiling.
+   */
+  caps: {
+    virality:    50,   // TikTok virality is a primary signal
+    engagement:  50,   // Quality interaction per view, equally weighted
+    frequency:   20,   // Posting consistency — secondary
+    followers:   20,   // Audience size — secondary
+  } satisfies KnoxCaps,
 
   /**
-   * Power curve exponent applied to the 0–100 weighted average.
-   * 0.65 produces these example mappings:
-   *   raw 30  → displayed 42
-   *   raw 50  → displayed 61
-   *   raw 70  → displayed 77
-   *   raw 90  → displayed 93
+   * Moz-DA-style compression curve. Pulls displayed scores toward 50.
+   *
+   * curveStrength 1.3 produces these example mappings:
+   *   raw 10  → displayed 13   (+3 boost)
+   *   raw 30  → displayed 35   (+5 boost)
+   *   raw 50  → displayed 50   (pivot)
+   *   raw 70  → displayed 65   (-5 punishment)
+   *   raw 90  → displayed 87   (-3 punishment)
    *   raw 100 → displayed 100
    */
-  scorePower: 0.65,
+  curveStrength: 1.3,
 
   /** Minimum displayed score for any account with ≥1 post this week. */
   minScore: 5,
@@ -66,9 +84,10 @@ export const KNOX_OPTIONS = {
  * Compute Knox Factor from four normalised component scores (each 0–100).
  * Returns a rounded integer 0–100.
  *
- * Step 1: weighted average of four axes.
- * Step 2: apply power curve to push top performers into the 80s–90s.
- * Step 3: apply minScore floor if any axis is non-zero.
+ * Step 1: sum per-axis contributions, where each contribution = (axis/100) · cap.
+ * Step 2: clamp composite to 100.
+ * Step 3: apply compression curve around the 50 pivot (Moz-DA-style).
+ * Step 4: apply minScore floor if any axis has signal.
  */
 export function computeKnoxFactor(
   virality:    number,   // normalised 0–100
@@ -76,23 +95,29 @@ export function computeKnoxFactor(
   followers:   number,   // normalised 0–100
   frequency:   number,   // normalised 0–100
 ): number {
-  const w = KNOX_OPTIONS.weights;
-  const totalWeight = w.virality + w.engagement + w.followers + w.frequency;
-  if (totalWeight === 0) return 0;
+  const c = KNOX_OPTIONS.caps;
 
-  const weighted = (
-    virality   * w.virality   +
-    engagement * w.engagement +
-    followers  * w.followers  +
-    frequency  * w.frequency
-  ) / totalWeight;
+  // Each axis contributes up to its cap. Sum may exceed 100 — that's intentional.
+  const composite =
+    (virality   / 100) * c.virality   +
+    (engagement / 100) * c.engagement +
+    (followers  / 100) * c.followers  +
+    (frequency  / 100) * c.frequency;
 
-  // Apply power curve — boosts top performers while keeping the scale 0–100
-  const curved = Math.pow(weighted / 100, KNOX_OPTIONS.scorePower) * 100;
+  // Clamp to 0..100 before the curve so the pivot maths stays well-defined.
+  const clamped = Math.min(100, Math.max(0, composite));
+
+  // Compress toward 50 — slight reward below pivot, slight punishment above.
+  // f(x) = 50 + sign(x − 50) · 50 · |(x − 50) / 50|^curveStrength
+  const PIVOT = 50;
+  const delta = clamped - PIVOT;
+  const normDelta = Math.abs(delta) / PIVOT;                    // 0..1
+  const compressed = Math.pow(normDelta, KNOX_OPTIONS.curveStrength) * PIVOT;
+  const curved = PIVOT + Math.sign(delta) * compressed;
 
   // Apply floor only when at least one axis has any signal
   const hasActivity = virality + engagement + followers + frequency > 0;
   const floored = hasActivity ? Math.max(curved, KNOX_OPTIONS.minScore) : curved;
 
-  return Math.round(Math.min(100, floored));
+  return Math.round(Math.min(100, Math.max(0, floored)));
 }

@@ -17,6 +17,8 @@ import { neutral, glass, accent } from '@/theme/colors';
 import { spacing, radius } from '@/theme/spacing';
 import { font } from '@/theme/typography';
 import { breakpoints } from '@/theme/breakpoints';
+import { Kicker } from '@/components/ui/Kicker';
+import { Title } from '@/components/ui/Title';
 
 /**
  * PrivacyScreen  (/privacy-policy)
@@ -123,8 +125,8 @@ export default function PrivacyScreen() {
             animate={{ opacity: 1, translateY: 0 }}
             transition={{ type: 'timing', duration: 320 }}
           >
-            <Text style={styles.kicker}>LEGAL</Text>
-            <Text style={styles.title}>Privacy Policy</Text>
+            <Kicker style={{ letterSpacing: 1.5 }}>LEGAL</Kicker>
+            <Title style={{ fontSize: 32, marginTop: 4, letterSpacing: -0.5 }}>Privacy Policy</Title>
             <Text style={styles.subtitle}>
               Last updated: {LAST_UPDATED}
             </Text>
@@ -208,8 +210,6 @@ const styles = StyleSheet.create({
   },
 
   // Header
-  kicker:   { fontFamily: font.bold, fontSize: 12, color: accent.indigo, letterSpacing: 1.5 },
-  title:    { fontFamily: font.bold, fontSize: 32, color: neutral.text, marginTop: 4, letterSpacing: -0.5 },
   subtitle: { fontFamily: font.ui, fontSize: 12, color: neutral.textDim, marginTop: 6 },
 
   // Policy card

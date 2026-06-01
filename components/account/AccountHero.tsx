@@ -10,6 +10,7 @@ import { DashCard } from '@/components/primitives/DashCard';
 import { DevLabel } from '@/components/primitives/DevLabel';
 import { neutral, party, glass, accent } from '@/theme/colors';
 import { spacing, radius } from '@/theme/spacing';
+import { layout } from '@/theme/layoutTokens';
 import { type, font } from '@/theme/typography';
 import { breakpoints } from '@/theme/breakpoints';
 import { fmtLabel } from '@/lib/format';
@@ -140,7 +141,7 @@ function ScoreBar({ label, score, color }: { label: string; score: number; color
 }
 
 const barStyles = StyleSheet.create({
-  row:   { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  row:   { ...layout.row },
   label: {
     fontFamily:    font.bold,
     fontSize:      9,
@@ -200,7 +201,7 @@ export function AccountHero({ politician, overallRank, totalCount, rangeLabel }:
       <DevLabel name="AccountHero" />
 
       {/* ── Card A: Persona ─────────────────────────────────────────────── */}
-      <DashCard style={styles.card} topAccent={undefined}>
+      <DashCard style={styles.heroCard} topAccent={undefined}>
         {/* Party gradient — strong diagonal wash from top-left */}
         <LinearGradient
           colors={[colour.base + 'CC', colour.base + '44', 'transparent']}
@@ -306,7 +307,7 @@ export function AccountHero({ politician, overallRank, totalCount, rangeLabel }:
       </DashCard>
 
       {/* ── Card B: Radar ───────────────────────────────────────────────── */}
-      <DashCard style={styles.card} topAccent={undefined}>
+      <DashCard style={styles.heroCard} topAccent={undefined}>
         <View style={styles.radarBody}>
           <View style={styles.radarHeader}>
             <Text style={styles.radarKicker}>PERFORMANCE RADAR</Text>
@@ -345,7 +346,7 @@ const styles = StyleSheet.create({
   },
 
   // Both cards share flex: 1 so they're equal width on desktop
-  card: {
+  heroCard: {
     flex:     1,
     overflow: 'hidden',
   },

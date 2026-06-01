@@ -18,6 +18,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { HeaderNav } from '@/components/primitives/HeaderNav';
 import { FrequencyPicker } from '@/components/primitives/FrequencyPicker';
+import { Kicker } from '@/components/ui/Kicker';
+import { Title } from '@/components/ui/Title';
+import { Card } from '@/components/ui/Card';
 import { useAuth } from '@/hooks/useAuth';
 import { neutral, glass, accent } from '@/theme/colors';
 import { spacing, radius } from '@/theme/spacing';
@@ -25,6 +28,8 @@ import { type, font } from '@/theme/typography';
 import { breakpoints } from '@/theme/breakpoints';
 import { SEGMENTS, INTERESTS } from '@/data/profileOptions';
 import { track } from '@/lib/analytics';
+import { buildLinkedinUrl, extractLinkedinHandle } from '@/lib/linkedin';
+import { LinkedinInput } from '@/components/primitives/LinkedinInput';
 
 /**
  * PreferencesScreen  (/preferences)
@@ -64,6 +69,9 @@ function readLSArray(key: string): string[] {
     return v ? JSON.parse(v) : [];
   } catch { return []; }
 }
+
+// LinkedIn handle helpers now live in @/lib/linkedin and the input itself
+// is the shared <LinkedinInput /> primitive — see imports above.
 
 // ── Consent toggle row ────────────────────────────────────────────────────────
 
@@ -124,7 +132,10 @@ export default function PreferencesScreen() {
   const [firstName,       setFirstName]       = useState('');
   const [lastName,        setLastName]        = useState('');
   const [company,         setCompany]         = useState('');
-  const [linkedin,        setLinkedin]        = useState('');
+  // linkedinHandle holds JUST the handle (e.g. 'janesmith'). The fixed prefix
+  // is rendered visually in the UI. Stored / sent values are reconstructed
+  // into the full URL at save time.
+  const [linkedinHandle,  setLinkedinHandle]  = useState('');
   const [segment,         setSegment]         = useState<string | null>(null);
   const [interests,       setInterests]       = useState<string[]>([]);
   const [otherText,       setOtherText]       = useState('');
@@ -147,7 +158,9 @@ export default function PreferencesScreen() {
     setFirstName(readLS(LS.FIRSTNAME));
     setLastName(readLS(LS.LASTNAME));
     setCompany(readLS(LS.COMPANY));
-    setLinkedin(readLS(LS.LINKEDIN));
+    // Hydrate handle from whatever the previous version stored (full URL,
+    // partial URL, or already-handle) — extractor normalises all of them.
+    setLinkedinHandle(extractLinkedinHandle(readLS(LS.LINKEDIN)));
     const seg = readLS(LS.SEGMENT);
     if (seg.startsWith('other:')) {
       setSegment('other');
@@ -205,11 +218,15 @@ export default function PreferencesScreen() {
       ? `other:${otherText.trim()}`
       : segment ?? '';
 
+    // Rebuild the full LinkedIn URL from the handle for storage and the API.
+    // Empty handle → empty string (clears any previous value).
+    const linkedinUrl = buildLinkedinUrl(linkedinHandle);
+
     if (Platform.OS === 'web') {
       localStorage.setItem(LS.FIRSTNAME,        firstName.trim());
       localStorage.setItem(LS.LASTNAME,         lastName.trim());
       localStorage.setItem(LS.COMPANY,          company.trim());
-      localStorage.setItem(LS.LINKEDIN,         linkedin.trim());
+      localStorage.setItem(LS.LINKEDIN,         linkedinUrl);
       localStorage.setItem(LS.SEGMENT,          resolvedSegment);
       localStorage.setItem(LS.INTERESTS,        JSON.stringify(interests));
       localStorage.setItem(LS.CONSENT_UPDATES,  consentUpdates ? '1' : '0');
@@ -228,7 +245,7 @@ export default function PreferencesScreen() {
           firstName:             firstName.trim(),
           lastName:              lastName.trim(),
           company:               company.trim(),
-          linkedin:              linkedin.trim(),
+          linkedin:              linkedinUrl,
           segment:               resolvedSegment,
           interests,
           consentKnoxUpdates:    consentUpdates,
@@ -251,7 +268,7 @@ export default function PreferencesScreen() {
       setSaveState('error');
       setTimeout(() => setSaveState('idle'), 3000);
     }
-  }, [firstName, lastName, company, linkedin, segment, otherText, interests, consentUpdates, consentDaily, consentWeekly, consentKnox]);
+  }, [firstName, lastName, company, linkedinHandle, segment, otherText, interests, consentUpdates, consentDaily, consentWeekly, consentKnox]);
 
   if (loading || !isRegistered) return null;
 
@@ -274,8 +291,8 @@ export default function PreferencesScreen() {
             animate={{ opacity: 1, translateY: 0 }}
             transition={{ type: 'timing', duration: 320 }}
           >
-            <Text style={styles.kicker}>YOUR ACCOUNT</Text>
-            <Text style={styles.title}>Preferences</Text>
+            <Kicker style={{ letterSpacing: 1.5 }}>YOUR ACCOUNT</Kicker>
+            <Title style={{ fontSize: 32, marginTop: 4, letterSpacing: -0.5 }}>Preferences</Title>
             <Text style={styles.subtitle}>
               Personalise your experience and help us surface the most relevant intelligence for you.
             </Text>
@@ -419,17 +436,9 @@ export default function PreferencesScreen() {
               </View>
               <View style={styles.nameField}>
                 <Text style={styles.label}>LinkedIn</Text>
-                <TextInput
-                  style={styles.input}
-                  value={linkedin}
-                  onChangeText={setLinkedin}
-                  placeholder="linkedin.com/in/janesmith"
-                  placeholderTextColor={neutral.textDim}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  keyboardType="url"
-                  returnKeyType="next"
-                  {...Platform.select({ web: { outlineStyle: 'none' } as any, default: {} })}
+                <LinkedinInput
+                  value={linkedinHandle}
+                  onChange={setLinkedinHandle}
                 />
               </View>
             </View>
@@ -674,8 +683,6 @@ const styles = StyleSheet.create({
     alignSelf:     'center' as any,
     width:         '100%' as any,
   },
-  kicker:   { fontFamily: font.bold, fontSize: 12, color: accent.indigo, letterSpacing: 1.5 },
-  title:    { fontFamily: font.bold, fontSize: 32, color: neutral.text, marginTop: 4, letterSpacing: -0.5 },
   subtitle: { fontFamily: font.ui,   fontSize: 16, color: neutral.textMid, lineHeight: 22, marginTop: 6 },
 
   card: {
@@ -712,6 +719,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical:   12,
   },
+
+  // LinkedIn-specific input styling lives inside <LinkedinInput />.
   emailField: {
     backgroundColor:   'rgba(255,255,255,0.02)',
     borderWidth:       1,

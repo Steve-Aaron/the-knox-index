@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import { Card } from '@/components/ui/Card';
 import { neutral, glass, accent } from '@/theme/colors';
 import { spacing, radius } from '@/theme/spacing';
 import { font } from '@/theme/typography';
@@ -27,7 +28,7 @@ export interface QuoteCardProps {
 
 export function QuoteCard({ quote, jobType }: QuoteCardProps) {
   return (
-    <View style={styles.card}>
+    <Card padded style={{ flex: 1, minWidth: '28%' as any, padding: spacing.xl, gap: spacing.md } as any}>
       {/* Quote mark */}
       <Text style={styles.quoteMark}>&ldquo;</Text>
 
@@ -38,22 +39,11 @@ export function QuoteCard({ quote, jobType }: QuoteCardProps) {
       <View style={styles.pill}>
         <Text style={styles.pillText}>{jobType}</Text>
       </View>
-    </View>
+    </Card>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    flex:            1,
-    minWidth:        '28%',   // at least 3 per row on desktop; wraps to fewer on smaller screens
-    backgroundColor: glass.fill,
-    borderWidth:     1,
-    borderColor:     glass.border,
-    borderRadius:    radius.lg,
-    padding:         spacing.xl,
-    gap:             spacing.md,
-  },
-
   quoteMark: {
     fontFamily: font.bold,
     fontSize:   48,

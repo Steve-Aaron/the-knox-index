@@ -47,10 +47,47 @@ function resolveIncludes(html) {
   });
 }
 
+/**
+ * Strip regular HTML comments from the assembled template, but keep MSO
+ * conditional comments. Outlook needs `<!--[if mso]>...<![endif]-->` and
+ * `<!--[if !mso]><!--> ... <!--<![endif]-->` blocks intact to render its
+ * VML fallbacks. Everything else (developer notes, section labels, dead
+ * code blocks) gets removed to shave bytes off the Brevo payload and
+ * reduce the chance Gmail clips the message at 102KB.
+ *
+ * Pass --keep-comments on the command line to skip this pass.
+ */
+function stripComments(html) {
+  // Match any HTML comment. We then keep the ones that start with `[if `
+  // (MSO open) or are `<![endif]-->` style (MSO close). Everything else
+  // is dropped. Use the `s` flag so `.` matches newlines.
+  return html.replace(/<!--([\s\S]*?)-->/g, (match, inner) => {
+    const trimmed = inner.trim();
+    // MSO open: <!--[if mso]> or <!--[if !mso]><!-->
+    if (trimmed.startsWith('[if ')) return match;
+    // MSO close: <!--<![endif]--> — `inner` is `<![endif]`
+    if (trimmed === '<![endif]') return match;
+    // Otherwise drop the comment entirely.
+    return '';
+  });
+}
+
+const KEEP_COMMENTS = process.argv.includes('--keep-comments');
+
 const rawTemplate  = fs.readFileSync(templatePath, 'utf8');
-const htmlContent  = resolveIncludes(rawTemplate);
+let htmlContent    = resolveIncludes(rawTemplate);
+const sizeBefore   = htmlContent.length;
+if (!KEEP_COMMENTS) htmlContent = stripComments(htmlContent);
+const sizeAfter    = htmlContent.length;
+
 console.log(`Template file: ${templatePath}`);
-console.log(`Template size: ${(htmlContent.length / 1024).toFixed(1)} KB (after resolving ${(rawTemplate.match(/<!--\s*INCLUDE:/g) || []).length} includes)`);
+console.log(`Includes resolved: ${(rawTemplate.match(/<!--\s*INCLUDE:/g) || []).length}`);
+if (KEEP_COMMENTS) {
+  console.log(`Template size: ${(sizeAfter / 1024).toFixed(1)} KB (comments kept — pass without --keep-comments to strip)`);
+} else {
+  const saved = sizeBefore - sizeAfter;
+  console.log(`Template size: ${(sizeAfter / 1024).toFixed(1)} KB  (stripped ${saved} bytes of comments, kept MSO conditionals)`);
+}
 
 // ── Brevo API ─────────────────────────────────────────────────────────────────
 async function brevo(method, endpoint, body) {
