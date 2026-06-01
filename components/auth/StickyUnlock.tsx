@@ -26,6 +26,10 @@ import { DevLabel } from '@/components/primitives/DevLabel';
 import { FrequencyPicker } from '@/components/primitives/FrequencyPicker';
 import { LinkedinInput } from '@/components/primitives/LinkedinInput';
 import { buildLinkedinUrl } from '@/lib/linkedin';
+import { ConsentToggleRow } from '@/components/primitives/ConsentToggleRow';
+import { SelectableCard } from '@/components/primitives/SelectableCard';
+import { LabeledInput } from '@/components/primitives/LabeledInput';
+import { PrimaryButton } from '@/components/primitives/PrimaryButton';
 
 /**
  * StickyUnlock
@@ -357,46 +361,7 @@ function ProgressBar({ progress }: { progress: number }) {
   );
 }
 
-// ── Consent toggle row ────────────────────────────────────────────────────────
-
-interface ConsentRowProps {
-  checked:  boolean;
-  onToggle: () => void;
-  label:    string;
-  desc:     string;
-}
-
-function ConsentRow({ checked, onToggle, label, desc }: ConsentRowProps) {
-  return (
-    <Pressable
-      onPress={onToggle}
-      style={({ pressed }) => [proStyles.consentRow, pressed && { opacity: 0.8 }]}
-    >
-      <MotiView
-        animate={{
-          backgroundColor: checked ? accent.indigo : 'rgba(255,255,255,0.05)',
-          borderColor:     checked ? accent.indigo  : 'rgba(255,255,255,0.15)',
-        }}
-        transition={{ type: 'timing', duration: 160 }}
-        style={proStyles.checkbox}
-      >
-        {checked && (
-          <MotiView
-            from={{ opacity: 0, scale: 0.5 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ type: 'spring', damping: 14, stiffness: 300 }}
-          >
-            <FontAwesome6 name="check" size={9} color="#fff" solid />
-          </MotiView>
-        )}
-      </MotiView>
-      <View style={proStyles.consentText}>
-        <Text style={proStyles.consentLabel}>{label}</Text>
-        <Text style={proStyles.consentDesc}>{desc}</Text>
-      </View>
-    </Pressable>
-  );
-}
+// Local ConsentRow has been extracted to the <ConsentToggleRow> primitive.
 
 // ── ProfilingModal ────────────────────────────────────────────────────────────
 
@@ -684,14 +649,14 @@ function ProfilingModal({ email, onClose, onDone }: ProfilingModalProps) {
               </View>
 
               <View style={proStyles.consentCard}>
-                <ConsentRow
+                <ConsentToggleRow
                   checked={consentUpdates}
                   onToggle={() => setConsentUpdates(v => !v)}
                   label="Knox Index Product Updates"
                   desc="News about new features, improvements, and platform announcements."
                 />
                 <View style={proStyles.consentDivider} />
-                <ConsentRow
+                <ConsentToggleRow
                   checked={consentKnox}
                   onToggle={() => setConsentKnox(v => !v)}
                   label="Knox Digital News"

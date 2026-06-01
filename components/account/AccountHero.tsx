@@ -4,6 +4,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { MotiView } from 'moti';
 import { CardAvatar } from '@/components/card/CardAvatar';
 import { LinkPill } from '@/components/primitives/LinkPill';
+import { RankBadge } from '@/components/primitives/RankBadge';
+import { ScoreBar } from '@/components/primitives/ScoreBar';
 import { RadialScoreChart } from '@/components/card/RadialScoreChart';
 import type { RawScoreValues } from '@/components/card/RadialScoreChart';
 import { DashCard } from '@/components/primitives/DashCard';
@@ -91,74 +93,7 @@ const chipStyles = StyleSheet.create({
   text: { fontFamily: font.bold, fontSize: 11, color: neutral.textMid, letterSpacing: 0.4 },
 });
 
-function RankBadge({ rank, total, color }: { rank: number; total: number; color: string }) {
-  return (
-    <View style={[rankStyles.wrap, { borderColor: color + '50' }]}>
-      <Text style={[rankStyles.number, { color }]}>#{rank}</Text>
-      <Text style={rankStyles.of}>of {total}</Text>
-    </View>
-  );
-}
-
-const rankStyles = StyleSheet.create({
-  wrap: {
-    alignItems:        'center',
-    borderWidth:       1,
-    borderRadius:      radius.sm,
-    paddingVertical:   spacing.sm,
-    paddingHorizontal: spacing.md,
-    backgroundColor:   'rgba(255,255,255,0.05)',
-    gap:               1,
-  },
-  number: { fontFamily: font.bold, fontSize: 30, lineHeight: 34 },
-  of:     { ...type.caption, color: neutral.textDim, fontSize: 10 } as any,
-});
-
-/** Short axis labels — max 5 chars so they never wrap. */
-const BAR_LABELS: Record<string, string> = {
-  VIEWS:      'VIEWS',
-  FREQUENCY:  'FREQ.',
-  ENGAGEMENT: 'ENG.',
-  FOLLOWERS:  'FOLL.',
-};
-
-function ScoreBar({ label, score, color }: { label: string; score: number; color: string }) {
-  const short = BAR_LABELS[label] ?? label.slice(0, 5);
-  return (
-    <View style={barStyles.row}>
-      <Text style={barStyles.label} numberOfLines={1}>{short}</Text>
-      <View style={barStyles.track}>
-        <View
-          style={[
-            barStyles.fill,
-            { width: `${score}%` as any, backgroundColor: color },
-          ]}
-        />
-      </View>
-      <Text style={[barStyles.score, { color }]}>{score}</Text>
-    </View>
-  );
-}
-
-const barStyles = StyleSheet.create({
-  row:   { ...layout.row },
-  label: {
-    fontFamily:    font.bold,
-    fontSize:      9,
-    color:         neutral.textDim,
-    letterSpacing: 1.1,
-    width:         36,    // tight fixed width — short labels only
-  },
-  track: {
-    flex:            1,
-    height:          5,
-    borderRadius:    3,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    overflow:        'hidden',
-  },
-  fill:  { height: 5, borderRadius: 3, opacity: 0.85 },
-  score: { fontFamily: font.bold, fontSize: 12, width: 26, textAlign: 'right' },
-});
+// RankBadge and ScoreBar have been extracted to shared primitives — see imports above.
 
 // ── Main component ────────────────────────────────────────────────────────────
 

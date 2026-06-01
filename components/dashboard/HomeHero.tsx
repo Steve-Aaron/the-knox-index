@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, Platform, useWindowDimensions } from 'react-native';
 import { MotiView } from 'moti';
 import { KeyFindingsBar } from '@/components/dashboard/KeyFindingsBar';
+import { UkMap } from '@/components/dashboard/UkMap';
 import { DevLabel } from '@/components/primitives/DevLabel';
 import { neutral, knox, glass } from '@/theme/colors';
 import { spacing } from '@/theme/spacing';
@@ -54,8 +55,7 @@ interface Props {
 
 const COPY = {
   headlineLines: ['THE', 'KNOX', 'INDEX'] as const,
-  tagline:       'Learn how UK politicians use TikTok, in real time. Get insights live on our dashboard below, and in your inbox at 08:00 every day.',
-  placeholder:   'IMAGE PLACEHOLDER',
+  tagline:       'Learn how UK politicians use TikTok, in real time. Get insights live on our dashboard below, and in your inbox every morning.',
 };
 
 const STACK_BREAKPOINT = breakpoints.tablet;
@@ -166,15 +166,15 @@ export function HomeHero({ politicians, range, ready = true }: Props) {
           </MotiView>
         </View>
 
-        {/* RIGHT — image placeholder */}
+        {/* RIGHT — animated UK map with looping marker reveals */}
         <View style={[styles.rightCol, isStacked && styles.rightColStacked]}>
           <MotiView
             from={FROM_IMAGE}
             animate={ready ? TO_IMAGE : FROM_IMAGE}
             transition={{ type: 'timing', duration: 600, delay: IMAGE_DELAY }}
-            style={styles.imagePlaceholder}
+            style={styles.mapWrap}
           >
-            <Text style={styles.placeholderText}>{COPY.placeholder}</Text>
+            <UkMap politicians={politicians} />
           </MotiView>
         </View>
       </View>
@@ -267,7 +267,7 @@ const styles = StyleSheet.create({
     lineHeight: 24,
   },
 
-  // RIGHT — image
+  // RIGHT — animated UK map
   rightCol: {
     flex:          1,
     flexDirection: 'column',
@@ -276,21 +276,11 @@ const styles = StyleSheet.create({
   rightColStacked: {
     width: '100%',
   },
-  imagePlaceholder: {
-    flex:            1,
-    minHeight:       280,
-    backgroundColor: 'rgba(255,255,255,0.03)',
-    borderWidth:     1,
-    borderColor:     glass.borderHi,
-    alignItems:      'center',
-    justifyContent:  'center',
-  },
-  placeholderText: {
-    fontFamily:    font.bold,
-    fontWeight:    '700',
-    fontSize:      12,
-    color:         neutral.textDim,
-    letterSpacing: 4,
+  mapWrap: {
+    flex:           1,
+    alignItems:     'center',
+    justifyContent: 'center',
+    minHeight:      280,
   },
 
   // ── Bottom — dashboard numbers strip ──────────────────────────────────────

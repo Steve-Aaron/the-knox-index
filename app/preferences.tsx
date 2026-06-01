@@ -30,6 +30,11 @@ import { SEGMENTS, INTERESTS } from '@/data/profileOptions';
 import { track } from '@/lib/analytics';
 import { buildLinkedinUrl, extractLinkedinHandle } from '@/lib/linkedin';
 import { LinkedinInput } from '@/components/primitives/LinkedinInput';
+import { ConsentToggleRow } from '@/components/primitives/ConsentToggleRow';
+import { SelectableCard } from '@/components/primitives/SelectableCard';
+import { LabeledInput } from '@/components/primitives/LabeledInput';
+import { PrimaryButton } from '@/components/primitives/PrimaryButton';
+import { EntranceFade } from '@/components/primitives/EntranceFade';
 
 /**
  * PreferencesScreen  (/preferences)
@@ -73,46 +78,8 @@ function readLSArray(key: string): string[] {
 // LinkedIn handle helpers now live in @/lib/linkedin and the input itself
 // is the shared <LinkedinInput /> primitive — see imports above.
 
-// ── Consent toggle row ────────────────────────────────────────────────────────
-
-interface ConsentRowProps {
-  checked:  boolean;
-  onToggle: () => void;
-  label:    string;
-  desc:     string;
-}
-
-function ConsentRow({ checked, onToggle, label, desc }: ConsentRowProps) {
-  return (
-    <Pressable
-      onPress={onToggle}
-      style={({ pressed }) => [styles.consentRow, pressed && { opacity: 0.8 }]}
-    >
-      <MotiView
-        animate={{
-          backgroundColor: checked ? accent.indigo : 'rgba(255,255,255,0.05)',
-          borderColor:     checked ? accent.indigo  : 'rgba(255,255,255,0.15)',
-        }}
-        transition={{ type: 'timing', duration: 160 }}
-        style={styles.checkbox}
-      >
-        {checked && (
-          <MotiView
-            from={{ opacity: 0, scale: 0.5 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ type: 'spring', damping: 14, stiffness: 300 }}
-          >
-            <FontAwesome6 name="check" size={9} color="#fff" solid />
-          </MotiView>
-        )}
-      </MotiView>
-      <View style={styles.consentText}>
-        <Text style={styles.consentLabel}>{label}</Text>
-        <Text style={styles.consentDesc}>{desc}</Text>
-      </View>
-    </Pressable>
-  );
-}
+// Local ConsentRow has been extracted to the <ConsentToggleRow> primitive —
+// imported above and used directly in the consent card below.
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
@@ -308,34 +275,20 @@ export default function PreferencesScreen() {
             <Text style={styles.cardTitle}>Your details</Text>
 
             <View style={[styles.nameRow, isWide && styles.nameRowWide]}>
-              <View style={styles.nameField}>
-                <Text style={styles.label}>First name</Text>
-                <TextInput
-                  style={styles.input}
-                  value={firstName}
-                  onChangeText={setFirstName}
-                  placeholder="Jane"
-                  placeholderTextColor={neutral.textDim}
-                  autoCapitalize="words"
-                  autoCorrect={false}
-                  returnKeyType="next"
-                  {...Platform.select({ web: { outlineStyle: 'none' } as any, default: {} })}
-                />
-              </View>
-              <View style={styles.nameField}>
-                <Text style={styles.label}>Last name</Text>
-                <TextInput
-                  style={styles.input}
-                  value={lastName}
-                  onChangeText={setLastName}
-                  placeholder="Smith"
-                  placeholderTextColor={neutral.textDim}
-                  autoCapitalize="words"
-                  autoCorrect={false}
-                  returnKeyType="next"
-                  {...Platform.select({ web: { outlineStyle: 'none' } as any, default: {} })}
-                />
-              </View>
+              <LabeledInput
+                wrapStyle={styles.nameField}
+                label="First name"
+                value={firstName}
+                onChange={setFirstName}
+                placeholder="Jane"
+              />
+              <LabeledInput
+                wrapStyle={styles.nameField}
+                label="Last name"
+                value={lastName}
+                onChange={setLastName}
+                placeholder="Smith"
+              />
             </View>
 
             <View style={{ gap: 4 }}>
@@ -420,20 +373,13 @@ export default function PreferencesScreen() {
             </View>
 
             <View style={[styles.nameRow, isWide && styles.nameRowWide]}>
-              <View style={styles.nameField}>
-                <Text style={styles.label}>Company / Organisation</Text>
-                <TextInput
-                  style={styles.input}
-                  value={company}
-                  onChangeText={setCompany}
-                  placeholder="Acme Political Consulting"
-                  placeholderTextColor={neutral.textDim}
-                  autoCapitalize="words"
-                  autoCorrect={false}
-                  returnKeyType="next"
-                  {...Platform.select({ web: { outlineStyle: 'none' } as any, default: {} })}
-                />
-              </View>
+              <LabeledInput
+                wrapStyle={styles.nameField}
+                label="Company / Organisation"
+                value={company}
+                onChange={setCompany}
+                placeholder="Acme Political Consulting"
+              />
               <View style={styles.nameField}>
                 <Text style={styles.label}>LinkedIn</Text>
                 <LinkedinInput
@@ -457,33 +403,17 @@ export default function PreferencesScreen() {
             </View>
 
             <View style={styles.grid}>
-              {SEGMENTS.map(s => {
-                const active = segment === s.id;
-                return (
-                  <Pressable
-                    key={s.id}
-                    onPress={() => setSegment(active ? null : s.id)}
-                    style={({ pressed }) => [
-                      styles.optionCard,
-                      active && styles.optionCardActive,
-                      pressed && { opacity: 0.82 },
-                    ]}
-                  >
-                    <View style={[styles.iconWrap, active && styles.iconWrapActive]}>
-                      <FontAwesome6 name={s.icon as any} size={20} color={active ? accent.indigo : neutral.textMid} solid />
-                    </View>
-                    <View style={styles.optionText}>
-                      <Text style={[styles.optionLabel, active && styles.optionLabelActive]}>{s.label}</Text>
-                      <Text style={styles.optionSub}>{s.sub}</Text>
-                    </View>
-                    {active && (
-                      <View style={styles.checkBadge}>
-                        <FontAwesome6 name="check" size={9} color="#fff" solid />
-                      </View>
-                    )}
-                  </Pressable>
-                );
-              })}
+              {SEGMENTS.map(s => (
+                <SelectableCard
+                  key={s.id}
+                  id={s.id}
+                  iconName={s.icon}
+                  label={s.label}
+                  sub={s.sub}
+                  active={segment === s.id}
+                  onPress={() => setSegment(segment === s.id ? null : s.id)}
+                />
+              ))}
             </View>
 
             {segment === 'other' && (
@@ -519,33 +449,17 @@ export default function PreferencesScreen() {
             </View>
 
             <View style={styles.grid}>
-              {INTERESTS.map(v => {
-                const active = interests.includes(v.id);
-                return (
-                  <Pressable
-                    key={v.id}
-                    onPress={() => toggleInterest(v.id)}
-                    style={({ pressed }) => [
-                      styles.optionCard,
-                      active && styles.optionCardActive,
-                      pressed && { opacity: 0.82 },
-                    ]}
-                  >
-                    <View style={[styles.iconWrap, active && styles.iconWrapActive]}>
-                      <FontAwesome6 name={v.icon as any} size={20} color={active ? accent.indigo : neutral.textMid} solid />
-                    </View>
-                    <View style={styles.optionText}>
-                      <Text style={[styles.optionLabel, active && styles.optionLabelActive]}>{v.label}</Text>
-                      <Text style={styles.optionSub}>{v.desc}</Text>
-                    </View>
-                    {active && (
-                      <View style={styles.checkBadge}>
-                        <FontAwesome6 name="check" size={9} color="#fff" solid />
-                      </View>
-                    )}
-                  </Pressable>
-                );
-              })}
+              {INTERESTS.map(v => (
+                <SelectableCard
+                  key={v.id}
+                  id={v.id}
+                  iconName={v.icon}
+                  label={v.label}
+                  sub={v.desc}
+                  active={interests.includes(v.id)}
+                  onPress={() => toggleInterest(v.id)}
+                />
+              ))}
             </View>
           </MotiView>
 
@@ -580,14 +494,14 @@ export default function PreferencesScreen() {
             </View>
 
             <View style={styles.consentCard}>
-              <ConsentRow
+              <ConsentToggleRow
                 checked={consentUpdates}
                 onToggle={() => setConsentUpdates(v => !v)}
                 label="Knox Index Product Updates"
                 desc="News about new features, improvements, and platform announcements."
               />
               <View style={styles.consentDivider} />
-              <ConsentRow
+              <ConsentToggleRow
                 checked={consentKnox}
                 onToggle={() => setConsentKnox(v => !v)}
                 label="Knox Digital News"
@@ -615,35 +529,13 @@ export default function PreferencesScreen() {
             transition={{ type: 'timing', duration: 320, delay: 280 }}
             style={styles.saveWrap}
           >
-            <Pressable
+            <PrimaryButton
+              state={saveState === 'saving' ? 'loading' : saveState}
               onPress={handleSave}
-              disabled={saveState === 'saving'}
-              style={({ pressed }) => [
-                styles.saveBtn,
-                saveState === 'saved'  && styles.saveBtnSaved,
-                saveState === 'error'  && styles.saveBtnError,
-                saveState === 'saving' && { opacity: 0.65 },
-                pressed && saveState === 'idle' && { opacity: 0.88 },
-              ]}
-            >
-              {saveState === 'saving' ? (
-                <ActivityIndicator color="#fff" size="small" />
-              ) : (
-                <View style={styles.saveBtnInner}>
-                  <FontAwesome6
-                    name={saveState === 'saved' ? 'check' : saveState === 'error' ? 'triangle-exclamation' : 'floppy-disk'}
-                    size={13}
-                    color="#fff"
-                    solid
-                  />
-                  <Text style={styles.saveBtnText}>
-                    {saveState === 'saved'  ? 'Saved'
-                   : saveState === 'error'  ? 'Error — try again'
-                   : 'Save preferences'}
-                  </Text>
-                </View>
-              )}
-            </Pressable>
+              label="Save preferences"
+              iconName="floppy-disk"
+              style={styles.saveBtn}
+            />
           </MotiView>
 
         </ScrollView>

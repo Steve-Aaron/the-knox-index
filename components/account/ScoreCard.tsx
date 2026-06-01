@@ -63,7 +63,10 @@ function LeaderboardRow({
   const colour = party[entry.partyKey];
   return (
     <View style={[styles.row, isTarget && { backgroundColor: accentColor + '14', borderColor: accentColor + '55' }]}>
-      <Text style={[styles.rowRank, isTarget && { color: accentColor }]}>
+      <Text
+        style={[styles.rowRank, isTarget && { color: accentColor }]}
+        numberOfLines={1}
+      >
         #{rank}
       </Text>
       <CardAvatar
@@ -219,7 +222,8 @@ const styles = StyleSheet.create({
     fontFamily: font.bold,
     fontSize: 11,
     color: neutral.textDim,
-    width: 28,
+    // 36px fits '#999' at fontSize 11. Pair with numberOfLines={1} on Text.
+    width: 36,
   },
   rowName: {
     ...type.body,

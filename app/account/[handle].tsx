@@ -17,6 +17,7 @@ import { AccountPostCard } from '@/components/account/AccountPostCard';
 import { SkeletonBlock } from '@/components/primitives/SkeletonBlock';
 import { DevPanel } from '@/components/primitives/DevPanel';
 import { HeaderNav } from '@/components/primitives/HeaderNav';
+import { SectionDivider } from '@/components/primitives/SectionDivider';
 import { neutral, accent } from '@/theme/colors';
 import { spacing } from '@/theme/spacing';
 import { type, font } from '@/theme/typography';
@@ -61,20 +62,7 @@ function knoxDescription(handle: string, rangeLabel: string): string {
   return `Our custom evaluation on how successful @${cleanHandle}'s TikTok account is doing ${timePeriodPhrase(rangeLabel)}`;
 }
 
-function SectionHeader({ title }: { title: string }) {
-  return (
-    <View style={sectionStyles.wrap}>
-      <Text style={sectionStyles.text}>{title}</Text>
-      <View style={sectionStyles.line} />
-    </View>
-  );
-}
-
-const sectionStyles = StyleSheet.create({
-  wrap:  { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginBottom: spacing.sm },
-  text:  { fontFamily: font.bold, fontSize: 10, color: neutral.textDim, letterSpacing: 1.8 },
-  line:  { flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.06)' },
-});
+// SectionHeader has been extracted to the <SectionDivider> primitive.
 
 function LoadingSkeleton() {
   return (
@@ -170,7 +158,7 @@ export default function AccountPage() {
 
               {/* ── SECTION 2: Scorecards ───────────────── */}
               <View style={styles.section}>
-                <SectionHeader title="PERFORMANCE SCORECARDS" />
+                <SectionDivider title="PERFORMANCE SCORECARDS" />
                 <ScrollView
                   horizontal={!isDesktop}
                   showsHorizontalScrollIndicator={false}
@@ -200,7 +188,7 @@ export default function AccountPage() {
 
               {/* ── SECTION 3: Posts ────────────────────── */}
               <View style={styles.section}>
-                <SectionHeader title={`ALL POSTS · ${data.allPosts.length} TOTAL`} />
+                <SectionDivider title={`ALL POSTS · ${data.allPosts.length} TOTAL`} />
                 {data.allPosts.length === 0 ? (
                   <Text style={styles.emptyPosts}>
                     No posts found for this account.
