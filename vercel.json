@@ -9,6 +9,9 @@
     "api/[...all].ts": {
       "includeFiles": "dist/server/**",
       "maxDuration": 30
+    },
+    "api/cover/[postId].ts": {
+      "maxDuration": 15
     }
   },
   "headers": [
