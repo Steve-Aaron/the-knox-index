@@ -5,6 +5,8 @@ import { DevLabel } from '@/components/primitives/DevLabel';
 import { SkeletonBlock } from '@/components/primitives/SkeletonBlock';
 import { RankBoardRow } from './RankBoardRow';
 import { ViewTabs, VIEW_ACCOUNT_TYPES, type ViewType } from './ViewTabs';
+import { Kicker } from '@/components/ui/Kicker';
+import { Title } from '@/components/ui/Title';
 import { neutral, glass, party, brand, knox } from '@/theme/colors';
 import type { PartyKey } from '@/theme/colors';
 import { spacing, radius } from '@/theme/spacing';
@@ -107,9 +109,9 @@ export function RankBoard({ politicians, activeId, headlineKey, timeRangeLabel, 
       {/* Fixed header — stays at the top */}
       <View style={styles.header}>
         <View style={styles.kickerRow}>
-          <Text style={styles.kicker}>LEADERBOARD</Text>
+          <Kicker tone='dim'>LEADERBOARD</Kicker>
         </View>
-        <Text style={styles.title}>The Leaderboard</Text>
+        <Title style={{ fontSize: 20, marginTop: 2 }}>The Leaderboard</Title>
         <Text style={styles.meta}>
           {timeRangeLabel}
           {' · '}
@@ -257,8 +259,6 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.md,
   },
   kickerRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  kicker: { ...type.caption, color: neutral.textDim, fontSize: 12 },
-  title:  { ...type.title, color: neutral.text, fontSize: 20, marginTop: 2 },
   meta:   { ...type.body, color: neutral.textMid, fontSize: 12 },
   listContent: {
     paddingHorizontal: spacing.lg,

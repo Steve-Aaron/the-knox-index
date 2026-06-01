@@ -17,6 +17,7 @@ import { AccountPostCard } from '@/components/account/AccountPostCard';
 import { SkeletonBlock } from '@/components/primitives/SkeletonBlock';
 import { DevPanel } from '@/components/primitives/DevPanel';
 import { HeaderNav } from '@/components/primitives/HeaderNav';
+import { SectionDivider } from '@/components/primitives/SectionDivider';
 import { neutral, accent } from '@/theme/colors';
 import { spacing } from '@/theme/spacing';
 import { type, font } from '@/theme/typography';
@@ -42,20 +43,26 @@ const METRIC_COLORS: Record<ScoreKey, string> = {
 
 const SCORE_ORDER: ScoreKey[] = ['knoxFactor', 'views', 'engagement', 'frequency', 'followers'];
 
-function SectionHeader({ title }: { title: string }) {
-  return (
-    <View style={sectionStyles.wrap}>
-      <Text style={sectionStyles.text}>{title}</Text>
-      <View style={sectionStyles.line} />
-    </View>
-  );
+/**
+ * Convert a range label ('This week', 'Lifetime', etc.) into the lowercase
+ * phrase used in the Knox Factor description. 'Lifetime' becomes 'overall'
+ * so the sentence reads naturally.
+ */
+function timePeriodPhrase(rangeLabel: string): string {
+  const lower = rangeLabel.toLowerCase();
+  return lower === 'lifetime' ? 'overall' : lower;
 }
 
-const sectionStyles = StyleSheet.create({
-  wrap:  { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginBottom: spacing.sm },
-  text:  { fontFamily: font.bold, fontSize: 10, color: neutral.textDim, letterSpacing: 1.8 },
-  line:  { flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.06)' },
-});
+/**
+ * Build the dynamic Knox Factor blurb for the score card.
+ * Strips any leading '@' from the handle to avoid '@@'.
+ */
+function knoxDescription(handle: string, rangeLabel: string): string {
+  const cleanHandle = handle.replace(/^@/, '');
+  return `Our custom evaluation on how successful @${cleanHandle}'s TikTok account is doing ${timePeriodPhrase(rangeLabel)}`;
+}
+
+// SectionHeader has been extracted to the <SectionDivider> primitive.
 
 function LoadingSkeleton() {
   return (
@@ -151,7 +158,7 @@ export default function AccountPage() {
 
               {/* ── SECTION 2: Scorecards ───────────────── */}
               <View style={styles.section}>
-                <SectionHeader title="PERFORMANCE SCORECARDS" />
+                <SectionDivider title="PERFORMANCE SCORECARDS" />
                 <ScrollView
                   horizontal={!isDesktop}
                   showsHorizontalScrollIndicator={false}
@@ -168,6 +175,11 @@ export default function AccountPage() {
                       ranking={data.rankings[key]}
                       accentColor={METRIC_COLORS[key]}
                       targetId={data.politician.id}
+                      description={
+                        key === 'knoxFactor'
+                          ? knoxDescription(data.politician.handle, data.rangeLabel)
+                          : undefined
+                      }
                       delay={i * 60}
                     />
                   ))}
@@ -176,7 +188,7 @@ export default function AccountPage() {
 
               {/* ── SECTION 3: Posts ────────────────────── */}
               <View style={styles.section}>
-                <SectionHeader title={`ALL POSTS · ${data.allPosts.length} TOTAL`} />
+                <SectionDivider title={`ALL POSTS · ${data.allPosts.length} TOTAL`} />
                 {data.allPosts.length === 0 ? (
                   <Text style={styles.emptyPosts}>
                     No posts found for this account.

@@ -5,6 +5,7 @@ import { CardAvatar } from '@/components/card/CardAvatar';
 import { DashCard } from '@/components/primitives/DashCard';
 import { CountUp } from '@/components/primitives/CountUp';
 import { DevLabel } from '@/components/primitives/DevLabel';
+import { Kicker } from '@/components/ui/Kicker';
 import { neutral, glass, party } from '@/theme/colors';
 import { spacing, radius } from '@/theme/spacing';
 import { type, font } from '@/theme/typography';
@@ -38,12 +39,14 @@ const SCORE_DESCS: Record<ScoreKey, string> = {
 };
 
 interface Props {
-  metricKey:   ScoreKey;
-  score:       number;
-  ranking:     AccountRanking;
-  accentColor: string;
-  targetId:    string;
-  delay?:      number;
+  metricKey:    ScoreKey;
+  score:        number;
+  ranking:      AccountRanking;
+  accentColor:  string;
+  targetId:     string;
+  /** Optional override for the default SCORE_DESCS copy — used for the dynamic Knox Factor blurb. */
+  description?: string;
+  delay?:       number;
 }
 
 function LeaderboardRow({
@@ -60,7 +63,10 @@ function LeaderboardRow({
   const colour = party[entry.partyKey];
   return (
     <View style={[styles.row, isTarget && { backgroundColor: accentColor + '14', borderColor: accentColor + '55' }]}>
-      <Text style={[styles.rowRank, isTarget && { color: accentColor }]}>
+      <Text
+        style={[styles.rowRank, isTarget && { color: accentColor }]}
+        numberOfLines={1}
+      >
         #{rank}
       </Text>
       <CardAvatar
@@ -79,7 +85,7 @@ function LeaderboardRow({
   );
 }
 
-export function ScoreCard({ metricKey, score, ranking, accentColor, targetId, delay = 0 }: Props) {
+export function ScoreCard({ metricKey, score, ranking, accentColor, targetId, description, delay = 0 }: Props) {
   return (
     <MotiView
       from={{ opacity: 0, translateY: 16 }}
@@ -88,14 +94,14 @@ export function ScoreCard({ metricKey, score, ranking, accentColor, targetId, de
       style={styles.motionWrap}
     >
       <DevLabel name="ScoreCard" />
-      <DashCard style={styles.card} topAccent={undefined}>
+      <DashCard style={styles.scoreCard} topAccent={undefined}>
         {/* Accent bar keyed to this metric */}
         <View style={[styles.accentBar, { backgroundColor: accentColor }]} />
 
         <View style={styles.body}>
           {/* Header */}
-          <Text style={styles.kicker}>{SCORE_LABELS[metricKey].toUpperCase()}</Text>
-          <Text style={styles.desc}>{SCORE_DESCS[metricKey]}</Text>
+          <Kicker tone='dim' style={{ fontSize: 10, letterSpacing: 1.6 }}>{SCORE_LABELS[metricKey].toUpperCase()}</Kicker>
+          <Text style={styles.desc}>{description ?? SCORE_DESCS[metricKey]}</Text>
 
           {/* Score + rank */}
           <View style={styles.scoreRow}>
@@ -152,7 +158,7 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 260,
   },
-  card: {
+  scoreCard: {
     flex: 1,
     overflow: 'hidden',
   },
@@ -164,12 +170,6 @@ const styles = StyleSheet.create({
   body: {
     padding: spacing.lg,
     gap: spacing.sm,
-  },
-  kicker: {
-    fontFamily: font.bold,
-    fontSize: 10,
-    color: neutral.textDim,
-    letterSpacing: 1.6,
   },
   desc: {
     ...type.caption,
@@ -222,7 +222,8 @@ const styles = StyleSheet.create({
     fontFamily: font.bold,
     fontSize: 11,
     color: neutral.textDim,
-    width: 28,
+    // 36px fits '#999' at fontSize 11. Pair with numberOfLines={1} on Text.
+    width: 36,
   },
   rowName: {
     ...type.body,

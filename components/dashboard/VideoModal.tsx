@@ -199,7 +199,7 @@ export function VideoModal({
           from={{ opacity: 0, scale: 0.93 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ type: 'timing', duration: 220 }}
-          style={styles.card}
+          style={styles.modalCard}
         >
           <DevLabel name="post-video-modal" />
           {/* Stop backdrop tap propagating through to content */}
@@ -274,7 +274,7 @@ const styles = StyleSheet.create({
   },
 
   // Card: max 95vh tall, 420px wide, flex column so footer sticks to bottom
-  card: {
+  modalCard: {
     width: '100%',
     maxWidth: 420,
     backgroundColor: '#0a0a12',

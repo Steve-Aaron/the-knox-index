@@ -2,14 +2,15 @@ import type { PartyKey } from '@/theme/colors';
 
 /**
  * Top-Trump score axis. All normalised 0..100 relative to dataset maximum.
- * knoxFactor = simple average of the other four axes.
+ * knoxFactor = weighted composite of the four axes, then compressed around 50
+ *              via the Moz-DA-style curve in data/knoxConfig.ts.
  */
 export interface TopTrumpScores {
   views:       number;   // 0..100  normalised avg post views
   frequency:   number;   // 0..100  normalised posting frequency (posts today)
   engagement:  number;   // 0..100  normalised (likes + comments + saves + shares) / views rate
   followers:   number;   // 0..100  normalised total follower count
-  knoxFactor:  number;   // 0..100  average of the four axes above
+  knoxFactor:  number;   // 0..100  weighted + curve-compressed composite (see knoxConfig.ts)
 }
 
 export type ScoreKey = keyof TopTrumpScores;

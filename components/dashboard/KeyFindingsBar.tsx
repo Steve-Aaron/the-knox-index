@@ -5,6 +5,7 @@ import { DevLabel } from '@/components/primitives/DevLabel';
 import { InfoTip } from '@/components/primitives/InfoTip';
 import { SkeletonBlock } from '@/components/primitives/SkeletonBlock';
 import { CountUp, formatters } from '@/components/primitives/CountUp';
+import { Kicker } from '@/components/ui/Kicker';
 import { neutral, accent, party, brand, knox } from '@/theme/colors';
 import { type, font } from '@/theme/typography';
 import { spacing, radius } from '@/theme/spacing';
@@ -151,7 +152,7 @@ export function KeyFindingsBar({ politicians, range = 'yesterday' }: Props) {
       )}
       {/* Label below — tiny caps, info-tip inline */}
       <View style={styles.kickerRow}>
-        <Text style={styles.kicker}>{tile.kicker}</Text>
+        <Kicker tone='dim' style={{ color: neutral.textMid, letterSpacing: 1.4 }}>{tile.kicker}</Kicker>
         <InfoTip text={tile.tip} placement="below" width={220} />
       </View>
       {tile.suffix ? (
@@ -233,13 +234,6 @@ const styles = StyleSheet.create({
     alignItems:    'center',
     gap:           6,
     marginTop:     6,
-  },
-  kicker: {
-    fontFamily:    font.ui,
-    color:         neutral.textMid,
-    fontSize:      12,
-    letterSpacing: 1.4,
-    textTransform: 'uppercase',
   },
   suffix: {
     ...type.body,

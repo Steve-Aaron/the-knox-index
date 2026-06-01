@@ -43,7 +43,10 @@ export function RankBoardRow({ politician, rank, headlineKey, active, onPress }:
       ]}
     >
       <DevLabel name="RankBoardRow" />
-      <Text style={[styles.rank, silent ? styles.rankSilent : { color: colour.glow }]}>
+      <Text
+        style={[styles.rank, silent ? styles.rankSilent : { color: colour.glow }]}
+        numberOfLines={1}
+      >
         #{rank}
       </Text>
       <CardAvatar partyKey={politician.partyKey} initials={politician.avatarInitials} size={36} avatarUrl={politician.avatarUrl} />
@@ -87,7 +90,9 @@ const styles = StyleSheet.create({
   rank: {
     ...type.caption,
     fontSize: 12,
-    width: 24,
+    // 40px fits '#999' on one line at the row's caption font size.
+    // numberOfLines={1} on the Text element is the belt-and-braces safety.
+    width: 40,
   },
   id: { flex: 1, minWidth: 0 },
   name: { ...type.body, color: neutral.text, fontSize: 16, fontWeight: '700' },
@@ -95,7 +100,7 @@ const styles = StyleSheet.create({
 
   // Silent state
   rowSilent:  { opacity: 0.45 },
-  rankSilent: { ...type.caption, fontSize: 12, width: 24, color: neutral.textDim },
+  rankSilent: { ...type.caption, fontSize: 12, width: 40, color: neutral.textDim },
   textSilent: { color: neutral.textDim },
   silentBadge: {
     borderRadius: radius.pill,

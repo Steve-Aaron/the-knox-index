@@ -6,29 +6,37 @@ import type { BriefsApiResponse } from '@/data/types';
 import { DashCard } from '@/components/primitives/DashCard';
 import { DevLabel } from '@/components/primitives/DevLabel';
 import { PostBangerCard } from './PostBangerCard';
+import { Kicker } from '@/components/ui/Kicker';
+import { Title } from '@/components/ui/Title';
 import { neutral, party, glass, accent, brand } from '@/theme/colors';
 import { font } from '@/theme/typography';
 import { spacing, radius } from '@/theme/spacing';
 import { type } from '@/theme/typography';
 import { formatters } from '@/components/primitives/CountUp';
 import type { Politician } from '@/data/types';
+import type { TimeRange } from '@/components/dashboard/TimeRangePicker';
 
 /**
  * SummaryPanel
  * -------------
- * Editorial briefing panel. Top: narrative paragraph (placeholder copy that
- * will be replaced by AI-generated content from n8n). Below: computed insight
- * chips derived from live data. Bottom: placeholder 'top narratives' section.
+ * Editorial briefing panel. Top: narrative paragraph (AI-generated content
+ * from n8n — daily or weekly depending on the selected time range). Below:
+ * computed insight chips derived from live data. Bottom: 'top narratives'
+ * bullet list, revealed only when the user selects 'This week'.
  * One job: give the reader a human-language summary of what the numbers mean.
  */
 interface Props {
-  politicians: Politician[];
+  politicians:  Politician[];
+  /** Drives the daily-vs-weekly swap. Defaults to 'yesterday' so existing
+   *  call sites that haven't been updated keep their old behaviour. */
+  range?:       TimeRange;
   panelHeight?: number;
 }
 
 const INSIGHT_COLOURS = [accent.mint, accent.indigo, accent.amber];
 
-export function SummaryPanel({ politicians, panelHeight }: Props) {
+export function SummaryPanel({ politicians, range = 'yesterday', panelHeight }: Props) {
+  const isWeekly = range === 'week';
   const [brief, setBrief]             = useState<BriefsApiResponse | null>(null);
   const [briefLoading, setBriefLoading] = useState(true);
   const [briefError, setBriefError]   = useState<string | null>(null);
@@ -163,8 +171,12 @@ export function SummaryPanel({ politicians, panelHeight }: Props) {
         >
           <View style={styles.headerRow}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.kicker}>DAILY BRIEFING</Text>
-              <Text style={styles.title}>Today on TikTok</Text>
+              <Kicker tone='dim' style={{ marginBottom: spacing.xs }}>
+                {isWeekly ? 'WEEKLY BRIEFING' : 'DAILY BRIEFING'}
+              </Kicker>
+              <Title style={{ fontFamily: font.ui, fontSize: 24, fontWeight: '800', letterSpacing: -0.5, lineHeight: 26 }}>
+                {isWeekly ? 'This week on TikTok' : 'Today on TikTok'}
+              </Title>
             </View>
             {brief && !brief.isToday && (
               <View style={styles.staleBadge}>
@@ -176,7 +188,7 @@ export function SummaryPanel({ politicians, panelHeight }: Props) {
           </View>
         </MotiView>
 
-        {/* ── AI narrative ─────────────────────────── */}
+        {/* ── AI narrative — daily or weekly, driven by selected time range ───── */}
         <MotiView
           from={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -188,15 +200,21 @@ export function SummaryPanel({ politicians, panelHeight }: Props) {
               <Text style={[styles.narrativeText, styles.narrativeLoading]}>
                 Loading briefing…
               </Text>
-            ) : brief?.brief.briefDailySummary ? (
-              <Text style={styles.narrativeText}>{brief.brief.briefDailySummary}</Text>
-            ) : (
-              <Text style={[styles.narrativeText, styles.narrativeLoading]}>
-                {briefError
-                  ? `Error: ${briefError}`
-                  : 'No briefing available yet — check back later.'}
-              </Text>
-            )}
+            ) : (() => {
+              const summaryText = isWeekly
+                ? brief?.brief.briefWeeklySummary
+                : brief?.brief.briefDailySummary;
+              if (summaryText) {
+                return <Text style={styles.narrativeText}>{summaryText}</Text>;
+              }
+              return (
+                <Text style={[styles.narrativeText, styles.narrativeLoading]}>
+                  {briefError
+                    ? `Error: ${briefError}`
+                    : 'No briefing available yet — check back later.'}
+                </Text>
+              );
+            })()}
           </View>
         </MotiView>
 
@@ -268,8 +286,8 @@ export function SummaryPanel({ politicians, panelHeight }: Props) {
           </>
         ) : null}
 
-        {/* ── AI-generated top insights ────────────── */}
-        {(brief?.brief.topNarrativesThisWeek?.length || briefLoading) ? (
+        {/* ── AI-generated top narratives — only shown when 'This week' is selected ── */}
+        {isWeekly && (brief?.brief.topNarrativesThisWeek?.length || briefLoading) ? (
           <>
             <Text style={styles.sectionKicker}>TOP NARRATIVES THIS WEEK</Text>
             <View style={styles.narratives}>
@@ -331,20 +349,6 @@ const styles = StyleSheet.create({
     fontSize:      9,
     color:         '#fbbf24',
     letterSpacing: 0.6,
-  },
-  kicker: {
-    ...type.caption,
-    color: neutral.textDim,
-    fontSize: 12,
-    marginBottom: spacing.xs,
-  },
-  title: {
-    fontFamily: font.ui,
-    fontSize: 24,
-    fontWeight: '800',
-    color: neutral.text,
-    letterSpacing: -0.5,
-    lineHeight: 26,
   },
   subtitle: {
     fontFamily: font.ui,

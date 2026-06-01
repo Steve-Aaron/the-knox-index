@@ -13,6 +13,8 @@ import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { MotiView } from 'moti';
 import { DashCard } from '@/components/primitives/DashCard';
 import { DevLabel } from '@/components/primitives/DevLabel';
+import { Kicker } from '@/components/ui/Kicker';
+import { Title } from '@/components/ui/Title';
 import { neutral, glass, accent, brand } from '@/theme/colors';
 import { spacing, radius } from '@/theme/spacing';
 import { type, font } from '@/theme/typography';
@@ -85,10 +87,10 @@ export function ContactFooter({
       <View style={styles.body}>
         {/* Left: copy block */}
         <View style={styles.copy}>
-          <Text style={styles.kicker}>LOOKING FOR DEEPER INSIGHTS?</Text>
-          <Text style={styles.title}>Deeper insights, API access and white labelling services are available.</Text>
+          <Kicker tone='dim' style={{ letterSpacing: 1.5 }}>LOOKING FOR DEEPER INSIGHTS?</Kicker>
+          <Title style={{ fontSize: 20 }}>Deeper insights, API access and white labelling services are available.</Title>
           <Text style={styles.lede}>
-            Just get in touch with directly for insights tailored towards you. Dashboards and data access for businesses and agencies are avaialable.
+            Just get in touch with us directly for insights tailored towards you. Dashboards and data access for businesses and agencies are now available.
           </Text>
 
           {/* Fallback links */}
@@ -183,17 +185,6 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 240,
     gap: spacing.sm,
-  },
-  kicker: {
-    ...type.caption,
-    color: neutral.textDim,
-    fontSize: 12,
-    letterSpacing: 1.5,
-  },
-  title: {
-    ...type.title,
-    color: neutral.text,
-    fontSize: 20,
   },
   lede: {
     ...type.body,

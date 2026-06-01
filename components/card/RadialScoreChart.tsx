@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Platform } from 'react-native';
+import { View, Text, Pressable, StyleSheet, Platform } from 'react-native';
 import { track } from '@/lib/analytics';
 import Svg, { Polygon, Circle, Line, Text as SvgText, Rect, Defs, RadialGradient, Stop, G } from 'react-native-svg';
 import Animated, { useAnimatedProps, useAnimatedStyle, useSharedValue, withTiming, withDelay, Easing } from 'react-native-reanimated';
@@ -17,7 +17,6 @@ const SVG_FONT_LABEL  = Platform.select({ web: 'Figtree, sans-serif', default: '
 const SVG_WEIGHT_LABEL: string = '600';
 import { timing } from '@/theme/motion';
 import { DevLabel } from '@/components/primitives/DevLabel';
-import { InfoTipModal } from '@/components/primitives/InfoTip';
 
 const AnimatedPolygon = Animated.createAnimatedComponent(Polygon);
 const AnimatedG       = Animated.createAnimatedComponent(G);
@@ -310,31 +309,37 @@ export function RadialScoreChart({ scores, partyKey, size = 440, highlightKey, r
         </View>
       )}
 
-      {/* Dot click popup — the same InfoTipModal pattern used by every other
-          helper in the app. Open on dot click, dismiss on backdrop / X click.
-          Body shows the raw underlying metric and the axis description. */}
-      <InfoTipModal
-        visible={!noData && activeDotIdx !== null}
-        onClose={closeDot}
-        title={activeDotIdx !== null ? AXES[activeDotIdx].label : 'What does this mean?'}
-        width={300}
-      >
-        {activeDotIdx !== null && (() => {
-          const axis  = AXES[activeDotIdx];
-          const score = scores[axis.key] ?? 0;
-          const raw   = rawValues ? rawValues[axis.key] : null;
-          return (
-            <>
+      {/* Dot click overlay — inline, anchored to the chart's own bounding box.
+          Opaque background covers the chart entirely. Close button sits at
+          top-right so it visually aligns with the section header (which lives
+          in the parent's chartHeader row on the left). */}
+      {!noData && activeDotIdx !== null && (() => {
+        const axis = AXES[activeDotIdx];
+        const score = scores[axis.key] ?? 0;
+        const raw   = rawValues ? rawValues[axis.key] : null;
+        return (
+          <View style={styles.chartOverlay}>
+            <View style={styles.overlayHeader}>
+              <Text style={styles.overlayKicker}>{axis.label.toUpperCase()}</Text>
+              <Pressable
+                onPress={closeDot}
+                accessibilityRole="button"
+                accessibilityLabel="Close"
+                style={styles.overlayCloseBtn}
+                {...(Platform.OS === 'web' ? { style: [styles.overlayCloseBtn, { cursor: 'pointer' }] } as any : {})}
+              >
+                <Text style={styles.overlayCloseX}>{'✕'}</Text>
+              </Pressable>
+            </View>
+            <View style={styles.overlayBody}>
               <Text style={[styles.modalValue, { color: colour.glow }]}>
-                {raw !== null
-                  ? axis.format(raw)
-                  : `${score} / 100`}
+                {raw !== null ? axis.format(raw) : `${score} / 100`}
               </Text>
               <Text style={styles.modalDesc}>{axis.desc}</Text>
-            </>
-          );
-        })()}
-      </InfoTipModal>
+            </View>
+          </View>
+        );
+      })()}
     </View>
   );
 }
@@ -379,5 +384,56 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: 'rgba(255,255,255,0.2)',
     textAlign: 'center',
+  },
+
+  // Inline dot-click overlay — anchored to the chart's own bounding box.
+  // Opaque background so the chart underneath is completely hidden.
+  chartOverlay: {
+    position:        'absolute',
+    top:             0,
+    left:            0,
+    right:           0,
+    bottom:          24,
+    backgroundColor: neutral.felt,   // opaque #1F1D1D
+    borderRadius:    16,
+    paddingHorizontal: 16,
+    paddingTop:      8,
+    paddingBottom:   16,
+  },
+  overlayHeader: {
+    flexDirection:  'row',
+    alignItems:     'center',
+    justifyContent: 'space-between',
+    minHeight:      24,
+  },
+  overlayKicker: {
+    fontFamily:    font.ui,
+    fontSize:      11,
+    fontWeight:    '700' as const,
+    letterSpacing: 1.5,
+    color:         neutral.textDim,
+    textTransform: 'uppercase',
+  },
+  overlayCloseBtn: {
+    width:           24,
+    height:          24,
+    borderRadius:    12,
+    alignItems:      'center',
+    justifyContent:  'center',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  overlayCloseX: {
+    fontFamily: font.ui,
+    fontSize:   12,
+    fontWeight: '700' as const,
+    color:      neutral.text,
+    lineHeight: 12,
+  },
+  overlayBody: {
+    flex:           1,
+    alignItems:     'center',
+    justifyContent: 'center',
+    gap:            8,
+    paddingHorizontal: 12,
   },
 });

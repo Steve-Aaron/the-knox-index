@@ -24,6 +24,12 @@ import { track } from '@/lib/analytics';
 import { SEGMENTS, INTERESTS } from '@/data/profileOptions';
 import { DevLabel } from '@/components/primitives/DevLabel';
 import { FrequencyPicker } from '@/components/primitives/FrequencyPicker';
+import { LinkedinInput } from '@/components/primitives/LinkedinInput';
+import { buildLinkedinUrl } from '@/lib/linkedin';
+import { ConsentToggleRow } from '@/components/primitives/ConsentToggleRow';
+import { SelectableCard } from '@/components/primitives/SelectableCard';
+import { LabeledInput } from '@/components/primitives/LabeledInput';
+import { PrimaryButton } from '@/components/primitives/PrimaryButton';
 
 /**
  * StickyUnlock
@@ -355,46 +361,7 @@ function ProgressBar({ progress }: { progress: number }) {
   );
 }
 
-// ── Consent toggle row ────────────────────────────────────────────────────────
-
-interface ConsentRowProps {
-  checked:  boolean;
-  onToggle: () => void;
-  label:    string;
-  desc:     string;
-}
-
-function ConsentRow({ checked, onToggle, label, desc }: ConsentRowProps) {
-  return (
-    <Pressable
-      onPress={onToggle}
-      style={({ pressed }) => [proStyles.consentRow, pressed && { opacity: 0.8 }]}
-    >
-      <MotiView
-        animate={{
-          backgroundColor: checked ? accent.indigo : 'rgba(255,255,255,0.05)',
-          borderColor:     checked ? accent.indigo  : 'rgba(255,255,255,0.15)',
-        }}
-        transition={{ type: 'timing', duration: 160 }}
-        style={proStyles.checkbox}
-      >
-        {checked && (
-          <MotiView
-            from={{ opacity: 0, scale: 0.5 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ type: 'spring', damping: 14, stiffness: 300 }}
-          >
-            <FontAwesome6 name="check" size={9} color="#fff" solid />
-          </MotiView>
-        )}
-      </MotiView>
-      <View style={proStyles.consentText}>
-        <Text style={proStyles.consentLabel}>{label}</Text>
-        <Text style={proStyles.consentDesc}>{desc}</Text>
-      </View>
-    </Pressable>
-  );
-}
+// Local ConsentRow has been extracted to the <ConsentToggleRow> primitive.
 
 // ── ProfilingModal ────────────────────────────────────────────────────────────
 
@@ -402,7 +369,10 @@ function ProfilingModal({ email, onClose, onDone }: ProfilingModalProps) {
   const [firstName, setFirstName] = useState('');
   const [lastName,  setLastName]  = useState('');
   const [company,   setCompany]   = useState('');
-  const [linkedin,  setLinkedin]  = useState('');
+  // Stores JUST the handle. Full URL is reconstructed via buildLinkedinUrl
+  // at submit time so the rest of the system (Brevo, downstream emails)
+  // continues to receive a complete URL.
+  const [linkedinHandle, setLinkedinHandle] = useState('');
   const [segment,   setSegment]   = useState<string | null>(null);
   const [otherText, setOtherText] = useState('');
   const [interests, setInterests] = useState<string[]>([]);
@@ -429,6 +399,9 @@ function ProfilingModal({ email, onClose, onDone }: ProfilingModalProps) {
       ? `other:${otherText.trim()}`
       : segment ?? '';
 
+    // Reconstruct full LinkedIn URL from the captured handle for storage/Brevo.
+    const linkedinUrl = buildLinkedinUrl(linkedinHandle);
+
     const storedEmail = email ?? (Platform.OS === 'web' ? (localStorage.getItem('tki_email') ?? '') : '');
 
     // Write to localStorage
@@ -436,7 +409,7 @@ function ProfilingModal({ email, onClose, onDone }: ProfilingModalProps) {
       localStorage.setItem('tki_firstname',        firstName.trim());
       localStorage.setItem('tki_lastname',         lastName.trim());
       localStorage.setItem('tki_company',          company.trim());
-      localStorage.setItem('tki_linkedin',         linkedin.trim());
+      localStorage.setItem('tki_linkedin',         linkedinUrl);
       localStorage.setItem('tki_segment',          resolvedSegment);
       localStorage.setItem('tki_interests',        JSON.stringify(interests));
       localStorage.setItem('tki_consent_updates',          consentUpdates ? '1' : '0');
@@ -464,7 +437,7 @@ function ProfilingModal({ email, onClose, onDone }: ProfilingModalProps) {
           firstName:             firstName.trim(),
           lastName:              lastName.trim(),
           company:               company.trim(),
-          linkedin:              linkedin.trim(),
+          linkedin:              linkedinUrl,
           segment:               resolvedSegment,
           interests,
           consentKnoxUpdates:    consentUpdates,
@@ -569,17 +542,10 @@ function ProfilingModal({ email, onClose, onDone }: ProfilingModalProps) {
                 </View>
                 <View style={proStyles.detailsField}>
                   <Text style={proStyles.fieldLabel}>LINKEDIN</Text>
-                  <TextInput
-                    value={linkedin}
-                    onChangeText={setLinkedin}
-                    placeholder="linkedin.com/in/janesmith"
-                    placeholderTextColor={neutral.textDim}
-                    style={proStyles.textInput}
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    keyboardType="url"
-                    returnKeyType="next"
-                    {...Platform.select({ web: { outlineStyle: 'none' } as any, default: {} })}
+                  <LinkedinInput
+                    value={linkedinHandle}
+                    onChange={setLinkedinHandle}
+                    inputStyle={proStyles.textInput}
                   />
                 </View>
               </View>
@@ -683,14 +649,14 @@ function ProfilingModal({ email, onClose, onDone }: ProfilingModalProps) {
               </View>
 
               <View style={proStyles.consentCard}>
-                <ConsentRow
+                <ConsentToggleRow
                   checked={consentUpdates}
                   onToggle={() => setConsentUpdates(v => !v)}
                   label="Knox Index Product Updates"
                   desc="News about new features, improvements, and platform announcements."
                 />
                 <View style={proStyles.consentDivider} />
-                <ConsentRow
+                <ConsentToggleRow
                   checked={consentKnox}
                   onToggle={() => setConsentKnox(v => !v)}
                   label="Knox Digital News"

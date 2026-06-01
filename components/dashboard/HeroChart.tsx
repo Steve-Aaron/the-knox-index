@@ -7,6 +7,7 @@ import type { PartyKey } from '@/theme/colors';
 import { spacing } from '@/theme/spacing';
 import { font } from '@/theme/typography';
 import { DevLabel } from '@/components/primitives/DevLabel';
+import { Kicker } from '@/components/ui/Kicker';
 import type { Politician } from '@/data/types';
 
 /**
@@ -136,7 +137,7 @@ export function HeroChart({ politicians }: Props) {
   return (
     <View style={styles.wrap}>
       <DevLabel name="HeroChart" />
-      <Text style={styles.kicker}>LIVE UK PULSE · BY NATION</Text>
+      <Kicker style={{ fontSize: 11, color: knox.primaryPink, letterSpacing: 2 }}>LIVE UK PULSE · BY NATION</Kicker>
 
       <View style={styles.mapWrap}>
         {/* Silhouette layer */}
@@ -251,13 +252,6 @@ const styles = StyleSheet.create({
   wrap: {
     width: '100%',
     gap:   spacing.sm,
-  },
-  kicker: {
-    fontFamily:    font.bold,
-    fontWeight:    '700',
-    fontSize:      11,
-    color:         knox.primaryPink,
-    letterSpacing: 2,
   },
   // The map container holds the SVG and absolutely-positioned pulses on top.
   // aspectRatio matches the SVG viewBox so percentage positions stay aligned.

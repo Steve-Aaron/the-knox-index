@@ -7,6 +7,7 @@ import {
   Platform,
 } from 'react-native';
 import { MotiView } from 'moti';
+import { Title } from '@/components/ui/Title';
 import { neutral, glass, accent } from '@/theme/colors';
 import { spacing, radius } from '@/theme/spacing';
 import { type, font } from '@/theme/typography';
@@ -123,7 +124,7 @@ function ErrorCard({ message, onRetry, isStaleBundle }: ErrorCardProps) {
         from={{ opacity: 0, scale: 0.96, translateY: 12 }}
         animate={{ opacity: 1, scale: 1, translateY: 0 }}
         transition={{ type: 'timing', duration: 320 }}
-        style={[styles.card, isStaleBundle && styles.cardUpdate]}
+        style={[styles.errorCard, isStaleBundle && styles.cardUpdate]}
       >
         {/* Icon */}
         <View style={[styles.iconWrap, isStaleBundle && styles.iconWrapUpdate]}>
@@ -133,7 +134,7 @@ function ErrorCard({ message, onRetry, isStaleBundle }: ErrorCardProps) {
         </View>
 
         {/* Text */}
-        <Text style={styles.title}>{title}</Text>
+        <Title style={{ fontSize: 20, letterSpacing: -0.3, textAlign: 'center' }}>{title}</Title>
         <Text style={styles.body}>{body}</Text>
         <Text style={styles.hint}>{hint}</Text>
 
@@ -159,7 +160,7 @@ const styles = StyleSheet.create({
     padding: spacing.xl,
     minHeight: 400,
   },
-  card: {
+  errorCard: {
     width: '100%',
     maxWidth: 480,
     backgroundColor: 'rgba(14,14,20,0.92)',
@@ -193,13 +194,6 @@ const styles = StyleSheet.create({
   icon: {
     fontSize: 24,
     color: '#ff6060',
-  },
-  title: {
-    fontFamily: font.bold,
-    fontSize: 20,
-    color: neutral.text,
-    letterSpacing: -0.3,
-    textAlign: 'center',
   },
   body: {
     ...type.body,
