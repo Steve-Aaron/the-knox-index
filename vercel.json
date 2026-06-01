@@ -37,6 +37,6 @@
     }
   ],
   "rewrites": [
-    { "source": "/(.*)", "destination": "/api/[...all]" }
+    { "source": "/((?!api/cover/).*)", "destination": "/api/[...all]" }
   ]
 }
