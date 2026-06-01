@@ -90,7 +90,7 @@ export function ContactFooter({
           <Kicker tone='dim' style={{ letterSpacing: 1.5 }}>LOOKING FOR DEEPER INSIGHTS?</Kicker>
           <Title style={{ fontSize: 20 }}>Deeper insights, API access and white labelling services are available.</Title>
           <Text style={styles.lede}>
-            Just get in touch with directly for insights tailored towards you. Dashboards and data access for businesses and agencies are now available.
+            Just get in touch with us directly for insights tailored towards you. Dashboards and data access for businesses and agencies are now available.
           </Text>
 
           {/* Fallback links */}
