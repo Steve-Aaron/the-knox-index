@@ -13,29 +13,6 @@ import type { RecentPost } from '@/data/types';
 import type { PartyKey } from '@/theme/colors';
 import type { UkLocation } from '@/lib/uk-locations';
 
-/**
- * MapMarker
- * ----------
- * One animated marker on the UK map: dot → line → video card.
- *
- *                         ┌────────────┐
- *                         │  ▶ video   │   <- VideoCard (muted, looping)
- *                         │            │
- *                         └─────┬──────┘
- *                               │            <- stem line
- *                               •            <- dot
- *
- * Lifecycle: enter (~600ms, dot first, then stem, then card), then idle until
- * the parent unmounts us. The parent (UkMap) controls visibility via mount /
- * unmount, so we don't need our own exit logic beyond the enter animation
- * reversing under MotiView's normal exit handling.
- *
- * Positioning is done by the PARENT — this component renders relative to (0,0)
- * with the dot at the bottom-center; the parent absolutely positions the wrap
- * at the correct (x, y) anchor.
- *
- * One job: be the on-screen reveal for a single post pin.
- */
 
 // Slowed entrance to match the longer overall cadence — dot lands, stem grows,
 // card pops in. Each step is roughly twice the previous gap so the sequence
