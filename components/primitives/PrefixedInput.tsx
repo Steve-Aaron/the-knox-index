@@ -74,6 +74,9 @@ export function PrefixedInput({
           style={styles.prefix}
           numberOfLines={1}
           ellipsizeMode="head"
+          // Static prefix — never selectable. selectable={false} disables RN
+          // text selection on native; userSelect/cursor in the style handles web.
+          selectable={false}
         >
           {prefix}
         </Text>
@@ -112,16 +115,37 @@ const styles = StyleSheet.create({
   prefixWrap: {
     justifyContent:    'center',
     paddingHorizontal: spacing.sm,
-    backgroundColor:   'rgba(255,255,255,0.04)',
+    // Solid dark fill so the prefix reads as a distinct, non-editable chip
+    // attached to the input — improves contrast and signals 'don't type here'.
+    backgroundColor:   '#1F1F1F',
     borderRightWidth:  1,
     borderRightColor:  glass.border,
     flexShrink:        1,
     maxWidth:          '60%' as any,
+    // Make the whole prefix area visibly non-interactive on web — the default
+    // cursor (not the text I-beam) signals 'you can't put a caret here'.
+    ...Platform.select({
+      web: {
+        cursor:     'default',
+        userSelect: 'none',
+      } as any,
+      default: {},
+    }),
   },
   prefix: {
     fontFamily: font.mono,
     fontSize:   13,
     color:      neutral.textDim,
+    // Belt-and-braces: also disable user-select on the inner Text so highlight-
+    // drag from inside the prefix glyph itself is suppressed on web.
+    ...Platform.select({
+      web: {
+        userSelect:        'none',
+        WebkitUserSelect:  'none',
+        cursor:            'default',
+      } as any,
+      default: {},
+    }),
   },
   // Default input look — consumer can override paddings via inputStyle.
   input: {

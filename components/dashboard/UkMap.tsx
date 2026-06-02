@@ -4,7 +4,7 @@ import { AnimatePresence } from 'moti';
 import { DevLabel } from '@/components/primitives/DevLabel';
 import { UkMapSvg } from './UkMapSvg';
 import { MapMarker } from './MapMarker';
-import { UK_MARKER_LOCATIONS } from '@/lib/uk-locations';
+import { UK_MARKER_LOCATIONS, SCOTTISH_LOCATION_IDS } from '@/lib/uk-locations';
 import type { Politician, RecentPost } from '@/data/types';
 import type { PartyKey } from '@/theme/colors';
 
@@ -151,6 +151,10 @@ export function UkMap({ politicians }: Props) {
                 post={m.post}
                 partyKey={m.partyKey}
                 handle={m.handle}
+                // Scotland sits near the top edge of the viewBox — give those
+                // markers a shorter connector stem so the video card stays
+                // inside the map area. England/Wales keep the default.
+                stemMultiplier={SCOTTISH_LOCATION_IDS.has(m.location.id) ? 0.5 : 1}
               />
             </View>
           ))}
