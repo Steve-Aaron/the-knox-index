@@ -35,15 +35,15 @@ export const UK_MARKER_LOCATIONS: UkLocation[] = [
   { id: 'norwich',    name: 'Norwich',    x: 775, y: 730 },
   { id: 'bristol',    name: 'Bristol',    x: 565, y: 820 },
   { id: 'london',     name: 'London',     x: 700, y: 850 },
-  { id: 'brighton',   name: 'Brighton',   x: 690, y: 830 },
+  { id: 'brighton',   name: 'Brighton',   x: 690, y: 880 },
 
   // Wales
   { id: 'cardiff',    name: 'Cardiff',    x: 510, y: 825 },
 
   // Southern Scotland — Central Belt and Borders
-  { id: 'edinburgh',  name: 'Edinburgh',  x: 580, y: 460 },
-  { id: 'glasgow',    name: 'Glasgow',    x: 530, y: 475 },
-  { id: 'dumfries',   name: 'Dumfries',   x: 550, y: 450 },
+  { id: 'edinburgh',  name: 'Edinburgh',  x: 580, y: 430 },
+  { id: 'glasgow',    name: 'Glasgow',    x: 510, y: 445 },
+  { id: 'dumfries',   name: 'Dumfries',   x: 530, y: 450 },
 ];
 
 /**
@@ -51,3 +51,15 @@ export const UK_MARKER_LOCATIONS: UkLocation[] = [
  * migrate to the broader UK_MARKER_LOCATIONS name. Remove on next pass.
  */
 export const ENGLAND_WALES_LOCATIONS = UK_MARKER_LOCATIONS;
+
+/**
+ * IDs of Scottish markers. The hero map uses this to shorten the connector
+ * stem from the dot to the video card for these locations (Scotland sits
+ * close to the top of the viewBox, so a full-length stem would push the
+ * card off-canvas).
+ */
+export const SCOTTISH_LOCATION_IDS: ReadonlySet<string> = new Set([
+  'edinburgh',
+  'glasgow',
+  'dumfries',
+]);

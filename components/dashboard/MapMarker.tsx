@@ -38,11 +38,21 @@ interface Props {
   /** Option E (prepared, not yet active) — render a 'Trending · {city}' pill
    *  at the top-left of the card. Flip this true from UkMap to enable. */
   showTrendingPill?: boolean;
+  /** Multiplier on the connector stem length. 1 = full (default, England /
+   *  Wales). 0.5 = half-length, used by Scottish locations to stop the card
+   *  flying off the top of the viewBox. Anything outside (0, 2] gets clamped
+   *  so a bad value can't break the layout. */
+  stemMultiplier?: number;
   /** Called once when the card has fully entered — parent uses this for cleanup timing if it wants. */
   onReady?: () => void;
 }
 
-export function MapMarker({ location, post, partyKey, handle, showTrendingPill = false, onReady }: Props) {
+export function MapMarker({ location, post, partyKey, handle, showTrendingPill = false, stemMultiplier = 1, onReady }: Props) {
+  // Per-instance stem height. The wrap translateY and the stem's animated
+  // `height` both derive from this so the dot, stem and card stay in sync.
+  const safeMultiplier = Math.max(0.1, Math.min(2, stemMultiplier));
+  const stemHeight     = Math.round(STEM_HEIGHT * safeMultiplier);
+  const wrapOffsetY    = -(stemHeight + CARD_HEIGHT + CAPTION_HEIGHT + DOT_SIZE / 2);
   const colour = party[partyKey];
 
   // Normalise the handle so the label is always exactly one '@' followed by
@@ -78,7 +88,7 @@ export function MapMarker({ location, post, partyKey, handle, showTrendingPill =
       // around the stem is transparent to clicks below) but its children CAN
       // receive them — the Pressable card listens for taps.
       pointerEvents="box-none"
-      style={styles.wrap}
+      style={[styles.wrap, { transform: [{ translateX: -CARD_WIDTH / 2 }, { translateY: wrapOffsetY }] }]}
       accessibilityLabel={`Marker for ${displayHandle} pinned near ${location.name}`}
     >
       <DevLabel name="MapMarker" />
@@ -145,10 +155,12 @@ export function MapMarker({ location, post, partyKey, handle, showTrendingPill =
         </Pressable>
       </MotiView>
 
-      {/* Stem — grows up from the dot to the card. */}
+      {/* Stem — grows up from the dot to the card. Length is per-instance
+          (see stemHeight above): full length for England/Wales, half for
+          Scottish locations so the card stays inside the viewBox. */}
       <MotiView
         from={{ height: 0, opacity: 0 }}
-        animate={{ height: STEM_HEIGHT, opacity: 1 }}
+        animate={{ height: stemHeight, opacity: 1 }}
         exit={{ height: 0, opacity: 0 }}
         transition={{
           type: 'timing',
@@ -246,15 +258,11 @@ function VideoCard({ post, accentColor }: VideoCardProps) {
 const styles = StyleSheet.create({
   // The wrap is positioned by the parent — we anchor children FROM the bottom
   // upwards so the dot sits at (0,0) and the card floats above the stem.
-  // translateY now also accounts for the 'Picked up in' caption between
-  // stem and dot, so the dot still lands on the city anchor.
+  // The transform is applied inline at the call site so it can include the
+  // per-instance stem height (full for England/Wales, half for Scotland).
   wrap: {
     position:   'absolute',
     alignItems: 'center',
-    transform:  [
-      { translateX: -CARD_WIDTH / 2 },
-      { translateY: -(STEM_HEIGHT + CARD_HEIGHT + CAPTION_HEIGHT + DOT_SIZE / 2) },
-    ],
     width:      CARD_WIDTH,
   },
   card: {

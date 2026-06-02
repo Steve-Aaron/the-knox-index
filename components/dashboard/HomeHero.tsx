@@ -121,29 +121,50 @@ export function HomeHero({ politicians, range, ready = true }: Props) {
           {/* Each headline line folds in: pivots from the top edge from
               -95° (folded back) to 0° (upright). Staggered between lines
               so each word lands in sequence. */}
-          {COPY.headlineLines.map((word, i) => (
-            <MotiView
-              key={i}
-              from={FROM_HEADLINE}
-              animate={ready ? TO_HEADLINE : FROM_HEADLINE}
-              transition={{
-                type:      'spring',
-                damping:   16,
-                stiffness: 140,
-                mass:      0.85,
-                delay:     HEADLINE_BASE_DELAY + i * HEADLINE_STAGGER,
-              }}
-              style={isWeb ? webFoldOriginTop : undefined}
-            >
+          {COPY.headlineLines.map((word, i) => {
+            // 'KNOX' gets inverted colours on a purple highlight block —
+            // editorial emphasis on the brand word, while THE and INDEX
+            // stay in the standard pink. The wrap View carries its own
+            // horizontal padding and matching negative vertical margin
+            // so the highlight bleeds around the letters without adding
+            // any height to the line-stack (THE and INDEX stay put).
+            const isHighlight = word === 'KNOX';
+            const textNode = (
               <Text
-                style={[styles.headline, headlineStyle, isWeb && webNoWrap]}
+                style={[
+                  styles.headline,
+                  headlineStyle,
+                  isWeb && webNoWrap,
+                  isHighlight && styles.headlineHighlightText,
+                ]}
                 numberOfLines={1}
                 adjustsFontSizeToFit={!isWeb}
               >
                 {word}
               </Text>
-            </MotiView>
-          ))}
+            );
+            return (
+              <MotiView
+                key={i}
+                from={FROM_HEADLINE}
+                animate={ready ? TO_HEADLINE : FROM_HEADLINE}
+                transition={{
+                  type:      'spring',
+                  damping:   16,
+                  stiffness: 140,
+                  mass:      0.85,
+                  delay:     HEADLINE_BASE_DELAY + i * HEADLINE_STAGGER,
+                }}
+                style={isWeb ? webFoldOriginTop : undefined}
+              >
+                {isHighlight ? (
+                  <View style={styles.headlineHighlight}>{textNode}</View>
+                ) : (
+                  textNode
+                )}
+              </MotiView>
+            );
+          })}
 
           {/* Tagline folds in from below — pivots from the bottom edge
               from +60° (folded forward, tilted down) to 0° (upright). A
@@ -250,6 +271,22 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     margin:        0,
     padding:       0,
+  },
+  // Highlight block wrapping the word KNOX. alignSelf:'flex-start' so the
+  // block sizes to the text width plus horizontal padding. paddingVertical
+  // is mirrored by an equal negative marginVertical so the visible block
+  // bleeds above and below the letterforms without changing the stack
+  // height — THE and INDEX lines do not shift.
+  headlineHighlight: {
+    alignSelf:         'flex-start',
+    backgroundColor:   knox.primaryPurple,
+    paddingHorizontal: spacing.lg,
+    paddingVertical:   spacing.xs,
+    marginVertical:    -spacing.xs,
+    marginLeft:        -spacing.lg,
+  },
+  headlineHighlightText: {
+    color: '#FFFFFF',
   },
   taglineWrap: {
     marginTop: spacing.lg,
