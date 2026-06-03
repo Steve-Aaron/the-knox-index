@@ -26,7 +26,7 @@ interface Props {
 
 export function UkMapSvg({
   fillColor   = 'rgba(124, 131, 255, 0.18)',   // accent.indigo @ 18%
-  strokeColor = knox.primaryPink,
+  strokeColor = '#F4F5FF',
   glowColor   = accent.indigo,
 }: Props) {
   return (
@@ -56,6 +56,7 @@ export function UkMapSvg({
               d={d}
               fill={fillColor}
               stroke={strokeColor}
+              strokeOpacity={0.5}
               strokeWidth={5}
               strokeLinejoin="round"
               strokeLinecap="round"

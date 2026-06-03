@@ -203,14 +203,14 @@ const styles = StyleSheet.create({
     width:           '100%',
     maxWidth:        680,
     maxHeight:       '88%' as any,
-    backgroundColor: '#0d0d1a',
+    backgroundColor: '#1F1D1D',
     borderWidth:     1,
     borderColor:     glass.border,
     borderRadius:    radius.xl,
     overflow:        'hidden',
     ...Platform.select({
       web: {
-        boxShadow: '0 32px 80px rgba(0,0,0,0.9), 0 0 0 1px rgba(124,131,255,0.12)',
+        boxShadow: '0 32px 80px rgba(0,0,0,0.9), 0 0 0 1px rgba(95,100,189,0.12)',
       } as any,
       default: {
         shadowColor:   '#000',
@@ -349,9 +349,9 @@ const styles = StyleSheet.create({
     borderTopColor:  glass.border,
   },
   refreshBtn: {
-    backgroundColor:  'rgba(124,131,255,0.14)',
+    backgroundColor:  'rgba(95,100,189,0.14)',
     borderWidth:      1,
-    borderColor:      'rgba(124,131,255,0.35)',
+    borderColor:      'rgba(95,100,189,0.35)',
     borderRadius:     radius.pill,
     paddingVertical:  spacing.md,
     alignItems:       'center',

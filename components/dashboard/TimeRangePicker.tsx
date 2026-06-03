@@ -58,6 +58,7 @@ export function TimeRangePicker({ value, onChange, isRegistered = false, onLocke
   return (
     <GlassSurface style={styles.wrap} radius={radius.pill}>
       <DevLabel name="TimeRangePicker" />
+      <View style={styles.outer}>
       <View style={styles.row}>
         <Animated.View style={[styles.highlight, highlightStyle]}>
           <View style={styles.highlightInner} />
@@ -81,6 +82,7 @@ export function TimeRangePicker({ value, onChange, isRegistered = false, onLocke
           );
         })}
       </View>
+      </View>
     </GlassSurface>
   );
 }
@@ -89,21 +91,23 @@ const styles = StyleSheet.create({
   wrap: {
     alignSelf: 'stretch',
   },
+  outer: {
+    padding: 4,
+  },
   row: {
     flexDirection: 'row',
     alignItems: 'stretch',
-    padding: 4,
     position: 'relative',
   },
   highlight: {
     position: 'absolute',
-    top: 4,
-    bottom: 4,
+    top: 0,
+    bottom: 0,
     padding: 2,
   },
   highlightInner: {
     flex: 1,
-    backgroundColor: 'rgba(124,131,255,0.18)',
+    backgroundColor: 'rgba(95,100,189,0.18)',
     borderWidth: 1,
     borderColor: accent.indigo,
     borderRadius: radius.pill,

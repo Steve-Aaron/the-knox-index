@@ -244,9 +244,10 @@ export function PartyLeaderboard({ politicians, range = 'week', onPartySelect, a
 
 const styles = StyleSheet.create({
   wrap: {
-    paddingVertical: spacing.md,
+    paddingTop:        spacing.xl,
+    paddingBottom:     spacing.md,
     paddingHorizontal: spacing.lg,
-    gap: spacing.md,
+    gap:               spacing.md,
   },
   header: {
     gap: spacing.sm,
@@ -271,8 +272,8 @@ const styles = StyleSheet.create({
     ...Platform.select({ web: { cursor: 'pointer' } as any, default: {} }),
   },
   sortChipActive: {
-    backgroundColor: 'rgba(124,131,255,0.16)',
-    borderColor: 'rgba(124,131,255,0.5)',
+    backgroundColor: 'rgba(95,100,189,0.16)',
+    borderColor: 'rgba(95,100,189,0.5)',
   },
   sortChipText: {
     ...type.caption,

@@ -277,7 +277,7 @@ const styles = StyleSheet.create({
   modalCard: {
     width: '100%',
     maxWidth: 420,
-    backgroundColor: '#0a0a12',
+    backgroundColor: '#1F1D1D',
     borderWidth: 1,
     borderColor: glass.borderHi,
     borderRadius: radius.lg,
@@ -366,7 +366,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     borderTopWidth: 1,
     borderTopColor: glass.border,
-    backgroundColor: '#0a0a12',
+    backgroundColor: '#1F1D1D',
   },
   openBtn: {
     flex: 1,

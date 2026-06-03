@@ -156,7 +156,7 @@ export function LoadingScreen({ visible }: Props) {
       <DevLabel name="LoadingScreen" />
       {/* Radial background glow */}
       <LinearGradient
-        colors={['#0D0D24', '#07070B']}
+        colors={['#1F1D1D', '#1F1D1D']}
         style={StyleSheet.absoluteFill}
       />
       <View style={[StyleSheet.absoluteFill, styles.glow]} />

@@ -19,7 +19,7 @@ import { font } from '@/theme/typography';
 const STATES: { state: DevPreviewState; label: string; color: string }[] = [
   { state: 'off',    label: 'Off',    color: '#6C6C82' },
   { state: 'gate',   label: 'Gate',   color: '#FFB547' },
-  { state: 'signup', label: 'Signup', color: '#7C83FF' },
+  { state: 'signup', label: 'Signup', color: '#5F64BD' },
   { state: 'full',   label: 'Full',   color: '#3DFFC0' },
 ];
 

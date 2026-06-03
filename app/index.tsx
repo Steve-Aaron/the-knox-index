@@ -827,7 +827,7 @@ const styles = StyleSheet.create({
   },
   chipActive: {
     borderColor: accent.indigo,
-    backgroundColor: 'rgba(124,131,255,0.12)',
+    backgroundColor: 'rgba(95,100,189,0.12)',
   },
   chipText: {
     ...type.caption,
@@ -871,6 +871,7 @@ const styles = StyleSheet.create({
   },
   insightsRowDesktop: {
     flexDirection: 'row',
+    alignItems:   'stretch',
   },
   insightsRowStacked: {
     flexDirection: 'column',

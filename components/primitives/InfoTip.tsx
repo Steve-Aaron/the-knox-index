@@ -154,7 +154,7 @@ const styles = StyleSheet.create({
   },
   badgeActive: {
     borderColor:     accent.indigo,
-    backgroundColor: 'rgba(124,131,255,0.18)',
+    backgroundColor: 'rgba(95,100,189,0.18)',
   },
   icon: {
     fontFamily: font.bold,
@@ -216,14 +216,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#0B0B14',
     opacity:         1,
     borderWidth:     1,
-    borderColor:     'rgba(124,131,255,0.35)',
+    borderColor:     'rgba(95,100,189,0.35)',
     borderRadius:    radius.lg,
     padding:         spacing.lg,
     gap:             spacing.sm,
     ...Platform.select({
       web: {
         backgroundColor: '#0B0B14',
-        boxShadow: '0 16px 48px rgba(0,0,0,0.85), 0 0 0 1px rgba(124,131,255,0.12)',
+        boxShadow: '0 16px 48px rgba(0,0,0,0.85), 0 0 0 1px rgba(95,100,189,0.12)',
         zIndex:    99999,
         pointerEvents: 'auto',
         isolation: 'isolate',

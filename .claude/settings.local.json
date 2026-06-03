@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(sleep 15 && cat /tmp/expo-web.log | tail -25)",
+      "mcp__Claude_in_Chrome__list_connected_browsers",
+      "mcp__Claude_in_Chrome__tabs_context_mcp",
+      "mcp__Claude_in_Chrome__navigate",
+      "mcp__Claude_in_Chrome__browser_batch",
+      "mcp__Claude_in_Chrome__javascript_tool",
+      "Bash(xargs sed -i '' 's/#7C83FF/#5F64BD/g')",
+      "mcp__Claude_in_Chrome__computer",
+      "WebFetch(domain:canva.link)",
+      "WebFetch(domain:www.canva.com)",
+      "mcp__7d5f8296-20f8-47cc-9380-f98b699638b7__get-design-content",
+      "Bash(git stage *)"
+    ]
+  }
+}

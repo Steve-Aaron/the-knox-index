@@ -37,7 +37,7 @@ export function RankBoardRow({ politician, rank, headlineKey, active, onPress }:
       style={({ pressed, hovered }: any) => [
         styles.row,
         silent && styles.rowSilent,
-        active && { borderColor: accent.indigo, backgroundColor: 'rgba(124,131,255,0.08)' },
+        active && { borderColor: accent.indigo, backgroundColor: 'rgba(95,100,189,0.08)' },
         hovered && !active ? { borderColor: neutral.strokeHi } : null,
         pressed ? { opacity: 0.8 } : null,
       ]}
