@@ -32,6 +32,9 @@ import { formatters } from '@/components/primitives/CountUp';
 import type { PostRecord, PostBenchmarks } from '@/data/types';
 import { track } from '@/lib/analytics';
 import { fmtLabel } from '@/lib/format';
+import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
+import { AdvancedFilterPanel } from './AdvancedFilterPanel';
+import { applyAdvancedFilter, type Rule } from '@/lib/advancedFilters';
 
 /**
  * PostsTable
@@ -69,21 +72,30 @@ const WING_LABELS: Record<Wing, string> = {
 
 // ── Sort options ───────────────────────────────────────────────────────────────
 
-type SortKey = 'views' | 'likes' | 'comments' | 'shares' | 'postDate' | 'virality';
+type SortKey = 'views' | 'likes' | 'comments' | 'shares' | 'postDate' | 'virality' | 'engagement';
 
 const SORT_OPTIONS: { key: SortKey; label: string }[] = [
-  { key: 'views',    label: 'Views' },
-  { key: 'likes',    label: 'Likes' },
-  { key: 'comments', label: 'Comments' },
-  { key: 'shares',   label: 'Shares' },
-  { key: 'virality', label: 'Virality' },
-  { key: 'postDate', label: 'Date' },
+  { key: 'views',      label: 'Views' },
+  { key: 'likes',      label: 'Likes' },
+  { key: 'comments',   label: 'Comments' },
+  { key: 'shares',     label: 'Shares' },
+  { key: 'engagement', label: 'Eng. %' },
+  { key: 'virality',   label: 'Virality' },
+  { key: 'postDate',   label: 'Date' },
 ];
 
 /** Virality = views per follower. Small accounts that punched above their weight rank highest. */
 function viralityRatio(p: PostRecord): number {
   return p.accountFollowers > 0 ? p.views / p.accountFollowers : 0;
 }
+
+/** Engagement rate = (likes + comments + saves + shares) / views. Zero-views → 0 to avoid divide-by-zero. */
+function engagementRate(p: PostRecord): number {
+  return p.views > 0 ? (p.likes + p.comments + p.saves + p.shares) / p.views : 0;
+}
+
+/** Page size for the post feed — clicks on Next show this many more. */
+const POSTS_PER_PAGE = 20;
 
 // ── Threshold options for min-views / min-likes filters ────────────────────────
 
@@ -107,12 +119,19 @@ const LIKE_THRESHOLDS: { value: number; label: string }[] = [
 
 function partyLabel(key: PartyKey): string {
   const labels: Partial<Record<PartyKey, string>> = {
-    labour: 'Labour', conservative: 'Conservative', libdem: 'Lib Dem',
+    labour: 'Labour', conservative: 'Conservative', libdem: 'Lib Dems',
     snp: 'SNP', green: 'Greens', reform: 'Reform', plaid: 'Plaid',
     dup: 'DUP', sinnfein: 'Sinn Féin', independent: 'Independent', unknown: 'Unknown',
   };
   return labels[key] ?? key;
 }
+
+/**
+ * Parties that should always appear as filter chips even if no posts in the
+ * current scope match. Useful for big-name parties the user expects to see
+ * (Lib Dems specifically — small post volume, was being silently hidden).
+ */
+const ALWAYS_VISIBLE_PARTIES: PartyKey[] = ['labour', 'conservative', 'libdem', 'reform', 'green', 'snp'];
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
@@ -131,6 +150,10 @@ interface Props {
   /** Controlled style filter — set externally (e.g. from StyleBreakdown). */
   externalStyleFilter?:   string | null;
   onStyleFilterChange?:   (style: string | null) => void;
+  /** Controlled sort key — when supplied, the API receives this as ?sortKey=
+   *  and returns the top-N for that metric. Without it, sort stays local. */
+  externalSortKey?:       SortKey;
+  onSortKeyChange?:       (key: SortKey) => void;
 }
 
 export function PostsTable({
@@ -145,11 +168,22 @@ export function PostsTable({
   onPartyFilterChange,
   externalStyleFilter,
   onStyleFilterChange,
+  externalSortKey,
+  onSortKeyChange,
 }: Props) {
   const { width: windowWidth } = useWindowDimensions();
   const isMobile = windowWidth < breakpoints.tablet;
 
-  const [sortKey, setSortKey]         = useState<SortKey>('views');
+  // Sort key is controlled when externalSortKey is supplied (parent owns it so
+  // it can drive the API's ORDER BY). Otherwise we keep an internal fallback
+  // for back-compatibility with callers that don't lift the sort state.
+  const [internalSortKey, setInternalSortKey] = useState<SortKey>('views');
+  const sortKey = externalSortKey !== undefined ? externalSortKey : internalSortKey;
+  const setSortKey = useCallback((next: SortKey) => {
+    setInternalSortKey(next);
+    onSortKeyChange?.(next);
+  }, [onSortKeyChange]);
+
   const [wingFilter, setWingFilter]   = useState<Wing | null>(null);
   const [internalPartyFilter, setInternalPartyFilter] = useState<PartyKey | null>(null);
 
@@ -178,6 +212,17 @@ export function PostsTable({
   // Draggable order — starts from filtered; resets when filters or sort change.
   const [orderedPosts, setOrderedPosts] = useState<PostRecord[]>([]);
 
+  // Pagination — show POSTS_PER_PAGE posts at a time; click Next/Previous to page.
+  // Resets to page 0 whenever filters or sort change so users aren't stranded
+  // on an out-of-range page after narrowing the result set.
+  const [pageIndex, setPageIndex] = useState(0);
+
+  // Advanced filter — toggleable panel of arbitrary rules (field/op/value).
+  // Rules are AND-combined and applied as the LAST filter step so the existing
+  // chip filters narrow the base set first, then advanced rules refine it.
+  const [advancedRules, setAdvancedRules]     = useState<Rule[]>([]);
+  const [advancedVisible, setAdvancedVisible] = useState(false);
+
   // Ref tracking current filtered count — lets handlers access it without
   // a stale-closure problem and without needing filtered to be declared first.
   const filteredCountRef = useRef(0);
@@ -198,13 +243,21 @@ export function PostsTable({
     setMinLikes(v);
   }, []);
 
-  // Party chips must only show parties that exist within the active wing filter.
-  // Deriving from all posts would let users tap a party that has zero matches
-  // in the current wing, silently returning an empty list.
+  // Party chips show:
+  //   1. Every party that has posts in the current wing-filtered scope
+  //   2. Plus the ALWAYS_VISIBLE_PARTIES list (filtered by wing if active),
+  //      so big-name parties like Lib Dems are visible even with zero posts.
   const parties = useMemo<PartyKey[]>(() => {
     const base = wingFilter ? posts.filter(p => WING_MAP[p.partyKey] === wingFilter) : posts;
     const seen = new Set<PartyKey>();
     base.forEach(p => seen.add(p.partyKey));
+
+    // Add the always-visible parties, respecting the current wing filter.
+    for (const pk of ALWAYS_VISIBLE_PARTIES) {
+      if (!wingFilter || WING_MAP[pk] === wingFilter) {
+        seen.add(pk);
+      }
+    }
     return Array.from(seen).sort();
   }, [posts, wingFilter]);
 
@@ -233,20 +286,48 @@ export function PostsTable({
       const tf = topicFilter.toLowerCase();
       base = base.filter(p => (p.topics ?? []).some(t => t.toLowerCase() === tf));
     }
+    if (advancedRules.length > 0) {
+      base = applyAdvancedFilter(base, advancedRules);
+    }
     return [...base].sort((a, b) => {
-      if (sortKey === 'postDate') return b.postDate.localeCompare(a.postDate);
-      if (sortKey === 'virality') return viralityRatio(b) - viralityRatio(a);
+      if (sortKey === 'postDate')   return b.postDate.localeCompare(a.postDate);
+      if (sortKey === 'virality')   return viralityRatio(b) - viralityRatio(a);
+      if (sortKey === 'engagement') return engagementRate(b) - engagementRate(a);
       return (b[sortKey] as number) - (a[sortKey] as number);
     });
-  }, [posts, sortKey, wingFilter, partyFilter, activePoliticianName, minViews, minLikes, styleFilter, topicFilter]);
+  }, [posts, sortKey, wingFilter, partyFilter, activePoliticianName, minViews, minLikes, styleFilter, topicFilter, advancedRules]);
 
   // Keep the ref in sync so analytics handlers always read the current count.
   filteredCountRef.current = filtered.length;
 
-  // Sync draggable list when filters or sort key change.
+  // Reset to page 0 whenever the filtered set changes (so user isn't stuck on
+  // an empty page after narrowing the filters).
   useEffect(() => {
-    setOrderedPosts(filtered);
+    setPageIndex(0);
   }, [filtered]);
+
+  // Slice the filtered list down to a single page of POSTS_PER_PAGE items.
+  const totalPages = Math.max(1, Math.ceil(filtered.length / POSTS_PER_PAGE));
+  const safePageIndex = Math.min(pageIndex, totalPages - 1);
+  const pagedPosts = useMemo(
+    () => filtered.slice(safePageIndex * POSTS_PER_PAGE, (safePageIndex + 1) * POSTS_PER_PAGE),
+    [filtered, safePageIndex]
+  );
+
+  // Sync draggable list with the current page (not the full filtered set).
+  useEffect(() => {
+    setOrderedPosts(pagedPosts);
+  }, [pagedPosts]);
+
+  const goToPrevPage = useCallback(() => {
+    setPageIndex(p => Math.max(0, p - 1));
+    track('post_feed_paginated', { direction: 'prev', to_page: safePageIndex });
+  }, [safePageIndex]);
+
+  const goToNextPage = useCallback(() => {
+    setPageIndex(p => Math.min(totalPages - 1, p + 1));
+    track('post_feed_paginated', { direction: 'next', to_page: safePageIndex + 2 });
+  }, [safePageIndex, totalPages]);
 
   // Area 6: fire post_card_opened with position and metadata
   const handleCardPress = useCallback((post: PostRecord, index: number) => {
@@ -338,6 +419,34 @@ export function PostsTable({
               <View style={styles.countBadge}>
                 <Text style={styles.countText}>{filtered.length}</Text>
               </View>
+              {/* Magnifying glass — toggles the AdvancedFilterPanel below */}
+              <Pressable
+                onPress={() => {
+                  const next = !advancedVisible;
+                  setAdvancedVisible(next);
+                  track('advanced_filter_toggled', { open: next, rule_count: advancedRules.length });
+                }}
+                style={({ pressed, hovered }: any) => [
+                  styles.advFilterBtn,
+                  advancedVisible && styles.advFilterBtnActive,
+                  advancedRules.length > 0 && styles.advFilterBtnHasRules,
+                  hovered && { opacity: 0.85 },
+                  pressed && { opacity: 0.7 },
+                ]}
+                accessibilityLabel="Toggle advanced filter"
+              >
+                <FontAwesome6
+                  name="magnifying-glass"
+                  size={12}
+                  color={advancedVisible || advancedRules.length > 0 ? accent.indigo : neutral.textMid}
+                  solid
+                />
+                {advancedRules.length > 0 && (
+                  <View style={styles.advFilterCount}>
+                    <Text style={styles.advFilterCountText}>{advancedRules.length}</Text>
+                  </View>
+                )}
+              </Pressable>
             </View>
           </View>
           <ScrollView
@@ -506,6 +615,14 @@ export function PostsTable({
           </View>
         ) : null}
 
+        {/* ── Advanced filter panel — toggled by the magnifying-glass button ─ */}
+        <AdvancedFilterPanel
+          visible={advancedVisible}
+          rules={advancedRules}
+          onChange={setAdvancedRules}
+          onClose={() => setAdvancedVisible(false)}
+        />
+
         {/* ── Active style / topic pills ────────────── */}
         {(styleFilter || topicFilter) ? (
           <View style={styles.filterSection}>
@@ -548,23 +665,61 @@ export function PostsTable({
           ) : orderedPosts.length === 0 ? (
             <Text style={styles.emptyText}>No posts match the current filters.</Text>
           ) : (
-            <DraggableFlatList
-              data={orderedPosts}
-              keyExtractor={item => item.postId}
-              renderItem={renderItem}
-              onDragEnd={({ data }) => setOrderedPosts(data)}
-              style={isMobile ? styles.listCompact : styles.list}
-              contentContainerStyle={styles.listContent}
-              showsVerticalScrollIndicator={false}
-              nestedScrollEnabled
-              {...(!isMobile && {
-                snapToInterval: CARD_H + GAP,
-                decelerationRate: 'fast' as const,
-                snapToAlignment: 'start' as const,
-                disableIntervalMomentum: true,
-              })}
-              activationDistance={8}
-            />
+            <>
+              <DraggableFlatList
+                data={orderedPosts}
+                keyExtractor={item => item.postId}
+                renderItem={renderItem}
+                onDragEnd={({ data }) => setOrderedPosts(data)}
+                style={isMobile ? styles.listCompact : styles.list}
+                contentContainerStyle={styles.listContent}
+                showsVerticalScrollIndicator={false}
+                nestedScrollEnabled
+                {...(!isMobile && {
+                  snapToInterval: CARD_H + GAP,
+                  decelerationRate: 'fast' as const,
+                  snapToAlignment: 'start' as const,
+                  disableIntervalMomentum: true,
+                })}
+                activationDistance={8}
+              />
+
+              {/* ── Pagination controls ──────────────────── */}
+              <View style={styles.pagination}>
+                <Pressable
+                  onPress={goToPrevPage}
+                  disabled={safePageIndex === 0}
+                  style={({ pressed }) => [
+                    styles.pageBtn,
+                    safePageIndex === 0 && styles.pageBtnDisabled,
+                    pressed && safePageIndex > 0 && { opacity: 0.75 },
+                  ]}
+                >
+                  <Text style={[styles.pageBtnText, safePageIndex === 0 && styles.pageBtnTextDisabled]}>
+                    ← Previous
+                  </Text>
+                </Pressable>
+
+                <Text style={styles.pageInfo}>
+                  Page <Text style={styles.pageInfoNum}>{safePageIndex + 1}</Text> of {totalPages}
+                  <Text style={styles.pageInfoCount}>  ·  {filtered.length} post{filtered.length === 1 ? '' : 's'}</Text>
+                </Text>
+
+                <Pressable
+                  onPress={goToNextPage}
+                  disabled={safePageIndex >= totalPages - 1}
+                  style={({ pressed }) => [
+                    styles.pageBtn,
+                    safePageIndex >= totalPages - 1 && styles.pageBtnDisabled,
+                    pressed && safePageIndex < totalPages - 1 && { opacity: 0.75 },
+                  ]}
+                >
+                  <Text style={[styles.pageBtnText, safePageIndex >= totalPages - 1 && styles.pageBtnTextDisabled]}>
+                    Next →
+                  </Text>
+                </Pressable>
+              </View>
+            </>
           )
         )}
       </View>
@@ -912,6 +1067,42 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: 2 },
+
+  // ── Advanced filter button ─────────────────────────────────────────────────
+  advFilterBtn: {
+    flexDirection:   'row',
+    alignItems:      'center',
+    gap:             4,
+    width:           32,
+    height:          32,
+    justifyContent:  'center',
+    borderRadius:    radius.pill,
+    borderWidth:     1,
+    borderColor:     glass.borderHi,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    ...Platform.select({ web: { cursor: 'pointer' } as any, default: {} }),
+  },
+  advFilterBtnActive: {
+    borderColor:     accent.indigo,
+    backgroundColor: accent.indigo + '20',
+  },
+  advFilterBtnHasRules: {
+    width:             'auto' as any,
+    paddingHorizontal: 8,
+  },
+  advFilterCount: {
+    backgroundColor:   accent.indigo,
+    paddingHorizontal: 5,
+    paddingVertical:   1,
+    borderRadius:      radius.pill,
+    minWidth:          16,
+    alignItems:        'center',
+  },
+  advFilterCountText: {
+    fontFamily: font.bold,
+    fontSize:   9,
+    color:      '#fff',
+  },
   titleRange: { ...type.body, color: neutral.textDim, fontSize: 16 },
   countBadge: {
     backgroundColor: accent.pink + '22',
@@ -1038,6 +1229,56 @@ const styles = StyleSheet.create({
   listContent: { paddingBottom: spacing.sm },
   skeletonList: { gap: spacing.sm, paddingBottom: spacing.sm },
   emptyText: { ...type.body, color: neutral.textDim, fontSize: 16, textAlign: 'center', padding: spacing.xl },
+
+  // ── Pagination ──────────────────────────────────────────────────────────
+  pagination: {
+    flexDirection:     'row',
+    alignItems:        'center',
+    justifyContent:    'space-between',
+    paddingVertical:   spacing.md,
+    paddingHorizontal: spacing.sm,
+    borderTopWidth:    1,
+    borderTopColor:    glass.border,
+    marginTop:         spacing.sm,
+  },
+  pageBtn: {
+    paddingHorizontal: spacing.md,
+    paddingVertical:   spacing.sm,
+    borderRadius:      radius.pill,
+    borderWidth:       1,
+    borderColor:       glass.borderHi,
+    backgroundColor:   'rgba(255,255,255,0.04)',
+    ...Platform.select({ web: { cursor: 'pointer' } as any, default: {} }),
+  },
+  pageBtnDisabled: {
+    borderColor:     glass.border,
+    backgroundColor: 'rgba(255,255,255,0.015)',
+    ...Platform.select({ web: { cursor: 'not-allowed' } as any, default: {} }),
+  },
+  pageBtnText: {
+    fontFamily: font.bold,
+    fontSize:   12,
+    color:      neutral.textMid,
+    letterSpacing: 0.3,
+  },
+  pageBtnTextDisabled: {
+    color: neutral.textDim,
+  },
+  pageInfo: {
+    fontFamily: font.ui,
+    fontSize:   12,
+    color:      neutral.textDim,
+    flex:       1,
+    textAlign:  'center',
+  },
+  pageInfoNum: {
+    fontFamily: font.bold,
+    color:      neutral.text,
+  },
+  pageInfoCount: {
+    fontFamily: font.ui,
+    color:      neutral.textDim,
+  },
   lockedWrap: {
     paddingVertical: spacing.xl,
     paddingHorizontal: spacing.lg,

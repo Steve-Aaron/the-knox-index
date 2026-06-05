@@ -43,10 +43,27 @@ function tiktokUrl(handle: string): string {
   return `https://www.tiktok.com/${clean}`;
 }
 
+/**
+ * Engagement rate as a percentage. Prefers the range-aware aggregates from
+ * the post table (always populated when posts exist in the range, includes
+ * shares), and falls back to today's accountMetrics snapshot if the range
+ * aggregates are empty.
+ *
+ * Was previously hard-coded to views24h / likesToday, which returns 0 for
+ * any account whose daily accountMetrics row hasn't been ingested yet — that
+ * was the cause of the empty 'Eng %' column.
+ */
 function engagementRate(p: Politician): number {
-  const { likesToday, commentsToday, savesToday, views24h } = p.totals;
-  if (views24h <= 0) return 0;
-  return ((likesToday + commentsToday + savesToday) / views24h) * 100;
+  const t = p.totals;
+  if (t.viewsInRange > 0) {
+    const numerator = t.likesInRange + t.commentsInRange + t.savesInRange + t.sharesInRange;
+    return (numerator / t.viewsInRange) * 100;
+  }
+  if (t.views24h > 0) {
+    const numerator = t.likesToday + t.commentsToday + t.savesToday;
+    return (numerator / t.views24h) * 100;
+  }
+  return 0;
 }
 
 export function AccountsInterstitial({ politicians, onClose, onRefresh }: Props) {
@@ -55,10 +72,8 @@ export function AccountsInterstitial({ politicians, onClose, onRefresh }: Props)
     [politicians]
   );
 
-  const totalFollowers = useMemo(
-    () => sorted.reduce((s, p) => s + p.totals.followers, 0),
-    [sorted]
-  );
+  // Per-row follower counts still render in each account row below — only the
+  // header's combined total has been removed at the user's request.
 
   const handleRefresh = useCallback(() => {
     onRefresh();
@@ -87,7 +102,7 @@ export function AccountsInterstitial({ politicians, onClose, onRefresh }: Props)
           <View style={styles.headerLeft}>
             <Kicker style={{ letterSpacing: 1.2 }}>TRACKED ACCOUNTS</Kicker>
             <Title style={{ fontSize: 16, letterSpacing: -0.3 }}>
-              {sorted.length} politicians · {formatters.compact(totalFollowers)} followers
+              {sorted.length} politicians
             </Title>
           </View>
           <Pressable

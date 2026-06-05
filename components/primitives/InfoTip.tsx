@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -112,13 +112,21 @@ interface ModalProps {
 export function InfoTipModal({
   visible,
   onClose,
-  title    = 'What does this mean?',
+  title    = 'What does this show?',
   text,
   children,
   // width retained for backwards compatibility; ignored — interstitial is
   // intentionally full-screen.
   width: _width,
 }: ModalProps) {
+  // Close on Esc (web only — no physical key on native)
+  useEffect(() => {
+    if (!visible || Platform.OS !== 'web') return;
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [visible, onClose]);
+
   return (
     <Interstitial
       visible={visible}

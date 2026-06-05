@@ -89,14 +89,31 @@ export async function GET(request: Request): Promise<Response> {
     return Response.json({ steps });
   }
 
-  // Main data fetch
+  // Main data fetch — accounts, posts, and the global processed-post count.
+  // The count goes alongside `politicians` so the dashboard's 'Posts tracked'
+  // tile reports OUR database size (post table rows that have a video summary
+  // and a video URL), not the sum of TikTok's lifetime post counters.
   try {
-    const [accountRows, postRows] = await Promise.all([
+    // Raw COUNT(*) — every row we've ingested into post, including rows
+    // pending summary / video processing. The 'Posts tracked' tile reads
+    // this literally; partial-processing rows are NOT excluded because they
+    // are legitimately tracked, just not yet displayable in feeds.
+    const totalPostsSql = `
+      SELECT COUNT(*) AS totalPostsInDb
+      FROM ${tableRef('post')}
+    `;
+
+    const [accountRows, postRows, countRows] = await Promise.all([
       query<BQAccountRow>(buildAccountsSQL(range)),
       query<BQPostRow>(buildPostsSQL(range)),
+      query<{ totalPostsInDb: number | string }>(totalPostsSql),
     ]);
 
     const politicians = transformToPoliticians(accountRows, postRows);
+
+    // BigQuery sometimes returns COUNT(*) as a string for very large numbers.
+    // Coerce defensively so the client always sees a Number.
+    const totalPostsInDb = Number(countRows[0]?.totalPostsInDb ?? 0) || 0;
 
     await Promise.all([
       ...politicians.flatMap(p =>
@@ -113,7 +130,7 @@ export async function GET(request: Request): Promise<Response> {
     ]);
 
     return Response.json(
-      { politicians },
+      { politicians, totalPostsInDb },
       { headers: { 'Cache-Control': 'private, max-age=1800, stale-while-revalidate=120' } }
     );
 

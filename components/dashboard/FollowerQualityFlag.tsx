@@ -6,66 +6,70 @@ import { neutral, accent } from '@/theme/colors';
 import { spacing, radius } from '@/theme/spacing';
 import { type, font } from '@/theme/typography';
 import type { Politician } from '@/data/types';
+import { computeFollowerQuality, FOLLOWER_QUALITY } from '@/data/knoxConfig';
 
 /**
  * FollowerQualityFlag
  * --------------------
- * Heuristic indicator that flags accounts whose recent reach looks anomalously
- * low for their follower count. Answers the brief question 'has this MP bought
- * followers (abroad)?' without making a definitive accusation — we surface the
- * ratio and let the user judge.
+ * Renders the follower-quality ratio + verdict for an account. The maths and
+ * thresholds live in @/data/knoxConfig (see FOLLOWER_QUALITY + computeFollowerQuality)
+ * so they sit alongside the Knox Factor tuning knobs — edit there to rebalance.
  *
- * Heuristic: avgViewsPerPost / totalFollowers. Real political audiences usually
- * show 0.10–0.50 (10–50% of followers see any given post on TikTok). A ratio
- * below 0.03 with a large follower base is a yellow flag worth investigating.
+ * This component is purely presentational: it asks computeFollowerQuality()
+ * for a verdict tone and ratio, then maps the tone to a colour + label + hint.
  *
- * One job: render the ratio + a verdict label. No side effects.
+ * One job: render the ratio + a verdict label. No maths inline.
  */
 
 interface Props {
   politician: Politician;
 }
 
-const SUSPICIOUS_RATIO    = 0.03;   // <3% of followers seeing posts is unusual
-const VERY_SUSPICIOUS     = 0.01;   // <1% is a bigger flag
-const MIN_FOLLOWERS_GATE  = 25_000; // below this, the ratio is too noisy to judge
-
 export function FollowerQualityFlag({ politician }: Props) {
   const verdict = useMemo(() => {
-    const followers = politician.totals.followers;
+    const followers   = politician.totals.followers;
     const recentPosts = politician.recentPosts ?? [];
+    const postCount   = recentPosts.length;
+    const avgViews    = postCount > 0
+      ? recentPosts.reduce((s, p) => s + p.views, 0) / postCount
+      : 0;
 
-    if (followers < MIN_FOLLOWERS_GATE) {
-      return { tone: 'neutral' as const, label: 'Sample too small to flag', ratio: null, hint: 'Need at least 25k followers before the views-to-followers ratio is meaningful.' };
-    }
-    if (recentPosts.length === 0) {
-      return { tone: 'neutral' as const, label: 'No recent posts on record', ratio: null, hint: 'We can only judge audience quality once we have post-level reach data.' };
-    }
+    const v = computeFollowerQuality(avgViews, followers, postCount);
 
-    const avgViews = recentPosts.reduce((s, p) => s + p.views, 0) / recentPosts.length;
-    const ratio = avgViews / followers;
-
-    if (ratio < VERY_SUSPICIOUS) {
+    // Map the data-layer verdict to UI copy. Verdict labels and hints stay
+    // here in the component so the config file remains free of presentation.
+    if (v.tone === 'neutral' && v.neutralReason === 'low_followers') {
       return {
-        tone: 'red' as const,
-        label: 'Unusually low reach for follower count',
-        ratio,
-        hint: 'Less than 1% of followers saw an average recent post. Worth investigating whether the audience is real or located in the same country as the account.',
+        ...v,
+        label: 'Sample too small to flag',
+        hint:  `Need at least ${(FOLLOWER_QUALITY.minFollowersGate / 1000).toFixed(0)}k followers before the views-to-followers ratio is meaningful.`,
       };
     }
-    if (ratio < SUSPICIOUS_RATIO) {
+    if (v.tone === 'neutral' && v.neutralReason === 'no_posts') {
       return {
-        tone: 'amber' as const,
+        ...v,
+        label: 'No recent posts on record',
+        hint:  'We can only judge audience quality once we have post-level reach data.',
+      };
+    }
+    if (v.tone === 'red') {
+      return {
+        ...v,
+        label: 'Unusually low reach for follower count',
+        hint:  `Less than ${(FOLLOWER_QUALITY.verySuspiciousRatio * 100).toFixed(0)}% of followers saw an average recent post. Worth investigating whether the audience is real or located in the same country as the account.`,
+      };
+    }
+    if (v.tone === 'amber') {
+      return {
+        ...v,
         label: 'Reach low for follower count',
-        ratio,
-        hint: 'Below 3% of followers saw an average recent post. This is on the edge — could be off-platform audience, could be inflated followers.',
+        hint:  `Below ${(FOLLOWER_QUALITY.suspiciousRatio * 100).toFixed(0)}% of followers saw an average recent post. This is on the edge — could be off-platform audience, could be inflated followers.`,
       };
     }
     return {
-      tone: 'green' as const,
+      ...v,
       label: 'Reach looks healthy for size',
-      ratio,
-      hint: 'Followers are seeing posts at a normal rate for an account this size.',
+      hint:  'Followers are seeing posts at a normal rate for an account this size.',
     };
   }, [politician]);
 

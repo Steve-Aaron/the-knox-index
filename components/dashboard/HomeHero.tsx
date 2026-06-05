@@ -39,8 +39,10 @@ import type { TimeRange } from '@/components/dashboard/TimeRangePicker';
  */
 
 interface Props {
-  politicians: Politician[];
-  range:       TimeRange;
+  politicians:     Politician[];
+  range:           TimeRange;
+  /** Forwarded to KeyFindingsBar so the 'Posts tracked' tile shows the real DB count. */
+  totalPostsInDb?: number;
   /**
    * When false, every entrance animation stays in its 'from' state. The
    * parent flips this true once the LoadingScreen has finished its exit
@@ -66,7 +68,7 @@ const HEADLINE_STAGGER    = 110;
 const TAGLINE_DELAY       = HEADLINE_BASE_DELAY + COPY.headlineLines.length * HEADLINE_STAGGER + 80;
 const IMAGE_DELAY         = 240;
 
-export function HomeHero({ politicians, range, ready = true }: Props) {
+export function HomeHero({ politicians, range, totalPostsInDb, ready = true }: Props) {
   const { width, height } = useWindowDimensions();
   const isStacked = width < STACK_BREAKPOINT;
   const isWeb     = Platform.OS === 'web';
@@ -207,7 +209,7 @@ export function HomeHero({ politicians, range, ready = true }: Props) {
         transition={{ type: 'timing', duration: 600, delay: TAGLINE_DELAY + 140 }}
         style={styles.statsStrip}
       >
-        <KeyFindingsBar politicians={politicians} range={range} />
+        <KeyFindingsBar politicians={politicians} range={range} totalPostsInDb={totalPostsInDb} />
       </MotiView>
     </View>
   );

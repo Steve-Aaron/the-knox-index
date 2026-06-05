@@ -161,6 +161,8 @@ export interface Politician {
     followers:      number;
     followerChange: number | null;  // daily delta — positive = growth
     likes:          number;
+    /** Lifetime view count across all the account's posts, sourced from accountMetrics.totalViews. */
+    views:          number;
     views24h:       number;
     likesToday:     number;
     commentsToday:  number;
