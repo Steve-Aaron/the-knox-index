@@ -36,7 +36,24 @@ interface BQPostRecordRow {
   accountFollowers: number;
 }
 
-const POSTS_SQL = (limit: number, since: string | null) => `
+/**
+ * Whitelist of sort keys → BigQuery ORDER BY expressions. Whitelisting (rather
+ * than interpolating user input) is the SQL-injection guard.
+ *
+ * Each key maps to a primary sort expression DESC plus a secondary tie-breaker
+ * (postDate DESC) so identical primary values get a stable date ordering.
+ */
+const ORDER_BY_FOR_SORT_KEY: Record<string, string> = {
+  views:      'p.views    DESC, p.postDate DESC',
+  likes:      'p.likes    DESC, p.postDate DESC',
+  comments:   'p.comments DESC, p.postDate DESC',
+  shares:     'p.shares   DESC, p.postDate DESC',
+  engagement: 'SAFE_DIVIDE(p.likes + p.comments + p.saves + p.shares, NULLIF(p.views, 0)) DESC, p.postDate DESC',
+  virality:   'SAFE_DIVIDE(p.views, NULLIF(a.totalFollowers, 0)) DESC, p.postDate DESC',
+  postDate:   'p.postDate DESC, p.views DESC',
+};
+
+const POSTS_SQL = (limit: number, since: string | null, orderBy: string) => `
   SELECT
     CAST(p.postId AS STRING) AS postId,
     p.profile,
@@ -71,7 +88,7 @@ const POSTS_SQL = (limit: number, since: string | null) => `
     p.postUrl, p.postDate,
     p.views, p.likes, p.comments, p.shares, p.saves,
     a.totalFollowers
-  ORDER BY p.postDate DESC, p.views DESC
+  ORDER BY ${orderBy}
   LIMIT ${limit}
 `;
 
@@ -79,13 +96,24 @@ const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 export async function GET(request: Request): Promise<Response> {
   const params = new URL(request.url).searchParams;
-  const rawLimit = parseInt(params.get('limit') ?? '200', 10);
-  const limit = Math.min(isNaN(rawLimit) ? 200 : rawLimit, 500);
+  // Cap was previously 200 with max 500 — too low for lifetime views
+  // (~9.5K posts in the DB). The dashboard's date range was effectively
+  // moot once the 200 most recent posts saturated the response. Default
+  // is now 2000 (covers a year of posts) with a hard ceiling of 10000
+  // (covers lifetime). The client paginates 20 at a time within whatever
+  // the API returns.
+  const rawLimit = parseInt(params.get('limit') ?? '2000', 10);
+  const limit = Math.min(isNaN(rawLimit) ? 2000 : rawLimit, 10000);
   const rawSince = params.get('since') ?? null;
   const since = rawSince && ISO_DATE.test(rawSince) ? rawSince : null;
 
+  // sortKey is whitelisted — unknown values fall back to postDate. This is what
+  // protects against SQL injection via the sortKey parameter.
+  const rawSortKey = params.get('sortKey') ?? 'postDate';
+  const orderBy    = ORDER_BY_FOR_SORT_KEY[rawSortKey] ?? ORDER_BY_FOR_SORT_KEY.postDate;
+
   try {
-    const rows = await query<BQPostRecordRow>(POSTS_SQL(limit, since));
+    const rows = await query<BQPostRecordRow>(POSTS_SQL(limit, since, orderBy));
 
     // Sign coverJpeg + videoMp4 for every row in parallel (1-hour TTL each).
     const signedRows = await Promise.all(rows.map(r => signMediaFields(r)));

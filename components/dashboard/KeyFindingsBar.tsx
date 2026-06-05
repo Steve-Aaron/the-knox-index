@@ -43,6 +43,10 @@ function firstWords(str: string, n = 5): string {
 interface Props {
   politicians: Politician[];
   range?: TimeRange;
+  /** Count of fully-processed posts in our database — feeds the 'Posts tracked' tile.
+   *  When undefined, the tile falls back to a sum of politicians.totals.posts, which
+   *  approximates with TikTok's lifetime profile counters (less accurate). */
+  totalPostsInDb?: number;
 }
 
 interface StatTile {
@@ -54,7 +58,7 @@ interface StatTile {
   accentColor:   string;
 }
 
-export function KeyFindingsBar({ politicians, range = 'yesterday' }: Props) {
+export function KeyFindingsBar({ politicians, range = 'yesterday', totalPostsInDb }: Props) {
   const [hovered, setHovered] = useState<number | null>(null);
   const rangeLabel = RANGE_SHORT[range];
 
@@ -62,9 +66,6 @@ export function KeyFindingsBar({ politicians, range = 'yesterday' }: Props) {
   const isDesktop = windowWidth >= breakpoints.desktop;
 
   const tiles = useMemo<StatTile[]>(() => {
-    const topPerformer = [...politicians].sort(
-      (a, b) => b.scores.knoxFactor - a.scores.knoxFactor
-    )[0];
     const allPosts = politicians.flatMap(p =>
       (p.recentPosts ?? []).map(post => ({ ...post, politician: p }))
     );
@@ -72,6 +73,15 @@ export function KeyFindingsBar({ politicians, range = 'yesterday' }: Props) {
     const totalViews       = allPosts.reduce((s, p) => s + p.views, 0);
     const postCount        = allPosts.length;
     const avgViewsPerPost  = postCount > 0 ? Math.round(totalViews / postCount) : 0;
+
+    // 'Posts tracked' — real count of fully-processed rows in our post table
+    // (videoSummary + videoMp4 present), supplied by /api/ariadne. When the
+    // count isn't available (older API or error), fall back to the sum of
+    // politicians.totals.posts (TikTok's lifetime profile counters) as an
+    // approximate floor so the tile is never blank.
+    const postsTrackedValue = typeof totalPostsInDb === 'number'
+      ? totalPostsInDb
+      : politicians.reduce((s, p) => s + (p.totals?.posts ?? 0), 0);
 
     return [
       {
@@ -96,11 +106,13 @@ export function KeyFindingsBar({ politicians, range = 'yesterday' }: Props) {
         accentColor:  accent.amber,
       },
       {
-        kicker:       'Top performer',
-        tip:          'The politician with the highest Knox Factor score right now. Knox Factor combines views, engagement, posting frequency and follower count.',
-        textValue:    topPerformer?.name ?? '—',
-        suffix:       topPerformer ? `Knox Factor · ${topPerformer.scores.knoxFactor}` : undefined,
-        accentColor:  topPerformer ? party[topPerformer.partyKey].base : accent.amber,
+        kicker:       'Posts tracked',
+        tip:          'Fully-processed posts in our database — every video we have ingested with a transcript and a playable URL. Not filtered by time range.',
+        numericValue: postsTrackedValue,
+        suffix:       politicians.length > 0
+          ? `across ${politicians.length} account${politicians.length === 1 ? '' : 's'}`
+          : undefined,
+        accentColor:  accent.amber,
       },
       {
         kicker:       'Most viral post',
@@ -115,7 +127,7 @@ export function KeyFindingsBar({ politicians, range = 'yesterday' }: Props) {
         accentColor:  accent.pink,
       },
     ];
-  }, [politicians, rangeLabel]);
+  }, [politicians, rangeLabel, totalPostsInDb]);
 
   // ── Tile nodes — 'Who Won Davos' style: big number on top, small label below.
   // No card, no dividers. Each tile owns its own breathing room.

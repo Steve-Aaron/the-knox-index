@@ -80,9 +80,9 @@ function buildAxes(range: TimeRange): { key: ScoreKey; label: string; desc: stri
   return [
     { key: 'views',      label: 'Views',     desc: 'Avg post views',                              format: v => compact(v) + ' avg views' },
     { key: 'frequency',  label: 'Activity',  desc: freq.desc,                                     format: freq.format },
-    { key: 'engagement', label: 'Eng. %',    desc: 'Likes + comments + saves + shares per view',  format: v => v.toFixed(2) + '% eng. rate' },
+    { key: 'engagement', label: 'Eng. %',    desc: 'Active engagements divided by views',  format: v => v.toFixed(2) + '% eng. rate' },
     { key: 'followers',  label: 'Followers', desc: 'Total followers',                             format: v => compact(v) + ' followers' },
-    { key: 'knoxFactor', label: 'Knox',      desc: 'Average of all four axes',                    format: v => `${v} / 100` },
+    { key: 'knoxFactor', label: 'Knox',      desc: `Our custom rating of this post's effectiveness`,                    format: v => `${v} / 100` },
   ];
 }
 

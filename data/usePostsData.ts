@@ -1,15 +1,23 @@
 /**
  * data/usePostsData.ts
  * ----------------------
- * Fetches posts from /api/posts, optionally filtered by a `since` ISO date.
- * Retries up to 3 times (1 s → 2 s → 4 s) before surfacing an error.
- * Never falls back to mock data — errors surface with posts: [] so the UI
- * can render a proper empty/error state.
+ * Fetches posts from /api/posts, optionally filtered by a `since` ISO date and
+ * ordered by a server-side sort key. Retries up to 3 times (1 s → 2 s → 4 s)
+ * before surfacing an error. Never falls back to mock data — errors surface
+ * with posts: [] so the UI can render a proper empty/error state.
+ *
+ * Why sortKey is server-side: with lifetime ranges spanning thousands of posts,
+ * a date-priority sort + LIMIT means high-view-but-old posts never enter the
+ * response window. Pushing the ORDER BY into BigQuery means the user sees the
+ * top-N for whichever metric they care about.
  */
 import { useState, useEffect, useCallback } from 'react';
 import type { PostRecord } from './types';
 import type { TimeRange } from '@/components/dashboard/TimeRangePicker';
 import { fetchWithRetry } from './fetchWithRetry';
+
+/** Sort keys supported by /api/posts — must match the API's whitelist. */
+export type PostsSortKey = 'views' | 'likes' | 'comments' | 'shares' | 'engagement' | 'virality' | 'postDate';
 
 export interface PostsState {
   posts:   PostRecord[];
@@ -32,7 +40,10 @@ function rangeToSince(range: TimeRange): string | null {
   return d.toISOString().slice(0, 10);  // 'YYYY-MM-DD'
 }
 
-export function usePostsData(range: TimeRange = 'week'): PostsState & { refresh: () => void } {
+export function usePostsData(
+  range: TimeRange = 'week',
+  sortKey: PostsSortKey = 'postDate',
+): PostsState & { refresh: () => void } {
   const [state, setState] = useState<PostsState>({
     posts:   [],
     loading: true,
@@ -43,8 +54,11 @@ export function usePostsData(range: TimeRange = 'week'): PostsState & { refresh:
   const fetch_ = useCallback(async () => {
     setState(prev => ({ ...prev, loading: true, error: null }));
     try {
-      const since = rangeToSince(range);
-      const url   = since ? `/api/posts?since=${since}` : '/api/posts';
+      const since  = rangeToSince(range);
+      const params = new URLSearchParams();
+      if (since) params.set('since', since);
+      params.set('sortKey', sortKey);
+      const url = `/api/posts?${params.toString()}`;
 
       // fetchWithRetry handles network errors and 5xx with back-off.
       const res = await fetchWithRetry(url);
@@ -66,7 +80,7 @@ export function usePostsData(range: TimeRange = 'week'): PostsState & { refresh:
         : 'Posts unavailable';
       setState({ posts: [], loading: false, error: uiMessage, isLive: false });
     }
-  }, [range]);
+  }, [range, sortKey]);
 
   useEffect(() => { fetch_(); }, [fetch_]);
 
