@@ -453,7 +453,7 @@ const styles = StyleSheet.create({
   },
 
   stepDotDone: {
-    backgroundColor: 'rgba(124,131,255,0.4)',
+    backgroundColor: 'rgba(95,100,189,0.4)',
   },
 
   // Fields
@@ -521,7 +521,7 @@ const styles = StyleSheet.create({
 
   chipActive: {
     borderColor:     accent.indigo,
-    backgroundColor: 'rgba(124,131,255,0.10)',
+    backgroundColor: 'rgba(95,100,189,0.10)',
   },
 
   chipText: {

@@ -4,7 +4,7 @@ import { DashCard } from '@/components/primitives/DashCard';
 import { DevLabel } from '@/components/primitives/DevLabel';
 import { Kicker } from '@/components/ui/Kicker';
 import { Title } from '@/components/ui/Title';
-import { neutral, glass, accent } from '@/theme/colors';
+import { neutral, glass, accent, secondary } from '@/theme/colors';
 import { spacing, radius } from '@/theme/spacing';
 import { type, font } from '@/theme/typography';
 import type { PostRecord } from '@/data/types';
@@ -100,31 +100,33 @@ export function TopicCloud({ posts, rangeLabel, topN = 24 }: Props) {
   );
 }
 
-// Per-tier visual treatment. Higher frequency = bigger and more saturated.
+// Per-tier visual treatment. All pills are the same size — colour carries the hierarchy.
 const TIERS = [
   {
     pill: { backgroundColor: 'rgba(255,255,255,0.04)', borderColor: 'rgba(255,255,255,0.08)' },
-    text: { color: neutral.textDim, fontSize: 12 },
+    text: { color: neutral.textDim, fontSize: 13, fontWeight: '500' as const },
   },
   {
     pill: { backgroundColor: 'rgba(255,255,255,0.06)', borderColor: 'rgba(255,255,255,0.12)' },
-    text: { color: neutral.textMid, fontSize: 12 },
+    text: { color: neutral.textMid, fontSize: 13, fontWeight: '500' as const },
   },
   {
-    pill: { backgroundColor: 'rgba(110,255,180,0.12)', borderColor: 'rgba(110,255,180,0.35)' },
-    text: { color: accent.mint, fontSize: 16, fontWeight: '600' as const },
+    pill: { backgroundColor: 'rgba(202,193,228,0.12)', borderColor: 'rgba(202,193,228,0.40)' },
+    text: { color: secondary.lilac, fontSize: 13, fontWeight: '500' as const },
   },
   {
-    pill: { backgroundColor: 'rgba(124,131,255,0.18)', borderColor: 'rgba(124,131,255,0.55)' },
-    text: { color: accent.indigo, fontSize: 16, fontWeight: '700' as const },
+    pill: { backgroundColor: 'rgba(95,100,189,0.18)', borderColor: 'rgba(95,100,189,0.55)' },
+    text: { color: accent.indigo, fontSize: 13, fontWeight: '500' as const },
   },
 ] as const;
 
 const styles = StyleSheet.create({
   wrap: {
-    paddingVertical: spacing.md,
+    flex:              1,
+    paddingTop:        spacing.xl,
+    paddingBottom:     spacing.md,
     paddingHorizontal: spacing.lg,
-    gap: spacing.md,
+    gap:               spacing.md,
   },
   header: {
     flexDirection: 'row',
@@ -150,7 +152,7 @@ const styles = StyleSheet.create({
   },
   pillCount: {
     fontFamily: font.mono,
-    fontSize: 12,
+    fontSize: 13,
     color: neutral.textDim,
   },
   emptyText: {

@@ -701,7 +701,7 @@ const styles = StyleSheet.create({
       default: {},
     }),
   },
-  optionCardActive:  { borderColor: accent.indigo, backgroundColor: 'rgba(124,131,255,0.08)' },
+  optionCardActive:  { borderColor: accent.indigo, backgroundColor: 'rgba(95,100,189,0.08)' },
   iconWrap: {
     width:           40,
     height:          40,
@@ -711,7 +711,7 @@ const styles = StyleSheet.create({
     justifyContent:  'center',
     flexShrink:      0,
   },
-  iconWrapActive:     { backgroundColor: 'rgba(124,131,255,0.14)' },
+  iconWrapActive:     { backgroundColor: 'rgba(95,100,189,0.14)' },
   optionText:         { flex: 1, gap: 2, minWidth: 0 },
   optionLabel:        { fontFamily: font.bold, fontSize: 16, color: neutral.textMid },
   optionLabelActive:  { color: neutral.text },

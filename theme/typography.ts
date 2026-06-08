@@ -59,11 +59,11 @@ export const REM = 16;
  * the intended look without setting fontFamily separately.
  */
 export const type = {
-  display:  { fontFamily: FIGTREE, fontWeight: weight.black,    fontSize: 44, letterSpacing: -1 },   // 2.75rem
-  title:    { fontFamily: FIGTREE, fontWeight: weight.bold,     fontSize: 24, letterSpacing: -0.4 }, // 1.5rem
-  subtitle: { fontFamily: FIGTREE, fontWeight: weight.semiBold, fontSize: 16, letterSpacing: 0.6,  textTransform: 'uppercase' as const }, // 1rem
-  body:     { fontFamily: FIGTREE, fontWeight: weight.medium,   fontSize: 16 },                      // 1rem
-  caption:  { fontFamily: FIGTREE, fontWeight: weight.semiBold, fontSize: 12, letterSpacing: 0.8,  textTransform: 'uppercase' as const }, // 0.75rem
+  display:  { fontFamily: FIGTREE, fontWeight: weight.black,    fontSize: 44, letterSpacing: 1.32 },  // 2.75rem — 3% of 44
+  title:    { fontFamily: FIGTREE, fontWeight: weight.bold,     fontSize: 24, letterSpacing: 0.72 },  // 1.5rem  — 3% of 24
+  subtitle: { fontFamily: FIGTREE, fontWeight: weight.semiBold, fontSize: 16, letterSpacing: 0.6,  textTransform: 'uppercase' as const }, // 1rem — uppercase, unchanged
+  body:     { fontFamily: FIGTREE, fontWeight: weight.medium,   fontSize: 16 },                       // 1rem
+  caption:  { fontFamily: FIGTREE, fontWeight: weight.semiBold, fontSize: 12, letterSpacing: 0.8,  textTransform: 'uppercase' as const }, // 0.75rem — uppercase, unchanged
   numberLg: { fontFamily: mono,    fontSize: 36, letterSpacing: -0.5 }, // 2.25rem
   numberMd: { fontFamily: mono,    fontSize: 20, letterSpacing: -0.3 }, // 1.25rem
   numberSm: { fontFamily: mono,    fontSize: 16 },                       // 1rem

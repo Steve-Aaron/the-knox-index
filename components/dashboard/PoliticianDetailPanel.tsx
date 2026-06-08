@@ -146,11 +146,13 @@ export function PoliticianDetailPanel({ politician, headlineKey, range, panelHei
           >
             <View style={styles.chartHeader}>
               <SectionKicker label="Performance radar" />
-              <InfoTip
-                text="Each point on this chart is scored 0–100 relative to the best performer in the dataset. Hover any point to see the raw number. Knox Factor is the average of all five axes."
-                width={260}
-                align="left"
-              />
+              <View style={styles.chartHeaderTip}>
+                <InfoTip
+                  text="Each point on this chart is scored 0–100 relative to the best performer in the dataset. Hover any point to see the raw number. Knox Factor is the average of all five axes."
+                  width={260}
+                  align="left"
+                />
+              </View>
             </View>
             <RadialScoreChart
               scores={politician.scores}
@@ -228,9 +230,9 @@ export function PoliticianDetailPanel({ politician, headlineKey, range, panelHei
                       ? Platform.OS === 'web'
                         ? React.createElement('i', {
                             className: 'fa-brands fa-tiktok',
-                            style: { color: colour.glow, fontSize: 16, flexShrink: 0, marginTop: 2 },
+                            style: { color: '#FFFFFF', fontSize: 16, flexShrink: 0, marginTop: 2 },
                           })
-                        : <Text style={[styles.postLinkIcon, { color: colour.glow }]}>↗</Text>
+                        : <Text style={[styles.postLinkIcon, { color: '#FFFFFF' }]}>↗</Text>
                       : null}
                   </View>
 
@@ -396,8 +398,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
     alignSelf: 'flex-start',
-    paddingLeft: spacing.xs,
+    paddingLeft: spacing.lg,
     marginBottom: -spacing.xs,
+  },
+  chartHeaderTip: {
+    marginTop: 3,
   },
 
   // Section kicker
@@ -417,7 +422,7 @@ const styles = StyleSheet.create({
   totalTile: {
     flexBasis: '47%',
     flexGrow: 1,
-    backgroundColor: glass.fill,
+    backgroundColor: glass.card,
     borderWidth: 1,
     borderColor: glass.border,
     borderRadius: radius.md,
@@ -442,7 +447,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   postCard: {
-    backgroundColor: glass.fill,
+    backgroundColor: glass.card,
     borderWidth: 1,
     borderColor: glass.border,
     borderRadius: radius.md,

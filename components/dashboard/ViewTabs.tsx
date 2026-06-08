@@ -136,7 +136,7 @@ const styles = StyleSheet.create({
   },
   tabActiveBg: {
     borderRadius: radius.pill,
-    backgroundColor: 'rgba(124,131,255,0.10)',
+    backgroundColor: 'rgba(95,100,189,0.10)',
   },
   tabIcon: {
     fontSize: 16,
@@ -162,7 +162,7 @@ const styles = StyleSheet.create({
   },
   badgeActive: {
     borderColor: accent.indigo,
-    backgroundColor: 'rgba(124,131,255,0.15)',
+    backgroundColor: 'rgba(95,100,189,0.15)',
   },
   badgeText: {
     ...type.caption,

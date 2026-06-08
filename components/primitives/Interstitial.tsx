@@ -2,7 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom';
 import { View, Text, Pressable, StyleSheet, Platform } from 'react-native';
 import { MotiView } from 'moti';
-import { neutral, glass, knox, brand } from '@/theme/colors';
+import { neutral, glass, knox, brand, accent } from '@/theme/colors';
 import { spacing } from '@/theme/spacing';
 import { font } from '@/theme/typography';
 import { DevLabel } from '@/components/primitives/DevLabel';
@@ -74,7 +74,7 @@ export function Interstitial({
 
       <View style={[styles.body, fullScreen && styles.bodyFullScreen]}>
         <View style={styles.header}>
-          {kicker ? <Kicker style={{ color: knox.primaryPink, letterSpacing: 2 }}>{kicker}</Kicker> : null}
+          {kicker ? <Kicker style={{ color: accent.indigo, letterSpacing: 2 }}>{kicker}</Kicker> : null}
           <Pressable
             onPress={onClose}
             style={({ pressed }) => [styles.closeBtn, pressed && { opacity: 0.6 }]}

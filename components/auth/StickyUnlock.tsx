@@ -732,7 +732,7 @@ const styles = StyleSheet.create({
       web: {
         backdropFilter:       'blur(24px)',
         WebkitBackdropFilter: 'blur(24px)',
-        boxShadow:            '0 8px 36px rgba(124,131,255,0.32)',
+        boxShadow:            '0 8px 36px rgba(95,100,189,0.32)',
         cursor:               'pointer',
       } as any,
       default: {
@@ -766,7 +766,7 @@ const styles = StyleSheet.create({
     borderRadius:      radius.pill,
     flexShrink:        0,
     alignItems:        'center',
-    ...Platform.select({ web: { boxShadow: '0 4px 18px rgba(124,131,255,0.45)' } as any, default: {} }),
+    ...Platform.select({ web: { boxShadow: '0 4px 18px rgba(95,100,189,0.45)' } as any, default: {} }),
   },
   // Mobile: button takes the full width of the stacked column
   ctaBtnMobile: {
@@ -974,7 +974,7 @@ const proStyles = StyleSheet.create({
     position:        'relative',
     ...Platform.select({ web: { cursor: 'pointer', transitionProperty: 'border-color, background-color', transitionDuration: '140ms' } as any, default: {} }),
   },
-  segCardActive:      { borderColor: accent.indigo, backgroundColor: 'rgba(124,131,255,0.08)' },
+  segCardActive:      { borderColor: accent.indigo, backgroundColor: 'rgba(95,100,189,0.08)' },
   segCardText:        { flex: 1, gap: 2, minWidth: 0 },
   segCardLabel:       { fontFamily: font.bold, fontSize: 16, color: neutral.textMid },
   segCardLabelActive: { color: neutral.text },
@@ -1007,7 +1007,7 @@ const proStyles = StyleSheet.create({
     position:        'relative',
     ...Platform.select({ web: { cursor: 'pointer', transitionProperty: 'border-color, background-color', transitionDuration: '140ms' } as any, default: {} }),
   },
-  interestCardActive:  { borderColor: accent.indigo, backgroundColor: 'rgba(124,131,255,0.08)' },
+  interestCardActive:  { borderColor: accent.indigo, backgroundColor: 'rgba(95,100,189,0.08)' },
   interestCardText:    { flex: 1, gap: 3, minWidth: 0 },
   interestLabel:       { fontFamily: font.bold, fontSize: 16, color: neutral.textMid },
   interestLabelActive: { color: neutral.text },
@@ -1021,7 +1021,7 @@ const proStyles = StyleSheet.create({
     justifyContent:  'center',
     flexShrink:      0,
   },
-  iconWrapActive: { backgroundColor: 'rgba(124,131,255,0.14)' },
+  iconWrapActive: { backgroundColor: 'rgba(95,100,189,0.14)' },
   checkBadge: {
     position:        'absolute',
     top:             8,
@@ -1099,7 +1099,7 @@ const proStyles = StyleSheet.create({
     paddingVertical:   12,
     ...Platform.select({ web: { cursor: 'pointer' } as any, default: {} }),
   },
-  submitBtnDisabled: { backgroundColor: 'rgba(124,131,255,0.35)' },
+  submitBtnDisabled: { backgroundColor: 'rgba(95,100,189,0.35)' },
   submitBtnInner:    { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   submitBtnText:     { fontFamily: font.bold, fontSize: 16, color: '#fff', letterSpacing: 0.3 },
 });

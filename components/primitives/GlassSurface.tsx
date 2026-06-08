@@ -54,12 +54,12 @@ export function GlassSurface({
   const inner = (
     <>
       <DevLabel name="GlassSurface" />
-      {/* Knox Product Gradient background */}
+      {/* Knox Product Gradient background — 50% opacity so the page surface shows through */}
       <LinearGradient
         colors={brand.productGradient as unknown as [string, string]}
         start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 1 }}
-        style={StyleSheet.absoluteFill}
+        style={[StyleSheet.absoluteFill, { opacity: 0.5 }]}
       />
 
       {/* Glass sheen */}

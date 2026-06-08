@@ -4,7 +4,7 @@ import { DashCard } from '@/components/primitives/DashCard';
 import { DevLabel } from '@/components/primitives/DevLabel';
 import { Kicker } from '@/components/ui/Kicker';
 import { Title } from '@/components/ui/Title';
-import { neutral, glass, accent } from '@/theme/colors';
+import { neutral, glass, accent, dataVis } from '@/theme/colors';
 import { spacing, radius } from '@/theme/spacing';
 import { type, font } from '@/theme/typography';
 import type { PostRecord } from '@/data/types';
@@ -30,7 +30,7 @@ interface Props {
   onStyleSelect?:  (style: string | null) => void;
 }
 
-const PALETTE = [accent.indigo, accent.mint, accent.pink, accent.amber];
+const PALETTE = [...dataVis];
 
 export function StyleBreakdown({ posts, rangeLabel, topN = 8, activeStyle, onStyleSelect }: Props) {
   // Each row carries both the display label and the raw key — the raw key is
@@ -143,9 +143,11 @@ export function StyleBreakdown({ posts, rangeLabel, topN = 8, activeStyle, onSty
 
 const styles = StyleSheet.create({
   wrap: {
-    paddingVertical: spacing.md,
+    flex:              1,
+    paddingTop:        spacing.xl,
+    paddingBottom:     spacing.md,
     paddingHorizontal: spacing.lg,
-    gap: spacing.md,
+    gap:               spacing.md,
   },
   header: {
     flexDirection: 'row',
@@ -183,7 +185,7 @@ const styles = StyleSheet.create({
   clearBtn: {
     borderWidth:       1,
     borderColor:       accent.indigo,
-    backgroundColor:   'rgba(124,131,255,0.12)',
+    backgroundColor:   'rgba(95,100,189,0.12)',
     borderRadius:      radius.pill,
     paddingHorizontal: spacing.md,
     paddingVertical:   4,

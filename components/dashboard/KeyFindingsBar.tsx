@@ -6,7 +6,7 @@ import { InfoTip } from '@/components/primitives/InfoTip';
 import { SkeletonBlock } from '@/components/primitives/SkeletonBlock';
 import { CountUp, formatters } from '@/components/primitives/CountUp';
 import { Kicker } from '@/components/ui/Kicker';
-import { neutral, accent, party, brand, knox } from '@/theme/colors';
+import { neutral, accent, party, brand, knox, dataVis } from '@/theme/colors';
 import { type, font } from '@/theme/typography';
 import { spacing, radius } from '@/theme/spacing';
 import { breakpoints } from '@/theme/breakpoints';
@@ -43,10 +43,6 @@ function firstWords(str: string, n = 5): string {
 interface Props {
   politicians: Politician[];
   range?: TimeRange;
-  /** Count of fully-processed posts in our database — feeds the 'Posts tracked' tile.
-   *  When undefined, the tile falls back to a sum of politicians.totals.posts, which
-   *  approximates with TikTok's lifetime profile counters (less accurate). */
-  totalPostsInDb?: number;
 }
 
 interface StatTile {
@@ -58,7 +54,7 @@ interface StatTile {
   accentColor:   string;
 }
 
-export function KeyFindingsBar({ politicians, range = 'yesterday', totalPostsInDb }: Props) {
+export function KeyFindingsBar({ politicians, range = 'yesterday' }: Props) {
   const [hovered, setHovered] = useState<number | null>(null);
   const rangeLabel = RANGE_SHORT[range];
 
@@ -66,6 +62,9 @@ export function KeyFindingsBar({ politicians, range = 'yesterday', totalPostsInD
   const isDesktop = windowWidth >= breakpoints.desktop;
 
   const tiles = useMemo<StatTile[]>(() => {
+    const topPerformer = [...politicians].sort(
+      (a, b) => b.scores.knoxFactor - a.scores.knoxFactor
+    )[0];
     const allPosts = politicians.flatMap(p =>
       (p.recentPosts ?? []).map(post => ({ ...post, politician: p }))
     );
@@ -73,15 +72,6 @@ export function KeyFindingsBar({ politicians, range = 'yesterday', totalPostsInD
     const totalViews       = allPosts.reduce((s, p) => s + p.views, 0);
     const postCount        = allPosts.length;
     const avgViewsPerPost  = postCount > 0 ? Math.round(totalViews / postCount) : 0;
-
-    // 'Posts tracked' — real count of fully-processed rows in our post table
-    // (videoSummary + videoMp4 present), supplied by /api/ariadne. When the
-    // count isn't available (older API or error), fall back to the sum of
-    // politicians.totals.posts (TikTok's lifetime profile counters) as an
-    // approximate floor so the tile is never blank.
-    const postsTrackedValue = typeof totalPostsInDb === 'number'
-      ? totalPostsInDb
-      : politicians.reduce((s, p) => s + (p.totals?.posts ?? 0), 0);
 
     return [
       {
@@ -106,15 +96,6 @@ export function KeyFindingsBar({ politicians, range = 'yesterday', totalPostsInD
         accentColor:  accent.amber,
       },
       {
-        kicker:       'Posts tracked',
-        tip:          'Fully-processed posts in our database — every video we have ingested with a transcript and a playable URL. Not filtered by time range.',
-        numericValue: postsTrackedValue,
-        suffix:       politicians.length > 0
-          ? `across ${politicians.length} account${politicians.length === 1 ? '' : 's'}`
-          : undefined,
-        accentColor:  accent.amber,
-      },
-      {
         kicker:       'Most viral post',
         tip:          'The single video with the most views across all politicians we track in this period.',
         ...(mostViral
@@ -124,10 +105,17 @@ export function KeyFindingsBar({ politicians, range = 'yesterday', totalPostsInD
             }
           : { textValue: 'None yet', suffix: 'No posts recorded this period' }
         ),
-        accentColor:  accent.pink,
+        accentColor:  dataVis[4],
+      },
+      {
+        kicker:       'Top performer',
+        tip:          'The politician with the highest Knox Factor score right now. Knox Factor combines views, engagement, posting frequency and follower count.',
+        textValue:    topPerformer?.name ?? '—',
+        suffix:       topPerformer ? `Knox Factor · ${topPerformer.scores.knoxFactor}` : undefined,
+        accentColor:  topPerformer ? party[topPerformer.partyKey].base : accent.amber,
       },
     ];
-  }, [politicians, rangeLabel, totalPostsInDb]);
+  }, [politicians, rangeLabel]);
 
   // ── Tile nodes — 'Who Won Davos' style: big number on top, small label below.
   // No card, no dividers. Each tile owns its own breathing room.
@@ -139,7 +127,9 @@ export function KeyFindingsBar({ politicians, range = 'yesterday', totalPostsInD
       transition={{ type: 'timing', duration: 280, delay: i * 55 }}
       style={[
         styles.tileBox,
-        isDesktop ? styles.tileBoxFlex : { width: TILE_WIDTH_MOBILE },
+        isDesktop
+          ? tile.textValue !== undefined ? styles.tileBoxAuto : styles.tileBoxFlex
+          : { width: TILE_WIDTH_MOBILE },
         Platform.OS === 'web' && hovered === i ? { transform: [{ translateY: -2 }] } : {},
       ]}
       {...(Platform.OS === 'web' ? {
@@ -206,13 +196,14 @@ const styles = StyleSheet.create({
   // Davos-style strip — no card chrome, just big numbers floating on the page.
   strip: {
     width:             '100%',
-    paddingHorizontal: spacing.xl,
+    paddingHorizontal: 0,
     paddingVertical:   spacing.xl,
   },
   row: {
-    flexDirection: 'row',
-    width:         '100%',
-    gap:           spacing.xxl,
+    flexDirection:  'row',
+    width:          '100%',
+    gap:            spacing.xxl,
+    justifyContent: 'space-between',
   },
   mobileRow: {
     flexDirection: 'row',
@@ -223,6 +214,7 @@ const styles = StyleSheet.create({
     gap:             6,
   },
   tileBoxFlex: { flex: 1 },
+  tileBoxAuto: { flexShrink: 0 },
 
   // Hero number — large, mono, accent-coloured. The Davos visual signature.
   valueNumeric: {
@@ -235,9 +227,9 @@ const styles = StyleSheet.create({
   valueText: {
     fontFamily:    font.bold,
     fontWeight:    '700',
-    fontSize:      36,
+    fontSize:      56,
     letterSpacing: -0.5,
-    lineHeight:    40,
+    lineHeight:    60,
   },
 
   // Tiny label below — uppercase, dim, info-tip inline
