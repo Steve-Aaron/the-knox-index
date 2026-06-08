@@ -44,13 +44,19 @@ interface Props {
 export function PoliticianDetailPanel({ politician, headlineKey, range, panelHeight }: Props) {
   const colour = party[politician.partyKey];
 
-  // Raw values shown in the dot-hover popup on the radar chart.
-  // Engagement uses range-specific likes+comments+saves+shares / range views
-  // so the figure matches the selected time window. Falls back to yesterday
-  // figures when no range posts exist.
+  // Range-aware avg views — fed into the radar chart's hover popup so the
+  // figure tracks the dashboard's time range.
   const recentPosts = politician.recentPosts ?? [];
   const avgViews = recentPosts.length > 0
     ? Math.round(recentPosts.reduce((s, p) => s + p.views, 0) / recentPosts.length)
+    : 0;
+
+  // Lifetime avg views — used in the 'Account totals' tile, which is always
+  // lifetime regardless of the selected range. Sourced from totalViews /
+  // totalPosts (both lifetime snapshots from accountMetrics), so the figure
+  // doesn't shift when the user changes the range picker.
+  const lifetimeAvgViews = politician.totals.posts > 0
+    ? Math.round(politician.totals.views / politician.totals.posts)
     : 0;
 
   const engViews = politician.totals.viewsInRange > 0
@@ -159,7 +165,7 @@ export function PoliticianDetailPanel({ politician, headlineKey, range, panelHei
           {/* ── Audience quality flag ────────────────── */}
           <FollowerQualityFlag politician={politician} />
 
-          {/* ── Account totals ───────────────────────── */}
+          {/* ── Account totals — LIFETIME, range-independent ───────────────── */}
           <SectionKicker label="Account totals" />
           <View
             style={styles.totalsGrid}
@@ -170,7 +176,7 @@ export function PoliticianDetailPanel({ politician, headlineKey, range, panelHei
             <TotalTile label="Total likes" value={politician.totals.likes} />
             <TotalTile
               label="Avg views / post"
-              value={avgViews}
+              value={lifetimeAvgViews}
               accentColor={colour.glow}
               zeroDash
             />

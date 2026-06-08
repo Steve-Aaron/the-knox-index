@@ -18,6 +18,8 @@ import type { TimeRange } from '@/components/dashboard/TimeRangePicker';
 export interface DataState {
   status:        'loading' | 'live' | 'error';
   politicians:   Politician[];
+  /** Count of fully-processed posts in our post table (videoSummary + videoMp4 present). */
+  totalPostsInDb: number;
   isLive:        boolean;
   error:         string | null;
   /** Current retry attempt (1-based), or 0 when not retrying. */
@@ -38,13 +40,14 @@ const TIMER_KEY   = 'data_load';
 
 export function useLiveData(range: TimeRange = 'yesterday'): DataState & { refresh: () => void } {
   const [state, setState] = useState<DataState>({
-    status:        'loading',
-    politicians:   [],
-    isLive:        false,
-    error:         null,
-    retryAttempt:  0,
-    retryTotal:    RETRY_TOTAL,
-    isInitialLoad: true,
+    status:         'loading',
+    politicians:    [],
+    totalPostsInDb: 0,
+    isLive:         false,
+    error:          null,
+    retryAttempt:   0,
+    retryTotal:     RETRY_TOTAL,
+    isInitialLoad:  true,
   });
 
   const cancelledRef   = useRef(false);
@@ -61,12 +64,13 @@ export function useLiveData(range: TimeRange = 'yesterday'): DataState & { refre
     // first ever successful load (controls full-page overlay vs. skeleton columns).
     setState(prev => ({
       ...prev,
-      status:        'loading',
-      politicians:   [],
-      isLive:        false,
-      error:         null,
-      retryAttempt:  0,
-      isInitialLoad: !everLoadedRef.current,
+      status:         'loading',
+      politicians:    [],
+      totalPostsInDb: 0,
+      isLive:         false,
+      error:          null,
+      retryAttempt:   0,
+      isInitialLoad:  !everLoadedRef.current,
     }));
 
     startTimer(TIMER_KEY);
@@ -86,7 +90,7 @@ export function useLiveData(range: TimeRange = 'yesterday'): DataState & { refre
 
       if (cancelledRef.current) return;
 
-      const data = await res.json() as { politicians: Politician[] };
+      const data = await res.json() as { politicians: Politician[]; totalPostsInDb?: number };
 
       if (!Array.isArray(data.politicians) || data.politicians.length === 0) {
         throw new Error('Empty response');
@@ -102,13 +106,14 @@ export function useLiveData(range: TimeRange = 'yesterday'): DataState & { refre
       });
 
       setState({
-        status:        'live',
-        politicians:   data.politicians,
-        isLive:        true,
-        error:         null,
-        retryAttempt:  0,
-        retryTotal:    RETRY_TOTAL,
-        isInitialLoad: false,
+        status:         'live',
+        politicians:    data.politicians,
+        totalPostsInDb: typeof data.totalPostsInDb === 'number' ? data.totalPostsInDb : 0,
+        isLive:         true,
+        error:          null,
+        retryAttempt:   0,
+        retryTotal:     RETRY_TOTAL,
+        isInitialLoad:  false,
       });
 
     } catch (err: unknown) {
@@ -126,13 +131,14 @@ export function useLiveData(range: TimeRange = 'yesterday'): DataState & { refre
       });
 
       setState({
-        status:        'error',
-        politicians:   [],
-        isLive:        false,
-        error:         uiMessage,
-        retryAttempt:  0,
-        retryTotal:    RETRY_TOTAL,
-        isInitialLoad: false,
+        status:         'error',
+        politicians:    [],
+        totalPostsInDb: 0,
+        isLive:         false,
+        error:          uiMessage,
+        retryAttempt:   0,
+        retryTotal:     RETRY_TOTAL,
+        isInitialLoad:  false,
       });
     }
   }, [range]);

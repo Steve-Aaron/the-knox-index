@@ -32,7 +32,7 @@ import { DevPanel } from '@/components/primitives/DevPanel';
 import { getDevPreview, setDevPreview, type DevPreviewState } from '@/lib/devPreview';
 import { useAuth } from '@/hooks/useAuth';
 import { useLiveData } from '@/data/useLiveData';
-import { usePostsData } from '@/data/usePostsData';
+import { usePostsData, type PostsSortKey } from '@/data/usePostsData';
 import { track, startTimer, stopTimer } from '@/lib/analytics';
 import { useSessionTracking } from '@/hooks/useSessionTracking';
 import { useSectionTracking } from '@/hooks/useSectionTracking';
@@ -236,8 +236,13 @@ function DashboardScreenInner() {
 
   const { isRegistered, email: authEmail } = useAuth();
 
-  const { politicians, status, isLive, error, retryAttempt, retryTotal, isInitialLoad, refresh } = useLiveData(range);
-  const { posts, loading: postsLoading, error: postsError } = usePostsData(range);
+  // Post feed sort is lifted here so it can drive the API's ORDER BY (the
+  // server returns the top-N for whichever metric is selected). When the user
+  // changes sort in the PostsTable, a new fetch fires and the feed refreshes.
+  const [postsSortKey, setPostsSortKey] = useState<PostsSortKey>('postDate');
+
+  const { politicians, totalPostsInDb, status, isLive, error, retryAttempt, retryTotal, isInitialLoad, refresh } = useLiveData(range);
+  const { posts, loading: postsLoading, error: postsError } = usePostsData(range, postsSortKey);
   const { benchmarks } = useBenchmarks();
 
   // Hero entrance animations are gated until the LoadingScreen has fully
@@ -346,7 +351,7 @@ function DashboardScreenInner() {
         >
 
           {/* ── 0. Hero — editorial 100vh layout, includes KeyFindings strip ──── */}
-          <HomeHero politicians={politicians} range={range} ready={heroReady} />
+          <HomeHero politicians={politicians} range={range} totalPostsInDb={totalPostsInDb} ready={heroReady} />
 
           {/* ── 1. Title bar ──────────────────────────── */}
           <View
@@ -577,6 +582,8 @@ function DashboardScreenInner() {
                 onPartyFilterChange={setPartyFilter}
                 externalStyleFilter={styleFilter}
                 onStyleFilterChange={setStyleFilter}
+                externalSortKey={postsSortKey}
+                onSortKeyChange={setPostsSortKey}
               />
             </ErrorBoundary>
           </View>

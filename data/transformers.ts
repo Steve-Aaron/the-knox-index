@@ -313,6 +313,7 @@ export function transformToPoliticians(
         followers:      acc.totalFollowers ?? 0,
         followerChange: acc.followerChange ?? null,
         likes:          acc.totalLikes     ?? 0,
+        views:          acc.totalViews     ?? 0,
         views24h:       acc.viewsToday     ?? 0,
         likesToday:     acc.likesToday     ?? 0,
         commentsToday:  acc.commentsToday  ?? 0,
