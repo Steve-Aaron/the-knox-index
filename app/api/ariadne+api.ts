@@ -13,8 +13,10 @@ import { query, tableRef } from '@/lib/bigquery';
 import { signMediaFields, signGcsUrl } from '@/lib/gcs';
 import { safeErrorDetail } from '@/lib/errors';
 import { transformToPoliticians } from '@/data/transformers';
-import { parseRange, buildAccountsSQL, buildPostsSQL } from '@/lib/bqQueries';
+import { parseRange, buildAccountsSQL, buildPostsSQL, buildTopPostSQL } from '@/lib/bqQueries';
+import { toPartyKeyPublic } from '@/data/partyUtils';
 import type { BQAccountRow, BQPostRow } from '@/data/transformers';
+import type { LifetimeTopPost } from '@/data/types';
 
 // ── Handler ───────────────────────────────────────────────────────────────────
 
@@ -103,10 +105,11 @@ export async function GET(request: Request): Promise<Response> {
       FROM ${tableRef('post')}
     `;
 
-    const [accountRows, postRows, countRows] = await Promise.all([
+    const [accountRows, postRows, countRows, topPostRows] = await Promise.all([
       query<BQAccountRow>(buildAccountsSQL(range)),
       query<BQPostRow>(buildPostsSQL(range)),
       query<{ totalPostsInDb: number | string }>(totalPostsSql),
+      query<{ postId: string; caption: string | null; views: number | string; accountName: string | null; party: string | null }>(buildTopPostSQL()),
     ]);
 
     const politicians = transformToPoliticians(accountRows, postRows);
@@ -114,6 +117,19 @@ export async function GET(request: Request): Promise<Response> {
     // BigQuery sometimes returns COUNT(*) as a string for very large numbers.
     // Coerce defensively so the client always sees a Number.
     const totalPostsInDb = Number(countRows[0]?.totalPostsInDb ?? 0) || 0;
+
+    // All-time most-viewed post — range-independent. partyKey is resolved here
+    // so the client can colour the tile without re-deriving it.
+    const topRow = topPostRows[0];
+    const topPost: LifetimeTopPost | null = topRow
+      ? {
+          postId:      String(topRow.postId ?? ''),
+          caption:     topRow.caption ?? '',
+          views:       Number(topRow.views ?? 0) || 0,
+          accountName: topRow.accountName ?? '',
+          partyKey:    toPartyKeyPublic(topRow.party),
+        }
+      : null;
 
     await Promise.all([
       ...politicians.flatMap(p =>
@@ -130,7 +146,7 @@ export async function GET(request: Request): Promise<Response> {
     ]);
 
     return Response.json(
-      { politicians, totalPostsInDb },
+      { politicians, totalPostsInDb, topPost },
       { headers: { 'Cache-Control': 'private, max-age=1800, stale-while-revalidate=120' } }
     );
 

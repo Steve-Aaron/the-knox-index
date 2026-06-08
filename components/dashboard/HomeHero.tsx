@@ -8,7 +8,7 @@ import { neutral, glass } from '@/theme/colors';
 import { spacing } from '@/theme/spacing';
 import { font } from '@/theme/typography';
 import { breakpoints } from '@/theme/breakpoints';
-import type { Politician } from '@/data/types';
+import type { Politician, LifetimeTopPost } from '@/data/types';
 import type { TimeRange } from '@/components/dashboard/TimeRangePicker';
 
 /**
@@ -41,6 +41,10 @@ import type { TimeRange } from '@/components/dashboard/TimeRangePicker';
 interface Props {
   politicians: Politician[];
   range:       TimeRange;
+  /** DB-wide total post count, forwarded to the KeyFindingsBar "Total posts" tile. */
+  totalPostsInDb?: number;
+  /** All-time most-viewed post, forwarded to the KeyFindingsBar "Top performing post" tile. */
+  topPost?: LifetimeTopPost | null;
   /**
    * When false, every entrance animation stays in its 'from' state. The
    * parent flips this true once the LoadingScreen has finished its exit
@@ -65,7 +69,7 @@ const HEADLINE_BASE_DELAY = 100;
 const TAGLINE_DELAY       = 290;
 const IMAGE_DELAY         = 240;
 
-export function HomeHero({ politicians, range, ready = true }: Props) {
+export function HomeHero({ politicians, range, totalPostsInDb, topPost, ready = true }: Props) {
   const { width, height } = useWindowDimensions();
   const isStacked = width < STACK_BREAKPOINT;
   const isWeb     = Platform.OS === 'web';
@@ -179,7 +183,7 @@ export function HomeHero({ politicians, range, ready = true }: Props) {
         transition={{ type: 'timing', duration: 600, delay: TAGLINE_DELAY + 140 }}
         style={styles.statsStrip}
       >
-        <KeyFindingsBar politicians={politicians} range={range} />
+        <KeyFindingsBar politicians={politicians} range={range} totalPostsInDb={totalPostsInDb} topPost={topPost} />
       </MotiView>
     </View>
   );

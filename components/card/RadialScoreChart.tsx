@@ -34,7 +34,7 @@ const AnimatedG       = Animated.createAnimatedComponent(G);
  * One job.
  */
 export interface RawScoreValues {
-  views:      number;   // avg post views (raw number)
+  virality:   number;   // avg views per follower (ratio, e.g. 0.5 = half audience reached per post)
   frequency:  number;   // posts today
   engagement: number;   // (likes+comments+shares)/views * 100
   followers:  number;   // total followers
@@ -78,7 +78,7 @@ function frequencyAxis(range: TimeRange): { desc: string; format: (v: number) =>
 function buildAxes(range: TimeRange): { key: ScoreKey; label: string; desc: string; format: (v: number) => string }[] {
   const freq = frequencyAxis(range);
   return [
-    { key: 'views',      label: 'Views',     desc: 'Avg post views',                              format: v => compact(v) + ' avg views' },
+    { key: 'virality',   label: 'Virality',  desc: 'Avg views per follower',                      format: v => v.toFixed(2) + '× reach per follower' },
     { key: 'frequency',  label: 'Activity',  desc: freq.desc,                                     format: freq.format },
     { key: 'engagement', label: 'Eng. %',    desc: 'Active engagements divided by views',  format: v => v.toFixed(2) + '% eng. rate' },
     { key: 'followers',  label: 'Followers', desc: 'Total followers',                             format: v => compact(v) + ' followers' },

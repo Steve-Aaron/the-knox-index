@@ -79,7 +79,7 @@ export function PoliticianDetailPanel({ politician, headlineKey, range, panelHei
     : politician.totals.postsInRange;
 
   const rawValues: RawScoreValues = {
-    views:      avgViews,
+    virality:   politician.totals.followers > 0 ? avgViews / politician.totals.followers : 0,
     frequency:  frequencyValue,
     engagement: engViews > 0 ? (engNumerator / engViews) * 100 : 0,
     followers:  politician.totals.followers,

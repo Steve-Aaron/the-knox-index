@@ -24,10 +24,10 @@ export const KNOX_OPTIONS = {
    * clamped to 100 so multiple shapes of strength can hit the ceiling.
    */
   caps: {
-    virality:    40,   // TikTok virality is a primary signal
-    engagement:  45,   // Quality interaction per view, equally weighted
-    frequency:   15,   // Posting consistency — secondary
-    followers:   30,   // Audience size — secondary
+    virality:    20,
+    engagement:  50,
+    frequency:   55,
+    followers:   45,
   } satisfies KnoxCaps,
 
   curveStrength: 1.3,
@@ -35,6 +35,22 @@ export const KNOX_OPTIONS = {
   /** Minimum displayed score for any account with ≥1 post this week. */
   minScore: 5,
 
+} as const;
+
+/**
+ * Hard ceilings applied to RAW axis values BEFORE dataset-max normalisation.
+ * Winsorises small-account artifacts so a single freak ratio cannot collapse
+ * every other politician's normalised axis to 0.
+ *
+ *   viralityRatio — avgViewsPerPost / followers. Above 0.5 is almost always
+ *                   a tiny account whose ratio isn't comparable to a real one.
+ *   engRatePct    — (likes + comments + saves + shares) / views × 100. Above
+ *                   100% is a data artifact (likes exceeding views, which only
+ *                   happens when the view counter undercounts for some posts).
+ */
+export const NORMALISATION_LIMITS = {
+  viralityRatio: 0.5,
+  engRatePct:    100,
 } as const;
 
 /** ─────────────────────────────────────────────────────────────────────────── */

@@ -8,7 +8,7 @@
 import type { Politician, TopTrumpScores, RecentPost, AccountType } from './types';
 import type { PartyKey } from '@/theme/colors';
 import { toPartyKeyPublic } from './partyUtils';
-import { computeKnoxFactor } from './knoxConfig';
+import { computeKnoxFactor, NORMALISATION_LIMITS } from './knoxConfig';
 import { fmtLabel } from '@/lib/format';
 
 // ── Raw BQ row shapes ─────────────────────────────────────────────────────────
@@ -160,7 +160,7 @@ function normalise(value: number, max: number): number {
 }
 
 interface ScoreMaxValues {
-  avgViews:       number;
+  virality:       number;  // (avgViews / followers) — per-post reach as fraction of audience
   engagementRate: number;  // (likes + comments + saves + shares) / views
   postsInRange:   number;  // posts within the selected range
   totalFollowers: number;
@@ -170,7 +170,7 @@ function computeMaxValues(
   rows: BQAccountRow[],
   postsByProfile: Map<string, BQPostRow[]>
 ): ScoreMaxValues {
-  let maxAvgViews = 1, maxEngRate = 1, maxPostsInRange = 1, maxFollowers = 1;
+  let maxVirality = 0, maxEngRate = 1, maxPostsInRange = 1, maxFollowers = 1;
 
   for (const acc of rows) {
     const posts = postsByProfile.get(normProfile(acc.profile)) ?? [];
@@ -182,24 +182,38 @@ function computeMaxValues(
       ? rangeViews / Math.max(acc.postsInRange ?? posts.length, 1)
       : posts.length > 0 ? feedViews / posts.length : 0;
 
-    // engagement: prefer range-specific totals, fall back to lifetime
+    // virality: per-post reach as a fraction of follower base (avgViews / followers),
+    // winsorised at NORMALISATION_LIMITS.viralityRatio so tiny-account outliers
+    // can't poison the dataset max.
+    const viralityRawTrue = acc.totalFollowers > 0 ? avgViews / acc.totalFollowers : 0;
+    const viralityRaw     = Math.min(viralityRawTrue, NORMALISATION_LIMITS.viralityRatio);
+
+    // engagement: prefer range-specific totals, fall back to lifetime.
+    // Clamped at NORMALISATION_LIMITS.engRatePct because ratios above 100% are
+    // a data artifact (likes exceeding undercounted views).
     const eViews    = Math.max(rangeViews > 0 ? rangeViews : (acc.totalViews ?? 1), 1);
     const eLikes    = acc.likesInRange    ?? acc.totalLikes;
     const eComments = acc.commentsInRange ?? acc.totalComments;
     const eSaves    = acc.savesInRange    ?? acc.totalSaves;
     const eShares   = acc.sharesInRange   ?? acc.totalShares;
-    const engRate   = ((eLikes + eComments + eSaves + eShares) / eViews) * 100;
+    const engRateRaw = ((eLikes + eComments + eSaves + eShares) / eViews) * 100;
+    const engRate    = Math.min(engRateRaw, NORMALISATION_LIMITS.engRatePct);
 
     // frequency: posts in range when available, fall back to postsThisWeek
     const postsCount = acc.postsInRange ?? acc.postsThisWeek;
 
-    if (avgViews     > maxAvgViews)      maxAvgViews      = avgViews;
+    if (viralityRaw  > maxVirality)      maxVirality      = viralityRaw;
     if (engRate      > maxEngRate)       maxEngRate       = engRate;
     if (postsCount   > maxPostsInRange)  maxPostsInRange  = postsCount;
     if (acc.totalFollowers > maxFollowers) maxFollowers   = acc.totalFollowers;
   }
 
-  return { avgViews: maxAvgViews, engagementRate: maxEngRate, postsInRange: maxPostsInRange, totalFollowers: maxFollowers };
+  return {
+    virality:       maxVirality > 0 ? maxVirality : 1,
+    engagementRate: maxEngRate,
+    postsInRange:   maxPostsInRange,
+    totalFollowers: maxFollowers,
+  };
 }
 
 function computeScores(
@@ -214,26 +228,34 @@ function computeScores(
     ? rangeViews / Math.max(acc.postsInRange ?? posts.length, 1)
     : posts.length > 0 ? feedViews / posts.length : 0;
 
-  // engagement: prefer range-specific totals, fall back to lifetime
+  // virality: per-post reach as a fraction of follower base (avgViews / followers),
+  // winsorised at NORMALISATION_LIMITS.viralityRatio. Must match the clamp used
+  // inside computeMaxValues or the normalisation denominator and numerator drift.
+  const viralityRawTrue = acc.totalFollowers > 0 ? avgViews / acc.totalFollowers : 0;
+  const viralityRaw     = Math.min(viralityRawTrue, NORMALISATION_LIMITS.viralityRatio);
+
+  // engagement: prefer range-specific totals, fall back to lifetime.
+  // Clamped at NORMALISATION_LIMITS.engRatePct because >100% is a data artifact.
   const eViews    = Math.max(rangeViews > 0 ? rangeViews : (acc.totalViews ?? 1), 1);
   const eLikes    = acc.likesInRange    ?? acc.totalLikes;
   const eComments = acc.commentsInRange ?? acc.totalComments;
   const eSaves    = acc.savesInRange    ?? acc.totalSaves;
   const eShares   = acc.sharesInRange   ?? acc.totalShares;
-  const engRate   = ((eLikes + eComments + eSaves + eShares) / eViews) * 100;
+  const engRateRaw = ((eLikes + eComments + eSaves + eShares) / eViews) * 100;
+  const engRate    = Math.min(engRateRaw, NORMALISATION_LIMITS.engRatePct);
 
   // frequency: posts in range when available, fall back to postsThisWeek
   const postsCount = acc.postsInRange ?? acc.postsThisWeek;
 
-  const views      = normalise(avgViews,            max.avgViews);
+  const virality   = normalise(viralityRaw,         max.virality);
   const engagement = normalise(engRate,             max.engagementRate);
   const frequency  = normalise(postsCount,          max.postsInRange);
   const followers  = normalise(acc.totalFollowers,  max.totalFollowers);
 
-  // Knox Factor: virality = views score, then engagement, followers, frequency
-  const knoxFactor = computeKnoxFactor(views, engagement, followers, frequency);
+  // Knox Factor: virality (per-follower reach), engagement, followers, frequency
+  const knoxFactor = computeKnoxFactor(virality, engagement, followers, frequency);
 
-  return { views, engagement, frequency, followers, knoxFactor };
+  return { virality, engagement, frequency, followers, knoxFactor };
 }
 
 // ── Post transformer ──────────────────────────────────────────────────────────

@@ -117,7 +117,7 @@ export function AccountHero({ politician, overallRank, totalCount, rangeLabel }:
     : politician.totals.likesToday + politician.totals.commentsToday + politician.totals.savesToday;
 
   const rawValues: RawScoreValues = {
-    views:      avgViews,
+    virality:   politician.totals.followers > 0 ? avgViews / politician.totals.followers : 0,
     frequency:  politician.totals.postsInRange > 0 ? politician.totals.postsInRange : politician.totals.postsThisWeek,
     engagement: engViews > 0 ? (engNumerator / engViews) * 100 : 0,
     followers:  politician.totals.followers,
@@ -199,7 +199,7 @@ export function AccountHero({ politician, overallRank, totalCount, rangeLabel }:
           <View style={styles.barsSection}>
             <Text style={styles.barsKicker}>PERFORMANCE AXES</Text>
             <View style={styles.bars}>
-              <ScoreBar label="VIEWS"      score={politician.scores.views}      color={colour.base} />
+              <ScoreBar label="VIRALITY"   score={politician.scores.virality}   color={colour.base} />
               <ScoreBar label="FREQUENCY"  score={politician.scores.frequency}  color={colour.base} />
               <ScoreBar label="ENGAGEMENT" score={politician.scores.engagement} color={colour.base} />
               <ScoreBar label="FOLLOWERS"  score={politician.scores.followers}  color={colour.base} />

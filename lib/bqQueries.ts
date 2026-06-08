@@ -121,6 +121,33 @@ export function buildAccountsSQL(range: Range): string {
 `;
 }
 
+// ── Top post SQL ────────────────────────────────────────────────────────────
+
+/**
+ * The single most-viewed processed post across the entire dataset, ALL TIME.
+ *
+ * Range-independent by design — drives the KeyFindingsBar "Top performing post"
+ * tile so it reports a true lifetime maximum rather than the top post within
+ * the currently selected range. Joined to the account for display name + party.
+ */
+export function buildTopPostSQL(): string {
+  return `
+  SELECT
+    CAST(p.postId AS STRING) AS postId,
+    p.caption,
+    COALESCE(p.views, 0)     AS views,
+    a.name                   AS accountName,
+    a.party                  AS party
+  FROM ${tableRef('post')} p
+  JOIN ${tableRef('account')} a
+    ON LTRIM(p.profile, '@') = LTRIM(a.profile, '@')
+  WHERE p.videoSummary IS NOT NULL
+    AND p.videoMp4     IS NOT NULL
+  ORDER BY p.views DESC
+  LIMIT 1
+`;
+}
+
 // ── Posts SQL ─────────────────────────────────────────────────────────────────
 
 /**

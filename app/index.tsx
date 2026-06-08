@@ -60,7 +60,7 @@ import type { PartyKey } from '@/theme/colors';
 
 const SORTS: { key: ScoreKey; label: string }[] = [
   { key: 'knoxFactor',  label: 'Knox Factor' },
-  { key: 'views',       label: 'Views' },
+  { key: 'virality',    label: 'Virality' },
   { key: 'engagement',  label: 'Engagement' },
   { key: 'frequency',   label: 'Frequency' },
   { key: 'followers',   label: 'Followers' },
@@ -241,7 +241,7 @@ function DashboardScreenInner() {
   // changes sort in the PostsTable, a new fetch fires and the feed refreshes.
   const [postsSortKey, setPostsSortKey] = useState<PostsSortKey>('postDate');
 
-  const { politicians, totalPostsInDb, status, isLive, error, retryAttempt, retryTotal, isInitialLoad, refresh } = useLiveData(range);
+  const { politicians, totalPostsInDb, topPost, status, isLive, error, retryAttempt, retryTotal, isInitialLoad, refresh } = useLiveData(range);
   const { posts, loading: postsLoading, error: postsError } = usePostsData(range, postsSortKey);
   const { benchmarks } = useBenchmarks();
 
@@ -351,7 +351,7 @@ function DashboardScreenInner() {
         >
 
           {/* ── 0. Hero — editorial 100vh layout, includes KeyFindings strip ──── */}
-          <HomeHero politicians={politicians} range={range} totalPostsInDb={totalPostsInDb} ready={heroReady} />
+          <HomeHero politicians={politicians} range={range} totalPostsInDb={totalPostsInDb} topPost={topPost} ready={heroReady} />
 
           {/* ── 1. Title bar ──────────────────────────── */}
           <View

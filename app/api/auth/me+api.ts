@@ -10,7 +10,7 @@
  * hydrate auth state without relying on localStorage alone.
  */
 
-import { verifySessionCookie } from '@/lib/auth';
+import { verifySessionCookie, refreshSessionCookie } from '@/lib/auth';
 
 export async function GET(request: Request): Promise<Response> {
   const cookieHeader = request.headers.get('Cookie');
@@ -24,9 +24,12 @@ export async function GET(request: Request): Promise<Response> {
     { email },
     {
       headers: {
-        // Short cache — lets the browser avoid hammering this on every render
-        // while still detecting a newly-set cookie within 30 seconds.
-        'Cache-Control': 'private, max-age=30',
+        // Rolling session: slide the 30-day window forward on every visit so
+        // active users never get logged out.
+        'Set-Cookie':    refreshSessionCookie(email),
+        // No caching — the response carries a fresh Set-Cookie each time, and
+        // a cached 200 could otherwise mask a server-side session expiry.
+        'Cache-Control': 'no-store',
       },
     }
   );

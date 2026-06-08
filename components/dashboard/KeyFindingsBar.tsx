@@ -6,21 +6,13 @@ import { InfoTip } from '@/components/primitives/InfoTip';
 import { SkeletonBlock } from '@/components/primitives/SkeletonBlock';
 import { CountUp, formatters } from '@/components/primitives/CountUp';
 import { Kicker } from '@/components/ui/Kicker';
-import { neutral, accent, party, brand, knox, dataVis } from '@/theme/colors';
+import { neutral, accent, party, dataVis } from '@/theme/colors';
 import { type, font } from '@/theme/typography';
 import { spacing, radius } from '@/theme/spacing';
 import { breakpoints } from '@/theme/breakpoints';
-import type { Politician } from '@/data/types';
+import type { Politician, LifetimeTopPost } from '@/data/types';
 import type { TimeRange } from '@/components/dashboard/TimeRangePicker';
-
-/** Short possessive label for tile kickers. */
-const RANGE_SHORT: Record<TimeRange, string> = {
-  yesterday: "Yesterday's",
-  week:      "This week's",
-  month:     "This month's",
-  year:      "This year's",
-  lifetime:  'Lifetime',
-};
+import { computeKeyFindings } from '@/lib/keyFindings';
 
 /** Fixed tile width for mobile — tiles scroll horizontally. */
 const TILE_WIDTH_MOBILE = 200;
@@ -43,6 +35,18 @@ function firstWords(str: string, n = 5): string {
 interface Props {
   politicians: Politician[];
   range?: TimeRange;
+  /**
+   * DB-wide total post count from useLiveData. When provided (> 0) it drives
+   * the "Total posts" tile so the figure reflects everything tracked, not just
+   * the posts currently loaded into memory. Falls back to the in-scope count.
+   */
+  totalPostsInDb?: number;
+  /**
+   * All-time most-viewed post from useLiveData (range-independent). When
+   * provided it drives the "Top performing post" tile so the figure is a true
+   * lifetime maximum. Falls back to the top post among loaded recentPosts.
+   */
+  topPost?: LifetimeTopPost | null;
 }
 
 interface StatTile {
@@ -54,68 +58,77 @@ interface StatTile {
   accentColor:   string;
 }
 
-export function KeyFindingsBar({ politicians, range = 'yesterday' }: Props) {
+export function KeyFindingsBar({ politicians, totalPostsInDb, topPost: lifetimeTopPost }: Props) {
   const [hovered, setHovered] = useState<number | null>(null);
-  const rangeLabel = RANGE_SHORT[range];
 
   const { width: windowWidth } = useWindowDimensions();
   const isDesktop = windowWidth >= breakpoints.desktop;
 
   const tiles = useMemo<StatTile[]>(() => {
-    const topPerformer = [...politicians].sort(
-      (a, b) => b.scores.knoxFactor - a.scores.knoxFactor
-    )[0];
-    const allPosts = politicians.flatMap(p =>
-      (p.recentPosts ?? []).map(post => ({ ...post, politician: p }))
-    );
-    const mostViral        = [...allPosts].sort((a, b) => b.views - a.views)[0];
-    const totalViews       = allPosts.reduce((s, p) => s + p.views, 0);
-    const postCount        = allPosts.length;
-    const avgViewsPerPost  = postCount > 0 ? Math.round(totalViews / postCount) : 0;
+    // All aggregation lives in the pure, unit-tested helper.
+    const { politicianCount, totalViews, avgViewsPerPost, totalPosts, topPost } =
+      computeKeyFindings(politicians);
+
+    // Prefer the DB-wide count when supplied; otherwise show in-scope posts.
+    const postsHeadline =
+      typeof totalPostsInDb === 'number' && totalPostsInDb > 0 ? totalPostsInDb : totalPosts;
+
+    // Prefer the all-time top post from the API; fall back to the best among
+    // loaded posts so the tile still renders before the lifetime value arrives.
+    const topView = lifetimeTopPost
+      ? {
+          views:    lifetimeTopPost.views,
+          label:    lifetimeTopPost.caption ? firstWords(lifetimeTopPost.caption) : lifetimeTopPost.accountName,
+          partyKey: lifetimeTopPost.partyKey,
+        }
+      : topPost
+        ? {
+            views:    topPost.views,
+            label:    topPost.caption ? firstWords(topPost.caption) : topPost.politician.name,
+            partyKey: topPost.politician.partyKey,
+          }
+        : null;
 
     return [
       {
         kicker:       'Politicians tracked',
         tip:          'The number of political accounts we are actively monitoring on TikTok right now.',
-        numericValue: politicians.length,
+        numericValue: politicianCount,
         suffix:       'active accounts',
         accentColor:  accent.indigo,
       },
       {
-        kicker:       `${rangeLabel} views`,
-        tip:          `Total views across every tracked post in this period. Data arrives one day after posting.`,
+        kicker:       'Total views',
+        tip:          'Lifetime views across every post from all tracked accounts.',
         numericValue: totalViews,
-        suffix:       postCount > 0 ? `across ${postCount} post${postCount === 1 ? '' : 's'}` : undefined,
+        suffix:       postsHeadline > 0 ? `across ${postsHeadline} post${postsHeadline === 1 ? '' : 's'}` : undefined,
         accentColor:  accent.mint,
       },
       {
         kicker:       'Avg views / post',
-        tip:          'Average view count across recent processed posts for all tracked politicians in this period.',
+        tip:          'Lifetime average view count per post across all tracked accounts.',
         numericValue: avgViewsPerPost,
         suffix:       'views per post',
         accentColor:  accent.amber,
       },
       {
-        kicker:       'Most viral post',
-        tip:          'The single video with the most views across all politicians we track in this period.',
-        ...(mostViral
-          ? {
-              numericValue: mostViral.views,
-              suffix: mostViral.caption ? firstWords(mostViral.caption) : mostViral.politician.name,
-            }
-          : { textValue: 'None yet', suffix: 'No posts recorded this period' }
-        ),
+        kicker:       'Total posts',
+        tip:          'The total number of posts we have tracked across every monitored politician, all time.',
+        numericValue: postsHeadline,
+        suffix:       postsHeadline > 0 ? 'posts tracked' : 'No posts recorded yet',
         accentColor:  dataVis[4],
       },
       {
-        kicker:       'Top performer',
-        tip:          'The politician with the highest Knox Factor score right now. Knox Factor combines views, engagement, posting frequency and follower count.',
-        textValue:    topPerformer?.name ?? '—',
-        suffix:       topPerformer ? `Knox Factor · ${topPerformer.scores.knoxFactor}` : undefined,
-        accentColor:  topPerformer ? party[topPerformer.partyKey].base : accent.amber,
+        kicker:       'Top performing post',
+        tip:          'The single most-viewed post across the accounts we track, all time.',
+        ...(topView
+          ? { numericValue: topView.views, suffix: topView.label }
+          : { textValue: 'None yet', suffix: 'No posts recorded yet' }
+        ),
+        accentColor:  topView ? party[topView.partyKey].base : accent.amber,
       },
     ];
-  }, [politicians, rangeLabel]);
+  }, [politicians, totalPostsInDb, lifetimeTopPost]);
 
   // ── Tile nodes — 'Who Won Davos' style: big number on top, small label below.
   // No card, no dividers. Each tile owns its own breathing room.
@@ -172,8 +185,15 @@ export function KeyFindingsBar({ politicians, range = 'yesterday' }: Props) {
   ));
 
   return (
-    <View style={styles.strip}>
-      <DevLabel name="header-scorecard" />
+    <View
+      style={styles.strip}
+      // Production-visible module marker — addressable as
+      // [data-component="dataScoreCards"] in the DOM on web (all builds).
+      {...(Platform.OS === 'web'
+        ? ({ dataSet: { component: 'dataScoreCards' } } as any)
+        : {})}
+    >
+      <DevLabel name="dataScoreCards" />
 
       {politicians.length === 0 ? (
         <View style={styles.row}>{skeletonNodes}</View>

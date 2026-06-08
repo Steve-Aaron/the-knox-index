@@ -6,7 +6,7 @@ import type { PartyKey } from '@/theme/colors';
  *              via the Moz-DA-style curve in data/knoxConfig.ts.
  */
 export interface TopTrumpScores {
-  views:       number;   // 0..100  normalised avg post views
+  virality:    number;   // 0..100  normalised (avgViews / followers) — per-post reach as fraction of audience
   frequency:   number;   // 0..100  normalised posting frequency (posts today)
   engagement:  number;   // 0..100  normalised (likes + comments + saves + shares) / views rate
   followers:   number;   // 0..100  normalised total follower count
@@ -67,6 +67,19 @@ export interface RecentPost {
   videoMp4?:  string;
   postUrl?:   string;
   postDate?:  string;
+}
+
+/**
+ * The single most-viewed post across the whole dataset, all time. Surfaced by
+ * /api/ariadne (range-independent) for the KeyFindingsBar "Top performing post"
+ * tile. partyKey is resolved server-side so the client can colour it directly.
+ */
+export interface LifetimeTopPost {
+  postId:      string;
+  caption:     string;
+  views:       number;
+  accountName: string;
+  partyKey:    PartyKey;
 }
 
 /** Full post record used by the PostsTable section. */

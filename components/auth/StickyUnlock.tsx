@@ -30,6 +30,7 @@ import { ConsentToggleRow } from '@/components/primitives/ConsentToggleRow';
 import { SelectableCard } from '@/components/primitives/SelectableCard';
 import { LabeledInput } from '@/components/primitives/LabeledInput';
 import { PrimaryButton } from '@/components/primitives/PrimaryButton';
+import { GoogleSignInButton } from '@/components/primitives/GoogleSignInButton';
 
 /**
  * StickyUnlock
@@ -317,6 +318,21 @@ function UnlockModal({ onClose, onOpen }: UnlockModalProps) {
                   : <Text style={styles.submitBtnText}>SEND ACCESS LINK →</Text>
                 }
               </Pressable>
+
+              {/* Alternative: one-tap Google sign-in (web only). */}
+              {Platform.OS === 'web' && (
+                <>
+                  <View style={styles.orRow}>
+                    <View style={styles.orLine} />
+                    <Text style={styles.orText}>or</Text>
+                    <View style={styles.orLine} />
+                  </View>
+                  <GoogleSignInButton
+                    disabled={step === 'sending'}
+                    onPress={() => { track('google_signin_tapped'); window.location.assign('/api/auth/google/start'); }}
+                  />
+                </>
+              )}
 
               <Text style={styles.legalText}>
                 We'll never share your email. Unsubscribe any time.{' '}
@@ -839,6 +855,9 @@ const styles = StyleSheet.create({
     ...Platform.select({ web: { cursor: 'pointer' } as any, default: {} }),
   },
   submitBtnText: { color: '#fff', fontSize: 12, fontWeight: '800', letterSpacing: 1 },
+  orRow:  { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginVertical: spacing.md },
+  orLine: { flex: 1, height: 1, backgroundColor: glass.border },
+  orText: { ...type.caption, fontSize: 11, color: neutral.textMid, letterSpacing: 1, textTransform: 'uppercase' },
   legalText:     { ...type.caption, fontSize: 12, color: neutral.textDim, textAlign: 'center' },
   legalLink:     { color: neutral.textMid, textDecorationLine: 'underline' },
 
