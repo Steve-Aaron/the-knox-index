@@ -8,7 +8,6 @@ import {
   Platform,
   useWindowDimensions,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { breakpoints } from '@/theme/breakpoints';
 import DraggableFlatList, {
   ScaleDecorator,
@@ -24,7 +23,7 @@ import { SkeletonBlock } from '@/components/primitives/SkeletonBlock';
 import { VideoModal } from './VideoModal';
 import { Kicker } from '@/components/ui/Kicker';
 import { Title } from '@/components/ui/Title';
-import { neutral, party, glass, accent } from '@/theme/colors';
+import { neutral, party, glass, accent, secondary } from '@/theme/colors';
 import type { PartyKey } from '@/theme/colors';
 import { type, font } from '@/theme/typography';
 import { spacing, radius } from '@/theme/spacing';
@@ -154,6 +153,12 @@ interface Props {
    *  and returns the top-N for that metric. Without it, sort stays local. */
   externalSortKey?:       SortKey;
   onSortKeyChange?:       (key: SortKey) => void;
+  /** Server-side pagination: whether another page is available. */
+  hasMore?:               boolean;
+  /** True while the next page is being fetched. */
+  loadingMore?:           boolean;
+  /** Fetch and append the next server page. */
+  onLoadMore?:            () => void;
 }
 
 export function PostsTable({
@@ -170,6 +175,9 @@ export function PostsTable({
   onStyleFilterChange,
   externalSortKey,
   onSortKeyChange,
+  hasMore = false,
+  loadingMore = false,
+  onLoadMore,
 }: Props) {
   const { width: windowWidth } = useWindowDimensions();
   const isMobile = windowWidth < breakpoints.tablet;
@@ -325,9 +333,19 @@ export function PostsTable({
   }, [safePageIndex]);
 
   const goToNextPage = useCallback(() => {
+    // At the last loaded page: pull the next server page (and step forward so the
+    // new posts show once they arrive). Otherwise just advance the local page.
+    if (safePageIndex >= totalPages - 1) {
+      if (hasMore && onLoadMore) {
+        onLoadMore();
+        setPageIndex(p => p + 1);
+        track('post_feed_paginated', { direction: 'next', to_page: safePageIndex + 2, loaded_more: true });
+      }
+      return;
+    }
     setPageIndex(p => Math.min(totalPages - 1, p + 1));
     track('post_feed_paginated', { direction: 'next', to_page: safePageIndex + 2 });
-  }, [safePageIndex, totalPages]);
+  }, [safePageIndex, totalPages, hasMore, onLoadMore]);
 
   // Area 6: fire post_card_opened with position and metadata
   const handleCardPress = useCallback((post: PostRecord, index: number) => {
@@ -496,7 +514,7 @@ export function PostsTable({
             </Pressable>
             {(['left', 'right', 'independent'] as Wing[]).map(w => {
               const active = wingFilter === w;
-              const tint = w === 'left' ? accent.mint : w === 'right' ? accent.pink : neutral.textMid;
+              const tint = w === 'left' ? accent.mint : w === 'right' ? accent.indigo : neutral.textMid;
               return (
                 <Pressable
                   key={w}
@@ -592,11 +610,11 @@ export function PostsTable({
                   onPress={() => handleMinLikes(t.value)}
                   style={({ pressed }) => [
                     styles.alignChip,
-                    active && { borderColor: accent.pink, backgroundColor: accent.pink + '20' },
+                    active && { borderColor: accent.indigo, backgroundColor: accent.indigo + '20' },
                     pressed && { opacity: 0.75 },
                   ]}
                 >
-                  <Text style={[styles.alignChipText, active && { color: accent.pink }]}>{t.label}</Text>
+                  <Text style={[styles.alignChipText, active && { color: accent.indigo }]}>{t.label}</Text>
                 </Pressable>
               );
             })}
@@ -701,23 +719,30 @@ export function PostsTable({
                 </Pressable>
 
                 <Text style={styles.pageInfo}>
-                  Page <Text style={styles.pageInfoNum}>{safePageIndex + 1}</Text> of {totalPages}
-                  <Text style={styles.pageInfoCount}>  ·  {filtered.length} post{filtered.length === 1 ? '' : 's'}</Text>
+                  Page <Text style={styles.pageInfoNum}>{safePageIndex + 1}</Text> of {totalPages}{hasMore ? '+' : ''}
+                  <Text style={styles.pageInfoCount}>  ·  {filtered.length}{hasMore ? '+' : ''} post{filtered.length === 1 ? '' : 's'}</Text>
                 </Text>
 
-                <Pressable
-                  onPress={goToNextPage}
-                  disabled={safePageIndex >= totalPages - 1}
-                  style={({ pressed }) => [
-                    styles.pageBtn,
-                    safePageIndex >= totalPages - 1 && styles.pageBtnDisabled,
-                    pressed && safePageIndex < totalPages - 1 && { opacity: 0.75 },
-                  ]}
-                >
-                  <Text style={[styles.pageBtnText, safePageIndex >= totalPages - 1 && styles.pageBtnTextDisabled]}>
-                    Next →
-                  </Text>
-                </Pressable>
+                {(() => {
+                  const atEnd        = safePageIndex >= totalPages - 1;
+                  const nextDisabled = (atEnd && !hasMore) || loadingMore;
+                  const label        = loadingMore ? 'Loading…' : atEnd && hasMore ? 'Load more →' : 'Next →';
+                  return (
+                    <Pressable
+                      onPress={goToNextPage}
+                      disabled={nextDisabled}
+                      style={({ pressed }) => [
+                        styles.pageBtn,
+                        nextDisabled && styles.pageBtnDisabled,
+                        pressed && !nextDisabled && { opacity: 0.75 },
+                      ]}
+                    >
+                      <Text style={[styles.pageBtnText, nextDisabled && styles.pageBtnTextDisabled]}>
+                        {label}
+                      </Text>
+                    </Pressable>
+                  );
+                })()}
               </View>
             </>
           )
@@ -849,18 +874,6 @@ function PostCard({ post, index, benchmarks, onPress, drag, isActive, compact, a
           pressed && { opacity: 0.84 },
         ]}
       >
-        {/* ── Drag handle — long-press to reorder ─── */}
-        {drag && !compact && (
-          <Pressable
-            onLongPress={drag}
-            delayLongPress={150}
-            style={styles.dragHandle}
-            hitSlop={8}
-          >
-            <Text style={styles.dragIcon}>⠿</Text>
-          </Pressable>
-        )}
-
         {/* ── Cover thumbnail ─────────────────────── */}
         <View style={compact ? styles.coverWrapCompact : styles.coverWrap}>
           <ShimmerImage
@@ -873,17 +886,6 @@ function PostCard({ post, index, benchmarks, onPress, drag, isActive, compact, a
                 <Text style={styles.coverPlayIcon}>▶</Text>
               </View>
             }
-          />
-          {/* Party-coloured corner halo — replaces the old left-edge line.
-              Radiates from the top-left of the cover so the party identity
-              still reads but the card feels lit from within rather than
-              ruled into a column. */}
-          <LinearGradient
-            colors={[`${colour.glow}55`, 'transparent']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 0.7, y: 0.7 }}
-            style={styles.coverHalo}
-            pointerEvents="none"
           />
           <View style={styles.viewsBadge}>
             <Text style={styles.viewsNum}>{formatters.compact(post.views)}</Text>
@@ -951,7 +953,7 @@ function PostCard({ post, index, benchmarks, onPress, drag, isActive, compact, a
                   width={280}
                 />
               </View>
-              <View style={styles.distRow}>
+              <View style={[styles.distRow, compact && styles.distRowStacked]}>
                 <BoxWhisker
                   label="Views vs dataset"
                   value={post.views}
@@ -960,7 +962,7 @@ function PostCard({ post, index, benchmarks, onPress, drag, isActive, compact, a
                   format={formatters.compact}
                   scaleType="log"
                 />
-                <View style={styles.distDivider} />
+                <View style={[styles.distDivider, compact && styles.distDividerStacked]} />
                 <BoxWhisker
                   label="Engagement rate"
                   value={engRate}
@@ -1105,9 +1107,9 @@ const styles = StyleSheet.create({
   },
   titleRange: { ...type.body, color: neutral.textDim, fontSize: 16 },
   countBadge: {
-    backgroundColor: accent.pink + '22',
+    backgroundColor: accent.indigo + '22',
     borderWidth: 1,
-    borderColor: accent.pink + '55',
+    borderColor: accent.indigo + '55',
     borderRadius: radius.pill,
     paddingHorizontal: 8,
     paddingVertical: 2,
@@ -1115,7 +1117,7 @@ const styles = StyleSheet.create({
   countText: {
     fontFamily: font.mono,
     fontSize: 12,
-    color: accent.pink,
+    color: accent.indigo,
   },
 
   // Sort chips
@@ -1130,11 +1132,11 @@ const styles = StyleSheet.create({
     ...Platform.select({ web: { cursor: 'pointer' } as any, default: {} }),
   },
   sortChipActive: {
-    borderColor: accent.pink,
-    backgroundColor: 'rgba(255,107,212,0.1)',
+    borderColor: accent.indigo,
+    backgroundColor: 'rgba(95,100,189,0.12)',
   },
   sortChipText: { ...type.caption, color: neutral.textMid, fontSize: 12 },
-  sortChipTextActive: { color: accent.pink },
+  sortChipTextActive: { color: accent.indigo },
 
   // Filter rows
   filterSection: {
@@ -1215,7 +1217,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     borderWidth: 1,
     borderColor: accent.indigo,
-    backgroundColor: 'rgba(124,131,255,0.12)',
+    backgroundColor: 'rgba(95,100,189,0.12)',
     paddingHorizontal: spacing.md,
     paddingVertical: 5,
     ...Platform.select({ web: { cursor: 'pointer' } as any, default: {} }),
@@ -1326,7 +1328,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     marginBottom: GAP,
     overflow: 'hidden',
-    backgroundColor: glass.fill,
+    backgroundColor: glass.card,
     ...Platform.select({
       web: {
         transitionProperty: 'border-color',
@@ -1338,7 +1340,7 @@ const styles = StyleSheet.create({
   },
   cardDragging: {
     borderColor: accent.indigo,
-    backgroundColor: 'rgba(124,131,255,0.08)',
+    backgroundColor: 'rgba(95,100,189,0.08)',
     ...Platform.select({ web: { cursor: 'grabbing' } as any, default: {} }),
   },
   // Compact card — stacked layout for mobile
@@ -1349,7 +1351,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     marginBottom: GAP,
     overflow: 'hidden',
-    backgroundColor: glass.fill,
+    backgroundColor: glass.card,
     ...Platform.select({ web: { cursor: 'pointer' } as any, default: {} }),
   },
 
@@ -1366,10 +1368,10 @@ const styles = StyleSheet.create({
     width: COVER_W,
     height: CARD_H,
   },
-  // Compact cover — 16:9 ratio at full width (shorter than the 9:16 portrait)
+  // Compact cover — 9:16 portrait at full width, matching the desktop ratio.
   coverWrapCompact: {
     width: '100%' as any,
-    aspectRatio: 16 / 9,
+    aspectRatio: 9 / 16,
     position: 'relative' as const,
     backgroundColor: '#111',
     overflow: 'hidden',
@@ -1451,9 +1453,9 @@ const styles = StyleSheet.create({
     letterSpacing: 0.8,
   },
   sourceTag: {
-    backgroundColor: 'rgba(63,230,177,0.12)',
+    backgroundColor: 'rgba(202,193,228,0.10)',
     borderWidth: 1,
-    borderColor: 'rgba(63,230,177,0.3)',
+    borderColor: 'rgba(202,193,228,0.35)',
     borderRadius: radius.pill,
     paddingHorizontal: 6,
     paddingVertical: 1,
@@ -1461,15 +1463,15 @@ const styles = StyleSheet.create({
   sourceTagText: {
     fontFamily: font.ui,
     fontSize: 12,
-    color: accent.mint,
+    color: secondary.lilac,
     textTransform: 'none' as const,
   },
   genBtn: {
     marginTop: spacing.sm,
     alignSelf: 'flex-start',
     borderWidth: 1,
-    borderColor: 'rgba(124,131,255,0.45)',
-    backgroundColor: 'rgba(124,131,255,0.10)',
+    borderColor: 'rgba(95,100,189,0.45)',
+    backgroundColor: 'rgba(95,100,189,0.10)',
     borderRadius: radius.pill,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
@@ -1559,24 +1561,24 @@ const styles = StyleSheet.create({
   },
   tags: { flexDirection: 'row', flexWrap: 'wrap', gap: 4 },
   styleTag: {
-    backgroundColor: 'rgba(124,131,255,0.15)',
+    backgroundColor: 'rgba(95,100,189,0.15)',
     borderWidth: 1,
-    borderColor: 'rgba(124,131,255,0.3)',
+    borderColor: 'rgba(95,100,189,0.3)',
     borderRadius: radius.pill,
     paddingHorizontal: 6,
     paddingVertical: 2,
   },
   topicTag: {
-    backgroundColor: 'rgba(63,230,177,0.1)',
+    backgroundColor: 'rgba(202,193,228,0.10)',
     borderWidth: 1,
-    borderColor: 'rgba(63,230,177,0.25)',
+    borderColor: 'rgba(202,193,228,0.35)',
     borderRadius: radius.pill,
     paddingHorizontal: 6,
     paddingVertical: 2,
   },
   tagText: { fontFamily: font.bold, fontSize: 12, color: neutral.textMid },
   tagActive: {
-    backgroundColor: 'rgba(124,131,255,0.35)',
+    backgroundColor: 'rgba(95,100,189,0.35)',
     borderColor: accent.indigo,
   },
   tagTextActive: { color: accent.indigo },
@@ -1584,7 +1586,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: 'rgba(124,131,255,0.15)',
+    backgroundColor: 'rgba(95,100,189,0.15)',
     borderWidth: 1,
     borderColor: accent.indigo,
     borderRadius: radius.pill,
@@ -1616,11 +1618,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 0,
   },
+  // Mobile: stack the two plots vertically.
+  distRowStacked: {
+    flexDirection: 'column',
+    gap: spacing.md,
+  },
   distDivider: {
     width: 1,
     backgroundColor: glass.border,
     marginHorizontal: spacing.md,
     alignSelf: 'stretch',
+  },
+  // Mobile: the divider becomes a full-width hairline between the stacked plots.
+  distDividerStacked: {
+    width: '100%' as any,
+    height: 1,
+    marginHorizontal: 0,
+    marginVertical: spacing.sm,
+    alignSelf: 'auto',
   },
   filterLabelRow: {
     flexDirection: 'row',

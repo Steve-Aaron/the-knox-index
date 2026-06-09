@@ -39,7 +39,7 @@ interface Props {
 }
 
 const LABELS: Record<ScoreKey, string> = {
-  views:       'Views',
+  virality:    'Virality',
   frequency:   'Frequency',
   engagement:  'Engagement',
   followers:   'Followers',

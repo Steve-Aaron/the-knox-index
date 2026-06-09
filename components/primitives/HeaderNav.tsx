@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, Pressable, StyleSheet, Platform, Linking, useWindowDimensions } from 'react-native';
 import { router } from 'expo-router';
 import { KnoxLogo } from './KnoxLogo';
-import { neutral, glass, knox } from '@/theme/colors';
+import { neutral, glass, accent } from '@/theme/colors';
 import { spacing } from '@/theme/spacing';
 import { font } from '@/theme/typography';
 import { breakpoints } from '@/theme/breakpoints';
@@ -155,7 +155,7 @@ const styles = StyleSheet.create({
     }),
   },
   linkLabelHovered: { color: neutral.text },
-  linkLabelActive:  { color: knox.primaryPink },
+  linkLabelActive:  { color: accent.indigo },
 
   underline: {
     position:        'absolute' as any,
@@ -163,7 +163,7 @@ const styles = StyleSheet.create({
     right:           0,
     bottom:          0,
     height:          2,
-    backgroundColor: knox.primaryPink,
+    backgroundColor: accent.indigo,
     transform:       [{ scaleY: 0 }],
     ...Platform.select({
       web: {

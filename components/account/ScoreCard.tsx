@@ -24,7 +24,7 @@ import type { ScoreKey, AccountRanking, AccountRankEntry } from '@/data/types';
 
 const SCORE_LABELS: Record<ScoreKey, string> = {
   knoxFactor:  'Knox Factor',
-  views:       'Views',
+  virality:    'Virality',
   engagement:  'Engagement',
   frequency:   'Frequency',
   followers:   'Followers',
@@ -32,7 +32,7 @@ const SCORE_LABELS: Record<ScoreKey, string> = {
 
 const SCORE_DESCS: Record<ScoreKey, string> = {
   knoxFactor:  'Overall influence score',
-  views:       'Average views per post',
+  virality:    'Average views per follower (per-post reach beyond the audience)',
   engagement:  'Likes + comments + saves + shares / views',
   frequency:   'Posts in the selected period',
   followers:   'Total follower count',

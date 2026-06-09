@@ -8,7 +8,7 @@ import { DevLabel } from '@/components/primitives/DevLabel';
 import { PostBangerCard } from './PostBangerCard';
 import { Kicker } from '@/components/ui/Kicker';
 import { Title } from '@/components/ui/Title';
-import { neutral, party, glass, accent, brand } from '@/theme/colors';
+import { neutral, party, glass, accent, brand, dataVis } from '@/theme/colors';
 import { font } from '@/theme/typography';
 import { spacing, radius } from '@/theme/spacing';
 import { type } from '@/theme/typography';
@@ -33,7 +33,7 @@ interface Props {
   panelHeight?: number;
 }
 
-const INSIGHT_COLOURS = [accent.mint, accent.indigo, accent.amber];
+const INSIGHT_COLOURS = [dataVis[0], dataVis[4], dataVis[2]];
 
 export function SummaryPanel({ politicians, range = 'yesterday', panelHeight }: Props) {
   const isWeekly = range === 'week';
@@ -115,7 +115,7 @@ export function SummaryPanel({ politicians, range = 'yesterday', panelHeight }: 
         label: 'Most viral post',
         value: mostViral ? formatters.compact(mostViral.views) + ' views' : '—',
         sub: mostViral?.politician.name ?? '',
-        accentColor: accent.pink,
+        accentColor: dataVis[4],
       },
       {
         id: 'i3',
@@ -174,14 +174,14 @@ export function SummaryPanel({ politicians, range = 'yesterday', panelHeight }: 
               <Kicker tone='dim' style={{ marginBottom: spacing.xs }}>
                 {isWeekly ? 'WEEKLY BRIEFING' : 'DAILY BRIEFING'}
               </Kicker>
-              <Title style={{ fontFamily: font.ui, fontSize: 24, fontWeight: '800', letterSpacing: -0.5, lineHeight: 26 }}>
+              <Title style={{ fontFamily: font.ui, fontSize: 24, fontWeight: '800', letterSpacing: 0.72, lineHeight: 26 }}>
                 {isWeekly ? 'This week on TikTok' : 'Today on TikTok'}
               </Title>
             </View>
             {brief && !brief.isToday && (
               <View style={styles.staleBadge}>
                 <Text style={styles.staleBadgeText}>
-                  {brief.brief.briefDate}
+                  {brief.brief.briefDate.split('-').reverse().join('-')}
                 </Text>
               </View>
             )}
@@ -228,19 +228,22 @@ export function SummaryPanel({ politicians, range = 'yesterday', panelHeight }: 
               animate={{ opacity: 1, translateX: 0 }}
               transition={{ type: 'timing', duration: 280, delay: 120 + i * 60 }}
             >
-              <View style={[styles.insightRow, { borderLeftColor: item.accentColor }]}>
-                <Text style={styles.insightLabel}>{item.label.toUpperCase()}</Text>
-                <Text
-                  style={[styles.insightValue, { color: item.accentColor }]}
-                  numberOfLines={1}
-                >
-                  {item.value}
-                </Text>
-                {item.sub ? (
-                  <Text style={styles.insightSub} numberOfLines={1}>
-                    {item.sub}
+              <View style={styles.insightRow}>
+                <View style={[styles.insightBar, { backgroundColor: item.accentColor }]} />
+                <View style={styles.insightContent}>
+                  <Text style={styles.insightLabel}>{item.label.toUpperCase()}</Text>
+                  <Text
+                    style={[styles.insightValue, { color: item.accentColor }]}
+                    numberOfLines={1}
+                  >
+                    {item.value}
                   </Text>
-                ) : null}
+                  {item.sub ? (
+                    <Text style={styles.insightSub} numberOfLines={1}>
+                      {item.sub}
+                    </Text>
+                  ) : null}
+                </View>
               </View>
             </MotiView>
           ))}
@@ -335,9 +338,9 @@ const styles = StyleSheet.create({
     gap:            spacing.md,
   },
   staleBadge: {
-    backgroundColor: 'rgba(251,191,36,0.12)',
+    backgroundColor: 'rgba(244,245,255,0.08)',
     borderWidth:     1,
-    borderColor:     'rgba(251,191,36,0.3)',
+    borderColor:     'rgba(244,245,255,0.25)',
     borderRadius:    radius.pill,
     paddingHorizontal: spacing.sm,
     paddingVertical:   3,
@@ -347,7 +350,7 @@ const styles = StyleSheet.create({
   staleBadgeText: {
     fontFamily:    font.bold,
     fontSize:      9,
-    color:         '#fbbf24',
+    color:         '#F4F5FF',
     letterSpacing: 0.6,
   },
   subtitle: {
@@ -355,7 +358,7 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '800',
     color: accent.indigo,
-    letterSpacing: -0.5,
+    letterSpacing: 0.72,
     lineHeight: 26,
   },
 
@@ -363,7 +366,7 @@ const styles = StyleSheet.create({
   narrativeCard: {
     flexDirection: 'row',
     gap: spacing.md,
-    backgroundColor: glass.fill,
+    backgroundColor: glass.card,
     borderWidth: 1,
     borderColor: glass.border,
     borderRadius: radius.md,
@@ -391,7 +394,7 @@ const styles = StyleSheet.create({
 
   // Posting activity stats
   postingStats: {
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    backgroundColor: glass.card,
     borderRadius: radius.md,
     padding: spacing.md,
     gap: spacing.xs,
@@ -430,12 +433,22 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   insightRow: {
-    backgroundColor: glass.fill,
+    flexDirection: 'row',
+    gap: spacing.md,
+    backgroundColor: glass.card,
     borderWidth: 1,
     borderColor: glass.border,
-    borderLeftWidth: 3,
     borderRadius: radius.md,
     padding: spacing.md,
+  },
+  insightBar: {
+    width: 2,
+    borderRadius: 2,
+    opacity: 0.8,
+    alignSelf: 'stretch',
+  },
+  insightContent: {
+    flex: 1,
     gap: 2,
   },
   insightLabel: {
@@ -493,7 +506,7 @@ const styles = StyleSheet.create({
   },
   narrativeSkeleton: {
     height: 52,
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    backgroundColor: glass.card,
     borderRadius: 8,
   },
 

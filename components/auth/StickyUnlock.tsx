@@ -30,6 +30,7 @@ import { ConsentToggleRow } from '@/components/primitives/ConsentToggleRow';
 import { SelectableCard } from '@/components/primitives/SelectableCard';
 import { LabeledInput } from '@/components/primitives/LabeledInput';
 import { PrimaryButton } from '@/components/primitives/PrimaryButton';
+import { GoogleSignInButton } from '@/components/primitives/GoogleSignInButton';
 
 /**
  * StickyUnlock
@@ -317,6 +318,21 @@ function UnlockModal({ onClose, onOpen }: UnlockModalProps) {
                   : <Text style={styles.submitBtnText}>SEND ACCESS LINK →</Text>
                 }
               </Pressable>
+
+              {/* Alternative: one-tap Google sign-in (web only). */}
+              {Platform.OS === 'web' && (
+                <>
+                  <View style={styles.orRow}>
+                    <View style={styles.orLine} />
+                    <Text style={styles.orText}>or</Text>
+                    <View style={styles.orLine} />
+                  </View>
+                  <GoogleSignInButton
+                    disabled={step === 'sending'}
+                    onPress={() => { track('google_signin_tapped'); window.location.assign('/api/auth/google/start'); }}
+                  />
+                </>
+              )}
 
               <Text style={styles.legalText}>
                 We'll never share your email. Unsubscribe any time.{' '}
@@ -732,7 +748,7 @@ const styles = StyleSheet.create({
       web: {
         backdropFilter:       'blur(24px)',
         WebkitBackdropFilter: 'blur(24px)',
-        boxShadow:            '0 8px 36px rgba(124,131,255,0.32)',
+        boxShadow:            '0 8px 36px rgba(95,100,189,0.32)',
         cursor:               'pointer',
       } as any,
       default: {
@@ -766,7 +782,7 @@ const styles = StyleSheet.create({
     borderRadius:      radius.pill,
     flexShrink:        0,
     alignItems:        'center',
-    ...Platform.select({ web: { boxShadow: '0 4px 18px rgba(124,131,255,0.45)' } as any, default: {} }),
+    ...Platform.select({ web: { boxShadow: '0 4px 18px rgba(95,100,189,0.45)' } as any, default: {} }),
   },
   // Mobile: button takes the full width of the stacked column
   ctaBtnMobile: {
@@ -839,6 +855,9 @@ const styles = StyleSheet.create({
     ...Platform.select({ web: { cursor: 'pointer' } as any, default: {} }),
   },
   submitBtnText: { color: '#fff', fontSize: 12, fontWeight: '800', letterSpacing: 1 },
+  orRow:  { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginVertical: spacing.md },
+  orLine: { flex: 1, height: 1, backgroundColor: glass.border },
+  orText: { ...type.caption, fontSize: 11, color: neutral.textMid, letterSpacing: 1, textTransform: 'uppercase' },
   legalText:     { ...type.caption, fontSize: 12, color: neutral.textDim, textAlign: 'center' },
   legalLink:     { color: neutral.textMid, textDecorationLine: 'underline' },
 
@@ -974,7 +993,7 @@ const proStyles = StyleSheet.create({
     position:        'relative',
     ...Platform.select({ web: { cursor: 'pointer', transitionProperty: 'border-color, background-color', transitionDuration: '140ms' } as any, default: {} }),
   },
-  segCardActive:      { borderColor: accent.indigo, backgroundColor: 'rgba(124,131,255,0.08)' },
+  segCardActive:      { borderColor: accent.indigo, backgroundColor: 'rgba(95,100,189,0.08)' },
   segCardText:        { flex: 1, gap: 2, minWidth: 0 },
   segCardLabel:       { fontFamily: font.bold, fontSize: 16, color: neutral.textMid },
   segCardLabelActive: { color: neutral.text },
@@ -1007,7 +1026,7 @@ const proStyles = StyleSheet.create({
     position:        'relative',
     ...Platform.select({ web: { cursor: 'pointer', transitionProperty: 'border-color, background-color', transitionDuration: '140ms' } as any, default: {} }),
   },
-  interestCardActive:  { borderColor: accent.indigo, backgroundColor: 'rgba(124,131,255,0.08)' },
+  interestCardActive:  { borderColor: accent.indigo, backgroundColor: 'rgba(95,100,189,0.08)' },
   interestCardText:    { flex: 1, gap: 3, minWidth: 0 },
   interestLabel:       { fontFamily: font.bold, fontSize: 16, color: neutral.textMid },
   interestLabelActive: { color: neutral.text },
@@ -1021,7 +1040,7 @@ const proStyles = StyleSheet.create({
     justifyContent:  'center',
     flexShrink:      0,
   },
-  iconWrapActive: { backgroundColor: 'rgba(124,131,255,0.14)' },
+  iconWrapActive: { backgroundColor: 'rgba(95,100,189,0.14)' },
   checkBadge: {
     position:        'absolute',
     top:             8,
@@ -1099,7 +1118,7 @@ const proStyles = StyleSheet.create({
     paddingVertical:   12,
     ...Platform.select({ web: { cursor: 'pointer' } as any, default: {} }),
   },
-  submitBtnDisabled: { backgroundColor: 'rgba(124,131,255,0.35)' },
+  submitBtnDisabled: { backgroundColor: 'rgba(95,100,189,0.35)' },
   submitBtnInner:    { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   submitBtnText:     { fontFamily: font.bold, fontSize: 16, color: '#fff', letterSpacing: 0.3 },
 });

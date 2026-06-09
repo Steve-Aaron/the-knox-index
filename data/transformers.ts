@@ -8,7 +8,7 @@
 import type { Politician, TopTrumpScores, RecentPost, AccountType } from './types';
 import type { PartyKey } from '@/theme/colors';
 import { toPartyKeyPublic } from './partyUtils';
-import { computeKnoxFactor } from './knoxConfig';
+import { computeKnoxFactor, activityScore, NORMALISATION_LIMITS } from './knoxConfig';
 import { fmtLabel } from '@/lib/format';
 
 // ── Raw BQ row shapes ─────────────────────────────────────────────────────────
@@ -33,7 +33,8 @@ export interface BQAccountRow {
   totalShares:     number;
   totalSaves:      number;
   postsToday:      number;
-  postsThisWeek:   number;
+  postsThisWeek:   number;   // posts in the last 7 days (recency penalty)
+  postsLast28d:    number;   // posts in the last 28 days (frequency basis)
   viewsToday:      number;
   likesToday:      number;
   commentsToday:   number;
@@ -159,81 +160,104 @@ function normalise(value: number, max: number): number {
   return Math.round(Math.min(100, (value / max) * 100));
 }
 
-interface ScoreMaxValues {
-  avgViews:       number;
-  engagementRate: number;  // (likes + comments + saves + shares) / views
-  postsInRange:   number;  // posts within the selected range
-  totalFollowers: number;
+/** Log-scaled normalisation: LN(1+value)/LN(1+max)·100. Spreads heavy-tailed
+ *  inputs (followers, virality) instead of letting one outlier flatten the rest. */
+function logNormalise(value: number, max: number): number {
+  if (max <= 0) return 0;
+  return Math.round(Math.min(100, (Math.log1p(Math.max(0, value)) / Math.log1p(max)) * 100));
 }
 
-function computeMaxValues(
-  rows: BQAccountRow[],
-  postsByProfile: Map<string, BQPostRow[]>
-): ScoreMaxValues {
-  let maxAvgViews = 1, maxEngRate = 1, maxPostsInRange = 1, maxFollowers = 1;
+/**
+ * Raw axis inputs for one account. SINGLE source of the scoring inputs — used by
+ * both the dataset-max pass and per-account scoring so the two can never drift.
+ * All lifetime-based, mirroring scripts/knox-mps-scored.sql.
+ */
+interface RawAxes {
+  viralityRaw:   number;  // clamped lifetime avgViews / followers
+  engRate:       number;  // clamped lifetime engagement %
+  postsLast28d:  number;  // posts in the last 28 days (frequency basis)
+  postsLast7d:   number;  // posts in the last 7 days (recency penalty)
+  followers:     number;  // lifetime total followers
+  lifetimePosts: number;  // lifetime total posts (low-volume penalty)
+  avgViews:      number;  // lifetime average views per post (low-views penalty)
+}
+
+function rawAxes(acc: BQAccountRow): RawAxes {
+  const lifetimePosts = acc.totalPosts    ?? 0;
+  const totalViews    = acc.totalViews     ?? 0;
+  const followers     = acc.totalFollowers ?? 0;
+  const avgViews      = lifetimePosts > 0 ? totalViews / lifetimePosts : 0;
+
+  // virality: per-post reach as a fraction of audience, winsorised so tiny-account
+  // outliers can't poison the dataset max.
+  const viralityRawTrue = followers > 0 ? avgViews / followers : 0;
+  const viralityRaw     = Math.min(viralityRawTrue, NORMALISATION_LIMITS.viralityRatio);
+
+  // engagement: lifetime (likes+comments+saves+shares)/views, clamped at 100%.
+  const engViews   = Math.max(totalViews, 1);
+  const engRateRaw = ((acc.totalLikes + acc.totalComments + acc.totalSaves + acc.totalShares) / engViews) * 100;
+  const engRate    = Math.min(engRateRaw, NORMALISATION_LIMITS.engRatePct);
+
+  return {
+    viralityRaw,
+    engRate,
+    postsLast28d: acc.postsLast28d  ?? 0,
+    postsLast7d:  acc.postsThisWeek ?? 0,
+    followers,
+    lifetimePosts,
+    avgViews,
+  };
+}
+
+interface ScoreMaxValues {
+  virality:       number;  // clamped virality ratio
+  engagementRate: number;  // clamped engagement %
+  postsLast28d:   number;  // posts in last 28 days (frequency basis for Knox)
+  followers:      number;  // total followers
+}
+
+function computeMaxValues(rows: BQAccountRow[]): ScoreMaxValues {
+  let maxVirality = 0, maxEng = 1, maxPosts28 = 1, maxFollowers = 1;
 
   for (const acc of rows) {
-    const posts = postsByProfile.get(normProfile(acc.profile)) ?? [];
-
-    // views: use range views from BQ aggregate if present, else average posts in feed
-    const rangeViews = acc.viewsInRange ?? 0;
-    const feedViews  = posts.reduce((s, p) => s + (p.views ?? 0), 0);
-    const avgViews   = rangeViews > 0
-      ? rangeViews / Math.max(acc.postsInRange ?? posts.length, 1)
-      : posts.length > 0 ? feedViews / posts.length : 0;
-
-    // engagement: prefer range-specific totals, fall back to lifetime
-    const eViews    = Math.max(rangeViews > 0 ? rangeViews : (acc.totalViews ?? 1), 1);
-    const eLikes    = acc.likesInRange    ?? acc.totalLikes;
-    const eComments = acc.commentsInRange ?? acc.totalComments;
-    const eSaves    = acc.savesInRange    ?? acc.totalSaves;
-    const eShares   = acc.sharesInRange   ?? acc.totalShares;
-    const engRate   = ((eLikes + eComments + eSaves + eShares) / eViews) * 100;
-
-    // frequency: posts in range when available, fall back to postsThisWeek
-    const postsCount = acc.postsInRange ?? acc.postsThisWeek;
-
-    if (avgViews     > maxAvgViews)      maxAvgViews      = avgViews;
-    if (engRate      > maxEngRate)       maxEngRate       = engRate;
-    if (postsCount   > maxPostsInRange)  maxPostsInRange  = postsCount;
-    if (acc.totalFollowers > maxFollowers) maxFollowers   = acc.totalFollowers;
+    const r = rawAxes(acc);
+    if (r.viralityRaw  > maxVirality)  maxVirality  = r.viralityRaw;
+    if (r.engRate      > maxEng)       maxEng       = r.engRate;
+    if (r.postsLast28d > maxPosts28)   maxPosts28   = r.postsLast28d;
+    if (r.followers    > maxFollowers) maxFollowers = r.followers;
   }
 
-  return { avgViews: maxAvgViews, engagementRate: maxEngRate, postsInRange: maxPostsInRange, totalFollowers: maxFollowers };
+  return {
+    virality:       maxVirality > 0 ? maxVirality : 1,
+    engagementRate: maxEng,
+    postsLast28d:   maxPosts28,
+    followers:      maxFollowers,
+  };
 }
 
-function computeScores(
-  acc: BQAccountRow,
-  posts: BQPostRow[],
-  max: ScoreMaxValues
-): TopTrumpScores {
-  // views: prefer range aggregate, fall back to feed average
-  const rangeViews = acc.viewsInRange ?? 0;
-  const feedViews  = posts.reduce((s, p) => s + (p.views ?? 0), 0);
-  const avgViews   = rangeViews > 0
-    ? rangeViews / Math.max(acc.postsInRange ?? posts.length, 1)
-    : posts.length > 0 ? feedViews / posts.length : 0;
+function computeScores(acc: BQAccountRow, max: ScoreMaxValues): TopTrumpScores {
+  const r = rawAxes(acc);
 
-  // engagement: prefer range-specific totals, fall back to lifetime
-  const eViews    = Math.max(rangeViews > 0 ? rangeViews : (acc.totalViews ?? 1), 1);
-  const eLikes    = acc.likesInRange    ?? acc.totalLikes;
-  const eComments = acc.commentsInRange ?? acc.totalComments;
-  const eSaves    = acc.savesInRange    ?? acc.totalSaves;
-  const eShares   = acc.sharesInRange   ?? acc.totalShares;
-  const engRate   = ((eLikes + eComments + eSaves + eShares) / eViews) * 100;
+  // KNOX scoring. Virality + followers are log-scaled (this is the spread fix
+  // that de-clusters scores off the 50s — it must stay in Knox). Engagement is
+  // linear. Frequency is the 28-day count normalised to the dataset max.
+  // NOTE: the activity STEP scale is the only thing that is radar-only; it does
+  // NOT feed Knox frequency.
+  const virality   = logNormalise(r.viralityRaw,  max.virality);
+  const engagement = normalise(r.engRate,         max.engagementRate);
+  const frequency  = normalise(r.postsLast28d,    max.postsLast28d);
+  const followers  = logNormalise(r.followers,    max.followers);
 
-  // frequency: posts in range when available, fall back to postsThisWeek
-  const postsCount = acc.postsInRange ?? acc.postsThisWeek;
+  // Single Knox Factor calculation, with the post-volume / recency / low-views
+  // penalties applied here. This is the only place Knox Factor is computed.
+  const knoxFactor = computeKnoxFactor(virality, engagement, followers, frequency, {
+    lifetimePosts: r.lifetimePosts,
+    postsLast7d:   r.postsLast7d,
+    postsLast28d:  r.postsLast28d,
+    avgViews:      r.avgViews,
+  });
 
-  const views      = normalise(avgViews,            max.avgViews);
-  const engagement = normalise(engRate,             max.engagementRate);
-  const frequency  = normalise(postsCount,          max.postsInRange);
-  const followers  = normalise(acc.totalFollowers,  max.totalFollowers);
-
-  // Knox Factor: virality = views score, then engagement, followers, frequency
-  const knoxFactor = computeKnoxFactor(views, engagement, followers, frequency);
-
-  return { views, engagement, frequency, followers, knoxFactor };
+  return { virality, engagement, frequency, followers, knoxFactor };
 }
 
 // ── Post transformer ──────────────────────────────────────────────────────────
@@ -291,11 +315,18 @@ export function transformToPoliticians(
     postsByProfile.set(key, bucket);
   }
 
-  const max = computeMaxValues(accountRows, postsByProfile);
+  const max = computeMaxValues(accountRows);
 
   return accountRows.map((acc): Politician => {
     const posts = (postsByProfile.get(normProfile(acc.profile)) ?? []).slice(0, 5);
-    const scores      = computeScores(acc, posts, max);
+    const scores      = computeScores(acc, max);
+
+    // RADAR-ONLY display scores. Activity = absolute 7-day step scale; followers
+    // = log-scaled against the dataset max. These never feed Knox Factor.
+    const radial = {
+      activity:  activityScore(acc.postsThisWeek ?? 0),
+      followers: logNormalise(acc.totalFollowers ?? 0, max.followers),
+    };
 
     return {
       id:             String(acc.id),
@@ -328,6 +359,7 @@ export function transformToPoliticians(
         sharesInRange:   acc.sharesInRange   ?? 0,
       },
       scores,
+      radial,
       recentPosts: posts.map(transformPost),
     };
   });

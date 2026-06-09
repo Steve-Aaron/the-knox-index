@@ -33,7 +33,7 @@ import type {
 
 // ── Ranking helpers ───────────────────────────────────────────────────────────
 
-const SCORE_KEYS: ScoreKey[] = ['knoxFactor', 'views', 'engagement', 'frequency', 'followers'];
+const SCORE_KEYS: ScoreKey[] = ['knoxFactor', 'virality', 'engagement', 'frequency', 'followers'];
 
 function toRankEntry(p: Politician, key: ScoreKey): AccountRankEntry {
   return {

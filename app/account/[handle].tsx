@@ -35,13 +35,13 @@ import type { AccountPageResponse, ScoreKey } from '@/data/types';
 // One accent colour per metric — consistent across cards.
 const METRIC_COLORS: Record<ScoreKey, string> = {
   knoxFactor:  accent.indigo,
-  views:       accent.amber,
+  virality:    accent.amber,
   engagement:  accent.pink,
   frequency:   accent.mint,
   followers:   '#A78BFA',   // soft purple
 };
 
-const SCORE_ORDER: ScoreKey[] = ['knoxFactor', 'views', 'engagement', 'frequency', 'followers'];
+const SCORE_ORDER: ScoreKey[] = ['knoxFactor', 'virality', 'engagement', 'frequency', 'followers'];
 
 /**
  * Convert a range label ('This week', 'Lifetime', etc.) into the lowercase

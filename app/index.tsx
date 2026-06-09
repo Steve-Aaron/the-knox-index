@@ -15,6 +15,7 @@ import { PoliticianDetailPanel } from '@/components/dashboard/PoliticianDetailPa
 import { SummaryPanel } from '@/components/dashboard/SummaryPanel';
 import { RankBoard } from '@/components/dashboard/RankBoard';
 import { PostsTable } from '@/components/dashboard/PostsTable';
+import { MobileSection } from '@/components/primitives/MobileSection';
 import { LoadingScreen } from '@/components/dashboard/LoadingScreen';
 import { TimeRangePicker, TimeRange } from '@/components/dashboard/TimeRangePicker';
 import { PartyLeaderboard } from '@/components/dashboard/PartyLeaderboard';
@@ -60,7 +61,7 @@ import type { PartyKey } from '@/theme/colors';
 
 const SORTS: { key: ScoreKey; label: string }[] = [
   { key: 'knoxFactor',  label: 'Knox Factor' },
-  { key: 'views',       label: 'Views' },
+  { key: 'virality',    label: 'Virality' },
   { key: 'engagement',  label: 'Engagement' },
   { key: 'frequency',   label: 'Frequency' },
   { key: 'followers',   label: 'Followers' },
@@ -241,8 +242,8 @@ function DashboardScreenInner() {
   // changes sort in the PostsTable, a new fetch fires and the feed refreshes.
   const [postsSortKey, setPostsSortKey] = useState<PostsSortKey>('postDate');
 
-  const { politicians, totalPostsInDb, status, isLive, error, retryAttempt, retryTotal, isInitialLoad, refresh } = useLiveData(range);
-  const { posts, loading: postsLoading, error: postsError } = usePostsData(range, postsSortKey);
+  const { politicians, totalPostsInDb, topPost, status, isLive, error, retryAttempt, retryTotal, isInitialLoad, refresh } = useLiveData(range);
+  const { posts, loading: postsLoading, loadingMore: postsLoadingMore, hasMore: postsHasMore, error: postsError, loadMore: loadMorePosts } = usePostsData(range, postsSortKey);
   const { benchmarks } = useBenchmarks();
 
   // Hero entrance animations are gated until the LoadingScreen has fully
@@ -351,9 +352,10 @@ function DashboardScreenInner() {
         >
 
           {/* ── 0. Hero — editorial 100vh layout, includes KeyFindings strip ──── */}
-          <HomeHero politicians={politicians} range={range} totalPostsInDb={totalPostsInDb} ready={heroReady} />
+          <HomeHero politicians={politicians} range={range} totalPostsInDb={totalPostsInDb} topPost={topPost} ready={heroReady} />
 
           {/* ── 1. Title bar ──────────────────────────── */}
+          <MobileSection index={0}>
           <View
             style={[styles.titleBar, { paddingHorizontal: hPad }]}
             {...(Platform.OS === 'web' ? { 'data-container_name': 'row_title_bar' } as any : {})}
@@ -383,6 +385,7 @@ function DashboardScreenInner() {
               ) : null}
             </View>
           </View>
+          </MobileSection>
 
           {/* ── 2. Key findings strip ─────────────────────────────────────
               KeyFindingsBar lives inside <HomeHero /> so the numbers
@@ -395,6 +398,7 @@ function DashboardScreenInner() {
           />
 
           {/* ── 3. Controls (stacked, full-width each) ── */}
+          <MobileSection index={1}>
           <View
             style={[styles.controlsOuter, { paddingHorizontal: hPad }]}
             {...(Platform.OS === 'web' ? { 'data-container_name': 'row_controls_time_sort' } as any : {})}
@@ -442,8 +446,10 @@ function DashboardScreenInner() {
               </ScrollView>
             </View>
           </View>
+          </MobileSection>
 
           {/* ── 4. Three-column main area ─────────────── */}
+          <MobileSection index={2}>
           {status === 'loading' && politicians.length === 0 ? (
             // Skeleton shown before first data arrives
             <View style={[styles.threeCol, { paddingHorizontal: hPad }]}>
@@ -544,8 +550,10 @@ function DashboardScreenInner() {
               <SummaryPanel politicians={politicians} range={range} />
             </View>
           )}
+          </MobileSection>
 
           {/* ── 5. Party league ───────────────────────── */}
+          <MobileSection index={3}>
           <View
             ref={sectionRef('party_leaderboard') as any}
             style={[styles.partySection, { paddingHorizontal: hPad }]}
@@ -558,8 +566,10 @@ function DashboardScreenInner() {
               onPartySelect={handlePartyLeaderboardSelect}
             />
           </View>
+          </MobileSection>
 
           {/* ── 6. Posts table ────────────────────────── */}
+          <MobileSection index={4}>
           <View
             ref={(node: any) => {
               // Compose two refs: one for section-scroll analytics, one for measure-scroll.
@@ -584,11 +594,16 @@ function DashboardScreenInner() {
                 onStyleFilterChange={setStyleFilter}
                 externalSortKey={postsSortKey}
                 onSortKeyChange={setPostsSortKey}
+                hasMore={postsHasMore}
+                loadingMore={postsLoadingMore}
+                onLoadMore={loadMorePosts}
               />
             </ErrorBoundary>
           </View>
+          </MobileSection>
 
           {/* ── 7. Style + topics row ─────────────────── */}
+          <MobileSection index={5}>
           <View
             ref={sectionRef('style_breakdown') as any}
             style={[styles.insightsRow, { paddingHorizontal: hPad }, isDesktop ? styles.insightsRowDesktop : styles.insightsRowStacked]}
@@ -606,8 +621,10 @@ function DashboardScreenInner() {
               <TopicCloud posts={posts} rangeLabel={RANGE_LABELS[range]} />
             </View>
           </View>
+          </MobileSection>
 
           {/* ── 8. Contact footer ─────────────────────── */}
+          <MobileSection index={6}>
           <View
             ref={sectionRef('contact_footer') as any}
             style={[styles.contactSection, { paddingHorizontal: hPad }]}
@@ -615,14 +632,17 @@ function DashboardScreenInner() {
           >
             <ContactFooter />
           </View>
+          </MobileSection>
 
           {/* ── 9. App footer ─────────────────────────── */}
+          <MobileSection index={7}>
           <View
             style={[styles.footerSection, { paddingHorizontal: hPad }]}
             {...(Platform.OS === 'web' ? { 'data-container_name': 'row_app_footer' } as any : {})}
           >
             <AppFooter />
           </View>
+          </MobileSection>
 
         </ScrollView>
         {/* Sticky registration CTA — visible immediately for unregistered users */}
@@ -834,7 +854,7 @@ const styles = StyleSheet.create({
   },
   chipActive: {
     borderColor: accent.indigo,
-    backgroundColor: 'rgba(124,131,255,0.12)',
+    backgroundColor: 'rgba(95,100,189,0.12)',
   },
   chipText: {
     ...type.caption,
@@ -878,6 +898,7 @@ const styles = StyleSheet.create({
   },
   insightsRowDesktop: {
     flexDirection: 'row',
+    alignItems:   'stretch',
   },
   insightsRowStacked: {
     flexDirection: 'column',

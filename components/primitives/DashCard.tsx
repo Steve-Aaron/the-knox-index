@@ -76,8 +76,8 @@ const styles = StyleSheet.create({
   // slot itself can be addressed via data-component for instrumentation.
   helperSlot: {
     position: 'absolute',
-    top:      spacing.sm,
-    right:    spacing.sm,
+    top:      spacing.xl,
+    right:    spacing.lg,
     zIndex:   10,
   },
 });

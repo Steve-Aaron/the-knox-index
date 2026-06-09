@@ -76,11 +76,39 @@ export type PartyKey = keyof typeof party;
  *   amber  → secondaryOrange — warning / loading
  */
 export const accent = {
-  indigo: knox.primaryPink,
+  indigo: '#5F64BD',
   pink:   knox.accentPurple,
   mint:   knox.primaryOrange,
   amber:  knox.secondaryOrange,
 };
+
+/**
+ * Knox 2.0 secondary palette.
+ * Lower-saturation accent colours — used individually paired with primaries.
+ * Never use these together; pick one per theme/topic.
+ */
+export const secondary = {
+  purple: '#7D529B',
+  blue:   '#1D4782',
+  orange: '#EF8936',
+  lilac:  '#CAC1E4',
+} as const;
+
+/**
+ * Knox 2.0 data visualisation palette.
+ * Used for chart bars, graph lines, and data indicators — in order.
+ * Never use these for interactive UI states; use accent tokens for that.
+ */
+export const dataVis = [
+  '#ef8936',
+  '#ffd700',
+  '#ffb14e',
+  '#fa8775',
+  '#ea5f94',
+  '#cd34b5',
+  '#9d02d7',
+  '#5B8DEF',
+] as const;
 
 export const glass = {
   fill:     'rgba(255, 255, 255, 0.04)',

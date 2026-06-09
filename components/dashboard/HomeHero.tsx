@@ -4,11 +4,11 @@ import { MotiView } from 'moti';
 import { KeyFindingsBar } from '@/components/dashboard/KeyFindingsBar';
 import { UkMap } from '@/components/dashboard/UkMap';
 import { DevLabel } from '@/components/primitives/DevLabel';
-import { neutral, knox, glass } from '@/theme/colors';
+import { neutral, glass } from '@/theme/colors';
 import { spacing } from '@/theme/spacing';
 import { font } from '@/theme/typography';
 import { breakpoints } from '@/theme/breakpoints';
-import type { Politician } from '@/data/types';
+import type { Politician, LifetimeTopPost } from '@/data/types';
 import type { TimeRange } from '@/components/dashboard/TimeRangePicker';
 
 /**
@@ -39,10 +39,12 @@ import type { TimeRange } from '@/components/dashboard/TimeRangePicker';
  */
 
 interface Props {
-  politicians:     Politician[];
-  range:           TimeRange;
-  /** Forwarded to KeyFindingsBar so the 'Posts tracked' tile shows the real DB count. */
+  politicians: Politician[];
+  range:       TimeRange;
+  /** DB-wide total post count, forwarded to the KeyFindingsBar "Total posts" tile. */
   totalPostsInDb?: number;
+  /** All-time most-viewed post, forwarded to the KeyFindingsBar "Top performing post" tile. */
+  topPost?: LifetimeTopPost | null;
   /**
    * When false, every entrance animation stays in its 'from' state. The
    * parent flips this true once the LoadingScreen has finished its exit
@@ -56,19 +58,18 @@ interface Props {
 }
 
 const COPY = {
-  headlineLines: ['THE', 'KNOX', 'INDEX'] as const,
-  tagline:       'Learn how UK politicians use TikTok, in real time. Get insights live on our dashboard below, and in your inbox every morning.',
+  tagline:     'Learn how UK politicians use TikTok, in real time. Get insights live on our dashboard below, and in your inbox at 08:00 every day.',
+  placeholder: 'IMAGE PLACEHOLDER',
 };
 
 const STACK_BREAKPOINT = breakpoints.tablet;
 
-// Animation timings — staggered so the hero reveals top-to-bottom
+// Animation timings
 const HEADLINE_BASE_DELAY = 100;
-const HEADLINE_STAGGER    = 110;
-const TAGLINE_DELAY       = HEADLINE_BASE_DELAY + COPY.headlineLines.length * HEADLINE_STAGGER + 80;
+const TAGLINE_DELAY       = 290;
 const IMAGE_DELAY         = 240;
 
-export function HomeHero({ politicians, range, totalPostsInDb, ready = true }: Props) {
+export function HomeHero({ politicians, range, totalPostsInDb, topPost, ready = true }: Props) {
   const { width, height } = useWindowDimensions();
   const isStacked = width < STACK_BREAKPOINT;
   const isWeb     = Platform.OS === 'web';
@@ -84,19 +85,6 @@ export function HomeHero({ politicians, range, totalPostsInDb, ready = true }: P
   const TO_IMAGE      = { opacity: 1, scale: 1 };
   const FROM_STATS    = { opacity: 0, translateY: 12 };
   const TO_STATS      = { opacity: 1, translateY: 0 };
-
-  // Headline scale — sized so 3 stacked lines + tagline + KeyFindings all
-  // fit within ~100vh. Each line is short ('THE', 'KNOX', 'INDEX') so
-  // viewport-height-based sizing never overflows the column.
-  const headlineStyle: any = isWeb
-    ? {
-        fontSize:   'clamp(48px, 17vh, 220px)' as any,
-        lineHeight: '0.9em' as any,
-      }
-    : {
-        fontSize:   Math.min(160, height * 0.17),
-        lineHeight: Math.min(150, height * 0.15),
-      };
 
   return (
     <View
@@ -119,35 +107,21 @@ export function HomeHero({ politicians, range, totalPostsInDb, ready = true }: P
         {/* LEFT — headline, then tagline.
             perspective is applied to the column on web so child rotateX
             transforms render with depth (the 'fold' feel). */}
-        <View style={[styles.leftCol, isWeb && webFoldPerspective]}>
-          {/* Each headline line folds in: pivots from the top edge from
-              -95° (folded back) to 0° (upright). Staggered between lines
-              so each word lands in sequence. */}
-          {COPY.headlineLines.map((word, i) => {
-            // 'KNOX' gets inverted colours on a purple highlight block —
-            // editorial emphasis on the brand word, while THE and INDEX
-            // stay in the standard pink. The wrap View carries its own
-            // horizontal padding and matching negative vertical margin
-            // so the highlight bleeds around the letters without adding
-            // any height to the line-stack (THE and INDEX stay put).
-            const isHighlight = word === 'KNOX';
+        <View style={[styles.leftCol, isWeb && webFoldPerspective, isStacked && styles.leftColStacked]}>
+          {/* Stacked headline — one word per line, staggered fold-in */}
+          {(['THE', 'KNOX', 'INDEX'] as const).map((word, i) => {
+            const isIndex = word === 'INDEX';
             const textNode = (
               <Text
-                style={[
-                  styles.headline,
-                  headlineStyle,
-                  isWeb && webNoWrap,
-                  isHighlight && styles.headlineHighlightText,
-                ]}
+                style={[styles.headline, isWeb && webNoWrap, isStacked && styles.headlineStacked, isIndex && styles.headlineIndex]}
                 numberOfLines={1}
-                adjustsFontSizeToFit={!isWeb}
               >
                 {word}
               </Text>
             );
             return (
               <MotiView
-                key={i}
+                key={word}
                 from={FROM_HEADLINE}
                 animate={ready ? TO_HEADLINE : FROM_HEADLINE}
                 transition={{
@@ -155,12 +129,12 @@ export function HomeHero({ politicians, range, totalPostsInDb, ready = true }: P
                   damping:   16,
                   stiffness: 140,
                   mass:      0.85,
-                  delay:     HEADLINE_BASE_DELAY + i * HEADLINE_STAGGER,
+                  delay:     HEADLINE_BASE_DELAY + i * 80,
                 }}
                 style={isWeb ? webFoldOriginTop : undefined}
               >
-                {isHighlight ? (
-                  <View style={styles.headlineHighlight}>{textNode}</View>
+                {isIndex ? (
+                  <View style={[styles.indexHighlight, isStacked && styles.indexHighlightStacked]}>{textNode}</View>
                 ) : (
                   textNode
                 )}
@@ -181,7 +155,7 @@ export function HomeHero({ politicians, range, totalPostsInDb, ready = true }: P
               mass:      0.9,
               delay:     TAGLINE_DELAY,
             }}
-            style={[styles.taglineWrap, isWeb && webFoldOriginBottom]}
+            style={[styles.taglineWrap, isStacked && styles.taglineWrapStacked, isWeb && webFoldOriginBottom]}
           >
             <Text style={[styles.tagline, isStacked && styles.taglineStacked]}>
               {COPY.tagline}
@@ -209,7 +183,7 @@ export function HomeHero({ politicians, range, totalPostsInDb, ready = true }: P
         transition={{ type: 'timing', duration: 600, delay: TAGLINE_DELAY + 140 }}
         style={styles.statsStrip}
       >
-        <KeyFindingsBar politicians={politicians} range={range} totalPostsInDb={totalPostsInDb} />
+        <KeyFindingsBar politicians={politicians} range={range} totalPostsInDb={totalPostsInDb} topPost={topPost} />
       </MotiView>
     </View>
   );
@@ -265,34 +239,46 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap:            0,
   },
+  // Mobile: centre the headline + tagline block.
+  leftColStacked: {
+    alignItems: 'center',
+  },
   headline: {
-    fontFamily:    font.bold,
-    fontWeight:    '900',
-    color:         knox.primaryPink,
-    letterSpacing: -4,
+    fontFamily:    font.ui,
+    fontWeight:    '500',
+    fontSize:      104,
+    lineHeight:    96,
+    color:         '#F4F5FF',
+    letterSpacing: 3,
     textTransform: 'uppercase',
     margin:        0,
     padding:       0,
   },
-  // Highlight block wrapping the word KNOX. alignSelf:'flex-start' so the
-  // block sizes to the text width plus horizontal padding. paddingVertical
-  // is mirrored by an equal negative marginVertical so the visible block
-  // bleeds above and below the letterforms without changing the stack
-  // height — THE and INDEX lines do not shift.
-  headlineHighlight: {
-    alignSelf:         'flex-start',
-    backgroundColor:   knox.primaryPurple,
-    paddingHorizontal: spacing.lg,
-    paddingVertical:   spacing.xs,
-    marginVertical:    -spacing.xs,
-    marginLeft:        -spacing.lg,
+  // Mobile: smaller, centred headline so the words fit a 360px viewport.
+  headlineStacked: {
+    fontSize:      64,
+    lineHeight:    62,
+    letterSpacing: 1,
+    textAlign:     'center',
   },
-  headlineHighlightText: {
+  indexHighlight: {
+    alignSelf:         'flex-start',
+    backgroundColor:   '#5F64BD',
+    paddingHorizontal: 7,
+    paddingVertical:   3,
+  },
+  indexHighlightStacked: {
+    alignSelf: 'center',
+  },
+  headlineIndex: {
     color: '#FFFFFF',
   },
   taglineWrap: {
     marginTop: spacing.lg,
     maxWidth:  640,
+  },
+  taglineWrapStacked: {
+    alignSelf: 'center',
   },
   tagline: {
     fontFamily: font.ui,

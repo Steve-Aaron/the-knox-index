@@ -4,9 +4,13 @@
  * Returns all posts joined with account names, style, and topic tags.
  * Used by the PostsTable section on the dashboard.
  *
- * GET /api/posts               → last 200 posts, all time
+ * GET /api/posts                 → every processed post, all time, ordered by sortKey
  * GET /api/posts?since=YYYY-MM-DD → posts on or after that date
- * GET /api/posts?limit=N       → cap result rows
+ * GET /api/posts?sortKey=views    → server-side ORDER BY (views|likes|comments|
+ *                                   shares|engagement|virality|postDate)
+ *
+ * No row cap — the full ordered set is returned so the true top-viewed /
+ * top-engaged posts always appear.
  */
 
 import { query, tableRef } from '@/lib/bigquery';
@@ -53,7 +57,7 @@ const ORDER_BY_FOR_SORT_KEY: Record<string, string> = {
   postDate:   'p.postDate DESC, p.views DESC',
 };
 
-const POSTS_SQL = (limit: number, since: string | null, orderBy: string) => `
+const POSTS_SQL = (since: string | null, orderBy: string, limit: number, offset: number) => `
   SELECT
     CAST(p.postId AS STRING) AS postId,
     p.profile,
@@ -80,7 +84,6 @@ const POSTS_SQL = (limit: number, since: string | null, orderBy: string) => `
   LEFT JOIN ${tableRef('post_x_style')} pxs ON p.postId = pxs.postId
   LEFT JOIN ${tableRef('style')} s ON pxs.styleId = s.id
   WHERE p.videoSummary IS NOT NULL
-    AND p.videoMp4     IS NOT NULL
     ${since ? `AND p.postDate >= DATE '${since}'` : ''}
   GROUP BY
     p.postId, p.profile, a.name, a.party,
@@ -89,21 +92,17 @@ const POSTS_SQL = (limit: number, since: string | null, orderBy: string) => `
     p.views, p.likes, p.comments, p.shares, p.saves,
     a.totalFollowers
   ORDER BY ${orderBy}
-  LIMIT ${limit}
+  LIMIT ${limit} OFFSET ${offset}
 `;
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 export async function GET(request: Request): Promise<Response> {
   const params = new URL(request.url).searchParams;
-  // Cap was previously 200 with max 500 — too low for lifetime views
-  // (~9.5K posts in the DB). The dashboard's date range was effectively
-  // moot once the 200 most recent posts saturated the response. Default
-  // is now 2000 (covers a year of posts) with a hard ceiling of 10000
-  // (covers lifetime). The client paginates 20 at a time within whatever
-  // the API returns.
-  const rawLimit = parseInt(params.get('limit') ?? '2000', 10);
-  const limit = Math.min(isNaN(rawLimit) ? 2000 : rawLimit, 10000);
+  // Server-side pagination: the query is ordered server-side by the selected
+  // sort key, then a single page (LIMIT/OFFSET) is returned and signed. The
+  // client walks the full ordered set page by page, so the genuine top-viewed /
+  // top-engaged posts are reachable without ever capping the dataset.
   const rawSince = params.get('since') ?? null;
   const since = rawSince && ISO_DATE.test(rawSince) ? rawSince : null;
 
@@ -112,8 +111,12 @@ export async function GET(request: Request): Promise<Response> {
   const rawSortKey = params.get('sortKey') ?? 'postDate';
   const orderBy    = ORDER_BY_FOR_SORT_KEY[rawSortKey] ?? ORDER_BY_FOR_SORT_KEY.postDate;
 
+  // Page window. limit is bounded so a single request never signs too many URLs.
+  const limit  = Math.min(Math.max(parseInt(params.get('limit') ?? '200', 10) || 200, 1), 500);
+  const offset = Math.max(parseInt(params.get('offset') ?? '0', 10) || 0, 0);
+
   try {
-    const rows = await query<BQPostRecordRow>(POSTS_SQL(limit, since, orderBy));
+    const rows = await query<BQPostRecordRow>(POSTS_SQL(since, orderBy, limit, offset));
 
     // Sign coverJpeg + videoMp4 for every row in parallel (1-hour TTL each).
     const signedRows = await Promise.all(rows.map(r => signMediaFields(r)));
@@ -139,9 +142,12 @@ export async function GET(request: Request): Promise<Response> {
       accountFollowers: r.accountFollowers ?? 0,
     }));
 
+    // hasMore: a full page back implies there is likely another page.
+    const hasMore = rows.length === limit;
+
     // Cache shorter than TTL so clients never hold an expired signed URL.
     return Response.json(
-      { posts },
+      { posts, hasMore },
       { headers: { 'Cache-Control': 'private, max-age=1800, stale-while-revalidate=120' } }
     );
 

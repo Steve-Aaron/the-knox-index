@@ -6,31 +6,16 @@ import { InfoTip } from '@/components/primitives/InfoTip';
 import { SkeletonBlock } from '@/components/primitives/SkeletonBlock';
 import { CountUp, formatters } from '@/components/primitives/CountUp';
 import { Kicker } from '@/components/ui/Kicker';
-import { neutral, accent, party, brand, knox } from '@/theme/colors';
+import { neutral, accent, party, dataVis } from '@/theme/colors';
 import { type, font } from '@/theme/typography';
 import { spacing, radius } from '@/theme/spacing';
 import { breakpoints } from '@/theme/breakpoints';
-import type { Politician } from '@/data/types';
+import type { Politician, LifetimeTopPost } from '@/data/types';
 import type { TimeRange } from '@/components/dashboard/TimeRangePicker';
-
-/** Short possessive label for tile kickers. */
-const RANGE_SHORT: Record<TimeRange, string> = {
-  yesterday: "Yesterday's",
-  week:      "This week's",
-  month:     "This month's",
-  year:      "This year's",
-  lifetime:  'Lifetime',
-};
+import { computeKeyFindings } from '@/lib/keyFindings';
 
 /** Fixed tile width for mobile — tiles scroll horizontally. */
 const TILE_WIDTH_MOBILE = 200;
-
-/** Return first N words of a string, appending ellipsis if truncated. */
-function firstWords(str: string, n = 5): string {
-  const words = str.trim().split(/\s+/);
-  if (words.length <= n) return str;
-  return words.slice(0, n).join(' ') + '…';
-}
 
 /**
  * KeyFindingsBar
@@ -43,10 +28,18 @@ function firstWords(str: string, n = 5): string {
 interface Props {
   politicians: Politician[];
   range?: TimeRange;
-  /** Count of fully-processed posts in our database — feeds the 'Posts tracked' tile.
-   *  When undefined, the tile falls back to a sum of politicians.totals.posts, which
-   *  approximates with TikTok's lifetime profile counters (less accurate). */
+  /**
+   * DB-wide total post count from useLiveData. When provided (> 0) it drives
+   * the "Total posts" tile so the figure reflects everything tracked, not just
+   * the posts currently loaded into memory. Falls back to the in-scope count.
+   */
   totalPostsInDb?: number;
+  /**
+   * All-time most-viewed post from useLiveData (range-independent). When
+   * provided it drives the "Top performing post" tile so the figure is a true
+   * lifetime maximum. Falls back to the top post among loaded recentPosts.
+   */
+  topPost?: LifetimeTopPost | null;
 }
 
 interface StatTile {
@@ -58,76 +51,78 @@ interface StatTile {
   accentColor:   string;
 }
 
-export function KeyFindingsBar({ politicians, range = 'yesterday', totalPostsInDb }: Props) {
+export function KeyFindingsBar({ politicians, totalPostsInDb, topPost: lifetimeTopPost }: Props) {
   const [hovered, setHovered] = useState<number | null>(null);
-  const rangeLabel = RANGE_SHORT[range];
 
   const { width: windowWidth } = useWindowDimensions();
   const isDesktop = windowWidth >= breakpoints.desktop;
+  const isMobile  = windowWidth < breakpoints.tablet;
 
   const tiles = useMemo<StatTile[]>(() => {
-    const allPosts = politicians.flatMap(p =>
-      (p.recentPosts ?? []).map(post => ({ ...post, politician: p }))
-    );
-    const mostViral        = [...allPosts].sort((a, b) => b.views - a.views)[0];
-    const totalViews       = allPosts.reduce((s, p) => s + p.views, 0);
-    const postCount        = allPosts.length;
-    const avgViewsPerPost  = postCount > 0 ? Math.round(totalViews / postCount) : 0;
+    // All aggregation lives in the pure, unit-tested helper.
+    const { politicianCount, totalViews, avgViewsPerPost, shownPostCount, totalPosts, topPost } =
+      computeKeyFindings(politicians);
 
-    // 'Posts tracked' — real count of fully-processed rows in our post table
-    // (videoSummary + videoMp4 present), supplied by /api/ariadne. When the
-    // count isn't available (older API or error), fall back to the sum of
-    // politicians.totals.posts (TikTok's lifetime profile counters) as an
-    // approximate floor so the tile is never blank.
-    const postsTrackedValue = typeof totalPostsInDb === 'number'
-      ? totalPostsInDb
-      : politicians.reduce((s, p) => s + (p.totals?.posts ?? 0), 0);
+    // Prefer the DB-wide count when supplied; otherwise show in-scope posts.
+    const postsHeadline =
+      typeof totalPostsInDb === 'number' && totalPostsInDb > 0 ? totalPostsInDb : totalPosts;
+
+    // Prefer the all-time top post from the API; fall back to the best among
+    // loaded posts so the tile still renders before the lifetime value arrives.
+    const topView = lifetimeTopPost
+      ? {
+          views:    lifetimeTopPost.views,
+          label:    `by ${lifetimeTopPost.accountName}`,
+          partyKey: lifetimeTopPost.partyKey,
+        }
+      : topPost
+        ? {
+            views:    topPost.views,
+            label:    `by ${topPost.politician.name}`,
+            partyKey: topPost.politician.partyKey,
+          }
+        : null;
 
     return [
       {
         kicker:       'Politicians tracked',
         tip:          'The number of political accounts we are actively monitoring on TikTok right now.',
-        numericValue: politicians.length,
+        numericValue: politicianCount,
         suffix:       'active accounts',
         accentColor:  accent.indigo,
       },
       {
-        kicker:       `${rangeLabel} views`,
-        tip:          `Total views across every tracked post in this period. Data arrives one day after posting.`,
+        kicker:       'Total views',
+        tip:          'Total views summed across the posts shown below. Matches the sum of the individual post view counts.',
         numericValue: totalViews,
-        suffix:       postCount > 0 ? `across ${postCount} post${postCount === 1 ? '' : 's'}` : undefined,
+        suffix:       shownPostCount > 0 ? `across ${shownPostCount} post${shownPostCount === 1 ? '' : 's'}` : undefined,
         accentColor:  accent.mint,
       },
       {
         kicker:       'Avg views / post',
-        tip:          'Average view count across recent processed posts for all tracked politicians in this period.',
+        tip:          'Average view count across the posts shown below.',
         numericValue: avgViewsPerPost,
         suffix:       'views per post',
         accentColor:  accent.amber,
       },
       {
-        kicker:       'Posts tracked',
-        tip:          'Fully-processed posts in our database — every video we have ingested with a transcript and a playable URL. Not filtered by time range.',
-        numericValue: postsTrackedValue,
-        suffix:       politicians.length > 0
-          ? `across ${politicians.length} account${politicians.length === 1 ? '' : 's'}`
-          : undefined,
-        accentColor:  accent.amber,
+        kicker:       'Total posts',
+        tip:          'The total number of posts we have tracked across every monitored politician, all time.',
+        numericValue: postsHeadline,
+        suffix:       postsHeadline > 0 ? 'posts tracked' : 'No posts recorded yet',
+        accentColor:  dataVis[4],
       },
       {
-        kicker:       'Most viral post',
-        tip:          'The single video with the most views across all politicians we track in this period.',
-        ...(mostViral
-          ? {
-              numericValue: mostViral.views,
-              suffix: mostViral.caption ? firstWords(mostViral.caption) : mostViral.politician.name,
-            }
-          : { textValue: 'None yet', suffix: 'No posts recorded this period' }
+        kicker:       'Top performing post',
+        tip:          'The single most-viewed post across the accounts we track, all time.',
+        ...(topView
+          ? { numericValue: topView.views, suffix: topView.label }
+          : { textValue: 'None yet', suffix: 'No posts recorded yet' }
         ),
-        accentColor:  accent.pink,
+        accentColor:  topView ? party[topView.partyKey].base : accent.amber,
       },
     ];
-  }, [politicians, rangeLabel, totalPostsInDb]);
+  }, [politicians, totalPostsInDb, lifetimeTopPost]);
 
   // ── Tile nodes — 'Who Won Davos' style: big number on top, small label below.
   // No card, no dividers. Each tile owns its own breathing room.
@@ -139,10 +134,14 @@ export function KeyFindingsBar({ politicians, range = 'yesterday', totalPostsInD
       transition={{ type: 'timing', duration: 280, delay: i * 55 }}
       style={[
         styles.tileBox,
-        isDesktop ? styles.tileBoxFlex : { width: TILE_WIDTH_MOBILE },
+        isDesktop
+          ? tile.textValue !== undefined ? styles.tileBoxAuto : styles.tileBoxFlex
+          : isMobile ? styles.tileBoxMobile : { width: TILE_WIDTH_MOBILE },
         Platform.OS === 'web' && hovered === i ? { transform: [{ translateY: -2 }] } : {},
       ]}
       {...(Platform.OS === 'web' ? {
+        // Per-card module marker — addressable as [data-component="dataScoreCard"].
+        dataSet: { component: 'dataScoreCard' },
         onMouseEnter: () => setHovered(i),
         onMouseLeave: () => setHovered(null),
       } as any : {})}
@@ -182,13 +181,23 @@ export function KeyFindingsBar({ politicians, range = 'yesterday', totalPostsInD
   ));
 
   return (
-    <View style={styles.strip}>
-      <DevLabel name="header-scorecard" />
+    <View
+      style={styles.strip}
+      // Production-visible module marker — addressable as
+      // [data-component="dataScoreCards"] in the DOM on web (all builds).
+      {...(Platform.OS === 'web'
+        ? ({ dataSet: { component: 'dataScoreCards' } } as any)
+        : {})}
+    >
+      <DevLabel name="dataScoreCards" />
 
       {politicians.length === 0 ? (
         <View style={styles.row}>{skeletonNodes}</View>
       ) : isDesktop ? (
         <View style={styles.row}>{tileNodes}</View>
+      ) : isMobile ? (
+        // Mobile: stack the scorecards vertically rather than scroll sideways.
+        <View style={styles.mobileStack}>{tileNodes}</View>
       ) : (
         <ScrollView
           horizontal
@@ -206,23 +215,32 @@ const styles = StyleSheet.create({
   // Davos-style strip — no card chrome, just big numbers floating on the page.
   strip: {
     width:             '100%',
-    paddingHorizontal: spacing.xl,
+    paddingHorizontal: 0,
     paddingVertical:   spacing.xl,
   },
   row: {
-    flexDirection: 'row',
-    width:         '100%',
-    gap:           spacing.xxl,
+    flexDirection:  'row',
+    width:          '100%',
+    gap:            spacing.xxl,
+    justifyContent: 'space-between',
   },
   mobileRow: {
     flexDirection: 'row',
     gap:           spacing.xl,
   },
+  // Mobile: one card per row, full width, stacked vertically.
+  mobileStack: {
+    flexDirection: 'column',
+    width:         '100%',
+    gap:           spacing.lg,
+  },
   tileBox: {
     paddingVertical: spacing.md,
     gap:             6,
   },
-  tileBoxFlex: { flex: 1 },
+  tileBoxFlex:   { flex: 1 },
+  tileBoxAuto:   { flexShrink: 0 },
+  tileBoxMobile: { width: '100%' },
 
   // Hero number — large, mono, accent-coloured. The Davos visual signature.
   valueNumeric: {
@@ -235,9 +253,9 @@ const styles = StyleSheet.create({
   valueText: {
     fontFamily:    font.bold,
     fontWeight:    '700',
-    fontSize:      36,
+    fontSize:      56,
     letterSpacing: -0.5,
-    lineHeight:    40,
+    lineHeight:    60,
   },
 
   // Tiny label below — uppercase, dim, info-tip inline

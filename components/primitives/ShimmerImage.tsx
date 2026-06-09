@@ -26,7 +26,7 @@ export function ShimmerImage({
   style,
   wrapStyle,
   resizeMode = 'cover',
-  accentColour = '#7C83FF',
+  accentColour = '#5F64BD',
   fallback,
 }: Props) {
   const [loaded, setLoaded] = useState(false);

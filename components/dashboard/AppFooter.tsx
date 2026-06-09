@@ -3,7 +3,7 @@ import { View, Text, Pressable, StyleSheet, Platform, Linking } from 'react-nati
 import { router } from 'expo-router';
 import { DevLabel } from '@/components/primitives/DevLabel';
 import { KnoxLogo } from '@/components/primitives/KnoxLogo';
-import { neutral, glass, accent, knox } from '@/theme/colors';
+import { neutral, glass, accent } from '@/theme/colors';
 import { spacing, radius } from '@/theme/spacing';
 import { type, font } from '@/theme/typography';
 
@@ -46,7 +46,7 @@ export function AppFooter() {
             accessibilityLabel="Knox Index — home"
             style={({ pressed }) => [styles.brandRow, pressed && { opacity: 0.75 }]}
           >
-            <KnoxLogo width={120} />
+            <KnoxLogo width={120} color={neutral.strokeHi} />
           </Pressable>
           <Text style={styles.brandTagline}>
             UK political TikTok intelligence, daily.
@@ -167,8 +167,8 @@ const styles = StyleSheet.create({
     }),
   },
   linkBtnHovered: {
-    borderColor:     knox.primaryPink,
-    backgroundColor: 'rgba(232,60,145,0.12)',
+    borderColor:     accent.indigo,
+    backgroundColor: 'rgba(95,100,189,0.12)',
   },
   linkText: {
     ...type.caption,

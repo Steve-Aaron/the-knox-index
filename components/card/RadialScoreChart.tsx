@@ -6,6 +6,7 @@ import Animated, { useAnimatedProps, useAnimatedStyle, useSharedValue, withTimin
 import { party, PartyKey, neutral } from '@/theme/colors';
 import { font } from '@/theme/typography';
 import type { TopTrumpScores, ScoreKey } from '@/data/types';
+import { activityScore } from '@/data/knoxConfig';
 import type { TimeRange } from '@/components/dashboard/TimeRangePicker';
 
 /**
@@ -34,7 +35,7 @@ const AnimatedG       = Animated.createAnimatedComponent(G);
  * One job.
  */
 export interface RawScoreValues {
-  views:      number;   // avg post views (raw number)
+  virality:   number;   // avg views per follower (ratio, e.g. 0.5 = half audience reached per post)
   frequency:  number;   // posts today
   engagement: number;   // (likes+comments+shares)/views * 100
   followers:  number;   // total followers
@@ -54,6 +55,10 @@ interface Props {
    * Defaults to 'week' so existing call sites stay backward-compatible.
    */
   range?: TimeRange;
+  /** Radar-only display overrides for the activity + followers axes (0–100).
+   *  When set, the radar shape uses these instead of scores.frequency/followers.
+   *  Does not affect Knox Factor. */
+  radial?: { activity: number; followers: number };
 }
 
 /**
@@ -62,23 +67,26 @@ interface Props {
  * verbose copy shown in the dot-hover tooltip.
  */
 function frequencyAxis(range: TimeRange): { desc: string; format: (v: number) => string } {
+  // Activity wording tracks the selected window so the label always matches the
+  // count being shown.
   switch (range) {
+    case 'month':
+      return { desc: 'Posts in the past 30 days',  format: v => `${v} posts in past 30 days`  };
+    case 'year':
+      return { desc: 'Posts in the past 365 days', format: v => `${v} posts in past 365 days` };
+    case 'lifetime':
+      return { desc: 'Posts (lifetime)',           format: v => `${v} posts (lifetime)`       };
     case 'yesterday':
     case 'week':
-      return { desc: 'Posts in the past 7 days',   format: v => `${v} posts in past 7 days` };
-    case 'month':
-      return { desc: 'Posts this month',           format: v => `${v} posts this month`     };
-    case 'year':
-      return { desc: 'Posts this year',            format: v => `${v} posts this year`      };
-    case 'lifetime':
-      return { desc: 'Posts (lifetime)',           format: v => `${v} posts (lifetime)`     };
+    default:
+      return { desc: 'Posts in the past 7 days',   format: v => `${v} posts in past 7 days`   };
   }
 }
 
 function buildAxes(range: TimeRange): { key: ScoreKey; label: string; desc: string; format: (v: number) => string }[] {
   const freq = frequencyAxis(range);
   return [
-    { key: 'views',      label: 'Views',     desc: 'Avg post views',                              format: v => compact(v) + ' avg views' },
+    { key: 'virality',   label: 'Virality',  desc: 'Avg views per follower',                      format: v => v.toFixed(2) + '× reach per follower' },
     { key: 'frequency',  label: 'Activity',  desc: freq.desc,                                     format: freq.format },
     { key: 'engagement', label: 'Eng. %',    desc: 'Active engagements divided by views',  format: v => v.toFixed(2) + '% eng. rate' },
     { key: 'followers',  label: 'Followers', desc: 'Total followers',                             format: v => compact(v) + ' followers' },
@@ -97,17 +105,35 @@ function polar(cx: number, cy: number, radius: number, angleDeg: number) {
   return { x: cx + radius * Math.cos(a), y: cy + radius * Math.sin(a) };
 }
 
-export function RadialScoreChart({ scores, partyKey, size = 440, highlightKey, rawValues, range = 'week' }: Props) {
+export function RadialScoreChart({ scores, partyKey, size = 440, highlightKey, rawValues, range = 'week', radial }: Props) {
   const colour   = party[partyKey];
   const cx       = size / 2;
   const cy       = size / 2;
   const maxR     = size / 2 - 30;
 
+  // RADAR-ONLY shape. Activity is ALWAYS the past-7-days post count run through
+  // the step scale: it is derived from rawValues.frequency (postsThisWeek, a
+  // fixed 7-day window), so it never shifts with the selected date range.
+  // Followers uses the log-scaled radial value. Knox and other readers keep
+  // `scores` untouched.
+  // Virality reads low on the radar, so we boost only the DOT POSITION by 1.5x
+  // (clamped to 100): 20->30, 50->75, 90->100. This is display geometry only —
+  // it does not change the calculated virality score (Knox) or the raw ratio
+  // shown in the tooltip, which still uses rawValues.virality.
+  const VIRALITY_DISPLAY_BOOST = 1.5;
+
+  const plotScores: TopTrumpScores = {
+    ...scores,
+    virality:  Math.min(100, scores.virality * VIRALITY_DISPLAY_BOOST),
+    frequency: rawValues ? activityScore(rawValues.frequency) : (radial?.activity ?? scores.frequency),
+    followers: radial?.followers ?? scores.followers,
+  };
+
   // AXES depends on the active range — only the frequency axis text varies,
   // but rebuilding the whole array keeps the indexing consistent and lets
   // useMemo dependencies stay clean.
   const AXES = useMemo(() => buildAxes(range), [range]);
-  const noData   = AXES.every(a => (scores[a.key] ?? 0) === 0);
+  const noData   = AXES.every(a => (plotScores[a.key] ?? 0) === 0);
 
   // Two pieces of dot state:
   //   dotHoverIdx  — purely cosmetic; enlarges the dot on hover so users know
@@ -178,7 +204,7 @@ export function RadialScoreChart({ scores, partyKey, size = 440, highlightKey, r
     });
     const valuePoints = AXES.map((a, i) => {
       const angle = (360 / AXES.length) * i;
-      const v = (scores[a.key] ?? 0) / 100;
+      const v = (plotScores[a.key] ?? 0) / 100;
       return polar(cx, cy, maxR * v, angle);
     });
     const labelPoints = AXES.map((_, i) => {
@@ -188,7 +214,7 @@ export function RadialScoreChart({ scores, partyKey, size = 440, highlightKey, r
     return { rings, axisPoints, valuePoints, labelPoints };
   // AXES only changes when `range` changes; including it keeps the lint happy
   // and guarantees the geometry recomputes if the axis count ever changes.
-  }, [cx, cy, maxR, scores, AXES]);
+  }, [cx, cy, maxR, plotScores, AXES]);
 
   const animatedPolygonProps = useAnimatedProps(() => {
     const t = progress.value;
@@ -315,7 +341,7 @@ export function RadialScoreChart({ scores, partyKey, size = 440, highlightKey, r
           in the parent's chartHeader row on the left). */}
       {!noData && activeDotIdx !== null && (() => {
         const axis = AXES[activeDotIdx];
-        const score = scores[axis.key] ?? 0;
+        const score = plotScores[axis.key] ?? 0;
         const raw   = rawValues ? rawValues[axis.key] : null;
         return (
           <View style={styles.chartOverlay}>

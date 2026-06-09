@@ -79,7 +79,7 @@ const PARTY_LABELS: Partial<Record<PartyKey, string>> = {
 };
 
 export function PartyLeaderboard({ politicians, range = 'week', onPartySelect, activeParty }: Props) {
-  const [sortKey, setSortKey] = useState<SortKey>('views');
+  const [sortKey, setSortKey] = useState<SortKey>('engagement');
   const postsPeriodLabel = POSTS_PERIOD[range];
   const rangeKicker = RANGE_KICKER[range];
 
@@ -136,9 +136,9 @@ export function PartyLeaderboard({ politicians, range = 'week', onPartySelect, a
 
       <View style={styles.header}>
         <View style={styles.titleRow}>
-          <View>
+          <View style={styles.titleBlock}>
             <Kicker tone='dim'>PARTY LEAGUE · {rangeKicker}</Kicker>
-            <Title style={{ fontSize: 20, marginTop: 2 }}>Who's winning the parties' war?</Title>
+            <Title style={{ fontSize: 20, marginTop: 2 }}>Who's winning the party engagement war?</Title>
           </View>
         </View>
 
@@ -244,9 +244,10 @@ export function PartyLeaderboard({ politicians, range = 'week', onPartySelect, a
 
 const styles = StyleSheet.create({
   wrap: {
-    paddingVertical: spacing.md,
+    paddingTop:        spacing.xl,
+    paddingBottom:     spacing.md,
     paddingHorizontal: spacing.lg,
-    gap: spacing.md,
+    gap:               spacing.md,
   },
   header: {
     gap: spacing.sm,
@@ -255,6 +256,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-end',
     justifyContent: 'space-between',
+  },
+  // Lets the heading shrink and wrap instead of forcing the row wider.
+  // minWidth:0 is the web flexbox fix that allows text to wrap inside a flex row.
+  titleBlock: {
+    flexShrink: 1,
+    minWidth: 0 as any,
   },
   sortRow: {
     flexDirection: 'row',
@@ -271,8 +278,8 @@ const styles = StyleSheet.create({
     ...Platform.select({ web: { cursor: 'pointer' } as any, default: {} }),
   },
   sortChipActive: {
-    backgroundColor: 'rgba(124,131,255,0.16)',
-    borderColor: 'rgba(124,131,255,0.5)',
+    backgroundColor: 'rgba(95,100,189,0.16)',
+    borderColor: 'rgba(95,100,189,0.5)',
   },
   sortChipText: {
     ...type.caption,
