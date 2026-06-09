@@ -94,6 +94,18 @@ function buildAxes(range: TimeRange): { key: ScoreKey; label: string; desc: stri
   ];
 }
 
+/**
+ * RADAR DISPLAY-ONLY virality curve. Maps the raw avg-views-per-follower ratio
+ * to a 0–100 dot position on a concave, saturating curve that caps at 4x:
+ *   ~0.32x -> 91, ~2.76x -> 98, >=4x -> 100.
+ * This is presentation only — it does NOT change the Knox virality score.
+ */
+function viralityDisplay(ratio: number): number {
+  if (ratio >= 4) return 100;
+  const r = Math.max(0, ratio);
+  return Math.max(0, Math.min(100, 100 * (1 - 0.11 * Math.exp(-0.62 * r))));
+}
+
 function compact(n: number): string {
   if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M';
   if (n >= 1_000) return (n / 1_000).toFixed(1) + 'K';
@@ -116,15 +128,15 @@ export function RadialScoreChart({ scores, partyKey, size = 440, highlightKey, r
   // fixed 7-day window), so it never shifts with the selected date range.
   // Followers uses the log-scaled radial value. Knox and other readers keep
   // `scores` untouched.
-  // Virality reads low on the radar, so we boost only the DOT POSITION by 1.5x
-  // (clamped to 100): 20->30, 50->75, 90->100. This is display geometry only —
-  // it does not change the calculated virality score (Knox) or the raw ratio
-  // shown in the tooltip, which still uses rawValues.virality.
-  const VIRALITY_DISPLAY_BOOST = 1.5;
-
+  // RADAR DISPLAY-ONLY transforms. None of these feed Knox Factor.
+  // Virality: map the RAW avg-views-per-follower ratio onto a concave,
+  // saturating curve that caps at 4x, so high-reach accounts are differentiated
+  // near the top instead of all pinning at 100: ~0.32x -> 91, ~2.76x -> 98,
+  // >=4x -> 100. Uses rawValues.virality (the true ratio), so it does not touch
+  // the calculated virality score or the ratio shown in the tooltip.
   const plotScores: TopTrumpScores = {
     ...scores,
-    virality:  Math.min(100, scores.virality * VIRALITY_DISPLAY_BOOST),
+    virality:  rawValues ? viralityDisplay(rawValues.virality) : scores.virality,
     frequency: rawValues ? activityScore(rawValues.frequency) : (radial?.activity ?? scores.frequency),
     followers: radial?.followers ?? scores.followers,
   };
