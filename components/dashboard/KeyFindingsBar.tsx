@@ -17,13 +17,6 @@ import { computeKeyFindings } from '@/lib/keyFindings';
 /** Fixed tile width for mobile — tiles scroll horizontally. */
 const TILE_WIDTH_MOBILE = 200;
 
-/** Return first N words of a string, appending ellipsis if truncated. */
-function firstWords(str: string, n = 5): string {
-  const words = str.trim().split(/\s+/);
-  if (words.length <= n) return str;
-  return words.slice(0, n).join(' ') + '…';
-}
-
 /**
  * KeyFindingsBar
  * ---------------
@@ -63,10 +56,11 @@ export function KeyFindingsBar({ politicians, totalPostsInDb, topPost: lifetimeT
 
   const { width: windowWidth } = useWindowDimensions();
   const isDesktop = windowWidth >= breakpoints.desktop;
+  const isMobile  = windowWidth < breakpoints.tablet;
 
   const tiles = useMemo<StatTile[]>(() => {
     // All aggregation lives in the pure, unit-tested helper.
-    const { politicianCount, totalViews, avgViewsPerPost, totalPosts, topPost } =
+    const { politicianCount, totalViews, avgViewsPerPost, shownPostCount, totalPosts, topPost } =
       computeKeyFindings(politicians);
 
     // Prefer the DB-wide count when supplied; otherwise show in-scope posts.
@@ -78,13 +72,13 @@ export function KeyFindingsBar({ politicians, totalPostsInDb, topPost: lifetimeT
     const topView = lifetimeTopPost
       ? {
           views:    lifetimeTopPost.views,
-          label:    lifetimeTopPost.caption ? firstWords(lifetimeTopPost.caption) : lifetimeTopPost.accountName,
+          label:    `by ${lifetimeTopPost.accountName}`,
           partyKey: lifetimeTopPost.partyKey,
         }
       : topPost
         ? {
             views:    topPost.views,
-            label:    topPost.caption ? firstWords(topPost.caption) : topPost.politician.name,
+            label:    `by ${topPost.politician.name}`,
             partyKey: topPost.politician.partyKey,
           }
         : null;
@@ -99,14 +93,14 @@ export function KeyFindingsBar({ politicians, totalPostsInDb, topPost: lifetimeT
       },
       {
         kicker:       'Total views',
-        tip:          'Lifetime views across every post from all tracked accounts.',
+        tip:          'Total views summed across the posts shown below. Matches the sum of the individual post view counts.',
         numericValue: totalViews,
-        suffix:       postsHeadline > 0 ? `across ${postsHeadline} post${postsHeadline === 1 ? '' : 's'}` : undefined,
+        suffix:       shownPostCount > 0 ? `across ${shownPostCount} post${shownPostCount === 1 ? '' : 's'}` : undefined,
         accentColor:  accent.mint,
       },
       {
         kicker:       'Avg views / post',
-        tip:          'Lifetime average view count per post across all tracked accounts.',
+        tip:          'Average view count across the posts shown below.',
         numericValue: avgViewsPerPost,
         suffix:       'views per post',
         accentColor:  accent.amber,
@@ -142,10 +136,12 @@ export function KeyFindingsBar({ politicians, totalPostsInDb, topPost: lifetimeT
         styles.tileBox,
         isDesktop
           ? tile.textValue !== undefined ? styles.tileBoxAuto : styles.tileBoxFlex
-          : { width: TILE_WIDTH_MOBILE },
+          : isMobile ? styles.tileBoxMobile : { width: TILE_WIDTH_MOBILE },
         Platform.OS === 'web' && hovered === i ? { transform: [{ translateY: -2 }] } : {},
       ]}
       {...(Platform.OS === 'web' ? {
+        // Per-card module marker — addressable as [data-component="dataScoreCard"].
+        dataSet: { component: 'dataScoreCard' },
         onMouseEnter: () => setHovered(i),
         onMouseLeave: () => setHovered(null),
       } as any : {})}
@@ -199,6 +195,9 @@ export function KeyFindingsBar({ politicians, totalPostsInDb, topPost: lifetimeT
         <View style={styles.row}>{skeletonNodes}</View>
       ) : isDesktop ? (
         <View style={styles.row}>{tileNodes}</View>
+      ) : isMobile ? (
+        // Mobile: stack the scorecards vertically rather than scroll sideways.
+        <View style={styles.mobileStack}>{tileNodes}</View>
       ) : (
         <ScrollView
           horizontal
@@ -229,12 +228,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap:           spacing.xl,
   },
+  // Mobile: one card per row, full width, stacked vertically.
+  mobileStack: {
+    flexDirection: 'column',
+    width:         '100%',
+    gap:           spacing.lg,
+  },
   tileBox: {
     paddingVertical: spacing.md,
     gap:             6,
   },
-  tileBoxFlex: { flex: 1 },
-  tileBoxAuto: { flexShrink: 0 },
+  tileBoxFlex:   { flex: 1 },
+  tileBoxAuto:   { flexShrink: 0 },
+  tileBoxMobile: { width: '100%' },
 
   // Hero number — large, mono, accent-coloured. The Davos visual signature.
   valueNumeric: {

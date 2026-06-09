@@ -1,5 +1,5 @@
 import React, { useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, Platform, Pressable, Linking } from 'react-native';
+import { View, Text, StyleSheet, Platform, Pressable, Linking, useWindowDimensions } from 'react-native';
 import { MotiView } from 'moti';
 import { Easing } from 'react-native-reanimated';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
@@ -7,6 +7,7 @@ import { DevLabel } from '@/components/primitives/DevLabel';
 import { knox, neutral, glass, accent, party } from '@/theme/colors';
 import { font } from '@/theme/typography';
 import { radius } from '@/theme/spacing';
+import { breakpoints } from '@/theme/breakpoints';
 import { formatters } from '@/components/primitives/CountUp';
 import { track } from '@/lib/analytics';
 import type { RecentPost } from '@/data/types';
@@ -50,9 +51,16 @@ interface Props {
 export function MapMarker({ location, post, partyKey, handle, showTrendingPill = false, stemMultiplier = 1, onReady }: Props) {
   // Per-instance stem height. The wrap translateY and the stem's animated
   // `height` both derive from this so the dot, stem and card stay in sync.
+  // Mobile: shrink the marker — shorter connector line + smaller video preview.
+  const { width: viewportWidth } = useWindowDimensions();
+  const mobile = viewportWidth < breakpoints.tablet;
+  const scale  = mobile ? 0.78 : 1;
+
   const safeMultiplier = Math.max(0.1, Math.min(2, stemMultiplier));
-  const stemHeight     = Math.round(STEM_HEIGHT * safeMultiplier);
-  const wrapOffsetY    = -(stemHeight + CARD_HEIGHT + CAPTION_HEIGHT + DOT_SIZE / 2);
+  const stemHeight     = Math.round(STEM_HEIGHT * safeMultiplier * scale);
+  const cardW          = Math.round(CARD_WIDTH * scale);
+  const cardH          = Math.round(CARD_HEIGHT * scale);
+  const wrapOffsetY    = -(stemHeight + cardH + CAPTION_HEIGHT + DOT_SIZE / 2);
   const colour = party[partyKey];
 
   // Normalise the handle so the label is always exactly one '@' followed by
@@ -88,7 +96,7 @@ export function MapMarker({ location, post, partyKey, handle, showTrendingPill =
       // around the stem is transparent to clicks below) but its children CAN
       // receive them — the Pressable card listens for taps.
       pointerEvents="box-none"
-      style={[styles.wrap, { transform: [{ translateX: -CARD_WIDTH / 2 }, { translateY: wrapOffsetY }] }]}
+      style={[styles.wrap, { transform: [{ translateX: -cardW / 2 }, { translateY: wrapOffsetY }] }]}
       accessibilityLabel={`Marker for ${displayHandle} pinned near ${location.name}`}
     >
       <DevLabel name="MapMarker" />
@@ -104,7 +112,7 @@ export function MapMarker({ location, post, partyKey, handle, showTrendingPill =
           stiffness: 180,
           delay: CARD_DELAY,
         }}
-        style={[styles.card, { borderColor: colour.base }]}
+        style={[styles.card, { width: cardW, height: cardH, borderColor: colour.base }]}
       >
         <Pressable
           onPress={handleOpenTiktok}

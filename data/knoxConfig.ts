@@ -24,17 +24,34 @@ export const KNOX_OPTIONS = {
    * clamped to 100 so multiple shapes of strength can hit the ceiling.
    */
   caps: {
-    virality:    20,
-    engagement:  50,
-    frequency:   55,
-    followers:   45,
+    virality:    15,
+    engagement:  35,
+    frequency:   7.5,
+    followers:   60,
   } satisfies KnoxCaps,
 
-  curveStrength: 1.3,
+  // < 1 EXPANDS scores away from the 50 pivot (spreads top and bottom).
+  curveStrength: 0.7,
 
-  /** Minimum displayed score for any account with ≥1 post this week. */
+  /** Minimum displayed score for any account with signal, before penalties. */
   minScore: 5,
 
+} as const;
+
+/**
+ * Post-volume + recency + low-views penalties applied to the OVERALL score.
+ * All multiplicative and stacked. Mirrors scripts/knox-mps-scored.sql so the
+ * dashboard and the analysis query agree.
+ */
+export const KNOX_PENALTIES = {
+  /** Lifetime posts: harsher tier wins (< 25 implies < 100). */
+  lowVolume:   { quarterBelow: 25, quarterMult: 0.25, halveBelow: 100, halveMult: 0.5 },
+  /** No posts in the last 7 days. */
+  noPosts7d:   0.8,
+  /** No posts in the last 28 days. */
+  noPosts28d:  0.4,
+  /** Lifetime average views per post below this. */
+  lowViews:    { threshold: 10_000, mult: 0.7 },
 } as const;
 
 /**
@@ -64,7 +81,28 @@ export const NORMALISATION_LIMITS = {
  * Step 3: apply compression curve around the 50 pivot (Moz-DA-style).
  * Step 4: apply minScore floor if any axis has signal.
  */
-export function computeKnoxFactor(
+/**
+ * Activity (a.k.a. frequency) axis — an ABSOLUTE step scale on the number of
+ * posts in the last 7 days. Not relative to other accounts, so a single number
+ * always means the same thing. Used for the radar chart and as the frequency
+ * input to Knox Factor (single source).
+ *
+ *   0 → 0, 1 → 40, 2 → 60, 3 → 80, 4–6 → 95, 7+ → 100
+ */
+export function activityScore(postsLast7d: number): number {
+  if (postsLast7d >= 7) return 100;
+  if (postsLast7d >= 4) return 95;
+  if (postsLast7d === 3) return 80;
+  if (postsLast7d === 2) return 60;
+  if (postsLast7d === 1) return 40;
+  return 0;
+}
+
+/**
+ * Overall Knox score BEFORE penalties, returned UNROUNDED (0–100) so penalties
+ * can be applied on the precise value. This is composite → curve → min-5 floor.
+ */
+export function computeKnoxBase(
   virality:    number,   // normalised 0–100
   engagement:  number,   // normalised 0–100
   followers:   number,   // normalised 0–100
@@ -82,7 +120,7 @@ export function computeKnoxFactor(
   // Clamp to 0..100 before the curve so the pivot maths stays well-defined.
   const clamped = Math.min(100, Math.max(0, composite));
 
-  // Compress toward 50 — slight reward below pivot, slight punishment above.
+  // Expand away from 50 (curveStrength < 1) — spreads top and bottom.
   // f(x) = 50 + sign(x − 50) · 50 · |(x − 50) / 50|^curveStrength
   const PIVOT = 50;
   const delta = clamped - PIVOT;
@@ -94,7 +132,49 @@ export function computeKnoxFactor(
   const hasActivity = virality + engagement + followers + frequency > 0;
   const floored = hasActivity ? Math.max(curved, KNOX_OPTIONS.minScore) : curved;
 
-  return Math.round(Math.min(100, Math.max(0, floored)));
+  return Math.min(100, Math.max(0, floored));
+}
+
+/**
+ * Multiplicative penalty factor for the overall score. Stacks low-volume,
+ * recency (7d + 28d), and low-views penalties. See KNOX_PENALTIES.
+ */
+export function knoxPenaltyMultiplier(
+  lifetimePosts: number,
+  postsLast7d:   number,
+  postsLast28d:  number,
+  avgViews:      number,
+): number {
+  const p = KNOX_PENALTIES;
+  let mult = 1;
+
+  // Low-volume: harsher tier wins (< 25 also satisfies < 100).
+  if (lifetimePosts < p.lowVolume.quarterBelow)    mult *= p.lowVolume.quarterMult;
+  else if (lifetimePosts < p.lowVolume.halveBelow) mult *= p.lowVolume.halveMult;
+
+  if (postsLast7d  === 0) mult *= p.noPosts7d;
+  if (postsLast28d === 0) mult *= p.noPosts28d;
+  if (avgViews < p.lowViews.threshold) mult *= p.lowViews.mult;
+
+  return mult;
+}
+
+/**
+ * Full Knox Factor: base score with all penalties applied, rounded to 0–100.
+ * THIS is the single value surfaced everywhere Knox Factor is shown.
+ */
+export function computeKnoxFactor(
+  virality:    number,
+  engagement:  number,
+  followers:   number,
+  frequency:   number,
+  penalties?: { lifetimePosts: number; postsLast7d: number; postsLast28d: number; avgViews: number },
+): number {
+  const base = computeKnoxBase(virality, engagement, followers, frequency);
+  const mult = penalties
+    ? knoxPenaltyMultiplier(penalties.lifetimePosts, penalties.postsLast7d, penalties.postsLast28d, penalties.avgViews)
+    : 1;
+  return Math.round(Math.min(100, Math.max(0, base * mult)));
 }
 
 

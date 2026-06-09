@@ -118,7 +118,7 @@ export function AccountHero({ politician, overallRank, totalCount, rangeLabel }:
 
   const rawValues: RawScoreValues = {
     virality:   politician.totals.followers > 0 ? avgViews / politician.totals.followers : 0,
-    frequency:  politician.totals.postsInRange > 0 ? politician.totals.postsInRange : politician.totals.postsThisWeek,
+    frequency:  politician.totals.postsThisWeek,   // activity is always last 7 days
     engagement: engViews > 0 ? (engNumerator / engViews) * 100 : 0,
     followers:  politician.totals.followers,
     knoxFactor: politician.scores.knoxFactor,
@@ -251,6 +251,7 @@ export function AccountHero({ politician, overallRank, totalCount, rangeLabel }:
           <View style={styles.radarChartWrap}>
             <RadialScoreChart
               scores={politician.scores}
+              radial={politician.radial}
               partyKey={politician.partyKey}
               rawValues={rawValues}
               size={isDesktop ? 360 : 300}

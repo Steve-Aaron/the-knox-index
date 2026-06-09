@@ -56,7 +56,7 @@ export function buildAccountsSQL(range: Range): string {
   return `
   SELECT
     a.id,
-    a.name,
+    COALESCE(a.displayName, a.name) AS name,   -- prefer human display name over username
     a.profile,
     a.party,
     a.affiliation,
@@ -71,6 +71,7 @@ export function buildAccountsSQL(range: Range): string {
     COALESCE(m.totalSaves,     0)  AS totalSaves,
     COALESCE(m.postsToday,     0)  AS postsToday,
     COALESCE(pw.postsThisWeek, 0)  AS postsThisWeek,
+    COALESCE(p28.postsLast28d, 0)  AS postsLast28d,
     COALESCE(m.viewsToday,     0)  AS viewsToday,
     COALESCE(m.likesToday,     0)  AS likesToday,
     COALESCE(m.commentsToday,  0)  AS commentsToday,
@@ -105,6 +106,12 @@ export function buildAccountsSQL(range: Range): string {
     GROUP BY LTRIM(profile, '@')
   ) pw ON LTRIM(a.profile, '@') = pw.profile
   LEFT JOIN (
+    SELECT LTRIM(profile, '@') AS profile, COUNT(*) AS postsLast28d
+    FROM ${tableRef('post')}
+    WHERE postDate >= DATE_SUB(CURRENT_DATE(), INTERVAL 28 DAY)
+    GROUP BY LTRIM(profile, '@')
+  ) p28 ON LTRIM(a.profile, '@') = p28.profile
+  LEFT JOIN (
     SELECT
       LTRIM(profile, '@')          AS profile,
       COUNT(*)                     AS postsInRange,
@@ -136,14 +143,12 @@ export function buildTopPostSQL(): string {
     CAST(p.postId AS STRING) AS postId,
     p.caption,
     COALESCE(p.views, 0)     AS views,
-    a.name                   AS accountName,
+    COALESCE(a.displayName, a.name) AS accountName,   -- prefer human display name over username
     a.party                  AS party
   FROM ${tableRef('post')} p
   JOIN ${tableRef('account')} a
     ON LTRIM(p.profile, '@') = LTRIM(a.profile, '@')
-  WHERE p.videoSummary IS NOT NULL
-    AND p.videoMp4     IS NOT NULL
-  ORDER BY p.views DESC
+  WHERE p.videoSummary IS NOT NULL  ORDER BY p.views DESC
   LIMIT 1
 `;
 }
@@ -181,9 +186,7 @@ export function buildPostsSQL(range: Range): string {
         ORDER BY postDate DESC
       ) AS _rn
     FROM ${tableRef('post')}
-    WHERE videoSummary IS NOT NULL
-      AND videoMp4     IS NOT NULL
-      AND ${dateFilter}
+    WHERE videoSummary IS NOT NULL      AND ${dateFilter}
   ) p
   LEFT JOIN ${tableRef('post_x_style')} pxs ON p.postId = pxs.postId
   LEFT JOIN ${tableRef('style')} s ON pxs.styleId = s.id
@@ -224,9 +227,7 @@ export function buildAccountPostsSQL(handle: string, range: Range, limit = 20): 
   LEFT JOIN ${tableRef('post_x_style')} pxs ON p.postId = pxs.postId
   LEFT JOIN ${tableRef('style')} s ON pxs.styleId = s.id
   WHERE LTRIM(p.profile, '@') = '${safe}'
-    AND p.videoSummary IS NOT NULL
-    AND p.videoMp4     IS NOT NULL
-    AND ${dateFilter}
+    AND p.videoSummary IS NOT NULL    AND ${dateFilter}
   GROUP BY
     p.postId, p.profile, p.caption, p.videoSummary,
     p.views, p.likes, p.comments, p.shares, p.saves, p.reposts,
@@ -264,9 +265,7 @@ export function buildAllAccountPostsSQL(handle: string, limit = 200): string {
   LEFT JOIN ${tableRef('post_x_style')} pxs ON p.postId = pxs.postId
   LEFT JOIN ${tableRef('style')} s ON pxs.styleId = s.id
   WHERE LTRIM(p.profile, '@') = '${safe}'
-    AND p.videoSummary IS NOT NULL
-    AND p.videoMp4     IS NOT NULL
-  GROUP BY
+    AND p.videoSummary IS NOT NULL  GROUP BY
     p.postId, p.profile, p.caption, p.videoSummary,
     p.views, p.likes, p.comments, p.shares, p.saves, p.reposts,
     p.postDate, p.postUrl, p.coverJpeg, p.videoMp4

@@ -192,5 +192,12 @@ export interface Politician {
     sharesInRange:   number;
   };
   scores: TopTrumpScores;
+  /**
+   * RADAR-ONLY display scores (0–100). These deliberately differ from `scores`
+   * (which drive Knox Factor): activity is the absolute 7-day step scale and
+   * followers is log-scaled. They affect the radar chart shape only — never
+   * Knox Factor.
+   */
+  radial?: { activity: number; followers: number };
   recentPosts?: RecentPost[];
 }

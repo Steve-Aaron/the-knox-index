@@ -8,7 +8,6 @@ import {
   Platform,
   useWindowDimensions,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { breakpoints } from '@/theme/breakpoints';
 import DraggableFlatList, {
   ScaleDecorator,
@@ -154,6 +153,12 @@ interface Props {
    *  and returns the top-N for that metric. Without it, sort stays local. */
   externalSortKey?:       SortKey;
   onSortKeyChange?:       (key: SortKey) => void;
+  /** Server-side pagination: whether another page is available. */
+  hasMore?:               boolean;
+  /** True while the next page is being fetched. */
+  loadingMore?:           boolean;
+  /** Fetch and append the next server page. */
+  onLoadMore?:            () => void;
 }
 
 export function PostsTable({
@@ -170,6 +175,9 @@ export function PostsTable({
   onStyleFilterChange,
   externalSortKey,
   onSortKeyChange,
+  hasMore = false,
+  loadingMore = false,
+  onLoadMore,
 }: Props) {
   const { width: windowWidth } = useWindowDimensions();
   const isMobile = windowWidth < breakpoints.tablet;
@@ -325,9 +333,19 @@ export function PostsTable({
   }, [safePageIndex]);
 
   const goToNextPage = useCallback(() => {
+    // At the last loaded page: pull the next server page (and step forward so the
+    // new posts show once they arrive). Otherwise just advance the local page.
+    if (safePageIndex >= totalPages - 1) {
+      if (hasMore && onLoadMore) {
+        onLoadMore();
+        setPageIndex(p => p + 1);
+        track('post_feed_paginated', { direction: 'next', to_page: safePageIndex + 2, loaded_more: true });
+      }
+      return;
+    }
     setPageIndex(p => Math.min(totalPages - 1, p + 1));
     track('post_feed_paginated', { direction: 'next', to_page: safePageIndex + 2 });
-  }, [safePageIndex, totalPages]);
+  }, [safePageIndex, totalPages, hasMore, onLoadMore]);
 
   // Area 6: fire post_card_opened with position and metadata
   const handleCardPress = useCallback((post: PostRecord, index: number) => {
@@ -701,23 +719,30 @@ export function PostsTable({
                 </Pressable>
 
                 <Text style={styles.pageInfo}>
-                  Page <Text style={styles.pageInfoNum}>{safePageIndex + 1}</Text> of {totalPages}
-                  <Text style={styles.pageInfoCount}>  ·  {filtered.length} post{filtered.length === 1 ? '' : 's'}</Text>
+                  Page <Text style={styles.pageInfoNum}>{safePageIndex + 1}</Text> of {totalPages}{hasMore ? '+' : ''}
+                  <Text style={styles.pageInfoCount}>  ·  {filtered.length}{hasMore ? '+' : ''} post{filtered.length === 1 ? '' : 's'}</Text>
                 </Text>
 
-                <Pressable
-                  onPress={goToNextPage}
-                  disabled={safePageIndex >= totalPages - 1}
-                  style={({ pressed }) => [
-                    styles.pageBtn,
-                    safePageIndex >= totalPages - 1 && styles.pageBtnDisabled,
-                    pressed && safePageIndex < totalPages - 1 && { opacity: 0.75 },
-                  ]}
-                >
-                  <Text style={[styles.pageBtnText, safePageIndex >= totalPages - 1 && styles.pageBtnTextDisabled]}>
-                    Next →
-                  </Text>
-                </Pressable>
+                {(() => {
+                  const atEnd        = safePageIndex >= totalPages - 1;
+                  const nextDisabled = (atEnd && !hasMore) || loadingMore;
+                  const label        = loadingMore ? 'Loading…' : atEnd && hasMore ? 'Load more →' : 'Next →';
+                  return (
+                    <Pressable
+                      onPress={goToNextPage}
+                      disabled={nextDisabled}
+                      style={({ pressed }) => [
+                        styles.pageBtn,
+                        nextDisabled && styles.pageBtnDisabled,
+                        pressed && !nextDisabled && { opacity: 0.75 },
+                      ]}
+                    >
+                      <Text style={[styles.pageBtnText, nextDisabled && styles.pageBtnTextDisabled]}>
+                        {label}
+                      </Text>
+                    </Pressable>
+                  );
+                })()}
               </View>
             </>
           )
@@ -849,18 +874,6 @@ function PostCard({ post, index, benchmarks, onPress, drag, isActive, compact, a
           pressed && { opacity: 0.84 },
         ]}
       >
-        {/* ── Drag handle — long-press to reorder ─── */}
-        {drag && !compact && (
-          <Pressable
-            onLongPress={drag}
-            delayLongPress={150}
-            style={styles.dragHandle}
-            hitSlop={8}
-          >
-            <Text style={styles.dragIcon}>⠿</Text>
-          </Pressable>
-        )}
-
         {/* ── Cover thumbnail ─────────────────────── */}
         <View style={compact ? styles.coverWrapCompact : styles.coverWrap}>
           <ShimmerImage
@@ -873,17 +886,6 @@ function PostCard({ post, index, benchmarks, onPress, drag, isActive, compact, a
                 <Text style={styles.coverPlayIcon}>▶</Text>
               </View>
             }
-          />
-          {/* Party-coloured corner halo — replaces the old left-edge line.
-              Radiates from the top-left of the cover so the party identity
-              still reads but the card feels lit from within rather than
-              ruled into a column. */}
-          <LinearGradient
-            colors={[`${colour.glow}55`, 'transparent']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 0.7, y: 0.7 }}
-            style={styles.coverHalo}
-            pointerEvents="none"
           />
           <View style={styles.viewsBadge}>
             <Text style={styles.viewsNum}>{formatters.compact(post.views)}</Text>
@@ -951,7 +953,7 @@ function PostCard({ post, index, benchmarks, onPress, drag, isActive, compact, a
                   width={280}
                 />
               </View>
-              <View style={styles.distRow}>
+              <View style={[styles.distRow, compact && styles.distRowStacked]}>
                 <BoxWhisker
                   label="Views vs dataset"
                   value={post.views}
@@ -960,7 +962,7 @@ function PostCard({ post, index, benchmarks, onPress, drag, isActive, compact, a
                   format={formatters.compact}
                   scaleType="log"
                 />
-                <View style={styles.distDivider} />
+                <View style={[styles.distDivider, compact && styles.distDividerStacked]} />
                 <BoxWhisker
                   label="Engagement rate"
                   value={engRate}
@@ -1366,10 +1368,10 @@ const styles = StyleSheet.create({
     width: COVER_W,
     height: CARD_H,
   },
-  // Compact cover — 16:9 ratio at full width (shorter than the 9:16 portrait)
+  // Compact cover — 9:16 portrait at full width, matching the desktop ratio.
   coverWrapCompact: {
     width: '100%' as any,
-    aspectRatio: 16 / 9,
+    aspectRatio: 9 / 16,
     position: 'relative' as const,
     backgroundColor: '#111',
     overflow: 'hidden',
@@ -1616,11 +1618,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 0,
   },
+  // Mobile: stack the two plots vertically.
+  distRowStacked: {
+    flexDirection: 'column',
+    gap: spacing.md,
+  },
   distDivider: {
     width: 1,
     backgroundColor: glass.border,
     marginHorizontal: spacing.md,
     alignSelf: 'stretch',
+  },
+  // Mobile: the divider becomes a full-width hairline between the stacked plots.
+  distDividerStacked: {
+    width: '100%' as any,
+    height: 1,
+    marginHorizontal: 0,
+    marginVertical: spacing.sm,
+    alignSelf: 'auto',
   },
   filterLabelRow: {
     flexDirection: 'row',

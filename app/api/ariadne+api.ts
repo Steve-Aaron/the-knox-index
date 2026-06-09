@@ -96,20 +96,19 @@ export async function GET(request: Request): Promise<Response> {
   // tile reports OUR database size (post table rows that have a video summary
   // and a video URL), not the sum of TikTok's lifetime post counters.
   try {
-    // Raw COUNT(*) — every row we've ingested into post, including rows
-    // pending summary / video processing. The 'Posts tracked' tile reads
-    // this literally; partial-processing rows are NOT excluded because they
-    // are legitimately tracked, just not yet displayable in feeds.
+    // Count only displayable posts: those with an AI summary. videoMp4 is NOT
+    // required, because carousel posts have a summary but no video. This matches
+    // the post-feed filter, so the 'Total posts' tile agrees with the feed.
     const totalPostsSql = `
       SELECT COUNT(*) AS totalPostsInDb
       FROM ${tableRef('post')}
+      WHERE videoSummary IS NOT NULL
     `;
 
-    const [accountRows, postRows, countRows, topPostRows] = await Promise.all([
+    const [accountRows, postRows, countRows] = await Promise.all([
       query<BQAccountRow>(buildAccountsSQL(range)),
       query<BQPostRow>(buildPostsSQL(range)),
       query<{ totalPostsInDb: number | string }>(totalPostsSql),
-      query<{ postId: string; caption: string | null; views: number | string; accountName: string | null; party: string | null }>(buildTopPostSQL()),
     ]);
 
     const politicians = transformToPoliticians(accountRows, postRows);
@@ -118,18 +117,29 @@ export async function GET(request: Request): Promise<Response> {
     // Coerce defensively so the client always sees a Number.
     const totalPostsInDb = Number(countRows[0]?.totalPostsInDb ?? 0) || 0;
 
-    // All-time most-viewed post — range-independent. partyKey is resolved here
-    // so the client can colour the tile without re-deriving it.
-    const topRow = topPostRows[0];
-    const topPost: LifetimeTopPost | null = topRow
-      ? {
+    // All-time most-viewed post — range-independent. Run in ITS OWN try/catch,
+    // never in the core Promise.all: this tile is non-essential, so a failure
+    // here must not 500 the whole endpoint and take the politician feed (and
+    // its videos) down with it. On any error we simply return topPost: null.
+    let topPost: LifetimeTopPost | null = null;
+    try {
+      const topPostRows = await query<{
+        postId: string; caption: string | null; views: number | string;
+        accountName: string | null; party: string | null;
+      }>(buildTopPostSQL());
+      const topRow = topPostRows[0];
+      if (topRow) {
+        topPost = {
           postId:      String(topRow.postId ?? ''),
           caption:     topRow.caption ?? '',
           views:       Number(topRow.views ?? 0) || 0,
           accountName: topRow.accountName ?? '',
           partyKey:    toPartyKeyPublic(topRow.party),
-        }
-      : null;
+        };
+      }
+    } catch (err: unknown) {
+      console.error('[/api/ariadne] top-post query failed (non-fatal):', safeErrorDetail(err).logMessage);
+    }
 
     await Promise.all([
       ...politicians.flatMap(p =>

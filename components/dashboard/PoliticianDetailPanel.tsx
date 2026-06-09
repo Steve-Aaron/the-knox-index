@@ -68,11 +68,9 @@ export function PoliticianDetailPanel({ politician, headlineKey, range, panelHei
         politician.totals.savesInRange + politician.totals.sharesInRange
       : politician.totals.likesToday + politician.totals.commentsToday + politician.totals.savesToday);
 
-  // Frequency display is range-aware:
-  //  - 'yesterday' / 'week'  → always show posts in the past 7 days
-  //  - 'month' / 'year' / 'lifetime' → use the range-bound figure (postsInRange)
-  // The matching axis label/desc inside RadialScoreChart switches off the same
-  // `range` prop, so the number and the wording stay in sync.
+  // Activity reflects the selected window, matching the radar's axis label:
+  //   yesterday / week → past 7 days (postsThisWeek)
+  //   month / year / lifetime → the range-bound count (postsInRange)
   const isShortRange = range === 'yesterday' || range === 'week';
   const frequencyValue = isShortRange
     ? politician.totals.postsThisWeek
@@ -156,6 +154,7 @@ export function PoliticianDetailPanel({ politician, headlineKey, range, panelHei
             </View>
             <RadialScoreChart
               scores={politician.scores}
+              radial={politician.radial}
               partyKey={politician.partyKey}
               highlightKey={headlineKey}
               rawValues={rawValues}

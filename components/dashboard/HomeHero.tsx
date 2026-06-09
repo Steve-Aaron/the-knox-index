@@ -107,13 +107,13 @@ export function HomeHero({ politicians, range, totalPostsInDb, topPost, ready = 
         {/* LEFT — headline, then tagline.
             perspective is applied to the column on web so child rotateX
             transforms render with depth (the 'fold' feel). */}
-        <View style={[styles.leftCol, isWeb && webFoldPerspective]}>
+        <View style={[styles.leftCol, isWeb && webFoldPerspective, isStacked && styles.leftColStacked]}>
           {/* Stacked headline — one word per line, staggered fold-in */}
           {(['THE', 'KNOX', 'INDEX'] as const).map((word, i) => {
             const isIndex = word === 'INDEX';
             const textNode = (
               <Text
-                style={[styles.headline, isWeb && webNoWrap, isIndex && styles.headlineIndex]}
+                style={[styles.headline, isWeb && webNoWrap, isStacked && styles.headlineStacked, isIndex && styles.headlineIndex]}
                 numberOfLines={1}
               >
                 {word}
@@ -134,7 +134,7 @@ export function HomeHero({ politicians, range, totalPostsInDb, topPost, ready = 
                 style={isWeb ? webFoldOriginTop : undefined}
               >
                 {isIndex ? (
-                  <View style={styles.indexHighlight}>{textNode}</View>
+                  <View style={[styles.indexHighlight, isStacked && styles.indexHighlightStacked]}>{textNode}</View>
                 ) : (
                   textNode
                 )}
@@ -155,7 +155,7 @@ export function HomeHero({ politicians, range, totalPostsInDb, topPost, ready = 
               mass:      0.9,
               delay:     TAGLINE_DELAY,
             }}
-            style={[styles.taglineWrap, isWeb && webFoldOriginBottom]}
+            style={[styles.taglineWrap, isStacked && styles.taglineWrapStacked, isWeb && webFoldOriginBottom]}
           >
             <Text style={[styles.tagline, isStacked && styles.taglineStacked]}>
               {COPY.tagline}
@@ -239,6 +239,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap:            0,
   },
+  // Mobile: centre the headline + tagline block.
+  leftColStacked: {
+    alignItems: 'center',
+  },
   headline: {
     fontFamily:    font.ui,
     fontWeight:    '500',
@@ -250,11 +254,21 @@ const styles = StyleSheet.create({
     margin:        0,
     padding:       0,
   },
+  // Mobile: smaller, centred headline so the words fit a 360px viewport.
+  headlineStacked: {
+    fontSize:      64,
+    lineHeight:    62,
+    letterSpacing: 1,
+    textAlign:     'center',
+  },
   indexHighlight: {
     alignSelf:         'flex-start',
     backgroundColor:   '#5F64BD',
     paddingHorizontal: 7,
     paddingVertical:   3,
+  },
+  indexHighlightStacked: {
+    alignSelf: 'center',
   },
   headlineIndex: {
     color: '#FFFFFF',
@@ -262,6 +276,9 @@ const styles = StyleSheet.create({
   taglineWrap: {
     marginTop: spacing.lg,
     maxWidth:  640,
+  },
+  taglineWrapStacked: {
+    alignSelf: 'center',
   },
   tagline: {
     fontFamily: font.ui,
