@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, Pressable, StyleSheet, Platform } from 'react-native';
 import { MotiView } from 'moti';
 import { getDevPreview, setDevPreview, type DevPreviewState } from '@/lib/devPreview';
-import { neutral, glass } from '@/theme/colors';
+import { neutral, glass, knox } from '@/theme/colors';
 import { spacing, radius } from '@/theme/spacing';
 import { font } from '@/theme/typography';
 
@@ -27,6 +27,11 @@ export function DevPanel() {
   if (!__DEV__ || Platform.OS !== 'web') return null;
 
   const current = getDevPreview();
+
+  function goToAdmin() {
+    document.cookie = 'admin_panel=1; Path=/';
+    window.location.href = '/admin';
+  }
 
   return (
     <View style={styles.wrap} pointerEvents="box-none">
@@ -59,6 +64,13 @@ export function DevPanel() {
             </Pressable>
           );
         })}
+        <View style={styles.divider} />
+        <Pressable
+          onPress={goToAdmin}
+          style={({ pressed }) => [styles.pill, pressed && { opacity: 0.7 }]}
+        >
+          <Text style={[styles.pillText, { color: knox.primaryOrange }]}>Admin</Text>
+        </Pressable>
       </MotiView>
     </View>
   );
