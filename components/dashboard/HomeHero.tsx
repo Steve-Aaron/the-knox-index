@@ -1,10 +1,11 @@
 import React from 'react';
 import { View, Text, StyleSheet, Platform, useWindowDimensions } from 'react-native';
 import { MotiView } from 'moti';
+import { LinearGradient } from 'expo-linear-gradient';
 import { KeyFindingsBar } from '@/components/dashboard/KeyFindingsBar';
 import { UkMap } from '@/components/dashboard/UkMap';
 import { DevLabel } from '@/components/primitives/DevLabel';
-import { neutral, glass } from '@/theme/colors';
+import { neutral, glass, brand } from '@/theme/colors';
 import { spacing } from '@/theme/spacing';
 import { font } from '@/theme/typography';
 import { breakpoints } from '@/theme/breakpoints';
@@ -134,7 +135,12 @@ export function HomeHero({ politicians, range, totalPostsInDb, topPost, ready = 
                 style={isWeb ? webFoldOriginTop : undefined}
               >
                 {isIndex ? (
-                  <View style={[styles.indexHighlight, isStacked && styles.indexHighlightStacked]}>{textNode}</View>
+                  <LinearGradient
+                    colors={[...brand.gradient]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={[styles.indexHighlight, isStacked && styles.indexHighlightStacked]}
+                  >{textNode}</LinearGradient>
                 ) : (
                   textNode
                 )}
@@ -245,7 +251,7 @@ const styles = StyleSheet.create({
   },
   headline: {
     fontFamily:    font.ui,
-    fontWeight:    '500',
+    fontWeight:    '700',
     fontSize:      104,
     lineHeight:    96,
     color:         '#F4F5FF',
@@ -263,7 +269,6 @@ const styles = StyleSheet.create({
   },
   indexHighlight: {
     alignSelf:         'flex-start',
-    backgroundColor:   '#5F64BD',
     paddingHorizontal: 7,
     paddingVertical:   3,
   },

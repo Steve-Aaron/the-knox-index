@@ -8,7 +8,7 @@ import type { PartyKey } from '@/theme/colors';
 import { spacing, radius } from '@/theme/spacing';
 import { breakpoints } from '@/theme/breakpoints';
 import { type, font } from '@/theme/typography';
-import { fmtLabel } from '@/lib/format';
+import { fmtLabel, fmtDate } from '@/lib/format';
 import type { RecentPost } from '@/data/types';
 import { DevLabel } from '@/components/primitives/DevLabel';
 
@@ -105,7 +105,7 @@ export function AccountPostCard({ post, partyKey, name, delay = 0 }: Props) {
             {/* Date badge */}
             {post.postDate && (
               <View style={styles.dateBadge}>
-                <Text style={styles.dateText}>{post.postDate.slice(0, 10)}</Text>
+                <Text style={styles.dateText}>{fmtDate(post.postDate)}</Text>
               </View>
             )}
           </View>

@@ -17,6 +17,7 @@ import { LinkPill } from '@/components/primitives/LinkPill';
 import { InfoTip } from '@/components/primitives/InfoTip';
 import { CountUp, formatters } from '@/components/primitives/CountUp';
 import { StyleChip } from '@/components/primitives/StyleChip';
+import { fmtDate } from '@/lib/format';
 import { FollowerQualityFlag } from './FollowerQualityFlag';
 import { neutral, party, glass } from '@/theme/colors';
 import { font } from '@/theme/typography';
@@ -252,7 +253,7 @@ export function PoliticianDetailPanel({ politician, headlineKey, range, panelHei
                   {/* Date + 4 stats: Views, Likes, Comments, Shares */}
                   <View style={styles.postMeta}>
                     {post.postDate ? (
-                      <Text style={styles.postDate}>{post.postDate.slice(0, 10)}</Text>
+                      <Text style={styles.postDate}>{fmtDate(post.postDate)}</Text>
                     ) : null}
                     <View style={styles.postStats}>
                       <PostStat label="Views"    value={post.views}    accentColor={colour.glow} />

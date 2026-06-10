@@ -23,6 +23,19 @@ export function fmtLabel(s: string | null | undefined): string {
 }
 
 /**
+ * Date formatter: render a date as DD-MM-YYYY.
+ * Accepts an ISO string or 'YYYY-MM-DD' (anything where the first 10
+ * chars are the date). '2026-05-20' → '20-05-2026'. Empty/invalid → ''.
+ */
+export function fmtDate(s: string | null | undefined): string {
+  if (!s) return '';
+  const iso = s.slice(0, 10);
+  const [y, m, d] = iso.split('-');
+  if (!y || !m || !d) return iso;
+  return `${d}-${m}-${y}`;
+}
+
+/**
  * Number formatter: compact notation for large counts.
  * 1234 → '1.2k', 1_200_000 → '1.2M'
  */
