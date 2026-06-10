@@ -30,7 +30,7 @@ import { spacing, radius } from '@/theme/spacing';
 import { formatters } from '@/components/primitives/CountUp';
 import type { PostRecord, PostBenchmarks } from '@/data/types';
 import { track } from '@/lib/analytics';
-import { fmtLabel } from '@/lib/format';
+import { fmtLabel, fmtDate } from '@/lib/format';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { AdvancedFilterPanel } from './AdvancedFilterPanel';
 import { applyAdvancedFilter, type Rule } from '@/lib/advancedFilters';
@@ -935,7 +935,7 @@ function PostCard({ post, index, benchmarks, onPress, drag, isActive, compact, a
 
           {/* 2. METRICS — large and readable */}
           <View style={styles.metricsRow}>
-            <MetricPill value={post.views}    label="Views"    colour={colour.glow} large />
+            <MetricPill value={post.views}    label="Views"    colour={colour.glow} />
             <MetricPill value={post.likes}    label="Likes"    colour={colour.glow} />
             <MetricPill value={post.comments} label="Comments" colour={colour.glow} />
             <MetricPill value={post.shares}   label="Shares"   colour={colour.glow} />
@@ -986,7 +986,7 @@ function PostCard({ post, index, benchmarks, onPress, drag, isActive, compact, a
                 </Text>
                 <Text style={styles.metaLine} numberOfLines={1}>
                   {partyLabel(post.partyKey)}
-                  {post.postDate ? ` · ${post.postDate.slice(0, 10)}` : ''}
+                  {post.postDate ? ` · ${fmtDate(post.postDate)}` : ''}
                 </Text>
               </View>
             </View>
@@ -1506,7 +1506,7 @@ const styles = StyleSheet.create({
     gap: spacing.xl,
     alignItems: 'flex-start',
   },
-  metricPill: { gap: 2 },
+  metricPill: { gap: 2, flex: 1 },
   metricValue: {
     fontFamily: font.mono,
     fontSize: 20,
