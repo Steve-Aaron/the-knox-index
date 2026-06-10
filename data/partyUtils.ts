@@ -41,5 +41,9 @@ const PARTY_MAP: Record<string, PartyKey> = {
 
 export function toPartyKeyPublic(raw: string | null | undefined): PartyKey {
   if (!raw) return 'unknown';
-  return PARTY_MAP[raw.toLowerCase().trim()] ?? 'unknown';
+  // Normalise to the map's spelling: lowercase, trim, and convert snake_case /
+  // kebab-case to spaces so BigQuery values like 'liberal_democrats' or
+  // 'reform_uk' match the space-separated keys above.
+  const norm = raw.toLowerCase().trim().replace(/[_-]+/g, ' ').replace(/\s+/g, ' ');
+  return PARTY_MAP[norm] ?? 'unknown';
 }
