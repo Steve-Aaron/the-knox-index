@@ -17,7 +17,7 @@ import { LinkPill } from '@/components/primitives/LinkPill';
 import { InfoTip } from '@/components/primitives/InfoTip';
 import { CountUp, formatters } from '@/components/primitives/CountUp';
 import { StyleChip } from '@/components/primitives/StyleChip';
-import { fmtDate } from '@/lib/format';
+import { fmtDate, fmtSingular } from '@/lib/format';
 import { FollowerQualityFlag } from './FollowerQualityFlag';
 import { neutral, party, glass } from '@/theme/colors';
 import { font } from '@/theme/typography';
@@ -41,6 +41,42 @@ interface Props {
   range:       TimeRange;
   panelHeight?: number;
 }
+
+/**
+ * Identity sub-line under the name.
+ * Party accounts keep the old wing wording ('On the Left/Right', but
+ * 'In the centre' for centre). Everyone else shows their curated job title.
+ */
+function roleLabel(p: Politician): string {
+  const isParty = p.accountTypes?.includes('political_party');
+  if (isParty) {
+    // Normalise: lowercase, strip stray punctuation / invisible chars,
+    // collapse whitespace. Keeps the affiliation lowercase ('on the left')
+    // and makes the centre check robust to casing like 'Centre'.
+    const aff = (p.role ?? '')
+      .toLowerCase()
+      .replace(/[^a-z\s-]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (!aff) return '';
+    if (aff === 'centre' || aff === 'center') return 'In the centre';
+    return 'On the ' + aff;
+  }
+  return p.displayJobTitle;
+}
+
+/**
+ * Heading for the in-range totals block. The values are range-scoped
+ * (viewsInRange etc.), so the label must follow the selected range rather
+ * than always claiming 'Past 7 days'.
+ */
+const RANGE_TOTALS_LABEL: Record<TimeRange, string> = {
+  yesterday: 'Yesterday',
+  week:      'Past 7 days',
+  month:     'This month',
+  year:      'This year',
+  lifetime:  'All time',
+};
 
 export function PoliticianDetailPanel({ politician, headlineKey, range, panelHeight }: Props) {
   const colour = party[politician.partyKey];
@@ -123,8 +159,8 @@ export function PoliticianDetailPanel({ politician, headlineKey, range, panelHei
           >
             <CardHeader
               name={politician.name}
-              role={'On the ' + politician.role.replace(/\w\S*/g, txt => txt.charAt(0).toUpperCase() + txt.slice(1).toLowerCase())}
-              partyLabel={'Associated with ' + politician.partyLabel}
+              role={roleLabel(politician)}
+              partyLabel={fmtSingular(politician.partyLabel)}
               partyKey={politician.partyKey}
               initials={politician.avatarInitials}
               avatarUrl={politician.avatarUrl}
@@ -184,8 +220,8 @@ export function PoliticianDetailPanel({ politician, headlineKey, range, panelHei
             />
           </View>
 
-          {/* ── Past 7 days activity ─────────────────── */}
-          <SectionKicker label="Past 7 days" />
+          {/* ── In-range activity totals (label tracks selected range) ── */}
+          <SectionKicker label={RANGE_TOTALS_LABEL[range]} />
           <View
             style={styles.totalsGrid}
             {...(Platform.OS === 'web' ? { 'data-container_name': 'card_past7days_totals' } as any : {})}
