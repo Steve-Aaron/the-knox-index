@@ -152,6 +152,15 @@ export function HTMLHead() {
         html, body, * { font-family: 'Figtree', sans-serif; }
       ` }} />
 
+      {/* ── Favicons (theme-aware) ───────────────────────────────
+           Black K on light system themes, white K on dark. Browsers that
+           don't support media on icon links fall back to the app.json
+           favicon.                                                          */}
+      {/* @ts-ignore — Expo Router's +html doesn't type-check link[rel=icon] for local assets */}
+      <link rel="icon" type="image/png" href="/favicon-light.png" media="(prefers-color-scheme: light)" />
+      {/* @ts-ignore */}
+      <link rel="icon" type="image/png" href="/favicon-dark.png" media="(prefers-color-scheme: dark)" />
+
       {/* ── Icons (FontAwesome 7 — web only; native uses bundled FA6) ── */}
       <link
         rel="stylesheet"
