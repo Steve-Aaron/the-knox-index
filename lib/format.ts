@@ -23,6 +23,17 @@ export function fmtLabel(s: string | null | undefined): string {
 }
 
 /**
+ * Singularise a party label for inline copy by dropping a trailing 's'.
+ * 'Liberal Democrats' → 'Liberal Democrat', 'Greens' → 'Green'.
+ * Only strips a lowercase trailing 's', so acronyms and non-plural names
+ * ('SNP', 'Labour', 'Plaid Cymru', 'Reform UK') are left untouched.
+ */
+export function fmtSingular(s: string | null | undefined): string {
+  if (!s) return '';
+  return s.replace(/s$/, '');
+}
+
+/**
  * Date formatter: render a date as DD-MM-YYYY.
  * Accepts an ISO string or 'YYYY-MM-DD' (anything where the first 10
  * chars are the date). '2026-05-20' → '20-05-2026'. Empty/invalid → ''.

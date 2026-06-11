@@ -163,6 +163,7 @@ export interface Politician {
   name: string;
   handle: string;           // e.g. "@rishisunak"
   role: string;             // e.g. "MP, Richmond"
+  displayJobTitle: string;  // curated job title, e.g. "MP for Ipswich"
   partyKey: PartyKey;
   partyLabel: string;       // human-readable party name
   country: string;          // ISO-style short e.g. "UK"
