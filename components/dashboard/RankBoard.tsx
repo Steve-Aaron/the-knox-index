@@ -72,9 +72,15 @@ export function RankBoard({ politicians, activeId, headlineKey, timeRangeLabel, 
   const partyOptions = useMemo<PartyKey[]>(() => {
     const types = VIEW_ACCOUNT_TYPES[viewType];
     const base = types ? politicians.filter(p => p.accountTypes?.some(t => types.includes(t))) : politicians;
-    const seen = new Set<PartyKey>();
-    base.forEach(p => seen.add(p.partyKey));
-    return Array.from(seen).sort();
+    // Order chips by party size (account count) descending, so the largest
+    // parties lead and one-account fringe parties fall to the end.
+    // Alphabetical tie-break keeps the order stable.
+    const counts = new Map<PartyKey, number>();
+    base.forEach(p => counts.set(p.partyKey, (counts.get(p.partyKey) ?? 0) + 1));
+    return Array.from(counts.keys()).sort((a, b) => {
+      const diff = (counts.get(b) ?? 0) - (counts.get(a) ?? 0);
+      return diff !== 0 ? diff : a.localeCompare(b);
+    });
   }, [politicians, viewType]);
 
   // Reset party filter when view type changes.
