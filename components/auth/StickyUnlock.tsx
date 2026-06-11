@@ -21,6 +21,7 @@ import { spacing, radius } from '@/theme/spacing';
 import { type, font } from '@/theme/typography';
 import { breakpoints } from '@/theme/breakpoints';
 import { track } from '@/lib/analytics';
+import { requestMagicLink } from '@/lib/requestMagicLink';
 import { SEGMENTS, INTERESTS } from '@/data/profileOptions';
 import { DevLabel } from '@/components/primitives/DevLabel';
 import { FrequencyPicker } from '@/components/primitives/FrequencyPicker';
@@ -216,12 +217,7 @@ function UnlockModal({ onClose, onOpen }: UnlockModalProps) {
     track('registration_submit_attempted', { email: email.trim().toLowerCase() });
 
     try {
-      const res = await fetch('/api/auth/request', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ email: email.trim().toLowerCase() }),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      await requestMagicLink(email);
       setStep('sent');
       track('magic_link_sent');
     } catch {
@@ -327,10 +323,9 @@ function UnlockModal({ onClose, onOpen }: UnlockModalProps) {
                     <Text style={styles.orText}>or</Text>
                     <View style={styles.orLine} />
                   </View>
-                  <GoogleSignInButton
-                    disabled={step === 'sending'}
-                    onPress={() => { track('google_signin_tapped'); window.location.assign('/api/auth/google/start'); }}
-                  />
+                  {/* No onPress override — the button owns the Firebase popup
+                      flow and fires google_signin_tapped itself. */}
+                  <GoogleSignInButton disabled={step === 'sending'} />
                 </>
               )}
 

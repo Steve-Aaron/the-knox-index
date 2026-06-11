@@ -24,6 +24,7 @@ import { useState, useEffect } from 'react';
 import { Platform } from 'react-native';
 import { identify, setSuperProperties, track } from '@/lib/analytics';
 import { getDevPreview } from '@/lib/devPreview';
+import { mintSessionSilently } from '@/lib/firebaseClient';
 
 export interface AuthState {
   isRegistered: boolean;
@@ -89,11 +90,24 @@ export function useAuth(): AuthState {
             track('user_returned');
           }
         } else {
-          // 401 — cookie gone or tampered, clear the cache
-          setEmail(null);
-          localStorage.removeItem(LS_REGISTERED);
-          localStorage.removeItem(LS_EMAIL);
-          setSuperProperties({ is_registered: false });
+          // 401 — cookie gone, expired (14-day Firebase limit), or revoked.
+          // Rolling session: if the Firebase client SDK still holds a
+          // signed-in user, silently re-mint the cookie before giving up.
+          const remintedEmail = await mintSessionSilently().catch(() => null);
+
+          if (remintedEmail) {
+            setEmail(remintedEmail);
+            localStorage.setItem(LS_REGISTERED, '1');
+            localStorage.setItem(LS_EMAIL, remintedEmail);
+            identify(remintedEmail);
+            setSuperProperties({ is_registered: true });
+            track('user_returned');
+          } else {
+            setEmail(null);
+            localStorage.removeItem(LS_REGISTERED);
+            localStorage.removeItem(LS_EMAIL);
+            setSuperProperties({ is_registered: false });
+          }
         }
       })
       .catch(() => {

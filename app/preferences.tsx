@@ -29,6 +29,7 @@ import { breakpoints } from '@/theme/breakpoints';
 import { SEGMENTS, INTERESTS } from '@/data/profileOptions';
 import { track } from '@/lib/analytics';
 import { buildLinkedinUrl, extractLinkedinHandle } from '@/lib/linkedin';
+import { requestMagicLink } from '@/lib/requestMagicLink';
 import { LinkedinInput } from '@/components/primitives/LinkedinInput';
 import { ConsentToggleRow } from '@/components/primitives/ConsentToggleRow';
 import { SelectableCard } from '@/components/primitives/SelectableCard';
@@ -165,12 +166,7 @@ export default function PreferencesScreen() {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) return;
     setChangeEmailState('sending');
     try {
-      const res = await fetch('/api/auth/request', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ email: trimmed }),
-      });
-      if (!res.ok) throw new Error();
+      await requestMagicLink(trimmed);
       setChangeEmailState('sent');
     } catch {
       setChangeEmailState('error');
