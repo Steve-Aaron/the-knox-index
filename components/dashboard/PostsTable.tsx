@@ -56,9 +56,17 @@ const WING_MAP: Record<PartyKey, Wing> = {
   green:        'left',
   plaid:        'left',
   sinnfein:     'left',
+  sdlp:         'left',
+  workers:      'left',
+  yourparty:    'left',
   conservative: 'right',
   reform:       'right',
   dup:          'right',
+  uup:          'right',
+  tuv:          'right',
+  advance:      'right',
+  restore:      'right',
+  alliance:     'independent',
   independent:  'independent',
   unknown:      'independent',
 };
@@ -120,7 +128,11 @@ function partyLabel(key: PartyKey): string {
   const labels: Partial<Record<PartyKey, string>> = {
     labour: 'Labour', conservative: 'Conservative', libdem: 'Lib Dems',
     snp: 'SNP', green: 'Greens', reform: 'Reform', plaid: 'Plaid',
-    dup: 'DUP', sinnfein: 'Sinn Féin', independent: 'Independent', unknown: 'Unknown',
+    dup: 'DUP', sinnfein: 'Sinn Féin',
+    alliance: 'Alliance', sdlp: 'SDLP', uup: 'UUP', tuv: 'TUV',
+    workers: 'Workers Party', advance: 'Advance UK', restore: 'Restore Britain',
+    yourparty: 'Your Party',
+    independent: 'Independent', unknown: 'Unknown',
   };
   return labels[key] ?? key;
 }
@@ -130,7 +142,11 @@ function partyLabel(key: PartyKey): string {
  * current scope match. Useful for big-name parties the user expects to see
  * (Lib Dems specifically — small post volume, was being silently hidden).
  */
-const ALWAYS_VISIBLE_PARTIES: PartyKey[] = ['labour', 'conservative', 'libdem', 'reform', 'green', 'snp'];
+const ALWAYS_VISIBLE_PARTIES: PartyKey[] = [
+  'labour', 'conservative', 'libdem', 'reform', 'green', 'snp',
+  'plaid', 'dup', 'sinnfein', 'alliance', 'sdlp', 'uup', 'tuv',
+  'workers', 'advance', 'restore', 'yourparty',
+];
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
@@ -257,8 +273,15 @@ export function PostsTable({
   //      so big-name parties like Lib Dems are visible even with zero posts.
   const parties = useMemo<PartyKey[]>(() => {
     const base = wingFilter ? posts.filter(p => WING_MAP[p.partyKey] === wingFilter) : posts;
-    const seen = new Set<PartyKey>();
-    base.forEach(p => seen.add(p.partyKey));
+
+    // Count distinct accounts per party so we can order by party size.
+    const accountsByParty = new Map<PartyKey, Set<string>>();
+    base.forEach(p => {
+      if (!accountsByParty.has(p.partyKey)) accountsByParty.set(p.partyKey, new Set());
+      accountsByParty.get(p.partyKey)!.add(p.politicianName);
+    });
+
+    const seen = new Set<PartyKey>(accountsByParty.keys());
 
     // Add the always-visible parties, respecting the current wing filter.
     for (const pk of ALWAYS_VISIBLE_PARTIES) {
@@ -266,7 +289,14 @@ export function PostsTable({
         seen.add(pk);
       }
     }
-    return Array.from(seen).sort();
+
+    // Order by account count descending (biggest party first); empty
+    // always-visible parties fall to the end. Alphabetical tie-break.
+    const countFor = (pk: PartyKey) => accountsByParty.get(pk)?.size ?? 0;
+    return Array.from(seen).sort((a, b) => {
+      const diff = countFor(b) - countFor(a);
+      return diff !== 0 ? diff : a.localeCompare(b);
+    });
   }, [posts, wingFilter]);
 
   const filtered = useMemo(() => {
