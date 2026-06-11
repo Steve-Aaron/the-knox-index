@@ -30,7 +30,7 @@ export function CardHeader({ name, role, partyLabel, partyKey, initials, avatarU
         <Text style={styles.name} numberOfLines={1}>
           {name}
         </Text>
-        <Text style={styles.meta} numberOfLines={1}>
+        <Text style={styles.meta} numberOfLines={2}>
           {role}
         </Text>
         <Text style={[styles.party, { color: neutral.textDim }]} numberOfLines={1}>
@@ -42,7 +42,7 @@ export function CardHeader({ name, role, partyLabel, partyKey, initials, avatarU
 }
 
 const styles = StyleSheet.create({
-  row: { ...layout.row, gap: spacing.md },
+  row: { ...layout.row, gap: spacing.md, alignItems: 'flex-start' },
   text: {
     flex: 1,
     gap: 2,
