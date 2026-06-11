@@ -60,6 +60,7 @@ export function buildAccountsSQL(range: Range): string {
     a.profile,
     a.party,
     a.affiliation,
+    a.displayJobTitle,
     a.avatar,
     COALESCE(a.totalFollowers, 0)  AS totalFollowers,
     COALESCE(a.totalFollowing, 0)  AS totalFollowing,

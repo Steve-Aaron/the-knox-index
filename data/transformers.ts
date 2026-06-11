@@ -21,6 +21,7 @@ export interface BQAccountRow {
   profile:          string;    // TikTok handle — also the join key to post.profile
   party:            string;
   affiliation:      string;    // e.g. 'MP, Ashton-under-Lyne'
+  displayJobTitle?: string;    // curated job title, e.g. 'MP for Ipswich' (set via admin)
   avatar?:          string;    // GCS URL for profile photo
   totalFollowing:   number;
   totalFollowers:   number;
@@ -333,6 +334,7 @@ export function transformToPoliticians(
       name:           acc.name ?? '',
       handle:         acc.profile ?? '',
       role:           acc.affiliation ?? '',
+      displayJobTitle: acc.displayJobTitle || acc.affiliation || '',
       partyKey:       toPartyKey(acc.party),
       partyLabel:     fmtLabel(acc.party) || 'Unknown',
       country:        'UK',
