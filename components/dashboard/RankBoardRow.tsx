@@ -1,12 +1,12 @@
 import React from 'react';
 import { View, Text, Pressable, StyleSheet, Platform } from 'react-native';
 import { CardAvatar } from '@/components/card/CardAvatar';
-import { CountUp } from '@/components/primitives/CountUp';
+import { CountUp, formatters } from '@/components/primitives/CountUp';
 import { DevLabel } from '@/components/primitives/DevLabel';
 import { neutral, party, glass, accent } from '@/theme/colors';
 import { spacing, radius } from '@/theme/spacing';
 import { type } from '@/theme/typography';
-import type { Politician, ScoreKey } from '@/data/types';
+import type { Politician, LeaderboardSortKey } from '@/data/types';
 import { leaderboardScore } from '@/data/transformers';
 
 /**
@@ -19,7 +19,7 @@ import { leaderboardScore } from '@/data/transformers';
 interface Props {
   politician: Politician;
   rank: number;
-  headlineKey: ScoreKey;
+  headlineKey: LeaderboardSortKey;
   active: boolean;
   onPress: () => void;
   /** False when a time filter is active — Knox displays the range-scoped score. */
@@ -34,6 +34,9 @@ export function RankBoardRow({ politician, rank, headlineKey, active, onPress, i
     && politician.totals.postsThisWeek === 0;
   // Same source as RankBoard's sort — display and order can never disagree.
   const score   = leaderboardScore(politician, headlineKey, isLifetime);
+  // Views is a raw count, not a 0–100 score, so it's formatted compactly with a
+  // 'views' unit rather than '/ 100'.
+  const isViews = headlineKey === 'views';
 
   return (
     <Pressable
@@ -67,8 +70,8 @@ export function RankBoardRow({ politician, rank, headlineKey, active, onPress, i
         </View>
       ) : (
         <View style={styles.score}>
-          <CountUp value={score} style={[styles.scoreValue, { color: colour.glow }]} />
-          <Text style={styles.scoreUnit}>/ 100</Text>
+          <CountUp value={score} format={isViews ? formatters.compact : undefined} style={[styles.scoreValue, { color: colour.glow }]} />
+          <Text style={styles.scoreUnit}>{isViews ? 'views' : '/ 100'}</Text>
         </View>
       )}
     </Pressable>

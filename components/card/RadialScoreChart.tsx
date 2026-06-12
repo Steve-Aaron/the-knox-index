@@ -73,10 +73,11 @@ function frequencyAxis(range: TimeRange): { desc: string; format: (v: number) =>
     case 'month':
       return { desc: 'Posts in the past 30 days',  format: v => `${v} posts in past 30 days`  };
     case 'year':
-      return { desc: 'Posts in the past 365 days', format: v => `${v} posts in past 365 days` };
+      return { desc: 'Posts this year',            format: v => `${v} posts this year`        };
     case 'lifetime':
-      return { desc: 'Posts (lifetime)',           format: v => `${v} posts (lifetime)`       };
+      return { desc: 'Posts tracked',              format: v => `${v} posts tracked`          };
     case 'yesterday':
+      return { desc: 'Posts yesterday',            format: v => `${v} posts yesterday`        };
     case 'week':
     default:
       return { desc: 'Posts in the past 7 days',   format: v => `${v} posts in past 7 days`   };
@@ -137,7 +138,7 @@ export function RadialScoreChart({ scores, partyKey, size = 440, highlightKey, r
   const plotScores: TopTrumpScores = {
     ...scores,
     virality:  rawValues ? viralityDisplay(rawValues.virality) : scores.virality,
-    frequency: rawValues ? activityScore(rawValues.frequency) : (radial?.activity ?? scores.frequency),
+    frequency: radial?.activity ?? (rawValues ? activityScore(rawValues.frequency) : scores.frequency),
     followers: radial?.followers ?? scores.followers,
   };
 
