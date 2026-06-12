@@ -15,6 +15,13 @@ export interface TopTrumpScores {
 
 export type ScoreKey = keyof TopTrumpScores;
 
+/**
+ * Leaderboard sort keys: the five score axes plus 'views' (range-scoped view
+ * count). 'views' is a leaderboard sort/filter only — it is not a radar axis
+ * and not part of TopTrumpScores.
+ */
+export type LeaderboardSortKey = ScoreKey | 'views';
+
 // ── Account page types ────────────────────────────────────────────────────────
 
 /** A single entry in a per-metric leaderboard. */
@@ -201,6 +208,12 @@ export interface Politician {
    * ScoreKey-driven surfaces (rankings, radar, sort chips) are unaffected.
    */
   knoxFactorRange?: number;
+  /**
+   * Range-scoped virality / engagement / frequency (0–100), computed from
+   * in-range aggregates. Used by the leaderboard sort and the radar when a
+   * time filter other than 'lifetime' is active. Does not feed Knox Factor.
+   */
+  scoresRange?: { virality: number; engagement: number; frequency: number };
   /**
    * RADAR-ONLY display scores (0–100). These deliberately differ from `scores`
    * (which drive Knox Factor): activity is the absolute 7-day step scale and

@@ -23,7 +23,7 @@ import { neutral, party, glass } from '@/theme/colors';
 import { font } from '@/theme/typography';
 import { spacing, radius } from '@/theme/spacing';
 import { type } from '@/theme/typography';
-import type { Politician, ScoreKey } from '@/data/types';
+import type { Politician, LeaderboardSortKey } from '@/data/types';
 import type { TimeRange } from '@/components/dashboard/TimeRangePicker';
 
 /**
@@ -36,7 +36,7 @@ import type { TimeRange } from '@/components/dashboard/TimeRangePicker';
  */
 interface Props {
   politician:  Politician;
-  headlineKey: ScoreKey;
+  headlineKey: LeaderboardSortKey;
   /** Selected dashboard time range. Drives the frequency axis wording. */
   range:       TimeRange;
   panelHeight?: number;
@@ -81,12 +81,7 @@ const RANGE_TOTALS_LABEL: Record<TimeRange, string> = {
 export function PoliticianDetailPanel({ politician, headlineKey, range, panelHeight }: Props) {
   const colour = party[politician.partyKey];
 
-  // Range-aware avg views — fed into the radar chart's hover popup so the
-  // figure tracks the dashboard's time range.
   const recentPosts = politician.recentPosts ?? [];
-  const avgViews = recentPosts.length > 0
-    ? Math.round(recentPosts.reduce((s, p) => s + p.views, 0) / recentPosts.length)
-    : 0;
 
   // Lifetime avg views — used in the 'Account totals' tile, which is always
   // lifetime regardless of the selected range. Sourced from totalViews /
@@ -105,20 +100,54 @@ export function PoliticianDetailPanel({ politician, headlineKey, range, panelHei
         politician.totals.savesInRange + politician.totals.sharesInRange
       : politician.totals.likesToday + politician.totals.commentsToday + politician.totals.savesToday);
 
-  // Activity reflects the selected window, matching the radar's axis label:
-  //   yesterday / week → past 7 days (postsThisWeek)
-  //   month / year / lifetime → the range-bound count (postsInRange)
-  const isShortRange = range === 'yesterday' || range === 'week';
-  const frequencyValue = isShortRange
+  // Activity reflects the selected window, matching the radar's axis label.
+  //   week → the dedicated 7-day count (postsThisWeek)
+  //   everything else (yesterday = 1 day, month, year, lifetime) → the
+  //   range-bound count so the figure matches the wording.
+  const frequencyValue = range === 'week'
     ? politician.totals.postsThisWeek
     : politician.totals.postsInRange;
 
+  const isLifetime = range === 'lifetime';
+
+  // Radar virality tooltip uses the same average the dot is scored from: the
+  // in-range avg (viewsInRange / postsInRange) when a filter is active, the
+  // lifetime avg on 'Lifetime'. Keeps the hover figure and the plotted dot in
+  // agreement.
+  const radarAvgViews = isLifetime
+    ? lifetimeAvgViews
+    : (politician.totals.postsInRange > 0
+        ? Math.round(politician.totals.viewsInRange / politician.totals.postsInRange)
+        : 0);
+
   const rawValues: RawScoreValues = {
-    virality:   politician.totals.followers > 0 ? avgViews / politician.totals.followers : 0,
+    virality:   politician.totals.followers > 0 ? radarAvgViews / politician.totals.followers : 0,
     frequency:  frequencyValue,
     engagement: engViews > 0 ? (engNumerator / engViews) * 100 : 0,
     followers:  politician.totals.followers,
-    knoxFactor: politician.scores.knoxFactor,
+    knoxFactor: isLifetime ? politician.scores.knoxFactor : (politician.knoxFactorRange ?? politician.scores.knoxFactor),
+  };
+
+  // Radar shape: range-scoped virality / engagement (and range Knox) when a
+  // time filter is active, so the chart reflects the selected period. Followers
+  // and the activity step-scale are unchanged (radar-only). 'Lifetime' uses the
+  // standard lifetime scores.
+  const radarScores = isLifetime
+    ? politician.scores
+    : {
+        ...politician.scores,
+        virality:   politician.scoresRange?.virality   ?? politician.scores.virality,
+        engagement: politician.scoresRange?.engagement ?? politician.scores.engagement,
+        knoxFactor: politician.knoxFactorRange ?? politician.scores.knoxFactor,
+      };
+
+  // Activity dot geometry: range-normalised post frequency (your in-range post
+  // count relative to the busiest account in the selected window) so the dot
+  // scales with the timeframe instead of the fixed 7-day step scale — lifetime
+  // spreads out, day-by-day isn't uniformly tiny. Followers unchanged.
+  const radarRadial = {
+    activity:  politician.scoresRange?.frequency ?? politician.radial?.activity ?? politician.scores.frequency,
+    followers: politician.radial?.followers ?? politician.scores.followers,
   };
 
   const wrapStyle = {
@@ -190,10 +219,10 @@ export function PoliticianDetailPanel({ politician, headlineKey, range, panelHei
               </View>
             </View>
             <RadialScoreChart
-              scores={politician.scores}
-              radial={politician.radial}
+              scores={radarScores}
+              radial={radarRadial}
               partyKey={politician.partyKey}
-              highlightKey={headlineKey}
+              highlightKey={headlineKey === 'views' ? null : headlineKey}
               rawValues={rawValues}
               range={range}
               size={300}

@@ -39,11 +39,13 @@ export interface PostsState {
 /** Convert a TimeRange key to a `since` ISO date string, or null for lifetime. */
 function rangeToSince(range: TimeRange): string | null {
   if (range === 'lifetime') return null;
-  const days: Record<Exclude<TimeRange, 'lifetime'>, number> = {
+  // 'year' is the calendar year (from 1 Jan), matching the leaderboard's
+  // EXTRACT(YEAR) filter. The shorter ranges are rolling windows.
+  if (range === 'year') return `${new Date().getFullYear()}-01-01`;
+  const days: Record<'yesterday' | 'week' | 'month', number> = {
     yesterday: 1,
     week:      7,
     month:     30,
-    year:      365,
   };
   const d = new Date();
   d.setDate(d.getDate() - days[range]);

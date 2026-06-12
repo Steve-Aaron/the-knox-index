@@ -11,8 +11,8 @@ import { neutral, glass, party, brand, knox } from '@/theme/colors';
 import type { PartyKey } from '@/theme/colors';
 import { spacing, radius } from '@/theme/spacing';
 import { type, font } from '@/theme/typography';
-import type { Politician, ScoreKey } from '@/data/types';
-import { leaderboardScore } from '@/data/transformers';
+import type { Politician, ScoreKey, LeaderboardSortKey } from '@/data/types';
+import { leaderboardScore, viralityRatioFor } from '@/data/transformers';
 
 const PARTY_LABELS: Partial<Record<PartyKey, string>> = {
   labour: 'Labour', conservative: 'Conservative', libdem: 'Lib Dem',
@@ -31,7 +31,7 @@ const PARTY_LABELS: Partial<Record<PartyKey, string>> = {
 interface Props {
   politicians:    Politician[];
   activeId:       string;
-  headlineKey:    ScoreKey;
+  headlineKey:    LeaderboardSortKey;
   timeRangeLabel: string;
   onSelect:       (id: string) => void;
   panelHeight?:   number;
@@ -103,8 +103,14 @@ export function RankBoard({ politicians, activeId, headlineKey, timeRangeLabel, 
     base = base.filter(p => p.totals.postsInRange > 0);
     if (partyFilter) base = base.filter(p => p.partyKey === partyFilter);
     // Knox Factor is range-scoped when a time filter is active (leaderboardScore).
-    return [...base].sort((a, b) =>
-      leaderboardScore(b, headlineKey, isLifetime) - leaderboardScore(a, headlineKey, isLifetime));
+    // Virality clamps many accounts to the same score, so break ties by true
+    // reach-per-follower — a higher-reach account can never sit below a lower one.
+    return [...base].sort((a, b) => {
+      const d = leaderboardScore(b, headlineKey, isLifetime) - leaderboardScore(a, headlineKey, isLifetime);
+      if (d !== 0) return d;
+      if (headlineKey === 'virality') return viralityRatioFor(b, isLifetime) - viralityRatioFor(a, isLifetime);
+      return 0;
+    });
   }, [politicians, headlineKey, viewType, partyFilter, isLifetime]);
 
   const wrapStyle = {
@@ -132,9 +138,6 @@ export function RankBoard({ politicians, activeId, headlineKey, timeRangeLabel, 
           {' · '}
           {ranked.reduce((sum, p) => sum + p.totals.postsInRange, 0)} posts by {ranked.filter(p => p.totals.postsInRange > 0).length} accounts
           {partyFilter ? ` · ${PARTY_LABELS[partyFilter] ?? partyFilter}` : ''}
-          {/* Make the range-scoped Knox explicit so it can't be mistaken for
-              the lifetime Knox shown on account pages. */}
-          {headlineKey === 'knoxFactor' && !isLifetime ? ` · Knox scored on ${timeRangeLabel.toLowerCase()} posts only` : ''}
         </Text>
 
         {/* Account-type tabs — MPs / Parties / Councils / All */}

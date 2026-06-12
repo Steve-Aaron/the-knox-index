@@ -46,7 +46,8 @@ import { neutral, glass, accent, party, brand } from '@/theme/colors';
 import { spacing, radius } from '@/theme/spacing';
 import { type } from '@/theme/typography';
 import { breakpoints } from '@/theme/breakpoints';
-import type { ScoreKey } from '@/data/types';
+import type { LeaderboardSortKey } from '@/data/types';
+import { leaderboardScore, viralityRatioFor } from '@/data/transformers';
 import type { PartyKey } from '@/theme/colors';
 
 /**
@@ -59,12 +60,13 @@ import type { PartyKey } from '@/theme/colors';
  *              Col C — SummaryPanel (weekly briefing)
  */
 
-const SORTS: { key: ScoreKey; label: string }[] = [
+const SORTS: { key: LeaderboardSortKey; label: string }[] = [
   { key: 'knoxFactor',  label: 'Knox Factor' },
-  { key: 'virality',    label: 'Virality' },
+  { key: 'views',       label: 'Views' },
   { key: 'engagement',  label: 'Engagement' },
   { key: 'frequency',   label: 'Frequency' },
   { key: 'followers',   label: 'Followers' },
+  { key: 'virality',    label: 'Virality' },
 ];
 
 const RANGE_LABELS: Record<TimeRange, string> = {
@@ -92,7 +94,7 @@ function DashboardScreenInner() {
   const sectionRef = useSectionTracking();
 
   const [range, setRange]           = useState<TimeRange>('yesterday');
-  const [sortKey, setSortKey]       = useState<ScoreKey>('knoxFactor');
+  const [sortKey, setSortKey]       = useState<LeaderboardSortKey>('knoxFactor');
   const [activeId, setActiveId]     = useState<string>('');
   const [showAccounts, setShowAccounts] = useState(false);
   const [partyFilter, setPartyFilter] = useState<PartyKey | null>(null);
@@ -152,7 +154,7 @@ function DashboardScreenInner() {
   }, []);
 
   // Area 4: enhanced sort/range handlers that carry previous values
-  const prevSortRef  = useRef<ScoreKey>('knoxFactor');
+  const prevSortRef  = useRef<LeaderboardSortKey>('knoxFactor');
   const prevRangeRef = useRef<TimeRange>('yesterday');
 
   const handleSetRange = useCallback((r: TimeRange) => {
@@ -164,7 +166,7 @@ function DashboardScreenInner() {
     setRange(r);
   }, []);
 
-  const handleSetSortKey = useCallback((key: ScoreKey) => {
+  const handleSetSortKey = useCallback((key: LeaderboardSortKey) => {
     track('dashboard_sort_changed', {
       sort_key:          key,
       previous_sort_key: prevSortRef.current,
@@ -179,7 +181,7 @@ function DashboardScreenInner() {
   const activeIdRef        = useRef<string>('');
   const politicianTimerKey = 'politician_dwell';
   const rankedRef          = useRef<typeof ranked>([] as any);
-  const sortKeyRef         = useRef<ScoreKey>(sortKey);
+  const sortKeyRef         = useRef<LeaderboardSortKey>(sortKey);
 
   const handleSetActiveId = useCallback((id: string) => {
     // Emit dwell for the politician that's leaving, enriched with name + party
@@ -311,8 +313,14 @@ function DashboardScreenInner() {
   const ranked = useMemo(
     () => [...politicians]
       .filter(p => p.totals.postsInRange > 0)
-      .sort((a, b) => b.scores[sortKey] - a.scores[sortKey]),
-    [politicians, sortKey]
+      .sort((a, b) => {
+        const lt = range === 'lifetime';
+        const d = leaderboardScore(b, sortKey, lt) - leaderboardScore(a, sortKey, lt);
+        if (d !== 0) return d;
+        if (sortKey === 'virality') return viralityRatioFor(b, lt) - viralityRatioFor(a, lt);
+        return 0;
+      }),
+    [politicians, sortKey, range]
   );
   // Keep refs in sync so handleSetActiveId always reads current values.
   rankedRef.current   = ranked;
