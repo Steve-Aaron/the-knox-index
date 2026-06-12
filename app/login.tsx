@@ -76,8 +76,9 @@ export default function LoginScreen() {
   };
 
   if (status === 'completing' || status === 'done') {
+    // Frameless: transient state reads better as plain text than a boxed card.
     return (
-      <AuthScreen kicker="SIGN IN" title="Signing you in…">
+      <AuthScreen kicker="SIGN IN" title="Signing you in…" frameless>
         <View style={styles.spinnerWrap}>
           <ActivityIndicator color={neutral.textMid} />
         </View>

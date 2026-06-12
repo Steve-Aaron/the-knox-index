@@ -149,7 +149,7 @@ function welcomeHtml(email: string, consentBriefing: boolean): string {
             You're subscribed.
           </h1>
           <p style="margin:0 0 16px;font-size:14px;line-height:22px;color:#A8A8BA;">
-            TikTok insights on UK politicians — in your inbox every morning at 8:00AM.
+            TikTok insights on UK politicians, direct to your inbox.
           </p>
           ${briefingLine}
 

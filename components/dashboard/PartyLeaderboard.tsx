@@ -112,6 +112,10 @@ export function PartyLeaderboard({ politicians, range = 'week', onPartySelect, a
       const engagementRate = totalViews > 0
         ? ((totalLikes + totalComments + totalSaves + totalShares) / totalViews) * 100
         : 0;
+      // Parties with zero posts in the selected range carry no signal —
+      // omit them rather than rendering a row of zeros.
+      if (totalPosts === 0) continue;
+
       out.push({
         key,
         label:          PARTY_LABELS[key] ?? key,
