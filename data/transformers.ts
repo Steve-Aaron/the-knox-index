@@ -8,7 +8,7 @@
 import type { Politician, TopTrumpScores, RecentPost, AccountType } from './types';
 import type { PartyKey } from '@/theme/colors';
 import { toPartyKeyPublic } from './partyUtils';
-import { computeKnoxFactor, activityScore, NORMALISATION_LIMITS } from './knoxConfig';
+import { computeKnoxFactor, computeRangeKnox, activityScore, NORMALISATION_LIMITS } from './knoxConfig';
 import { fmtLabel } from '@/lib/format';
 
 // ── Raw BQ row shapes ─────────────────────────────────────────────────────────
@@ -183,21 +183,40 @@ interface RawAxes {
   avgViews:      number;  // lifetime average views per post (low-views penalty)
 }
 
+/**
+ * Winsorised virality ratio + clamped engagement % from a post set's totals.
+ * SHARED by rawAxes (lifetime) and rangeAxes (range-scoped) so the two
+ * scoring paths can never drift apart. Pure mechanical extraction of the
+ * locked formula — virality is per-post reach as a fraction of audience,
+ * winsorised so tiny-account outliers can't poison the dataset max;
+ * engagement is interactions/views clamped at the configured limit.
+ */
+function clampedRatios(
+  posts: number, views: number, interactions: number, followers: number,
+): { viralityRaw: number; engRate: number } {
+  const avgViews        = posts > 0 ? views / posts : 0;
+  const viralityRawTrue = followers > 0 ? avgViews / followers : 0;
+  const viralityRaw     = Math.min(viralityRawTrue, NORMALISATION_LIMITS.viralityRatio);
+
+  const engViews   = Math.max(views, 1);
+  const engRateRaw = (interactions / engViews) * 100;
+  const engRate    = Math.min(engRateRaw, NORMALISATION_LIMITS.engRatePct);
+
+  return { viralityRaw, engRate };
+}
+
 function rawAxes(acc: BQAccountRow): RawAxes {
   const lifetimePosts = acc.totalPosts    ?? 0;
   const totalViews    = acc.totalViews     ?? 0;
   const followers     = acc.totalFollowers ?? 0;
   const avgViews      = lifetimePosts > 0 ? totalViews / lifetimePosts : 0;
 
-  // virality: per-post reach as a fraction of audience, winsorised so tiny-account
-  // outliers can't poison the dataset max.
-  const viralityRawTrue = followers > 0 ? avgViews / followers : 0;
-  const viralityRaw     = Math.min(viralityRawTrue, NORMALISATION_LIMITS.viralityRatio);
-
-  // engagement: lifetime (likes+comments+saves+shares)/views, clamped at 100%.
-  const engViews   = Math.max(totalViews, 1);
-  const engRateRaw = ((acc.totalLikes + acc.totalComments + acc.totalSaves + acc.totalShares) / engViews) * 100;
-  const engRate    = Math.min(engRateRaw, NORMALISATION_LIMITS.engRatePct);
+  const { viralityRaw, engRate } = clampedRatios(
+    lifetimePosts,
+    totalViews,
+    acc.totalLikes + acc.totalComments + acc.totalSaves + acc.totalShares,
+    followers,
+  );
 
   return {
     viralityRaw,
@@ -208,6 +227,77 @@ function rawAxes(acc: BQAccountRow): RawAxes {
     lifetimePosts,
     avgViews,
   };
+}
+
+/**
+ * Raw axis inputs computed from posts INSIDE the selected time range.
+ * Mirrors rawAxes but sourced from the *InRange aggregates. Followers stays
+ * lifetime — a range has no follower count. Feeds computeRangeKnox only
+ * (leaderboard); lifetime Knox is untouched.
+ */
+interface RangeAxes {
+  viralityRaw:  number;  // clamped in-range avgViews / followers
+  engRate:      number;  // clamped in-range engagement %
+  postsInRange: number;  // frequency basis for the range
+  followers:    number;  // lifetime total followers
+}
+
+function rangeAxes(acc: BQAccountRow): RangeAxes {
+  const posts     = acc.postsInRange ?? 0;
+  const followers = acc.totalFollowers ?? 0;
+
+  const { viralityRaw, engRate } = clampedRatios(
+    posts,
+    acc.viewsInRange ?? 0,
+    (acc.likesInRange ?? 0) + (acc.commentsInRange ?? 0) +
+      (acc.savesInRange ?? 0) + (acc.sharesInRange ?? 0),
+    followers,
+  );
+
+  return { viralityRaw, engRate, postsInRange: posts, followers };
+}
+
+interface RangeMaxValues {
+  virality:       number;
+  engagementRate: number;
+  postsInRange:   number;
+  followers:      number;
+}
+
+function computeRangeMaxValues(rows: BQAccountRow[]): RangeMaxValues {
+  let maxVirality = 0, maxEng = 1, maxPosts = 1, maxFollowers = 1;
+
+  for (const acc of rows) {
+    const r = rangeAxes(acc);
+    if (r.viralityRaw  > maxVirality)  maxVirality  = r.viralityRaw;
+    if (r.engRate      > maxEng)       maxEng       = r.engRate;
+    if (r.postsInRange > maxPosts)     maxPosts     = r.postsInRange;
+    if (r.followers    > maxFollowers) maxFollowers = r.followers;
+  }
+
+  return {
+    virality:       maxVirality > 0 ? maxVirality : 1,
+    engagementRate: maxEng,
+    postsInRange:   maxPosts,
+    followers:      maxFollowers,
+  };
+}
+
+/**
+ * Knox Factor computed from in-range posts only (see computeRangeKnox in
+ * knoxConfig.ts for the sign-off note). Accounts with no posts in range
+ * score 0 — the leaderboard filters them out anyway.
+ */
+function computeRangeKnoxScore(acc: BQAccountRow, max: RangeMaxValues): number {
+  const r = rangeAxes(acc);
+  if (r.postsInRange <= 0) return 0;
+
+  const virality   = logNormalise(r.viralityRaw,  max.virality);
+  const engagement = normalise(r.engRate,         max.engagementRate);
+  const frequency  = normalise(r.postsInRange,    max.postsInRange);
+  const followers  = logNormalise(r.followers,    max.followers);
+
+  return computeRangeKnox(virality, engagement, followers, frequency);
 }
 
 interface ScoreMaxValues {
@@ -259,6 +349,19 @@ function computeScores(acc: BQAccountRow, max: ScoreMaxValues): TopTrumpScores {
   });
 
   return { virality, engagement, frequency, followers, knoxFactor };
+}
+
+/**
+ * The score the leaderboard ranks and displays for a given sort key.
+ * Knox Factor is range-scoped when a time filter is active; every other key
+ * (and Knox on 'Lifetime') reads the standard scores. Single source for both
+ * RankBoard sorting and RankBoardRow display so they can never disagree.
+ */
+export function leaderboardScore(p: Politician, key: keyof TopTrumpScores, isLifetime: boolean): number {
+  if (key === 'knoxFactor' && !isLifetime) {
+    return p.knoxFactorRange ?? p.scores.knoxFactor;
+  }
+  return p.scores[key];
 }
 
 // ── Post transformer ──────────────────────────────────────────────────────────
@@ -316,11 +419,17 @@ export function transformToPoliticians(
     postsByProfile.set(key, bucket);
   }
 
-  const max = computeMaxValues(accountRows);
+  const max      = computeMaxValues(accountRows);
+  const rangeMax = computeRangeMaxValues(accountRows);
 
   return accountRows.map((acc): Politician => {
     const posts = (postsByProfile.get(normProfile(acc.profile)) ?? []).slice(0, 5);
     const scores      = computeScores(acc, max);
+    // Range-scoped Knox — used by the leaderboard when a time filter is
+    // active. For range='lifetime' the API's date filter makes the *InRange
+    // aggregates equal lifetime totals, but the leaderboard shows the true
+    // (penalised) lifetime Knox in that case, not this value.
+    const knoxFactorRange = computeRangeKnoxScore(acc, rangeMax);
 
     // RADAR-ONLY display scores. Activity = absolute 7-day step scale; followers
     // = log-scaled against the dataset max. These never feed Knox Factor.
@@ -361,6 +470,7 @@ export function transformToPoliticians(
         sharesInRange:   acc.sharesInRange   ?? 0,
       },
       scores,
+      knoxFactorRange,
       radial,
       recentPosts: posts.map(transformPost),
     };

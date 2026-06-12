@@ -2,7 +2,10 @@
  * app/admin/index.tsx
  * --------------------
  * Admin panel — manage tracked profiles, account types, and bulk import.
- * Access is gated by the admin_panel=1 cookie (set via the DEV bar).
+ * Access is enforced SERVER-SIDE: every /api/admin/* route requires a valid
+ * Firebase session whose email is on the ADMIN_EMAILS allowlist
+ * (lib/adminAuth.ts). A 403 from the first data fetch renders the
+ * not-authorised gate instead of the panel.
  * Web-only — never rendered on native.
  */
 
@@ -89,6 +92,7 @@ export default function AdminPanel() {
   const [accountTypes, setAccountTypes] = useState<AccountType[]>([]);
   const [loadingData,  setLoadingData]  = useState(true);
   const [error,        setError]        = useState<string | null>(null);
+  const [forbidden,    setForbidden]    = useState(false);
   const [showInactive, setShowInactive] = useState(false);
   const [filterType,   setFilterType]   = useState<string | null>(null);
   const [searchQuery,  setSearchQuery]  = useState('');
@@ -134,6 +138,12 @@ export default function AdminPanel() {
     setError(null);
     try {
       const res = await fetch('/api/admin/accounts', { credentials: 'same-origin' });
+      if (res.status === 403) {
+        // Server-side admin check failed (no session, or email not on
+        // ADMIN_EMAILS) — show the clean not-authorised screen, not the panel.
+        setForbidden(true);
+        return;
+      }
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw new Error(body.error ?? `HTTP ${res.status}`);
@@ -433,6 +443,24 @@ export default function AdminPanel() {
   })();
 
   // ── Render ──────────────────────────────────────────────────────────────────
+
+  // Not authorised — clean gate instead of a panel full of failing requests.
+  if (forbidden) {
+    return (
+      <View style={[s.root, s.center, { flex: 1 }]}>
+        <Text style={s.heading}>Not authorised</Text>
+        <Text style={s.dimText}>
+          This area is restricted. Sign in with an admin account, then try again.
+        </Text>
+        <Pressable style={s.saveBtn} onPress={() => router.replace('/login')}>
+          <Text style={s.saveBtnText}>Sign in</Text>
+        </Pressable>
+        <Pressable onPress={() => router.replace('/')} style={s.backBtn}>
+          <Text style={s.backBtnText}>← Back to dashboard</Text>
+        </Pressable>
+      </View>
+    );
+  }
 
   return (
     <ScrollView style={s.root} contentContainerStyle={s.content}>

@@ -12,6 +12,7 @@ import type { PartyKey } from '@/theme/colors';
 import { spacing, radius } from '@/theme/spacing';
 import { type, font } from '@/theme/typography';
 import type { Politician, ScoreKey } from '@/data/types';
+import { leaderboardScore } from '@/data/transformers';
 
 const PARTY_LABELS: Partial<Record<PartyKey, string>> = {
   labour: 'Labour', conservative: 'Conservative', libdem: 'Lib Dem',
@@ -36,6 +37,12 @@ interface Props {
   panelHeight?:   number;
   /** When true, all rows are visible. When false, rows 6+ are blurred and non-interactive. */
   isRegistered?:  boolean;
+  /**
+   * True when the 'Lifetime' time filter is active. When false, Knox Factor
+   * ranking/display uses the range-scoped score (posts in the selected
+   * period only). Defaults to true so untouched callers keep lifetime Knox.
+   */
+  isLifetime?:    boolean;
 }
 
 const LABELS: Record<ScoreKey, string> = {
@@ -46,7 +53,7 @@ const LABELS: Record<ScoreKey, string> = {
   knoxFactor:  'Knox Factor',
 };
 
-export function RankBoard({ politicians, activeId, headlineKey, timeRangeLabel, onSelect, panelHeight, isRegistered = false }: Props) {
+export function RankBoard({ politicians, activeId, headlineKey, timeRangeLabel, onSelect, panelHeight, isRegistered = false, isLifetime = true }: Props) {
   const [viewType, setViewType]       = useState<ViewType>('all');
   const [partyFilter, setPartyFilter] = useState<PartyKey | null>(null);
 
@@ -95,8 +102,10 @@ export function RankBoard({ politicians, activeId, headlineKey, timeRangeLabel, 
     // Only include accounts that posted at least once in the selected range.
     base = base.filter(p => p.totals.postsInRange > 0);
     if (partyFilter) base = base.filter(p => p.partyKey === partyFilter);
-    return [...base].sort((a, b) => b.scores[headlineKey] - a.scores[headlineKey]);
-  }, [politicians, headlineKey, viewType, partyFilter]);
+    // Knox Factor is range-scoped when a time filter is active (leaderboardScore).
+    return [...base].sort((a, b) =>
+      leaderboardScore(b, headlineKey, isLifetime) - leaderboardScore(a, headlineKey, isLifetime));
+  }, [politicians, headlineKey, viewType, partyFilter, isLifetime]);
 
   const wrapStyle = {
     flex: 1 as const,
@@ -123,6 +132,9 @@ export function RankBoard({ politicians, activeId, headlineKey, timeRangeLabel, 
           {' · '}
           {ranked.reduce((sum, p) => sum + p.totals.postsInRange, 0)} posts by {ranked.filter(p => p.totals.postsInRange > 0).length} accounts
           {partyFilter ? ` · ${PARTY_LABELS[partyFilter] ?? partyFilter}` : ''}
+          {/* Make the range-scoped Knox explicit so it can't be mistaken for
+              the lifetime Knox shown on account pages. */}
+          {headlineKey === 'knoxFactor' && !isLifetime ? ` · Knox scored on ${timeRangeLabel.toLowerCase()} posts only` : ''}
         </Text>
 
         {/* Account-type tabs — MPs / Parties / Councils / All */}
@@ -199,6 +211,7 @@ export function RankBoard({ politicians, activeId, headlineKey, timeRangeLabel, 
                       politician={p}
                       rank={i + 1}
                       headlineKey={headlineKey}
+                      isLifetime={isLifetime}
                       active={p.id === activeId}
                       onPress={() => onSelect(p.id)}
                     />
@@ -225,6 +238,7 @@ export function RankBoard({ politicians, activeId, headlineKey, timeRangeLabel, 
                             politician={p}
                             rank={cutoff + i + 1}
                             headlineKey={headlineKey}
+                            isLifetime={isLifetime}
                             active={false}
                             onPress={() => undefined}
                           />

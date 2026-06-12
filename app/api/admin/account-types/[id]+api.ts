@@ -4,7 +4,7 @@
  * PATCH  /api/admin/account-types/:id  — rename a type
  * DELETE /api/admin/account-types/:id  — delete a type + clean junction rows
  *
- * Protected: requires admin_panel=1 cookie.
+ * Protected: Firebase session + ADMIN_EMAILS allowlist (lib/adminAuth).
  *
  * DELETE order is critical:
  *   1. Remove all account_x_accountType rows where accountTypeId = id
@@ -14,11 +14,8 @@
 
 import { getBigQuery, tableRef } from '@/lib/bigquery';
 import { safeErrorDetail } from '@/lib/errors';
+import { isAdminRequest } from '@/lib/adminAuth';
 
-function isAdmin(request: Request): boolean {
-  const cookies = request.headers.get('Cookie') ?? '';
-  return cookies.split(';').some(c => c.trim() === 'admin_panel=1');
-}
 
 // ── PATCH — rename ────────────────────────────────────────────────────────────
 
@@ -26,7 +23,7 @@ export async function PATCH(
   request: Request,
   { id: rawId }: { id: string }
 ): Promise<Response> {
-  if (!isAdmin(request)) {
+  if (!(await isAdminRequest(request))) {
     return Response.json({ error: 'Forbidden' }, { status: 403 });
   }
 
@@ -68,7 +65,7 @@ export async function DELETE(
   request: Request,
   { id: rawId }: { id: string }
 ): Promise<Response> {
-  if (!isAdmin(request)) {
+  if (!(await isAdminRequest(request))) {
     return Response.json({ error: 'Forbidden' }, { status: 403 });
   }
 

@@ -6,23 +6,18 @@
  * Updates editable fields on an account row and syncs the
  * account_x_accountType junction table in one logical operation.
  *
- * Protected: session cookie must belong to an ADMIN_EMAILS address.
+ * Protected: Firebase session + ADMIN_EMAILS allowlist (lib/adminAuth).
  */
 
 import { getBigQuery, tableRef } from '@/lib/bigquery';
 import { safeErrorDetail } from '@/lib/errors';
+import { isAdminRequest } from '@/lib/adminAuth';
 
-// ── Admin guard ───────────────────────────────────────────────────────────────
-
-function isAdmin(request: Request): boolean {
-  const cookies = request.headers.get('Cookie') ?? '';
-  return cookies.split(';').some(c => c.trim() === 'admin_panel=1');
-}
 
 // ── PATCH ──────────────────────────────────────────────────────────────────────
 
 export async function PATCH(request: Request, { id }: { id: string }): Promise<Response> {
-  if (!isAdmin(request)) {
+  if (!(await isAdminRequest(request))) {
     return Response.json({ error: 'Forbidden' }, { status: 403 });
   }
   if (!id?.trim()) {
@@ -104,7 +99,7 @@ export async function PATCH(request: Request, { id }: { id: string }): Promise<R
         params:   { id },
         location: 'EU',
       });
-      console.log(`[PATCH junction] delete done, metadata:`, JSON.stringify(deleteResult?.statistics ?? {}));
+      console.log(`[PATCH junction] delete done, metadata:`, JSON.stringify((deleteResult as any)?.statistics ?? {}));
 
       if (Array.isArray(accountTypeIds) && accountTypeIds.length > 0) {
         const typeList = accountTypeIds.join(', ');

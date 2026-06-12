@@ -4,19 +4,13 @@
  * GET  /api/admin/accounts  — list all accounts with full fields + accountTypes
  * POST /api/admin/accounts  — insert a new account and fire the N8N webhook
  *
- * Protected: session cookie must belong to an ADMIN_EMAILS address.
+ * Protected: Firebase session + ADMIN_EMAILS allowlist (lib/adminAuth).
  */
 
 import { getBigQuery, tableRef, query } from '@/lib/bigquery';
-import { verifySessionCookie } from '@/lib/auth';
 import { safeErrorDetail } from '@/lib/errors';
+import { isAdminRequest } from '@/lib/adminAuth';
 
-// ── Admin guard ───────────────────────────────────────────────────────────────
-
-function isAdmin(request: Request): boolean {
-  const cookies = request.headers.get('Cookie') ?? '';
-  return cookies.split(';').some(c => c.trim() === 'admin_panel=1');
-}
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -42,7 +36,7 @@ export interface AdminAccountType {
 // ── GET — list all accounts ────────────────────────────────────────────────────
 
 export async function GET(request: Request): Promise<Response> {
-  if (!isAdmin(request)) {
+  if (!(await isAdminRequest(request))) {
     return Response.json({ error: 'Forbidden' }, { status: 403 });
   }
 
@@ -85,7 +79,7 @@ export async function GET(request: Request): Promise<Response> {
 // ── POST — create new account ─────────────────────────────────────────────────
 
 export async function POST(request: Request): Promise<Response> {
-  if (!isAdmin(request)) {
+  if (!(await isAdminRequest(request))) {
     return Response.json({ error: 'Forbidden' }, { status: 403 });
   }
 
