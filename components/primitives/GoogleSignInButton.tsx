@@ -9,9 +9,9 @@ import { font } from '@/theme/typography';
 /**
  * GoogleSignInButton
  * -------------------
- * One-tap Google sign-in trigger. A full-page navigation to
- * /api/auth/google/start kicks off the OAuth flow; the server completes it,
- * sets the session cookie, and redirects home.
+ * One-tap Google sign-in trigger. Opens the Firebase Google popup, exchanges
+ * the resulting ID token for the httpOnly session cookie via
+ * /api/auth/session, then reloads so every hook re-hydrates authenticated.
  *
  * Web only — native builds have no browser auth (see hooks/useAuth.ts), so
  * this renders nothing off web.
@@ -50,28 +50,45 @@ export function GoogleSignInButton({
   label = 'Continue with Google',
   style,
 }: Props) {
+  const [busy, setBusy] = React.useState(false);
+
   // Native builds have no browser-based auth — render nothing.
   if (Platform.OS !== 'web') return null;
 
-  function handlePress() {
-    if (disabled) return;
+  async function handlePress() {
+    if (disabled || busy) return;
     if (onPress) { onPress(); return; }
-    // Full-page navigation so the OAuth redirect chain owns the tab.
-    if (typeof window !== 'undefined') {
-      window.location.assign('/api/auth/google/start');
+
+    setBusy(true);
+    try {
+      const { track } = await import('@/lib/analytics');
+      track('google_signin_tapped');
+      const { signInWithGoogle, establishSession } = await import('@/lib/firebaseClient');
+      const idToken = await signInWithGoogle();
+      if (!idToken) { setBusy(false); return; } // popup closed — no error
+
+      await establishSession(idToken);
+      // Reload so useAuth and friends re-hydrate from the new cookie.
+      window.location.assign('/');
+    } catch (err) {
+      console.error('[GoogleSignInButton] Sign-in failed', err);
+      setBusy(false);
+      if (typeof window !== 'undefined') {
+        window.location.assign('/?auth=error');
+      }
     }
   }
 
   return (
     <Pressable
       onPress={handlePress}
-      disabled={disabled}
+      disabled={disabled || busy}
       accessibilityRole="button"
       style={({ pressed }) => [
         styles.btn,
         // Tactile feedback: lift on hover, press in on tap.
-        pressed && !disabled ? { transform: [{ scale: 0.98 }], opacity: 0.92 } : {},
-        disabled && { opacity: 0.6 },
+        pressed && !disabled && !busy ? { transform: [{ scale: 0.98 }], opacity: 0.92 } : {},
+        (disabled || busy) && { opacity: 0.6 },
         style as any,
       ]}
     >

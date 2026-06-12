@@ -2,6 +2,8 @@ import React from 'react';
 import { View, Text, Pressable, StyleSheet, Platform, Linking, useWindowDimensions } from 'react-native';
 import { router } from 'expo-router';
 import { KnoxLogo } from './KnoxLogo';
+import { logout } from '@/lib/logout';
+import { useRegisteredFlag } from '@/hooks/useRegisteredFlag';
 import { neutral, glass, accent } from '@/theme/colors';
 import { spacing } from '@/theme/spacing';
 import { font } from '@/theme/typography';
@@ -12,10 +14,10 @@ import { breakpoints } from '@/theme/breakpoints';
  * ----------
  * Three-slot top bar:
  *
- *   [ Sign up ]   [ centred logo ]   [ Dashboard ]
+ *   [ Sign up  Log in ]   [ centred logo ]   [ Dashboard ]
  *
- * Both sides are plain text NavLinks — same size, same weight, same
- * letter-spacing — so the row reads as a balanced editorial header.
+ * Each side renders a row of plain text NavLinks — same size, same weight,
+ * same letter-spacing — so the row reads as a balanced editorial header.
  * The centre slot is the Knox wordmark, which doubles as a home link.
  *
  * On narrow viewports the layout stays flat (no stacking); the logo
@@ -26,28 +28,42 @@ export type HeaderNavItem = {
   label:    string;
   to?:      string;
   href?:    string;
+  /** Action item — takes precedence over to/href. */
+  onPress?: () => void;
 };
 
 interface Props {
   activeRoute?: string;
-  /** Left-hand action. Defaults to 'Sign up'. */
-  leftItem?:    HeaderNavItem;
-  /** Right-hand action. Defaults to 'Dashboard'. */
-  rightItem?:   HeaderNavItem;
+  /** Left-hand actions. Defaults are auth-aware — see useRegisteredFlag. */
+  leftItems?:   HeaderNavItem[];
+  /** Right-hand actions. Defaults to 'Dashboard'. */
+  rightItems?:  HeaderNavItem[];
 }
 
-const DEFAULT_LEFT:  HeaderNavItem = { label: 'Sign up',   to: '/signup' };
-const DEFAULT_RIGHT: HeaderNavItem = { label: 'Dashboard', to: '/' };
+const SIGNED_OUT_LEFT: HeaderNavItem[] = [
+  { label: 'Sign up', to: '/signup' },
+  { label: 'Log in',  to: '/login'  },
+];
+const SIGNED_IN_LEFT: HeaderNavItem[] = [
+  { label: 'Preferences', to: '/preferences' },
+  { label: 'Log out',     onPress: () => { logout(); } },
+];
+const DEFAULT_RIGHT:  HeaderNavItem[] = [{ label: 'Dashboard',   to: '/' }];
 
-export function HeaderNav({ activeRoute, leftItem = DEFAULT_LEFT, rightItem = DEFAULT_RIGHT }: Props) {
-  const { width } = useWindowDimensions();
-  const isMobile  = width < breakpoints.tablet;
-  const logoWidth = isMobile ? 88 : 132;
+export function HeaderNav({ activeRoute, leftItems, rightItems = DEFAULT_RIGHT }: Props) {
+  const { width }    = useWindowDimensions();
+  const isRegistered = useRegisteredFlag();
+  const isMobile     = width < breakpoints.tablet;
+  const logoWidth    = isMobile ? 88 : 132;
+
+  const left = leftItems ?? (isRegistered ? SIGNED_IN_LEFT : SIGNED_OUT_LEFT);
 
   return (
     <View style={[styles.wrap, isMobile && styles.wrapMobile]}>
       <View style={styles.sideLeft}>
-        <NavLink item={leftItem} active={leftItem.to === activeRoute} />
+        {left.map(item => (
+          <NavLink key={item.label} item={item} active={item.to === activeRoute} compact={isMobile} />
+        ))}
       </View>
 
       <Pressable
@@ -60,7 +76,9 @@ export function HeaderNav({ activeRoute, leftItem = DEFAULT_LEFT, rightItem = DE
       </Pressable>
 
       <View style={styles.sideRight}>
-        <NavLink item={rightItem} active={rightItem.to === activeRoute} />
+        {rightItems.map(item => (
+          <NavLink key={item.label} item={item} active={item.to === activeRoute} compact={isMobile} />
+        ))}
       </View>
     </View>
   );
@@ -68,9 +86,10 @@ export function HeaderNav({ activeRoute, leftItem = DEFAULT_LEFT, rightItem = DE
 
 // ── NavLink ───────────────────────────────────────────────────────────────────
 
-function NavLink({ item, active }: { item: HeaderNavItem; active: boolean }) {
+function NavLink({ item, active, compact }: { item: HeaderNavItem; active: boolean; compact?: boolean }) {
   const handlePress = () => {
-    if (item.href) Linking.openURL(item.href);
+    if (item.onPress) item.onPress();
+    else if (item.href) Linking.openURL(item.href);
     else if (item.to) router.push(item.to as any);
   };
 
@@ -78,12 +97,13 @@ function NavLink({ item, active }: { item: HeaderNavItem; active: boolean }) {
     <Pressable
       onPress={handlePress}
       accessibilityRole="link"
-      style={({ pressed }) => [styles.link, pressed && { opacity: 0.7 }]}
+      style={({ pressed }) => [styles.link, compact && styles.linkCompact, pressed && { opacity: 0.7 }]}
     >
       {({ hovered }: any) => (
         <>
           <Text style={[
             styles.linkLabel,
+            compact && styles.linkLabelCompact,
             active  && styles.linkLabelActive,
             hovered && styles.linkLabelHovered,
           ]}>
@@ -116,12 +136,14 @@ const styles = StyleSheet.create({
     flexDirection:  'row',
     alignItems:     'center',
     justifyContent: 'flex-start',
+    gap:            spacing.sm,
   },
   sideRight: {
     flex:           1,
     flexDirection:  'row',
     alignItems:     'center',
     justifyContent: 'flex-end',
+    gap:            spacing.sm,
   },
   brand: {
     ...Platform.select({ web: { cursor: 'pointer' } as any, default: {} }),
@@ -154,6 +176,16 @@ const styles = StyleSheet.create({
       default: {},
     }),
   },
+  // Mobile (<768px): two links must fit beside the logo — tighten padding,
+  // type size and tracking so the signed-out left side never wraps at 375px.
+  linkCompact: {
+    paddingHorizontal: spacing.xs,
+  },
+  linkLabelCompact: {
+    fontSize:      11,
+    letterSpacing: 0.6,
+  },
+
   linkLabelHovered: { color: neutral.text },
   linkLabelActive:  { color: accent.indigo },
 

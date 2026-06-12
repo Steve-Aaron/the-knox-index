@@ -59,7 +59,7 @@ interface Props {
 }
 
 const COPY = {
-  tagline:     'Learn how UK politicians use TikTok, in real time. Get insights live on our dashboard below, and in your inbox at 08:00 every day.',
+  tagline:     'Learn how UK politicians use TikTok, in real time. Get insights live on our dashboard below, and bespoke email insights every day.',
   placeholder: 'IMAGE PLACEHOLDER',
 };
 

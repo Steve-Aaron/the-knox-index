@@ -26,3 +26,22 @@ Rules:
   - the radar log-scaled followers.
 - If the model genuinely must change, it is edited in `knoxConfig.ts` **only**,
   with explicit sign-off — never silently recomputed elsewhere.
+
+## Amendment — range-scoped Knox (signed off by Steve, 2026-06-12)
+
+The leaderboard's Knox column is now date-sensitive. When the time filter is
+anything other than 'Lifetime', the leaderboard ranks and displays
+`computeRangeKnox` (in `knoxConfig.ts`): the identical caps, curve and
+minScore floor via `computeKnoxBase`, fed with axis inputs computed from posts
+inside the selected range (`rangeAxes` in `transformers.ts`). Followers stays
+lifetime. The lifetime penalty multipliers do not apply to range scores —
+their windows are lifetime-defined.
+
+Scope rules:
+
+- LEADERBOARD ONLY (`RankBoard` / `RankBoardRow` via `leaderboardScore`).
+  Account pages, radar charts, summary panels and rankings keep lifetime Knox
+- `computeKnoxFactor` remains the single source of the lifetime Knox Factor
+  and is unchanged
+- The 'This year' filter means the current calendar year (`bqQueries.ts`),
+  not a rolling 365 days

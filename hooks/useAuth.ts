@@ -24,6 +24,8 @@ import { useState, useEffect } from 'react';
 import { Platform } from 'react-native';
 import { identify, setSuperProperties, track } from '@/lib/analytics';
 import { getDevPreview } from '@/lib/devPreview';
+import { mintSessionSilently } from '@/lib/firebaseClient';
+import { emitAuthChanged } from '@/lib/authEvents';
 
 export interface AuthState {
   isRegistered: boolean;
@@ -67,7 +69,7 @@ export function useAuth(): AuthState {
     fetch('/api/auth/me', { credentials: 'same-origin', cache: 'no-store' })
       .then(async r => {
         if (r.ok) {
-          const data: { email: string } = await r.json();
+          const data: { email: string; profiled?: boolean } = await r.json();
 
           // Determine if this is a brand-new registration or a returning session.
           // If LS_REGISTERED was not already set, this is the first confirmation.
@@ -76,6 +78,10 @@ export function useAuth(): AuthState {
           setEmail(data.email);
           localStorage.setItem(LS_REGISTERED, '1');
           localStorage.setItem(LS_EMAIL, data.email);
+          // Hydrate profiled state from the server claim (set-only — a stale
+          // false claim must never re-trigger the profiling modal).
+          if (data.profiled) localStorage.setItem('tki_profiled', '1');
+          emitAuthChanged();
 
           // ── Analytics ──────────────────────────────────────────────────────
           // Link all future events to this identity in MixPanel.
@@ -89,11 +95,25 @@ export function useAuth(): AuthState {
             track('user_returned');
           }
         } else {
-          // 401 — cookie gone or tampered, clear the cache
-          setEmail(null);
-          localStorage.removeItem(LS_REGISTERED);
-          localStorage.removeItem(LS_EMAIL);
-          setSuperProperties({ is_registered: false });
+          // 401 — cookie gone, expired (14-day Firebase limit), or revoked.
+          // Rolling session: if the Firebase client SDK still holds a
+          // signed-in user, silently re-mint the cookie before giving up.
+          const remintedEmail = await mintSessionSilently().catch(() => null);
+
+          if (remintedEmail) {
+            setEmail(remintedEmail);
+            localStorage.setItem(LS_REGISTERED, '1');
+            localStorage.setItem(LS_EMAIL, remintedEmail);
+            identify(remintedEmail);
+            setSuperProperties({ is_registered: true });
+            track('user_returned');
+          } else {
+            setEmail(null);
+            localStorage.removeItem(LS_REGISTERED);
+            localStorage.removeItem(LS_EMAIL);
+            setSuperProperties({ is_registered: false });
+          }
+          emitAuthChanged();
         }
       })
       .catch(() => {

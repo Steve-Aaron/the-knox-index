@@ -31,18 +31,18 @@
  * One job: persist user preferences to Brevo on behalf of an authenticated user.
  */
 
-import { verifySessionCookie } from '@/lib/auth';
+import { verifySession, markProfiled } from '@/lib/firebaseAdmin';
 import { upsertWithConsent, type BrevoValue } from '@/lib/brevo';
 
 const BREVO_API_KEY = process.env.BREVO_API_KEY ?? '';
 
 export async function POST(request: Request): Promise<Response> {
-  // Auth check
-  const cookieHeader = request.headers.get('Cookie');
-  const email        = verifySessionCookie(cookieHeader);
-  if (!email) {
+  // Auth check (Firebase session cookie, revocation-aware)
+  const user = await verifySession(request.headers.get('Cookie'));
+  if (!user) {
     return Response.json({ error: 'Unauthenticated' }, { status: 401 });
   }
+  const email = user.email;
 
   if (!BREVO_API_KEY) {
     console.error('[/api/preferences] BREVO_API_KEY not set');
@@ -109,6 +109,14 @@ export async function POST(request: Request): Promise<Response> {
   if (!result.ok) {
     console.error('[/api/preferences] Brevo responded', result.status);
     // Non-fatal from client perspective — preferences saved locally
+  }
+
+  // Persist 'profiled' on the Firebase user so the profiling modal never
+  // re-prompts on a new device/browser. Non-fatal — Brevo holds the data.
+  try {
+    await markProfiled(user.uid);
+  } catch (err: any) {
+    console.error('[/api/preferences] markProfiled failed', err?.message ?? err);
   }
 
   return Response.json({ ok: true }, { status: 200 });

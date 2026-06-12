@@ -194,6 +194,14 @@ export interface Politician {
   };
   scores: TopTrumpScores;
   /**
+   * Knox Factor computed from posts inside the active ?range= only
+   * (computeRangeKnox — same caps/curve as lifetime Knox, range-scoped
+   * inputs, no lifetime penalties). LEADERBOARD ONLY: shown when a time
+   * filter other than 'lifetime' is active. Kept outside `scores` so the
+   * ScoreKey-driven surfaces (rankings, radar, sort chips) are unaffected.
+   */
+  knoxFactorRange?: number;
+  /**
    * RADAR-ONLY display scores (0–100). These deliberately differ from `scores`
    * (which drive Knox Factor): activity is the absolute 7-day step scale and
    * followers is log-scaled. They affect the radar chart shape only — never

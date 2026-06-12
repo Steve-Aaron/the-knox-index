@@ -160,6 +160,32 @@ export function knoxPenaltyMultiplier(
 }
 
 /**
+ * Range-scoped Knox Factor — signed off 2026-06-12.
+ * ---------------------------------------------------
+ * Used by the LEADERBOARD ONLY when a time filter other than 'lifetime' is
+ * active. Identical formula to lifetime Knox (same caps, same curve, same
+ * minScore floor — all via computeKnoxBase). Only the AXIS INPUTS differ:
+ * virality, engagement and frequency come from posts inside the selected
+ * range (see rangeAxes in data/transformers.ts); followers stays lifetime
+ * because a range has no follower count.
+ *
+ * The lifetime penalty multipliers are NOT applied: their windows (lifetime
+ * post count, 7d/28d recency, lifetime avg views) have no meaning inside an
+ * arbitrary range — and the leaderboard already excludes accounts with zero
+ * posts in range.
+ *
+ * computeKnoxFactor remains the single source of the LIFETIME Knox Factor.
+ */
+export function computeRangeKnox(
+  virality:   number,
+  engagement: number,
+  followers:  number,
+  frequency:  number,
+): number {
+  return Math.round(computeKnoxBase(virality, engagement, followers, frequency));
+}
+
+/**
  * Full Knox Factor: base score with all penalties applied, rounded to 0–100.
  * THIS is the single value surfaced everywhere Knox Factor is shown.
  */

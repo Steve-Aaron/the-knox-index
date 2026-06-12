@@ -5,14 +5,17 @@
  * Body: { email: string }
  *
  * 1. Validates the email
- * 2. Creates a signed magic link token (1-hour expiry)
+ * 2. Generates a Firebase passwordless sign-in link (single-use, Firebase-managed expiry)
  * 3. Upserts the contact into Brevo
- * 4. Sends the magic link email via Brevo SMTP
+ * 4. Sends the magic link email via Brevo SMTP (branded — Firebase never emails the user)
+ *
+ * The link lands on /login, where the client SDK completes sign-in and
+ * exchanges the resulting ID token for the httpOnly session cookie.
  *
  * Returns 200 regardless of whether the email exists — no enumeration.
  */
 
-import { createMagicToken } from '@/lib/auth';
+import { generateMagicLink } from '@/lib/firebaseAdmin';
 import { BRAND } from '@/brand/constants';
 
 const BREVO_API_KEY = process.env.BREVO_API_KEY ?? '';
@@ -75,18 +78,16 @@ export async function POST(request: Request): Promise<Response> {
     const url     = new URL(request.url);
     const baseUrl = `${url.protocol}//${url.host}`;
 
-    // createMagicToken depends on Node's `crypto` and on AUTH_SECRET. If the
-    // env var is missing we still produce a (less secure) token, but we want
-    // any crypto-level failure to surface as a clean 500 rather than a
-    // generic Vercel error.
-    let token: string;
+    // Firebase mints the single-use sign-in link; we only deliver it.
+    // Any admin SDK failure (bad service account, provider not enabled)
+    // surfaces as a clean 500 rather than a generic Vercel error.
+    let link: string;
     try {
-      token = createMagicToken(email);
+      link = await generateMagicLink(email, `${baseUrl}/login`);
     } catch (err: any) {
-      console.error('[/api/auth/request] Token generation failed', err?.message ?? err);
-      return Response.json({ error: 'Token generation failed' }, { status: 500 });
+      console.error('[/api/auth/request] Firebase link generation failed', err?.message ?? err);
+      return Response.json({ error: 'Sign-in link generation failed' }, { status: 500 });
     }
-    const link = `${baseUrl}/api/auth/verify?token=${encodeURIComponent(token)}`;
 
     // 1. Upsert into Brevo (non-fatal — never blocks email delivery)
     brevo('/contacts', {
@@ -153,7 +154,7 @@ function magicLinkHtml(link: string): string {
             Your access link
           </h1>
           <p style="margin:0 0 28px;font-size:14px;line-height:22px;color:#A8A8BA;">
-            Click the button below to sign in. This link expires in one hour and can only be used once.
+            Click the button below to sign in. This link can only be used once and expires after a few hours.
           </p>
 
           <a href="${link}"
@@ -181,5 +182,5 @@ function magicLinkHtml(link: string): string {
 }
 
 function magicLinkText(link: string): string {
-  return `Your Knox Index access link\n\nClick here to sign in:\n${link}\n\nThis link expires in one hour.\n\nIf you didn't request this, ignore this email.\n\nKnox Digital`;
+  return `Your Knox Index access link\n\nClick here to sign in:\n${link}\n\nThis link is single-use and expires after a few hours.\n\nIf you didn't request this, ignore this email.\n\nKnox Digital`;
 }

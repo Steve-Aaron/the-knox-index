@@ -480,6 +480,7 @@ function DashboardScreenInner() {
                   onSelect={handleSetActiveId}
                   panelHeight={PANEL_HEIGHT}
                   isRegistered={isRegistered}
+                  isLifetime={range === 'lifetime'}
                 />
               </View>
               <View
@@ -518,6 +519,7 @@ function DashboardScreenInner() {
                     onSelect={handleSetActiveId}
                     panelHeight={PANEL_HEIGHT}
                     isRegistered={isRegistered}
+                    isLifetime={range === 'lifetime'}
                   />
                 </View>
                 <View
@@ -543,6 +545,7 @@ function DashboardScreenInner() {
                 timeRangeLabel={RANGE_LABELS[range]}
                 onSelect={handleSetActiveId}
                 isRegistered={isRegistered}
+                isLifetime={range === 'lifetime'}
               />
               {active
                 ? <PoliticianDetailPanel politician={active} headlineKey={sortKey} range={range} />

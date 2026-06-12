@@ -3,34 +3,26 @@
  * -----------------------
  * GET /api/auth/me
  *
- * Reads the session cookie and returns the current user's email.
- * Returns 401 if the cookie is absent, expired, or tampered.
+ * Verifies the Firebase session cookie (including server-side revocation
+ * check) and returns the current user's email. 401 if absent, expired,
+ * tampered, or revoked.
  *
- * Used by the client-side useAuth hook on every page load to
- * hydrate auth state without relying on localStorage alone.
+ * Rolling sessions are handled client-side: on a 401, useAuth silently
+ * re-mints the cookie via /api/auth/session if the Firebase client SDK
+ * still holds a signed-in user.
  */
 
-import { verifySessionCookie, refreshSessionCookie } from '@/lib/auth';
+import { verifySession } from '@/lib/firebaseAdmin';
 
 export async function GET(request: Request): Promise<Response> {
-  const cookieHeader = request.headers.get('Cookie');
-  const email        = verifySessionCookie(cookieHeader);
+  const user = await verifySession(request.headers.get('Cookie'));
 
-  if (!email) {
+  if (!user) {
     return Response.json({ error: 'Unauthenticated' }, { status: 401 });
   }
 
   return Response.json(
-    { email },
-    {
-      headers: {
-        // Rolling session: slide the 30-day window forward on every visit so
-        // active users never get logged out.
-        'Set-Cookie':    refreshSessionCookie(email),
-        // No caching — the response carries a fresh Set-Cookie each time, and
-        // a cached 200 could otherwise mask a server-side session expiry.
-        'Cache-Control': 'no-store',
-      },
-    }
+    { email: user.email, profiled: user.profiled },
+    { headers: { 'Cache-Control': 'no-store' } }
   );
 }
