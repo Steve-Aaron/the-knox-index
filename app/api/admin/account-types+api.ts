@@ -4,16 +4,13 @@
  * GET  /api/admin/account-types  — list all account types
  * POST /api/admin/account-types  — create a new type
  *
- * Protected: requires admin_panel=1 cookie.
+ * Protected: Firebase session + ADMIN_EMAILS allowlist (lib/adminAuth).
  */
 
 import { getBigQuery, tableRef, query } from '@/lib/bigquery';
 import { safeErrorDetail } from '@/lib/errors';
+import { isAdminRequest } from '@/lib/adminAuth';
 
-function isAdmin(request: Request): boolean {
-  const cookies = request.headers.get('Cookie') ?? '';
-  return cookies.split(';').some(c => c.trim() === 'admin_panel=1');
-}
 
 export interface AccountTypeRow {
   id:   number;
@@ -23,7 +20,7 @@ export interface AccountTypeRow {
 // ── GET ───────────────────────────────────────────────────────────────────────
 
 export async function GET(request: Request): Promise<Response> {
-  if (!isAdmin(request)) {
+  if (!(await isAdminRequest(request))) {
     return Response.json({ error: 'Forbidden' }, { status: 403 });
   }
 
@@ -42,7 +39,7 @@ export async function GET(request: Request): Promise<Response> {
 // ── POST ──────────────────────────────────────────────────────────────────────
 
 export async function POST(request: Request): Promise<Response> {
-  if (!isAdmin(request)) {
+  if (!(await isAdminRequest(request))) {
     return Response.json({ error: 'Forbidden' }, { status: 403 });
   }
 

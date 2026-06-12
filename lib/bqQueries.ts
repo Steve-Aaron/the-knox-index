@@ -23,7 +23,7 @@ export function rangeDateFilter(range: Range): string {
     case 'yesterday': return `postDate >= DATE_SUB(CURRENT_DATE(), INTERVAL 1 DAY)`;
     case 'week':      return `postDate >= DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY)`;
     case 'month':     return `postDate >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)`;
-    case 'year':      return `postDate >= DATE_SUB(CURRENT_DATE(), INTERVAL 365 DAY)`;
+    case 'year':      return `EXTRACT(YEAR FROM postDate) = EXTRACT(YEAR FROM CURRENT_DATE())`;
     case 'lifetime':  return `postDate IS NOT NULL`;
   }
 }

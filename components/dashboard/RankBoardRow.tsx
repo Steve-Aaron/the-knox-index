@@ -7,6 +7,7 @@ import { neutral, party, glass, accent } from '@/theme/colors';
 import { spacing, radius } from '@/theme/spacing';
 import { type } from '@/theme/typography';
 import type { Politician, ScoreKey } from '@/data/types';
+import { leaderboardScore } from '@/data/transformers';
 
 /**
  * RankBoardRow
@@ -21,15 +22,18 @@ interface Props {
   headlineKey: ScoreKey;
   active: boolean;
   onPress: () => void;
+  /** False when a time filter is active — Knox displays the range-scoped score. */
+  isLifetime?: boolean;
 }
 
-export function RankBoardRow({ politician, rank, headlineKey, active, onPress }: Props) {
+export function RankBoardRow({ politician, rank, headlineKey, active, onPress, isLifetime = true }: Props) {
   const colour  = party[politician.partyKey];
   // An account is silent if it has no posts this week AND no views yesterday.
   // knoxFactor === 0 is a reliable proxy once the @ join bug is fixed.
   const silent  = politician.scores.knoxFactor === 0
     && politician.totals.postsThisWeek === 0;
-  const score   = politician.scores[headlineKey];
+  // Same source as RankBoard's sort — display and order can never disagree.
+  const score   = leaderboardScore(politician, headlineKey, isLifetime);
 
   return (
     <Pressable
