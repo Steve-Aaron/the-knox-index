@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, useWindowDimensions } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { KnoxLogo } from '@/components/primitives/KnoxLogo';
 import { GlassSurface } from '@/components/primitives/GlassSurface';
@@ -34,7 +34,9 @@ export function AuthScreen({ kicker, title, subtitle, children }: Props) {
   return (
     <SafeAreaView style={styles.root}>
       <DevLabel name="AuthScreen" />
-      <View style={styles.center}>
+      {/* ScrollView so short viewports (iPhone SE, landscape phones, software
+          keyboard open) can reach the whole card instead of clipping. */}
+      <ScrollView contentContainerStyle={styles.center} keyboardShouldPersistTaps="handled">
         <EntranceFade>
           <View style={styles.logoWrap}>
             <KnoxLogo width={Math.min(200, cardWidth * 0.55)} />
@@ -51,7 +53,7 @@ export function AuthScreen({ kicker, title, subtitle, children }: Props) {
             </View>
           </GlassSurface>
         </EntranceFade>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -62,7 +64,7 @@ const styles = StyleSheet.create({
     backgroundColor: neutral.felt,
   },
   center: {
-    flex:           1,
+    flexGrow:       1,
     alignItems:     'center',
     justifyContent: 'center',
     padding:        spacing.lg,

@@ -94,6 +94,11 @@ export async function completeMagicLinkSignIn(email: string, href: string): Prom
 /**
  * Exchanges an ID token for the httpOnly session cookie.
  * Returns the authenticated email on success.
+ *
+ * Also hydrates the local 'profiled' flag from the server-side custom claim,
+ * so a user signing in on a new device is never re-prompted for profiling.
+ * Set-only: a false claim never clears a local '1' (the claim can read
+ * stale-false in the window right after profiling completes).
  */
 export async function establishSession(idToken: string): Promise<string> {
   const res = await fetch('/api/auth/session', {
@@ -106,7 +111,17 @@ export async function establishSession(idToken: string): Promise<string> {
     const body = await res.json().catch(() => ({}));
     throw new Error(body?.error ?? 'Failed to establish session');
   }
-  const data: { email: string } = await res.json();
+  const data: { email: string; profiled?: boolean } = await res.json();
+  if (typeof localStorage !== 'undefined') {
+    // Hydrate the auth cache immediately — client-side navigations (e.g.
+    // router.replace after magic link completion) render the navbar before
+    // useAuth's /me round-trip, so the cache must be correct right now.
+    localStorage.setItem('tki_registered', '1');
+    localStorage.setItem('tki_email', data.email);
+    if (data.profiled) localStorage.setItem('tki_profiled', '1');
+  }
+  const { emitAuthChanged } = await import('@/lib/authEvents');
+  emitAuthChanged();
   return data.email;
 }
 

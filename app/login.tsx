@@ -7,6 +7,7 @@ import { GoogleSignInButton } from '@/components/primitives/GoogleSignInButton';
 import { LabeledInput } from '@/components/primitives/LabeledInput';
 import { PrimaryButton } from '@/components/primitives/PrimaryButton';
 import { useMagicLinkCompletion } from '@/hooks/useMagicLinkCompletion';
+import { useRegisteredFlag } from '@/hooks/useRegisteredFlag';
 import { neutral, glass } from '@/theme/colors';
 import { spacing } from '@/theme/spacing';
 import { font } from '@/theme/typography';
@@ -61,6 +62,7 @@ function CrossDeviceEmailPrompt({ onSubmit }: { onSubmit: (email: string) => voi
 
 export default function LoginScreen() {
   const { status, error, submitEmail } = useMagicLinkCompletion();
+  const isRegistered = useRegisteredFlag();
 
   // Session cookie is set — land on the dashboard fully signed in.
   useEffect(() => {
@@ -93,6 +95,13 @@ export default function LoginScreen() {
 
   return (
     <AuthScreen kicker={copy.kicker} title={copy.title} subtitle={copy.subtitle}>
+      {/* Already signed in (e.g. bookmarked /login) — offer the way home.
+          The form stays available below for switching accounts. */}
+      {isRegistered && (
+        <Pressable onPress={() => router.replace('/')} style={styles.signedInBanner}>
+          <Text style={styles.signedInText}>You're already signed in — go to the dashboard →</Text>
+        </Pressable>
+      )}
       {status === 'error' && error ? <Text style={styles.error}>{error}</Text> : null}
       <MagicLinkForm />
       <OrDivider />
@@ -138,6 +147,20 @@ const styles = StyleSheet.create({
     lineHeight:   19,
     color:        '#FF6B6B',
     marginBottom: spacing.md,
+  },
+  signedInBanner: {
+    backgroundColor:   glass.fillHi,
+    borderWidth:       1,
+    borderColor:       glass.borderHi,
+    borderRadius:      8,
+    paddingVertical:   spacing.sm,
+    paddingHorizontal: spacing.md,
+    marginBottom:      spacing.md,
+  },
+  signedInText: {
+    fontFamily: font.ui,
+    fontSize:   13,
+    color:      neutral.text,
   },
   footerLink: {
     marginTop:  spacing.lg,

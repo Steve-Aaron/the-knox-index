@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, Pressable, StyleSheet, Platform, Linking } from 'react-native';
 import { router } from 'expo-router';
 import { DevLabel } from '@/components/primitives/DevLabel';
+import { useRegisteredFlag } from '@/hooks/useRegisteredFlag';
 import { KnoxLogo } from '@/components/primitives/KnoxLogo';
 import { neutral, glass, accent } from '@/theme/colors';
 import { spacing, radius } from '@/theme/spacing';
@@ -21,14 +22,24 @@ const YEAR = new Date().getFullYear();
 /** Footer link descriptor. `to` = in-app route, `url` = external. */
 type FooterLink = { label: string; to?: string; url?: string };
 
-const LINKS: FooterLink[] = [
+const SIGNED_OUT_LINKS: FooterLink[] = [
   { label: 'Sign up',        to:  '/signup' },
+  { label: 'Log in',         to:  '/login' },
+  { label: 'Contact',        to:  '/contact' },
+  { label: 'Privacy',        url: 'https://knoxdigi.com/privacy-policy' },
+  { label: 'LinkedIn',       url: 'https://www.linkedin.com/company/knoxdigital' },
+];
+
+const SIGNED_IN_LINKS: FooterLink[] = [
+  { label: 'Preferences',    to:  '/preferences' },
   { label: 'Contact',        to:  '/contact' },
   { label: 'Privacy',        url: 'https://knoxdigi.com/privacy-policy' },
   { label: 'LinkedIn',       url: 'https://www.linkedin.com/company/knoxdigital' },
 ];
 
 export function AppFooter() {
+  const isRegistered = useRegisteredFlag();
+  const LINKS = isRegistered ? SIGNED_IN_LINKS : SIGNED_OUT_LINKS;
   return (
     <View style={styles.wrap}>
       <DevLabel name="AppFooter" />

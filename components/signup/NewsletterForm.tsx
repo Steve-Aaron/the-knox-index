@@ -27,7 +27,8 @@ import { FrequencyPicker } from '@/components/primitives/FrequencyPicker';
  * Step 3 — Interests + Consent     → "Submit"
  *
  * On submit: saves profile data to localStorage, then POSTs to
- * /api/auth/request to dispatch the magic-link email.
+ * /api/signup (Brevo upsert + welcome email). Sign-in itself is separate —
+ * see /login and lib/requestMagicLink.
  */
 
 type Step      = 1 | 2 | 3;

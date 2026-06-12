@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { router } from 'expo-router';
 import {
   View,
   Text,
@@ -22,6 +23,8 @@ import { type, font } from '@/theme/typography';
 import { breakpoints } from '@/theme/breakpoints';
 import { track } from '@/lib/analytics';
 import { requestMagicLink } from '@/lib/requestMagicLink';
+import { AuthToast } from '@/components/auth/AuthToast';
+import { onAuthChanged } from '@/lib/authEvents';
 import { SEGMENTS, INTERESTS } from '@/data/profileOptions';
 import { DevLabel } from '@/components/primitives/DevLabel';
 import { FrequencyPicker } from '@/components/primitives/FrequencyPicker';
@@ -78,31 +81,36 @@ export function StickyUnlock({ showBar, isRegistered, email }: Props) {
   const isMobile  = width < breakpoints.tablet;
 
   // ── Hydrate profiled state from localStorage ──────────────────────────────
+  // Subscribed to authEvents so a profile completed in another tab (or a
+  // claim hydrated mid-session) cancels the pending modal instead of
+  // re-prompting a user who has already finished.
   useEffect(() => {
     if (Platform.OS !== 'web') return;
 
-    const prof = localStorage.getItem('tki_profiled') === '1';
-    setProfiled(prof);
+    const read = () => localStorage.getItem('tki_profiled') === '1';
+    setProfiled(read());
 
     // If registered but not yet profiled → show profiling modal after delay
-    if (isRegistered && !prof) {
-      const t = setTimeout(() => setModal('profiling'), PROFILE_DELAY_MS);
-      return () => clearTimeout(t);
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    if (isRegistered && !read()) {
+      timer = setTimeout(() => {
+        // Re-check at fire time — profiled may have flipped during the delay
+        if (!read()) setModal('profiling');
+      }, PROFILE_DELAY_MS);
     }
-  }, [isRegistered]);
 
-  // ── Show auth error toast if redirected back with ?auth=error ─────────────
-  const [authError, setAuthError] = useState(false);
-  useEffect(() => {
-    if (Platform.OS !== 'web') return;
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('auth') === 'error') {
-      setAuthError(true);
-      window.history.replaceState({}, '', window.location.pathname);
-      const t = setTimeout(() => setAuthError(false), 5000);
-      return () => clearTimeout(t);
-    }
-  }, []);
+    const unsubscribe = onAuthChanged(() => {
+      const prof = read();
+      setProfiled(prof);
+      if (prof && timer) { clearTimeout(timer); timer = null; }
+      if (prof) setModal(m => (m === 'profiling' ? 'hidden' : m));
+    });
+
+    return () => {
+      if (timer) clearTimeout(timer);
+      unsubscribe();
+    };
+  }, [isRegistered]);
 
   const shouldShowBar = showBar && !isRegistered;
 
@@ -149,27 +157,27 @@ export function StickyUnlock({ showBar, isRegistered, email }: Props) {
                   </Text>
                 )}
               </View>
-              <View style={[styles.ctaBtn, isMobile && styles.ctaBtnMobile]}>
-                <Text style={styles.ctaBtnText}>REGISTER →</Text>
+              <View style={[styles.ctaActions, isMobile && styles.ctaActionsMobile]}>
+                <View style={[styles.ctaBtn, isMobile && styles.ctaBtnMobile]}>
+                  <Text style={styles.ctaBtnText}>REGISTER →</Text>
+                </View>
+                {/* Secondary action: existing users go straight to /login.
+                    Inner Pressable wins the press over the bar's modal opener. */}
+                <Pressable
+                  onPress={() => { track('cta_login_tapped'); router.push('/login'); }}
+                  accessibilityRole="link"
+                  style={({ pressed }) => [styles.ctaLogin, pressed && { opacity: 0.7 }]}
+                >
+                  <Text style={styles.ctaLoginText}>Already registered? Log in</Text>
+                </Pressable>
               </View>
             </View>
           </Pressable>
         </MotiView>
       )}
 
-      {/* ── Auth error toast ──────────────────────────────────────────── */}
-      {authError && (
-        <MotiView
-          from={{ opacity: 0, translateY: 10 }}
-          animate={{ opacity: 1, translateY: 0 }}
-          style={styles.errorToast}
-          pointerEvents="none"
-        >
-          <Text style={styles.errorToastText}>
-            That link has expired. Please request a new one.
-          </Text>
-        </MotiView>
-      )}
+      {/* ── Auth feedback toast (?auth=error, ?logged_out=1) ──────────── */}
+      <AuthToast />
 
       {/* ── Unlock modal ──────────────────────────────────────────────── */}
       {modal === 'unlock' && (
@@ -786,25 +794,25 @@ const styles = StyleSheet.create({
   },
   ctaBtnText: { ...type.caption, color: '#fff', fontSize: 12, fontWeight: '800', letterSpacing: 0.6 },
 
-  errorToast: {
-    position:      'absolute' as any,
-    bottom:        spacing.xxxl + 60,
-    left:          0,
-    right:         0,
-    alignItems:    'center',
-    zIndex:        1000,
-    pointerEvents: 'none' as any,
-    ...Platform.select({ web: { position: 'fixed' } as any, default: {} }),
+  // Register pill + log-in link stack vertically, centred
+  ctaActions: {
+    alignItems: 'center',
+    flexShrink: 0,
+    gap:        spacing.xs,
   },
-  errorToastText: {
-    ...type.body,
-    fontSize:          16,
-    color:             '#fff',
-    backgroundColor:   'rgba(220,60,60,0.9)',
-    paddingHorizontal: spacing.lg,
-    paddingVertical:   spacing.sm,
-    borderRadius:      radius.pill,
-    overflow:          'hidden',
+  ctaActionsMobile: {
+    alignSelf: 'stretch',
+  },
+  ctaLogin: {
+    paddingVertical:   2,
+    paddingHorizontal: spacing.sm,
+    ...Platform.select({ web: { cursor: 'pointer' } as any, default: {} }),
+  },
+  ctaLoginText: {
+    fontFamily:         font.ui,
+    fontSize:           11,
+    color:              neutral.textMid,
+    textDecorationLine: 'underline',
   },
 
   modalBackdrop: {

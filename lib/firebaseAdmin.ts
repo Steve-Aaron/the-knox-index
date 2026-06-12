@@ -82,8 +82,10 @@ export async function generateMagicLink(email: string, continueUrl: string): Pro
 // ── Session cookie ─────────────────────────────────────────────────────────────
 
 export interface SessionUser {
-  uid:   string;
-  email: string;
+  uid:      string;
+  email:    string;
+  /** True once the user has completed profiling (Firebase custom claim). */
+  profiled: boolean;
 }
 
 /**
@@ -112,7 +114,7 @@ export async function createSessionFromIdToken(
 
   return {
     setCookie: buildCookie(cookieValue, SESSION_EXPIRY_MS / 1000),
-    user:      { uid: decoded.uid, email: decoded.email },
+    user:      { uid: decoded.uid, email: decoded.email, profiled: decoded.profiled === true },
   };
 }
 
@@ -128,10 +130,22 @@ export async function verifySession(cookieHeader: string | null): Promise<Sessio
   try {
     const decoded = await adminAuth().verifySessionCookie(value, true);
     if (!decoded.email) return null;
-    return { uid: decoded.uid, email: decoded.email };
+    // `profiled` is baked into the cookie at mint time, so it can read stale-
+    // false right after profiling completes. Callers treat true as canonical
+    // and never un-profile on false (see hooks/useAuth.ts).
+    return { uid: decoded.uid, email: decoded.email, profiled: decoded.profiled === true };
   } catch {
     return null;
   }
+}
+
+/**
+ * Marks a user as having completed profiling. Stored as a custom claim, so
+ * it survives devices, browsers, and cleared localStorage. Idempotent.
+ */
+export async function markProfiled(uid: string): Promise<void> {
+  const user = await adminAuth().getUser(uid);
+  await adminAuth().setCustomUserClaims(uid, { ...user.customClaims, profiled: true });
 }
 
 /** Revokes all refresh tokens for a user — invalidates every session cookie. */

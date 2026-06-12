@@ -30,6 +30,7 @@ import { SEGMENTS, INTERESTS } from '@/data/profileOptions';
 import { track } from '@/lib/analytics';
 import { buildLinkedinUrl, extractLinkedinHandle } from '@/lib/linkedin';
 import { requestMagicLink } from '@/lib/requestMagicLink';
+import { logout } from '@/lib/logout';
 import { LinkedinInput } from '@/components/primitives/LinkedinInput';
 import { ConsentToggleRow } from '@/components/primitives/ConsentToggleRow';
 import { SelectableCard } from '@/components/primitives/SelectableCard';
@@ -532,6 +533,16 @@ export default function PreferencesScreen() {
               iconName="floppy-disk"
               style={styles.saveBtn}
             />
+
+            {/* Quiet sign-out escape hatch — mirrors the navbar 'Log out'
+                for mobile users. Full session teardown via lib/logout. */}
+            <Pressable
+              onPress={() => { logout(); }}
+              accessibilityRole="button"
+              style={({ pressed }) => [styles.logoutLink, pressed && { opacity: 0.6 }]}
+            >
+              <Text style={styles.logoutLinkText}>Log out of The Knox Index</Text>
+            </Pressable>
           </MotiView>
 
         </ScrollView>
@@ -781,6 +792,17 @@ const styles = StyleSheet.create({
 
   // Save
   saveWrap: { gap: spacing.md, alignItems: 'center', paddingBottom: spacing.lg },
+  logoutLink: {
+    marginTop:       spacing.sm,
+    paddingVertical: spacing.xs,
+    ...Platform.select({ web: { cursor: 'pointer' } as any, default: {} }),
+  },
+  logoutLinkText: {
+    fontFamily:         font.ui,
+    fontSize:           13,
+    color:              neutral.textMid,
+    textDecorationLine: 'underline',
+  },
   saveBtn: {
     backgroundColor:   accent.indigo,
     borderRadius:      radius.pill,

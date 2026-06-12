@@ -28,7 +28,7 @@ export async function POST(request: Request): Promise<Response> {
   try {
     const { setCookie, user } = await createSessionFromIdToken(idToken);
     return Response.json(
-      { ok: true, email: user.email },
+      { ok: true, email: user.email, profiled: user.profiled },
       {
         headers: {
           'Set-Cookie':    setCookie,

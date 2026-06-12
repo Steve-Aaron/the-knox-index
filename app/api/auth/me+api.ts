@@ -22,7 +22,7 @@ export async function GET(request: Request): Promise<Response> {
   }
 
   return Response.json(
-    { email: user.email },
+    { email: user.email, profiled: user.profiled },
     { headers: { 'Cache-Control': 'no-store' } }
   );
 }
