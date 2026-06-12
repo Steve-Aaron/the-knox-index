@@ -24,12 +24,27 @@ interface Props {
   kicker:    string;
   title:     string;
   subtitle?: string;
+  /**
+   * Skip the glass card and render the content as bare centred text under
+   * the logo. Used for transient states (e.g. 'Signing you in…') where a
+   * framed box reads as too heavy.
+   */
+  frameless?: boolean;
   children?: React.ReactNode;
 }
 
-export function AuthScreen({ kicker, title, subtitle, children }: Props) {
+export function AuthScreen({ kicker, title, subtitle, frameless = false, children }: Props) {
   const { width } = useWindowDimensions();
   const cardWidth = Math.min(420, width - spacing.lg * 2);
+
+  const inner = (
+    <View style={frameless ? [styles.cardInner, styles.framelessInner] : styles.cardInner}>
+      <Text style={[styles.kicker, frameless && styles.centerText]}>{kicker}</Text>
+      <Text style={[styles.title, frameless && styles.centerText]}>{title}</Text>
+      {subtitle ? <Text style={[styles.subtitle, frameless && styles.centerText]}>{subtitle}</Text> : null}
+      {children}
+    </View>
+  );
 
   return (
     <SafeAreaView style={styles.root}>
@@ -44,14 +59,13 @@ export function AuthScreen({ kicker, title, subtitle, children }: Props) {
         </EntranceFade>
 
         <EntranceFade delay={80}>
-          <GlassSurface radius={radius.lg} topAccent={brand.gradient as any} style={{ width: cardWidth }}>
-            <View style={styles.cardInner}>
-              <Text style={styles.kicker}>{kicker}</Text>
-              <Text style={styles.title}>{title}</Text>
-              {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
-              {children}
-            </View>
-          </GlassSurface>
+          {frameless
+            ? <View style={{ width: cardWidth }}>{inner}</View>
+            : (
+              <GlassSurface radius={radius.lg} topAccent={brand.gradient as any} style={{ width: cardWidth }}>
+                {inner}
+              </GlassSurface>
+            )}
         </EntranceFade>
       </ScrollView>
     </SafeAreaView>
@@ -75,6 +89,12 @@ const styles = StyleSheet.create({
   },
   cardInner: {
     padding: spacing.xl,
+  },
+  framelessInner: {
+    alignItems: 'center',
+  },
+  centerText: {
+    textAlign: 'center',
   },
   kicker: {
     fontFamily:    font.bold,
