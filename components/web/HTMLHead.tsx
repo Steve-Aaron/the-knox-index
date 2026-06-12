@@ -157,6 +157,10 @@ export function HTMLHead() {
            don't support media on icon links fall back to the app.json
            favicon.                                                          */}
       {/* @ts-ignore — Expo Router's +html doesn't type-check link[rel=icon] for local assets */}
+      {/* Adaptive SVG favicon — recolours by theme via internal @media; Chrome honours this reliably */}
+      <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+      {/* PNG fallbacks for browsers without SVG-favicon support */}
+      {/* @ts-ignore */}
       <link rel="icon" type="image/png" href="/favicon-light.png" media="(prefers-color-scheme: light)" />
       {/* @ts-ignore */}
       <link rel="icon" type="image/png" href="/favicon-dark.png" media="(prefers-color-scheme: dark)" />

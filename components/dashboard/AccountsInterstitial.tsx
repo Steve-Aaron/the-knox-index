@@ -117,10 +117,10 @@ export function AccountsInterstitial({ politicians, onClose, onRefresh }: Props)
 
         {/* Column headers */}
         <View style={styles.colHeaders}>
-          <Text style={[styles.colHead, styles.colName]}>Account</Text>
-          <Text style={[styles.colHead, styles.colStat]}>Followers</Text>
-          <Text style={[styles.colHead, styles.colStat]}>Posts</Text>
-          <Text style={[styles.colHead, styles.colStat]}>Eng %</Text>
+          <Text style={[styles.colHead, styles.colName]} numberOfLines={1}>Account</Text>
+          <Text style={[styles.colHead, styles.colStat]} numberOfLines={1}>Followers</Text>
+          <Text style={[styles.colHead, styles.colStat]} numberOfLines={1}>Posts</Text>
+          <Text style={[styles.colHead, styles.colStat]} numberOfLines={1}>Eng %</Text>
         </View>
 
         {/* Scrollable account list */}
@@ -339,7 +339,7 @@ const styles = StyleSheet.create({
 
   // Stat columns
   colStat: {
-    width:     62,
+    width:     74,
     textAlign: 'right' as const,
   },
   stat: {
