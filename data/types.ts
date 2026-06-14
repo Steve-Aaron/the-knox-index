@@ -205,6 +205,9 @@ export interface Politician {
      *  the accountMetrics totals. */
     lifetimePostViews: number;
     lifetimePostCount: number;
+    /** Lifetime sum of likes + comments + saves + shares over all posts we hold.
+     *  Numerator for the all-time engagement rate in the accounts list. */
+    lifetimePostInteractions: number;
   };
   scores: TopTrumpScores;
   /**

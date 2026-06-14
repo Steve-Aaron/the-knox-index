@@ -53,6 +53,9 @@ export interface BQAccountRow {
   // data rather than the accountMetrics totals.
   lifetimePostViews?: number;
   lifetimePostCount?: number;
+  // Lifetime sum of likes + comments + saves + shares over all posts we hold —
+  // the numerator for the all-time engagement rate in the accounts list.
+  lifetimePostInteractions?: number;
 }
 
 /** post rows — linked to account via post.profile = account.profile */
@@ -526,6 +529,7 @@ export function transformToPoliticians(
         sharesInRange:   acc.sharesInRange   ?? 0,
         lifetimePostViews: acc.lifetimePostViews ?? 0,
         lifetimePostCount: acc.lifetimePostCount ?? 0,
+        lifetimePostInteractions: acc.lifetimePostInteractions ?? 0,
       },
       scores,
       knoxFactorRange,

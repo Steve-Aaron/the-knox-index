@@ -55,13 +55,12 @@ function tiktokUrl(handle: string): string {
  */
 function engagementRate(p: Politician): number {
   const t = p.totals;
-  if (t.viewsInRange > 0) {
-    const numerator = t.likesInRange + t.commentsInRange + t.savesInRange + t.sharesInRange;
-    return (numerator / t.viewsInRange) * 100;
-  }
-  if (t.views24h > 0) {
-    const numerator = t.likesToday + t.commentsToday + t.savesToday;
-    return (numerator / t.views24h) * 100;
+  // All-time rate over every post we hold for this profile: (likes + comments +
+  // saves + shares) / views. Range-independent so the list shows a rate for any
+  // account we have posts for, not just those active in the selected window.
+  // Returns 0 (rendered as '—') for profiles with no posts in our database.
+  if (t.lifetimePostViews > 0) {
+    return (t.lifetimePostInteractions / t.lifetimePostViews) * 100;
   }
   return 0;
 }
