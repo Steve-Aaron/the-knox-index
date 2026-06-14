@@ -20,6 +20,8 @@ export interface DataState {
   politicians:   Politician[];
   /** Count of fully-processed posts in our post table (videoSummary + videoMp4 present). */
   totalPostsInDb: number;
+  /** Lifetime sum of views across the displayable post set, range-independent. */
+  totalViewsInDb: number;
   /** All-time most-viewed post, range-independent. Null until first load / on error. */
   topPost:       LifetimeTopPost | null;
   isLive:        boolean;
@@ -45,6 +47,7 @@ export function useLiveData(range: TimeRange = 'yesterday'): DataState & { refre
     status:         'loading',
     politicians:    [],
     totalPostsInDb: 0,
+    totalViewsInDb: 0,
     topPost:        null,
     isLive:         false,
     error:          null,
@@ -70,6 +73,7 @@ export function useLiveData(range: TimeRange = 'yesterday'): DataState & { refre
       status:         'loading',
       politicians:    [],
       totalPostsInDb: 0,
+      totalViewsInDb: 0,
       topPost:        null,
       isLive:         false,
       error:          null,
@@ -94,7 +98,7 @@ export function useLiveData(range: TimeRange = 'yesterday'): DataState & { refre
 
       if (cancelledRef.current) return;
 
-      const data = await res.json() as { politicians: Politician[]; totalPostsInDb?: number; topPost?: LifetimeTopPost | null };
+      const data = await res.json() as { politicians: Politician[]; totalPostsInDb?: number; totalViewsInDb?: number; topPost?: LifetimeTopPost | null };
 
       if (!Array.isArray(data.politicians) || data.politicians.length === 0) {
         throw new Error('Empty response');
@@ -113,6 +117,7 @@ export function useLiveData(range: TimeRange = 'yesterday'): DataState & { refre
         status:         'live',
         politicians:    data.politicians,
         totalPostsInDb: typeof data.totalPostsInDb === 'number' ? data.totalPostsInDb : 0,
+        totalViewsInDb: typeof data.totalViewsInDb === 'number' ? data.totalViewsInDb : 0,
         topPost:        data.topPost ?? null,
         isLive:         true,
         error:          null,
@@ -139,6 +144,7 @@ export function useLiveData(range: TimeRange = 'yesterday'): DataState & { refre
         status:         'error',
         politicians:    [],
         totalPostsInDb: 0,
+        totalViewsInDb: 0,
         topPost:        null,
         isLive:         false,
         error:          uiMessage,

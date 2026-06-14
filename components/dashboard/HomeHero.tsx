@@ -44,6 +44,8 @@ interface Props {
   range:       TimeRange;
   /** DB-wide total post count, forwarded to the KeyFindingsBar "Total posts" tile. */
   totalPostsInDb?: number;
+  /** DB-wide total view count, forwarded to the KeyFindingsBar "Total views" + "Avg" tiles. */
+  totalViewsInDb?: number;
   /** All-time most-viewed post, forwarded to the KeyFindingsBar "Top performing post" tile. */
   topPost?: LifetimeTopPost | null;
   /**
@@ -70,7 +72,7 @@ const HEADLINE_BASE_DELAY = 100;
 const TAGLINE_DELAY       = 290;
 const IMAGE_DELAY         = 240;
 
-export function HomeHero({ politicians, range, totalPostsInDb, topPost, ready = true }: Props) {
+export function HomeHero({ politicians, range, totalPostsInDb, totalViewsInDb, topPost, ready = true }: Props) {
   const { width, height } = useWindowDimensions();
   const isStacked = width < STACK_BREAKPOINT;
   const isWeb     = Platform.OS === 'web';
@@ -189,7 +191,7 @@ export function HomeHero({ politicians, range, totalPostsInDb, topPost, ready = 
         transition={{ type: 'timing', duration: 600, delay: TAGLINE_DELAY + 140 }}
         style={styles.statsStrip}
       >
-        <KeyFindingsBar politicians={politicians} range={range} totalPostsInDb={totalPostsInDb} topPost={topPost} />
+        <KeyFindingsBar politicians={politicians} range={range} totalPostsInDb={totalPostsInDb} totalViewsInDb={totalViewsInDb} topPost={topPost} />
       </MotiView>
     </View>
   );

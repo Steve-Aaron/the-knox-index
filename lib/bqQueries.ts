@@ -155,12 +155,13 @@ export function buildTopPostSQL(): string {
     CAST(p.postId AS STRING) AS postId,
     p.caption,
     COALESCE(p.views, 0)     AS views,
+    p.postUrl                AS postUrl,
     COALESCE(a.displayName, a.name) AS accountName,   -- prefer human display name over username
     a.party                  AS party
   FROM ${tableRef('post')} p
   JOIN ${tableRef('account')} a
     ON LTRIM(p.profile, '@') = LTRIM(a.profile, '@')
-  WHERE p.videoSummary IS NOT NULL  ORDER BY p.views DESC
+  WHERE p.videoSummary IS NOT NULL  ORDER BY CAST(p.views AS INT64) DESC
   LIMIT 1
 `;
 }

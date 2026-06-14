@@ -244,7 +244,7 @@ function DashboardScreenInner() {
   // changes sort in the PostsTable, a new fetch fires and the feed refreshes.
   const [postsSortKey, setPostsSortKey] = useState<PostsSortKey>('postDate');
 
-  const { politicians, totalPostsInDb, topPost, status, isLive, error, retryAttempt, retryTotal, isInitialLoad, refresh } = useLiveData(range);
+  const { politicians, totalPostsInDb, totalViewsInDb, topPost, status, isLive, error, retryAttempt, retryTotal, isInitialLoad, refresh } = useLiveData(range);
   const { posts, loading: postsLoading, loadingMore: postsLoadingMore, hasMore: postsHasMore, error: postsError, loadMore: loadMorePosts } = usePostsData(range, postsSortKey);
   const { benchmarks } = useBenchmarks();
 
@@ -362,7 +362,7 @@ function DashboardScreenInner() {
         >
 
           {/* ── 0. Hero — editorial 100vh layout, includes KeyFindings strip ──── */}
-          <HomeHero politicians={politicians} range={range} totalPostsInDb={totalPostsInDb} topPost={topPost} ready={heroReady} />
+          <HomeHero politicians={politicians} range={range} totalPostsInDb={totalPostsInDb} totalViewsInDb={totalViewsInDb} topPost={topPost} ready={heroReady} />
 
           {/* ── 1. Title bar ──────────────────────────── */}
           <MobileSection index={0}>

@@ -85,6 +85,8 @@ export interface LifetimeTopPost {
   postId:      string;
   caption:     string;
   views:       number;
+  /** Direct TikTok URL for the post — used to make the headline tile clickable. */
+  postUrl:     string;
   accountName: string;
   partyKey:    PartyKey;
 }

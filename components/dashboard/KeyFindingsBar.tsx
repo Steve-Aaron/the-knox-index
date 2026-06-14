@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Platform, useWindowDimensions } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Platform, Pressable, Linking, useWindowDimensions } from 'react-native';
 import { MotiView } from 'moti';
 import { DevLabel } from '@/components/primitives/DevLabel';
 import { InfoTip } from '@/components/primitives/InfoTip';
@@ -35,6 +35,12 @@ interface Props {
    */
   totalPostsInDb?: number;
   /**
+   * DB-wide total view count from useLiveData. When provided (> 0) it drives the
+   * "Total views" and "Avg views / post" tiles so they're fixed lifetime totals
+   * from the post table, not the in-memory range sample.
+   */
+  totalViewsInDb?: number;
+  /**
    * All-time most-viewed post from useLiveData (range-independent). When
    * provided it drives the "Top performing post" tile so the figure is a true
    * lifetime maximum. Falls back to the top post among loaded recentPosts.
@@ -49,9 +55,11 @@ interface StatTile {
   textValue?:    string;
   suffix?:       string;
   accentColor:   string;
+  /** When set, the tile becomes a link that opens this URL on press. */
+  link?:         string;
 }
 
-export function KeyFindingsBar({ politicians, totalPostsInDb, topPost: lifetimeTopPost }: Props) {
+export function KeyFindingsBar({ politicians, totalPostsInDb, totalViewsInDb, topPost: lifetimeTopPost }: Props) {
   const [hovered, setHovered] = useState<number | null>(null);
 
   const { width: windowWidth } = useWindowDimensions();
@@ -59,13 +67,22 @@ export function KeyFindingsBar({ politicians, totalPostsInDb, topPost: lifetimeT
   const isMobile  = windowWidth < breakpoints.tablet;
 
   const tiles = useMemo<StatTile[]>(() => {
-    // All aggregation lives in the pure, unit-tested helper.
-    const { politicianCount, totalViews, avgViewsPerPost, shownPostCount, totalPosts, topPost } =
+    // All aggregation lives in the pure, unit-tested helper. The computed
+    // values are only fallbacks now — the headline figures prefer the
+    // DB-wide lifetime totals so they stay fixed across timeframes.
+    const { politicianCount, totalViews, avgViewsPerPost, totalPosts, topPost } =
       computeKeyFindings(politicians);
 
-    // Prefer the DB-wide count when supplied; otherwise show in-scope posts.
+    // Prefer the DB-wide totals when supplied; otherwise fall back to in-scope.
     const postsHeadline =
       typeof totalPostsInDb === 'number' && totalPostsInDb > 0 ? totalPostsInDb : totalPosts;
+    const viewsHeadline =
+      typeof totalViewsInDb === 'number' && totalViewsInDb > 0 ? totalViewsInDb : totalViews;
+    const avgHeadline =
+      typeof totalViewsInDb === 'number' && totalViewsInDb > 0 &&
+      typeof totalPostsInDb === 'number' && totalPostsInDb > 0
+        ? Math.round(totalViewsInDb / totalPostsInDb)
+        : avgViewsPerPost;
 
     // Prefer the all-time top post from the API; fall back to the best among
     // loaded posts so the tile still renders before the lifetime value arrives.
@@ -74,12 +91,14 @@ export function KeyFindingsBar({ politicians, totalPostsInDb, topPost: lifetimeT
           views:    lifetimeTopPost.views,
           label:    `by ${lifetimeTopPost.accountName}`,
           partyKey: lifetimeTopPost.partyKey,
+          link:     lifetimeTopPost.postUrl || undefined,
         }
       : topPost
         ? {
             views:    topPost.views,
             label:    `by ${topPost.politician.name}`,
             partyKey: topPost.politician.partyKey,
+            link:     topPost.postUrl || undefined,
           }
         : null;
 
@@ -93,15 +112,14 @@ export function KeyFindingsBar({ politicians, totalPostsInDb, topPost: lifetimeT
       },
       {
         kicker:       'Total views',
-        tip:          'Total views summed across the posts shown below. Matches the sum of the individual post view counts.',
-        numericValue: totalViews,
-        suffix:       shownPostCount > 0 ? `across ${shownPostCount} post${shownPostCount === 1 ? '' : 's'}` : undefined,
+        tip:          'Total views summed across every tracked post, all time.',
+        numericValue: viewsHeadline,
         accentColor:  accent.mint,
       },
       {
         kicker:       'Avg views / post',
-        tip:          'Average view count across the posts shown below.',
-        numericValue: avgViewsPerPost,
+        tip:          'Total views divided by total tracked posts, all time.',
+        numericValue: avgHeadline,
         suffix:       'views per post',
         accentColor:  accent.amber,
       },
@@ -116,13 +134,13 @@ export function KeyFindingsBar({ politicians, totalPostsInDb, topPost: lifetimeT
         kicker:       'Top performing post',
         tip:          'The single most-viewed post across the accounts we track, all time.',
         ...(topView
-          ? { numericValue: topView.views, suffix: topView.label }
+          ? { numericValue: topView.views, suffix: topView.label, link: topView.link }
           : { textValue: 'None yet', suffix: 'No posts recorded yet' }
         ),
         accentColor:  topView ? party[topView.partyKey].base : accent.amber,
       },
     ];
-  }, [politicians, totalPostsInDb, lifetimeTopPost]);
+  }, [politicians, totalPostsInDb, totalViewsInDb, lifetimeTopPost]);
 
   // ── Tile nodes — 'Who Won Davos' style: big number on top, small label below.
   // No card, no dividers. Each tile owns its own breathing room.
@@ -146,13 +164,32 @@ export function KeyFindingsBar({ politicians, totalPostsInDb, topPost: lifetimeT
         onMouseLeave: () => setHovered(null),
       } as any : {})}
     >
-      {/* Hero number on top — drives the visual weight */}
+      {/* Hero number on top — drives the visual weight. When the tile has a
+          link (the top-performing post), the number opens that post. */}
       {tile.numericValue !== undefined ? (
-        <CountUp
-          value={tile.numericValue}
-          format={formatters.compact}
-          style={[styles.valueNumeric, { color: tile.accentColor }]}
-        />
+        tile.link ? (
+          <Pressable
+            onPress={() => Linking.openURL(tile.link!)}
+            accessibilityRole="link"
+            accessibilityLabel="Open the top performing post on TikTok"
+            style={({ pressed }: any) => [
+              Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : null,
+              pressed && { opacity: 0.7 },
+            ]}
+          >
+            <CountUp
+              value={tile.numericValue}
+              format={formatters.compact}
+              style={[styles.valueNumeric, { color: tile.accentColor }]}
+            />
+          </Pressable>
+        ) : (
+          <CountUp
+            value={tile.numericValue}
+            format={formatters.compact}
+            style={[styles.valueNumeric, { color: tile.accentColor }]}
+          />
+        )
       ) : (
         <Text
           style={[styles.valueText, { color: tile.accentColor }]}

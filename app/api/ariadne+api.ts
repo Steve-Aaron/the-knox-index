@@ -96,11 +96,15 @@ export async function GET(request: Request): Promise<Response> {
   // tile reports OUR database size (post table rows that have a video summary
   // and a video URL), not the sum of TikTok's lifetime post counters.
   try {
-    // Count only displayable posts: those with an AI summary. videoMp4 is NOT
-    // required, because carousel posts have a summary but no video. This matches
-    // the post-feed filter, so the 'Total posts' tile agrees with the feed.
-    const totalPostsSql = `
-      SELECT COUNT(*) AS totalPostsInDb
+    // Dataset-wide lifetime totals over the displayable post set (those with an
+    // AI summary; videoMp4 is NOT required because carousels have a summary but
+    // no video). Same filter as the post feed, so 'Total posts', 'Total views'
+    // and 'Avg views / post' agree with the feed, stay fixed regardless of the
+    // selected range, and never read the accountMetrics totals.
+    const totalsSql = `
+      SELECT
+        COUNT(*)                AS totalPostsInDb,
+        SUM(COALESCE(views, 0)) AS totalViewsInDb
       FROM ${tableRef('post')}
       WHERE videoSummary IS NOT NULL
     `;
@@ -108,14 +112,15 @@ export async function GET(request: Request): Promise<Response> {
     const [accountRows, postRows, countRows] = await Promise.all([
       query<BQAccountRow>(buildAccountsSQL(range)),
       query<BQPostRow>(buildPostsSQL(range)),
-      query<{ totalPostsInDb: number | string }>(totalPostsSql),
+      query<{ totalPostsInDb: number | string; totalViewsInDb: number | string }>(totalsSql),
     ]);
 
     const politicians = transformToPoliticians(accountRows, postRows);
 
-    // BigQuery sometimes returns COUNT(*) as a string for very large numbers.
+    // BigQuery sometimes returns COUNT/SUM as a string for very large numbers.
     // Coerce defensively so the client always sees a Number.
     const totalPostsInDb = Number(countRows[0]?.totalPostsInDb ?? 0) || 0;
+    const totalViewsInDb = Number(countRows[0]?.totalViewsInDb ?? 0) || 0;
 
     // All-time most-viewed post — range-independent. Run in ITS OWN try/catch,
     // never in the core Promise.all: this tile is non-essential, so a failure
@@ -125,7 +130,7 @@ export async function GET(request: Request): Promise<Response> {
     try {
       const topPostRows = await query<{
         postId: string; caption: string | null; views: number | string;
-        accountName: string | null; party: string | null;
+        postUrl: string | null; accountName: string | null; party: string | null;
       }>(buildTopPostSQL());
       const topRow = topPostRows[0];
       if (topRow) {
@@ -133,6 +138,7 @@ export async function GET(request: Request): Promise<Response> {
           postId:      String(topRow.postId ?? ''),
           caption:     topRow.caption ?? '',
           views:       Number(topRow.views ?? 0) || 0,
+          postUrl:     topRow.postUrl ?? '',
           accountName: topRow.accountName ?? '',
           partyKey:    toPartyKeyPublic(topRow.party),
         };
@@ -156,7 +162,7 @@ export async function GET(request: Request): Promise<Response> {
     ]);
 
     return Response.json(
-      { politicians, totalPostsInDb, topPost },
+      { politicians, totalPostsInDb, totalViewsInDb, topPost },
       { headers: { 'Cache-Control': 'private, max-age=1800, stale-while-revalidate=120' } }
     );
 
