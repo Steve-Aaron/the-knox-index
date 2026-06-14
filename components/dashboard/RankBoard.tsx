@@ -109,6 +109,9 @@ export function RankBoard({ politicians, activeId, headlineKey, timeRangeLabel, 
       const d = leaderboardScore(b, headlineKey, isLifetime) - leaderboardScore(a, headlineKey, isLifetime);
       if (d !== 0) return d;
       if (headlineKey === 'virality') return viralityRatioFor(b, isLifetime) - viralityRatioFor(a, isLifetime);
+      // Followers clamps many accounts to the same /100 — break ties by raw
+      // follower count so a bigger account can never sit below a smaller one.
+      if (headlineKey === 'followers') return b.totals.followers - a.totals.followers;
       return 0;
     });
   }, [politicians, headlineKey, viewType, partyFilter, isLifetime]);

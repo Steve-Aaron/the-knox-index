@@ -84,6 +84,8 @@ export function buildAccountsSQL(range: Range): string {
     COALESCE(ra.commentsInRange, 0) AS commentsInRange,
     COALESCE(ra.savesInRange,    0) AS savesInRange,
     COALESCE(ra.sharesInRange,   0) AS sharesInRange,
+    COALESCE(la.lifetimePostViews, 0) AS lifetimePostViews,
+    COALESCE(la.lifetimePostCount, 0) AS lifetimePostCount,
     acct.accountTypeNames
   FROM ${tableRef('account')} a
   LEFT JOIN (
@@ -125,6 +127,15 @@ export function buildAccountsSQL(range: Range): string {
     WHERE ${dateFilter}
     GROUP BY LTRIM(profile, '@')
   ) ra ON LTRIM(a.profile, '@') = ra.profile
+  LEFT JOIN (
+    SELECT
+      LTRIM(profile, '@')        AS profile,
+      SUM(COALESCE(views, 0))    AS lifetimePostViews,
+      COUNT(*)                   AS lifetimePostCount
+    FROM ${tableRef('post')}
+    WHERE postDate IS NOT NULL
+    GROUP BY LTRIM(profile, '@')
+  ) la ON LTRIM(a.profile, '@') = la.profile
   ORDER BY a.name
 `;
 }

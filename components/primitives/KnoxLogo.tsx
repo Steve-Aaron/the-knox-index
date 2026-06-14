@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useId } from 'react';
 import { View, StyleSheet, Platform, type StyleProp, type ViewStyle } from 'react-native';
 import Svg, { Defs, LinearGradient, Stop, Path } from 'react-native-svg';
 
@@ -32,19 +32,24 @@ const LOGO_PATH =
 
 export function KnoxLogo({ width = 120, style, color }: Props) {
   const height = Math.round(width / ASPECT);
+  // Unique gradient id per instance. A shared hardcoded id meant that whenever
+  // more than one logo mounted, or the logo re-mounted on navigation, the
+  // url(#id) reference could resolve to a since-removed def and the wordmark
+  // rendered blank. A per-instance id avoids that collision entirely.
+  const gradId = `knoxGrad-${useId().replace(/[^a-zA-Z0-9]/g, '')}`;
   return (
     <View style={[styles.wrap, { width, height }, style]}>
       <Svg width={width} height={height} viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}>
         {!color && (
           <Defs>
-            <LinearGradient id="knoxGrad" x1="0" y1="134.67" x2={VIEW_W} y2="134.67" gradientUnits="userSpaceOnUse">
+            <LinearGradient id={gradId} x1="0" y1="134.67" x2={VIEW_W} y2="134.67" gradientUnits="userSpaceOnUse">
               <Stop offset="0"    stopColor="#fea15e" />
               <Stop offset="0.47" stopColor="#df3991" />
               <Stop offset="1"    stopColor="#674a8b" />
             </LinearGradient>
           </Defs>
         )}
-        <Path d={LOGO_PATH} fill={color ?? 'url(#knoxGrad)'} />
+        <Path d={LOGO_PATH} fill={color ?? `url(#${gradId})`} />
       </Svg>
     </View>
   );

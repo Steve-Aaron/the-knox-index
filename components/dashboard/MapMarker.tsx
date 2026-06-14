@@ -96,7 +96,10 @@ export function MapMarker({ location, post, partyKey, handle, showTrendingPill =
       // around the stem is transparent to clicks below) but its children CAN
       // receive them — the Pressable card listens for taps.
       pointerEvents="box-none"
-      style={[styles.wrap, { transform: [{ translateX: -cardW / 2 }, { translateY: wrapOffsetY }] }]}
+      // width must match cardW (the scaled width) so the centred dot lands
+      // exactly on the anchor. Using the unscaled styles.wrap width while
+      // offsetting by the scaled cardW/2 pushed the pin right on mobile.
+      style={[styles.wrap, { width: cardW, transform: [{ translateX: -cardW / 2 }, { translateY: wrapOffsetY }] }]}
       accessibilityLabel={`Marker for ${displayHandle} pinned near ${location.name}`}
     >
       <DevLabel name="MapMarker" />

@@ -71,7 +71,7 @@ export function RankBoardRow({ politician, rank, headlineKey, active, onPress, i
       ) : (
         <View style={styles.score}>
           <CountUp value={score} format={isViews ? formatters.compact : undefined} style={[styles.scoreValue, { color: colour.glow }]} />
-          <Text style={styles.scoreUnit}>{isViews ? 'views' : '/ 100'}</Text>
+          {!isViews && <Text style={styles.scoreUnit}>/ 100</Text>}
         </View>
       )}
     </Pressable>

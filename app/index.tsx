@@ -318,6 +318,8 @@ function DashboardScreenInner() {
         const d = leaderboardScore(b, sortKey, lt) - leaderboardScore(a, sortKey, lt);
         if (d !== 0) return d;
         if (sortKey === 'virality') return viralityRatioFor(b, lt) - viralityRatioFor(a, lt);
+        // Followers tie-break: higher raw follower count always ranks above lower.
+        if (sortKey === 'followers') return b.totals.followers - a.totals.followers;
         return 0;
       }),
     [politicians, sortKey, range]

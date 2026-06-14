@@ -198,6 +198,11 @@ export interface Politician {
     commentsInRange: number;
     savesInRange:    number;
     sharesInRange:   number;
+    /** Lifetime post-table aggregates (range-independent) — sum/count over ALL
+     *  posts we hold. Used for avg-views-per-video so it reflects our data, not
+     *  the accountMetrics totals. */
+    lifetimePostViews: number;
+    lifetimePostCount: number;
   };
   scores: TopTrumpScores;
   /**

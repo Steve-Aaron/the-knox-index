@@ -40,6 +40,11 @@ const SIGNED_IN_LINKS: FooterLink[] = [
 export function AppFooter() {
   const isRegistered = useRegisteredFlag();
   const LINKS = isRegistered ? SIGNED_IN_LINKS : SIGNED_OUT_LINKS;
+  // Logo = home. Full refresh to '/' on web, route push on native.
+  const goHome = () => {
+    if (Platform.OS === 'web' && typeof window !== 'undefined') window.location.assign('/');
+    else router.push('/');
+  };
   return (
     <View style={styles.wrap}>
       <DevLabel name="AppFooter" />
@@ -52,7 +57,7 @@ export function AppFooter() {
         {/* Brand block — Knox wordmark + supporting copy */}
         <View style={styles.brandBlock}>
           <Pressable
-            onPress={() => router.push('/')}
+            onPress={goHome}
             accessibilityRole="link"
             accessibilityLabel="Knox Index — home"
             style={({ pressed }) => [styles.brandRow, pressed && { opacity: 0.75 }]}

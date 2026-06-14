@@ -62,7 +62,7 @@ export function AuthScreen({ kicker, title, subtitle, frameless = false, childre
           {frameless
             ? <View style={{ width: cardWidth }}>{inner}</View>
             : (
-              <GlassSurface radius={radius.lg} topAccent={brand.gradient as any} style={{ width: cardWidth }}>
+              <GlassSurface radius={radius.lg} flatTop topAccent={brand.gradient as any} style={{ width: cardWidth }}>
                 {inner}
               </GlassSurface>
             )}

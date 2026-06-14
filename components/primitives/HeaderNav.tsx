@@ -12,13 +12,13 @@ import { breakpoints } from '@/theme/breakpoints';
 /**
  * HeaderNav
  * ----------
- * Three-slot top bar:
+ * Two-slot top bar:
  *
- *   [ Sign up  Log in ]   [ centred logo ]   [ Dashboard ]
+ *   [ logo ]                                   [ Sign up  Log in ]
  *
- * Each side renders a row of plain text NavLinks — same size, same weight,
- * same letter-spacing — so the row reads as a balanced editorial header.
- * The centre slot is the Knox wordmark, which doubles as a home link.
+ * The Knox wordmark sits on the left and doubles as the home link (so a
+ * separate 'Dashboard' link would be redundant). The auth actions sit on the
+ * right. Tapping the logo reloads the dashboard (full refresh on web).
  *
  * On narrow viewports the layout stays flat (no stacking); the logo
  * shrinks and the side links tighten up via reduced horizontal padding.
@@ -40,43 +40,46 @@ interface Props {
   rightItems?:  HeaderNavItem[];
 }
 
-const SIGNED_OUT_LEFT: HeaderNavItem[] = [
+const SIGNED_OUT_LINKS: HeaderNavItem[] = [
   { label: 'Sign up', to: '/signup' },
   { label: 'Log in',  to: '/login'  },
 ];
-const SIGNED_IN_LEFT: HeaderNavItem[] = [
+const SIGNED_IN_LINKS: HeaderNavItem[] = [
   { label: 'Preferences', to: '/preferences' },
   { label: 'Log out',     onPress: () => { logout(); } },
 ];
-const DEFAULT_RIGHT:  HeaderNavItem[] = [{ label: 'Dashboard',   to: '/' }];
 
-export function HeaderNav({ activeRoute, leftItems, rightItems = DEFAULT_RIGHT }: Props) {
+export function HeaderNav({ activeRoute, leftItems, rightItems }: Props) {
   const { width }    = useWindowDimensions();
   const isRegistered = useRegisteredFlag();
   const isMobile     = width < breakpoints.tablet;
   const logoWidth    = isMobile ? 88 : 132;
 
-  const left = leftItems ?? (isRegistered ? SIGNED_IN_LEFT : SIGNED_OUT_LEFT);
+  // Right-hand auth actions. Either prop can still override the default list.
+  const links = rightItems ?? leftItems ?? (isRegistered ? SIGNED_IN_LINKS : SIGNED_OUT_LINKS);
+
+  // Logo = home. On web do a real refresh to '/' (rebuilds the dashboard and
+  // re-fetches), on native push the route.
+  const goHome = () => {
+    if (Platform.OS === 'web' && typeof window !== 'undefined') window.location.assign('/');
+    else router.push('/');
+  };
 
   return (
     <View style={[styles.wrap, isMobile && styles.wrapMobile]}>
       <View style={styles.sideLeft}>
-        {left.map(item => (
-          <NavLink key={item.label} item={item} active={item.to === activeRoute} compact={isMobile} />
-        ))}
+        <Pressable
+          onPress={goHome}
+          accessibilityRole="link"
+          accessibilityLabel="Knox Index — home"
+          style={({ pressed }) => [styles.brand, pressed && { opacity: 0.75 }]}
+        >
+          <KnoxLogo width={logoWidth} />
+        </Pressable>
       </View>
 
-      <Pressable
-        onPress={() => router.push('/')}
-        accessibilityRole="link"
-        accessibilityLabel="Knox Index — home"
-        style={({ pressed }) => [styles.brand, pressed && { opacity: 0.75 }]}
-      >
-        <KnoxLogo width={logoWidth} />
-      </Pressable>
-
       <View style={styles.sideRight}>
-        {rightItems.map(item => (
+        {links.map(item => (
           <NavLink key={item.label} item={item} active={item.to === activeRoute} compact={isMobile} />
         ))}
       </View>

@@ -1,5 +1,6 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { View, StyleSheet, useWindowDimensions } from 'react-native';
+import type { LayoutChangeEvent } from 'react-native';
 import { AnimatePresence } from 'moti';
 import { DevLabel } from '@/components/primitives/DevLabel';
 import { UkMapSvg } from './UkMapSvg';
@@ -74,6 +75,26 @@ export function UkMap({ politicians }: Props) {
   const [markers, setMarkers] = useState<ActiveMarker[]>([]);
   const keyRef = useRef(0);
 
+  // ── Map box measurement ─────────────────────────────────────────────────────
+  // The SVG draws its 1024×1024 viewBox with preserveAspectRatio='xMidYMid meet',
+  // i.e. scaled to fit and centred — so the actual drawn map is a centred square
+  // of side = min(width, height), with letterbox padding on the longer axis.
+  // Markers used to be positioned as a % of the whole wrap, which only lined up
+  // when the wrap was a perfect square; any non-square box (which varies by
+  // device / viewport / tab width) let the pins drift off the map. We now
+  // measure the wrap and place each pin in pixels relative to the drawn square,
+  // so pins hit the exact map point at any size.
+  const [box, setBox] = useState({ width: 0, height: 0 });
+  const onWrapLayout = useCallback((e: LayoutChangeEvent) => {
+    const { width, height } = e.nativeEvent.layout;
+    setBox(prev => (prev.width === width && prev.height === height ? prev : { width, height }));
+  }, []);
+
+  // Drawn map square: side + offsets that mirror 'xMidYMid meet' exactly.
+  const side    = Math.min(box.width, box.height);
+  const offsetX = (box.width  - side) / 2;
+  const offsetY = (box.height - side) / 2;
+
   useEffect(() => {
     if (videoPool.length === 0) return;
 
@@ -126,40 +147,53 @@ export function UkMap({ politicians }: Props) {
   }, [videoPool]);
 
   return (
-    <View style={styles.wrap}>
+    <View style={styles.wrap} onLayout={onWrapLayout}>
       <DevLabel name="UkMap" />
 
-      {/* Country silhouette — fills the wrap. */}
-      <UkMapSvg />
+      {/* Map stage — the exact centred square the SVG occupies under
+          preserveAspectRatio='xMidYMid meet'. Both the country silhouette AND
+          the marker layer live INSIDE this stage, so they share one coordinate
+          space by construction and can never drift apart, whatever shape the
+          wrap takes (phone / desktop / any tab width). */}
+      {side > 0 && (
+        <View
+          pointerEvents="box-none"
+          style={{ position: 'absolute', left: offsetX, top: offsetY, width: side, height: side }}
+        >
+          {/* Country silhouette — fills the stage square exactly (no further
+              letterbox, since a square viewBox meets a square box 1:1). */}
+          <UkMapSvg />
 
-      {/* Marker layer — absolutely positioned per location.
-          pointerEvents='box-none' lets clicks pass through the empty space
-          but child cards still receive them (Pressable on the card itself). */}
-      <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
-        <AnimatePresence>
-          {markers.map(m => (
-            <View
-              key={m.key}
-              style={{
-                position: 'absolute',
-                left:     `${(m.location.x / 1024) * 100}%` as any,
-                top:      `${(m.location.y / 1024) * 100}%` as any,
-              }}
-            >
-              <MapMarker
-                location={m.location}
-                post={m.post}
-                partyKey={m.partyKey}
-                handle={m.handle}
-                // Scotland sits near the top edge of the viewBox — give those
-                // markers a shorter connector stem so the video card stays
-                // inside the map area. England/Wales keep the default.
-                stemMultiplier={SCOTTISH_LOCATION_IDS.has(m.location.id) ? 0.5 : 1}
-              />
-            </View>
-          ))}
-        </AnimatePresence>
-      </View>
+          {/* Marker layer — positioned as a % of the stage, i.e. directly in
+              viewBox units (x/1024). pointerEvents='box-none' lets clicks pass
+              through empty space; child cards still receive them. */}
+          <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
+            <AnimatePresence>
+              {markers.map(m => (
+                <View
+                  key={m.key}
+                  style={{
+                    position: 'absolute',
+                    left:     `${(m.location.x / 1024) * 100}%` as any,
+                    top:      `${(m.location.y / 1024) * 100}%` as any,
+                  }}
+                >
+                  <MapMarker
+                    location={m.location}
+                    post={m.post}
+                    partyKey={m.partyKey}
+                    handle={m.handle}
+                    // Scotland sits near the top edge of the viewBox — give those
+                    // markers a shorter connector stem so the video card stays
+                    // inside the map area. England/Wales keep the default.
+                    stemMultiplier={SCOTTISH_LOCATION_IDS.has(m.location.id) ? 0.5 : 1}
+                  />
+                </View>
+              ))}
+            </AnimatePresence>
+          </View>
+        </View>
+      )}
     </View>
   );
 }

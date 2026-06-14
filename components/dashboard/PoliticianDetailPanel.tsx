@@ -84,11 +84,14 @@ export function PoliticianDetailPanel({ politician, headlineKey, range, panelHei
   const recentPosts = politician.recentPosts ?? [];
 
   // Lifetime avg views — used in the 'Account totals' tile, which is always
-  // lifetime regardless of the selected range. Sourced from totalViews /
-  // totalPosts (both lifetime snapshots from accountMetrics), so the figure
-  // doesn't shift when the user changes the range picker.
-  const lifetimeAvgViews = politician.totals.posts > 0
-    ? Math.round(politician.totals.views / politician.totals.posts)
+  // lifetime regardless of the selected range. Sourced from the post table we
+  // hold (lifetime sum of views / count of posts), NOT the accountMetrics
+  // totalViews / totalPosts, so it reflects real per-video performance across
+  // our data. Range-independent (the lifetime aggregates ignore the range
+  // picker). The neighbouring total-views and total-posts tiles still read the
+  // accountMetrics snapshot, so this average won't exactly equal those two.
+  const lifetimeAvgViews = politician.totals.lifetimePostCount > 0
+    ? Math.round(politician.totals.lifetimePostViews / politician.totals.lifetimePostCount)
     : 0;
 
   const engViews = politician.totals.viewsInRange > 0
@@ -111,14 +114,13 @@ export function PoliticianDetailPanel({ politician, headlineKey, range, panelHei
   const isLifetime = range === 'lifetime';
 
   // Radar virality tooltip uses the same average the dot is scored from: the
-  // in-range avg (viewsInRange / postsInRange) when a filter is active, the
-  // lifetime avg on 'Lifetime'. Keeps the hover figure and the plotted dot in
-  // agreement.
-  const radarAvgViews = isLifetime
-    ? lifetimeAvgViews
-    : (politician.totals.postsInRange > 0
-        ? Math.round(politician.totals.viewsInRange / politician.totals.postsInRange)
-        : 0);
+  // post-table average (viewsInRange / postsInRange) in every range. On
+  // 'Lifetime' the *InRange aggregates are the full set of posts we hold, so the
+  // figure reflects our own data rather than accountMetrics totals. Keeps the
+  // hover figure and the plotted dot in agreement.
+  const radarAvgViews = politician.totals.postsInRange > 0
+    ? Math.round(politician.totals.viewsInRange / politician.totals.postsInRange)
+    : 0;
 
   const rawValues: RawScoreValues = {
     virality:   politician.totals.followers > 0 ? radarAvgViews / politician.totals.followers : 0,
@@ -128,18 +130,20 @@ export function PoliticianDetailPanel({ politician, headlineKey, range, panelHei
     knoxFactor: isLifetime ? politician.scores.knoxFactor : (politician.knoxFactorRange ?? politician.scores.knoxFactor),
   };
 
-  // Radar shape: range-scoped virality / engagement (and range Knox) when a
-  // time filter is active, so the chart reflects the selected period. Followers
-  // and the activity step-scale are unchanged (radar-only). 'Lifetime' uses the
-  // standard lifetime scores.
-  const radarScores = isLifetime
-    ? politician.scores
-    : {
-        ...politician.scores,
-        virality:   politician.scoresRange?.virality   ?? politician.scores.virality,
-        engagement: politician.scoresRange?.engagement ?? politician.scores.engagement,
-        knoxFactor: politician.knoxFactorRange ?? politician.scores.knoxFactor,
-      };
+  // Radar shape: virality / engagement always read the post-table scores
+  // (scoresRange) in every range, including Lifetime, so the chart reflects the
+  // posts we hold rather than accountMetrics totals and agrees with the
+  // leaderboard. Followers and the activity step-scale are unchanged
+  // (radar-only). Knox stays range-scoped on a filter and the locked lifetime
+  // value on 'Lifetime'.
+  const radarScores = {
+    ...politician.scores,
+    virality:   politician.scoresRange?.virality   ?? politician.scores.virality,
+    engagement: politician.scoresRange?.engagement ?? politician.scores.engagement,
+    knoxFactor: isLifetime
+      ? politician.scores.knoxFactor
+      : (politician.knoxFactorRange ?? politician.scores.knoxFactor),
+  };
 
   // Activity dot geometry: range-normalised post frequency (your in-range post
   // count relative to the busiest account in the selected window) so the dot

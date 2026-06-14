@@ -48,6 +48,11 @@ export interface BQAccountRow {
   commentsInRange?: number;
   savesInRange?:    number;
   sharesInRange?:   number;
+  // Lifetime post-table aggregates (range-independent). Sum/count over ALL posts
+  // we hold for the account, so the avg-views-per-video tile reflects our own
+  // data rather than the accountMetrics totals.
+  lifetimePostViews?: number;
+  lifetimePostCount?: number;
 }
 
 /** post rows — linked to account via post.profile = account.profile */
@@ -397,13 +402,18 @@ export function leaderboardScore(p: Politician, key: LeaderboardSortKey, isLifet
     // zero for some accounts even when their posts have views.
     return p.totals.viewsInRange;
   }
-  if (!isLifetime) {
-    if (key === 'knoxFactor') return p.knoxFactorRange ?? p.scores.knoxFactor;
-    // Virality / engagement / frequency are range-scoped when a filter is active.
-    // Followers stays the lifetime snapshot (no per-range follower count exists).
-    if (key === 'virality' || key === 'engagement' || key === 'frequency') {
-      return p.scoresRange?.[key] ?? p.scores[key];
-    }
+  // Virality / engagement / frequency always read the post-table scores
+  // (scoresRange) in EVERY range, including Lifetime. On a lifetime fetch the
+  // *InRange aggregates equal the full set of posts we hold, so these reflect
+  // our own data rather than the accountMetrics totals (which mix a frozen,
+  // undercounted view cumulative with a profile-sourced post count). Kept on the
+  // 0–100 scale; frequency is the count of posts we store, normalised. Followers
+  // stays the profile snapshot below; Knox Factor is untouched.
+  if (key === 'virality' || key === 'engagement' || key === 'frequency') {
+    return p.scoresRange?.[key] ?? p.scores[key];
+  }
+  if (key === 'knoxFactor') {
+    return isLifetime ? p.scores.knoxFactor : (p.knoxFactorRange ?? p.scores.knoxFactor);
   }
   return p.scores[key];
 }
@@ -514,6 +524,8 @@ export function transformToPoliticians(
         commentsInRange: acc.commentsInRange ?? 0,
         savesInRange:    acc.savesInRange    ?? 0,
         sharesInRange:   acc.sharesInRange   ?? 0,
+        lifetimePostViews: acc.lifetimePostViews ?? 0,
+        lifetimePostCount: acc.lifetimePostCount ?? 0,
       },
       scores,
       knoxFactorRange,

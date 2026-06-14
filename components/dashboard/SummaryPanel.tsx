@@ -175,7 +175,7 @@ export function SummaryPanel({ politicians, range = 'yesterday', panelHeight }: 
                 {isWeekly ? 'WEEKLY BRIEFING' : 'DAILY BRIEFING'}
               </Kicker>
               <Title style={{ fontFamily: font.ui, fontSize: 24, fontWeight: '800', letterSpacing: 0.72, lineHeight: 26 }}>
-                {isWeekly ? 'This week on TikTok' : 'Today on TikTok'}
+                {isWeekly ? 'This week on TikTok' : 'Yesterday on TikTok'}
               </Title>
             </View>
             {brief && !brief.isToday && (
