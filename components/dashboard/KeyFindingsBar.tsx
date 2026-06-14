@@ -277,7 +277,9 @@ const styles = StyleSheet.create({
   },
   tileBoxFlex:   { flex: 1 },
   tileBoxAuto:   { flexShrink: 0 },
-  tileBoxMobile: { width: '100%' },
+  // Mobile: full-width and centre-aligned (number, label row and suffix all
+  // centred), matching the centred 'THE KNOX INDEX' heading treatment.
+  tileBoxMobile: { width: '100%', alignItems: 'center' },
 
   // Hero number — large, mono, accent-coloured. The Davos visual signature.
   valueNumeric: {

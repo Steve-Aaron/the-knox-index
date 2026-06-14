@@ -242,7 +242,7 @@ function DashboardScreenInner() {
   // Post feed sort is lifted here so it can drive the API's ORDER BY (the
   // server returns the top-N for whichever metric is selected). When the user
   // changes sort in the PostsTable, a new fetch fires and the feed refreshes.
-  const [postsSortKey, setPostsSortKey] = useState<PostsSortKey>('postDate');
+  const [postsSortKey, setPostsSortKey] = useState<PostsSortKey>('views');
 
   const { politicians, totalPostsInDb, totalViewsInDb, topPost, status, isLive, error, retryAttempt, retryTotal, isInitialLoad, refresh } = useLiveData(range);
   const { posts, loading: postsLoading, loadingMore: postsLoadingMore, hasMore: postsHasMore, error: postsError, loadMore: loadMorePosts } = usePostsData(range, postsSortKey);

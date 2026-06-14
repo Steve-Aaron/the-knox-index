@@ -506,6 +506,7 @@ const styles = StyleSheet.create({
         transitionProperty: 'border-color, background-color',
         transitionDuration: '160ms',
         cursor: 'pointer',
+        overflowX: 'hidden',
       } as any,
       default: {},
     }),
