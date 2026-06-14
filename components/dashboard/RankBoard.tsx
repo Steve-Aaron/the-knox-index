@@ -12,7 +12,7 @@ import type { PartyKey } from '@/theme/colors';
 import { spacing, radius } from '@/theme/spacing';
 import { type, font } from '@/theme/typography';
 import type { Politician, ScoreKey, LeaderboardSortKey } from '@/data/types';
-import { leaderboardScore, viralityRatioFor } from '@/data/leaderboard';
+import { leaderboardScore, viralityRatioFor, engagementRate } from '@/data/leaderboard';
 
 const PARTY_LABELS: Partial<Record<PartyKey, string>> = {
   labour: 'Labour', conservative: 'Conservative', libdem: 'Lib Dem',
@@ -43,6 +43,9 @@ interface Props {
    * period only). Defaults to true so untouched callers keep lifetime Knox.
    */
   isLifetime?:    boolean;
+  /** Engagement display reference rate (%). The engagement column tops out at
+   *  min(this, 15%). Passed from the dashboard's current set. */
+  engReference?:  number;
 }
 
 const LABELS: Record<ScoreKey, string> = {
@@ -53,7 +56,7 @@ const LABELS: Record<ScoreKey, string> = {
   knoxFactor:  'Knox Factor',
 };
 
-export function RankBoard({ politicians, activeId, headlineKey, timeRangeLabel, onSelect, panelHeight, isRegistered = false, isLifetime = true }: Props) {
+export function RankBoard({ politicians, activeId, headlineKey, timeRangeLabel, onSelect, panelHeight, isRegistered = false, isLifetime = true, engReference = 15 }: Props) {
   const [viewType, setViewType]       = useState<ViewType>('all');
   const [partyFilter, setPartyFilter] = useState<PartyKey | null>(null);
 
@@ -106,6 +109,12 @@ export function RankBoard({ politicians, activeId, headlineKey, timeRangeLabel, 
     // Virality clamps many accounts to the same score, so break ties by true
     // reach-per-follower — a higher-reach account can never sit below a lower one.
     return [...base].sort((a, b) => {
+      // Engagement is now a filter-scaled display score: sort by the raw rate
+      // (monotonic with the score) so order matches the displayed value.
+      if (headlineKey === 'engagement') {
+        const e = engagementRate(b) - engagementRate(a);
+        if (e !== 0) return e;
+      }
       const d = leaderboardScore(b, headlineKey, isLifetime) - leaderboardScore(a, headlineKey, isLifetime);
       if (d !== 0) return d;
       if (headlineKey === 'virality') return viralityRatioFor(b, isLifetime) - viralityRatioFor(a, isLifetime);
@@ -115,6 +124,13 @@ export function RankBoard({ politicians, activeId, headlineKey, timeRangeLabel, 
       return 0;
     });
   }, [politicians, headlineKey, viewType, partyFilter, isLifetime]);
+
+  // Top page's views in the current list — the 100/100 reference for the
+  // views display score (each halving below it drops 10 points).
+  const viewsMax = useMemo(
+    () => ranked.reduce((m, p) => Math.max(m, p.totals.viewsInRange), 0),
+    [ranked],
+  );
 
   const wrapStyle = {
     flex: 1 as const,
@@ -218,6 +234,8 @@ export function RankBoard({ politicians, activeId, headlineKey, timeRangeLabel, 
                       rank={i + 1}
                       headlineKey={headlineKey}
                       isLifetime={isLifetime}
+                      viewsMax={viewsMax}
+                      engReference={engReference}
                       active={p.id === activeId}
                       onPress={() => onSelect(p.id)}
                     />
@@ -245,6 +263,8 @@ export function RankBoard({ politicians, activeId, headlineKey, timeRangeLabel, 
                             rank={cutoff + i + 1}
                             headlineKey={headlineKey}
                             isLifetime={isLifetime}
+                            viewsMax={viewsMax}
+                            engReference={engReference}
                             active={false}
                             onPress={() => undefined}
                           />

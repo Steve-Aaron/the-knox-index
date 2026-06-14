@@ -45,6 +45,20 @@ export function sanitiseHandle(raw: string): string {
   return raw.replace(/[^a-zA-Z0-9._-]/g, '').slice(0, 80).toLowerCase();
 }
 
+// ── Hidden accounts ────────────────────────────────────────────────────────
+//
+// Handles excluded from every lookup (leaderboard, account list, rankings,
+// account page, feed, top post). Compared case-insensitively with the leading
+// '@' stripped. Single source — add a handle here to hide it everywhere.
+export const HIDDEN_HANDLES = ['ukgov'];
+
+/** SQL boolean that is true for rows NOT in HIDDEN_HANDLES. Pass the profile
+ *  column expression (e.g. 'a.profile' or 'profile'). */
+function excludeHidden(profileExpr: string): string {
+  const list = HIDDEN_HANDLES.map(h => `'${h.toLowerCase()}'`).join(', ');
+  return `LOWER(LTRIM(${profileExpr}, '@')) NOT IN (${list})`;
+}
+
 // ── Accounts SQL ──────────────────────────────────────────────────────────────
 
 /**
@@ -139,6 +153,7 @@ export function buildAccountsSQL(range: Range): string {
     WHERE postDate IS NOT NULL
     GROUP BY LTRIM(profile, '@')
   ) la ON LTRIM(a.profile, '@') = la.profile
+  WHERE ${excludeHidden('a.profile')}
   ORDER BY a.name
 `;
 }
@@ -164,7 +179,8 @@ export function buildTopPostSQL(): string {
   FROM ${tableRef('post')} p
   JOIN ${tableRef('account')} a
     ON LTRIM(p.profile, '@') = LTRIM(a.profile, '@')
-  WHERE p.videoSummary IS NOT NULL  ORDER BY CAST(p.views AS INT64) DESC
+  WHERE p.videoSummary IS NOT NULL AND ${excludeHidden('a.profile')}
+  ORDER BY CAST(p.views AS INT64) DESC
   LIMIT 1
 `;
 }
@@ -202,7 +218,7 @@ export function buildPostsSQL(range: Range): string {
         ORDER BY postDate DESC
       ) AS _rn
     FROM ${tableRef('post')}
-    WHERE videoSummary IS NOT NULL      AND ${dateFilter}
+    WHERE videoSummary IS NOT NULL      AND ${dateFilter} AND ${excludeHidden('profile')}
   ) p
   LEFT JOIN ${tableRef('post_x_style')} pxs ON p.postId = pxs.postId
   LEFT JOIN ${tableRef('style')} s ON pxs.styleId = s.id
@@ -243,6 +259,7 @@ export function buildAccountPostsSQL(handle: string, range: Range, limit = 20): 
   LEFT JOIN ${tableRef('post_x_style')} pxs ON p.postId = pxs.postId
   LEFT JOIN ${tableRef('style')} s ON pxs.styleId = s.id
   WHERE LTRIM(p.profile, '@') = '${safe}'
+    AND ${excludeHidden('p.profile')}
     AND p.videoSummary IS NOT NULL    AND ${dateFilter}
   GROUP BY
     p.postId, p.profile, p.caption, p.videoSummary,
@@ -281,6 +298,7 @@ export function buildAllAccountPostsSQL(handle: string, limit = 200): string {
   LEFT JOIN ${tableRef('post_x_style')} pxs ON p.postId = pxs.postId
   LEFT JOIN ${tableRef('style')} s ON pxs.styleId = s.id
   WHERE LTRIM(p.profile, '@') = '${safe}'
+    AND ${excludeHidden('p.profile')}
     AND p.videoSummary IS NOT NULL  GROUP BY
     p.postId, p.profile, p.caption, p.videoSummary,
     p.views, p.likes, p.comments, p.shares, p.saves, p.reposts,

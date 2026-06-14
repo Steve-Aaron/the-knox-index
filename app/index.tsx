@@ -47,7 +47,7 @@ import { spacing, radius } from '@/theme/spacing';
 import { type } from '@/theme/typography';
 import { breakpoints } from '@/theme/breakpoints';
 import type { LeaderboardSortKey } from '@/data/types';
-import { leaderboardScore, viralityRatioFor } from '@/data/leaderboard';
+import { leaderboardScore, viralityRatioFor, engagementRate } from '@/data/leaderboard';
 import type { PartyKey } from '@/theme/colors';
 
 /**
@@ -324,6 +324,15 @@ function DashboardScreenInner() {
       }),
     [politicians, sortKey, range]
   );
+  // Engagement display reference (%): the top engagement rate in the current
+  // range's loaded set, capped at 15%. Drives the radar + leaderboard engagement
+  // display scaling (display only — never the Knox Factor).
+  const engReference = useMemo(() => {
+    let m = 0;
+    for (const p of ranked) { const r = engagementRate(p); if (r > m) m = r; }
+    return Math.min(m, 15);
+  }, [ranked]);
+
   // Keep refs in sync so handleSetActiveId always reads current values.
   rankedRef.current   = ranked;
   sortKeyRef.current  = sortKey;
@@ -375,21 +384,24 @@ function DashboardScreenInner() {
               <Title style={{ marginTop: 2 }}>Dashboard</Title>
             </View>
             <View style={styles.titleRight}>
-              {/* Square button — opens AccountsInterstitial; fills bottom-to-top on hover */}
-              <SquareButton
-                label={
-                  status === 'loading' && retryAttempt > 0
-                    ? `Retrying ${retryAttempt}/${retryTotal}…`
-                    : status === 'loading'
-                    ? 'Loading…'
-                    : status === 'error'
-                    ? 'Error — tap to retry'
-                    : 'See all TikTok accounts'
-                }
-                variant="live"
-                leading={<LiveDot status={status} isLive={isLive} />}
-                onPress={() => { track('accounts_pill_tapped'); setShowAccounts(true); }}
-              />
+              {/* Square button — opens AccountsInterstitial; fills bottom-to-top on hover.
+                  Hidden on mobile to keep the title bar uncluttered on narrow screens. */}
+              {!isMobile && (
+                <SquareButton
+                  label={
+                    status === 'loading' && retryAttempt > 0
+                      ? `Retrying ${retryAttempt}/${retryTotal}…`
+                      : status === 'loading'
+                      ? 'Loading…'
+                      : status === 'error'
+                      ? 'Error — tap to retry'
+                      : 'See all TikTok accounts'
+                  }
+                  variant="live"
+                  leading={<LiveDot status={status} isLive={isLive} />}
+                  onPress={() => { track('accounts_pill_tapped'); setShowAccounts(true); }}
+                />
+              )}
               {error ? (
                 <Text style={styles.errorText} numberOfLines={1}>{error}</Text>
               ) : null}
@@ -491,6 +503,7 @@ function DashboardScreenInner() {
                   panelHeight={PANEL_HEIGHT}
                   isRegistered={isRegistered}
                   isLifetime={range === 'lifetime'}
+                  engReference={engReference}
                 />
               </View>
               <View
@@ -498,7 +511,7 @@ function DashboardScreenInner() {
                 {...(Platform.OS === 'web' ? { 'data-container_name': 'card_politician_detail_col' } as any : {})}
               >
                 {active
-                  ? <PoliticianDetailPanel politician={active} headlineKey={sortKey} range={range} panelHeight={PANEL_HEIGHT} />
+                  ? <PoliticianDetailPanel politician={active} headlineKey={sortKey} range={range} engReference={engReference} panelHeight={PANEL_HEIGHT} />
                   : <SkeletonBlock height={PANEL_HEIGHT} style={{ borderRadius: 22 }} />}
               </View>
               <View
@@ -530,6 +543,7 @@ function DashboardScreenInner() {
                     panelHeight={PANEL_HEIGHT}
                     isRegistered={isRegistered}
                     isLifetime={range === 'lifetime'}
+                  engReference={engReference}
                   />
                 </View>
                 <View
@@ -537,7 +551,7 @@ function DashboardScreenInner() {
                   {...(Platform.OS === 'web' ? { 'data-container_name': 'card_politician_detail_col' } as any : {})}
                 >
                   {active
-                    ? <PoliticianDetailPanel politician={active} headlineKey={sortKey} range={range} panelHeight={PANEL_HEIGHT} />
+                    ? <PoliticianDetailPanel politician={active} headlineKey={sortKey} range={range} engReference={engReference} panelHeight={PANEL_HEIGHT} />
                     : <SkeletonBlock height={PANEL_HEIGHT} style={{ borderRadius: 22 }} />}
                 </View>
               </View>
@@ -556,9 +570,10 @@ function DashboardScreenInner() {
                 onSelect={handleSetActiveId}
                 isRegistered={isRegistered}
                 isLifetime={range === 'lifetime'}
+                engReference={engReference}
               />
               {active
-                ? <PoliticianDetailPanel politician={active} headlineKey={sortKey} range={range} />
+                ? <PoliticianDetailPanel politician={active} headlineKey={sortKey} range={range} engReference={engReference} />
                 : <SkeletonBlock height={400} style={{ borderRadius: 22 }} />}
               <SummaryPanel politicians={politicians} range={range} />
             </View>

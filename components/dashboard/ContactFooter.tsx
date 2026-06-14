@@ -8,6 +8,7 @@ import {
   Linking,
   Platform,
   ActivityIndicator,
+  useWindowDimensions,
 } from 'react-native';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { MotiView } from 'moti';
@@ -18,6 +19,7 @@ import { Title } from '@/components/ui/Title';
 import { neutral, glass, accent, brand } from '@/theme/colors';
 import { spacing, radius } from '@/theme/spacing';
 import { type, font } from '@/theme/typography';
+import { breakpoints } from '@/theme/breakpoints';
 
 /**
  * ContactFooter
@@ -46,6 +48,9 @@ export function ContactFooter({
   const [loading, setLoading] = useState(false);
   const [error,   setError]   = useState<string | null>(null);
   const [sent,    setSent]    = useState(false);
+
+  const { width } = useWindowDimensions();
+  const isMobile = width < breakpoints.tablet;
 
   async function submit() {
     if (!EMAIL_RE.test(email.trim())) {
@@ -89,7 +94,7 @@ export function ContactFooter({
         <View style={styles.copy}>
           <Kicker tone='dim' style={{ letterSpacing: 1.5 }}>LOOKING FOR DEEPER INSIGHTS?</Kicker>
           <Title style={{ fontSize: 20 }}>Deeper insights, API access and white labelling services are available.</Title>
-          <Text style={styles.lede}>
+          <Text style={[styles.lede, isMobile && styles.ledeMobile]}>
             Just get in touch with us directly for insights tailored towards you. Dashboards and data access for businesses and agencies are now available.
           </Text>
 
@@ -192,6 +197,10 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 18,
     width: '50%'
+  },
+  // Full width on mobile so the copy isn't squeezed into a narrow column.
+  ledeMobile: {
+    width: '100%',
   },
   links: {
     flexDirection: 'row',

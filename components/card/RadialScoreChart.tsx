@@ -6,6 +6,7 @@ import Animated, { useAnimatedProps, useAnimatedStyle, useSharedValue, withTimin
 import { party, PartyKey, neutral } from '@/theme/colors';
 import { font } from '@/theme/typography';
 import type { TopTrumpScores, ScoreKey } from '@/data/types';
+import { engagementScore, viralityScoreDisplay } from '@/data/leaderboard';
 import type { TimeRange } from '@/components/dashboard/TimeRangePicker';
 
 /**
@@ -54,6 +55,9 @@ interface Props {
    * Defaults to 'week' so existing call sites stay backward-compatible.
    */
   range?: TimeRange;
+  /** Engagement display reference rate (%). The radar's engagement dot tops out
+   *  at min(this, 15%). Defaults to 15 (absolute curve) for standalone use. */
+  engReference?: number;
 }
 
 /**
@@ -101,17 +105,27 @@ function polar(cx: number, cy: number, radius: number, angleDeg: number) {
   return { x: cx + radius * Math.cos(a), y: cy + radius * Math.sin(a) };
 }
 
-export function RadialScoreChart({ scores, partyKey, size = 440, highlightKey, rawValues, range = 'week' }: Props) {
+// RADAR DISPLAY-ONLY: virality + engagement use the shared display curves from
+// data/leaderboard (viralityScoreDisplay, engagementScore) so the radar and the
+// leaderboard agree. These shape the dots only — they DO NOT touch the Knox
+// Factor or its `scores`.
+
+export function RadialScoreChart({ scores, partyKey, size = 440, highlightKey, rawValues, range = 'week', engReference = 15 }: Props) {
   const colour   = party[partyKey];
   const cx       = size / 2;
   const cy       = size / 2;
   const maxR     = size / 2 - 30;
 
-  // Plot the canonical Knox axis scores directly — no display-only transforms.
-  // The radar shape is exactly the SQL-matching virality / engagement /
-  // frequency / followers / Knox scores. (rawValues is still used for the raw
-  // metric shown in each dot's tooltip, not for the plotted position.)
-  const plotScores: TopTrumpScores = scores;
+  // RADAR DISPLAY-ONLY: virality + engagement use the shared display curves
+  // (viralityScoreDisplay and engagementScore) computed from the raw ratio / rate, so
+  // the dots spread instead of pinning at 100. Frequency, followers and Knox
+  // plot the canonical scores unchanged. None of this affects the Knox Factor —
+  // it only shapes the radar. (rawValues also feeds each dot's tooltip.)
+  const plotScores: TopTrumpScores = {
+    ...scores,
+    virality:   rawValues ? viralityScoreDisplay(rawValues.virality)            : scores.virality,
+    engagement: rawValues ? engagementScore(rawValues.engagement, engReference) : scores.engagement,
+  };
 
   // AXES depends on the active range — only the frequency axis text varies,
   // but rebuilding the whole array keeps the indexing consistent and lets

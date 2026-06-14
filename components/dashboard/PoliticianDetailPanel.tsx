@@ -40,6 +40,9 @@ interface Props {
   /** Selected dashboard time range. Drives the frequency axis wording. */
   range:       TimeRange;
   panelHeight?: number;
+  /** Engagement display reference rate (%) — the radar engagement dot tops out
+   *  at min(this, 15%). Passed from the dashboard's current set. */
+  engReference?: number;
 }
 
 /**
@@ -78,7 +81,7 @@ const RANGE_TOTALS_LABEL: Record<TimeRange, string> = {
   lifetime:  'All time',
 };
 
-export function PoliticianDetailPanel({ politician, headlineKey, range, panelHeight }: Props) {
+export function PoliticianDetailPanel({ politician, headlineKey, range, panelHeight, engReference = 15 }: Props) {
   const colour = party[politician.partyKey];
 
   const recentPosts = politician.recentPosts ?? [];
@@ -204,6 +207,7 @@ export function PoliticianDetailPanel({ politician, headlineKey, range, panelHei
               highlightKey={headlineKey === 'views' ? null : headlineKey}
               rawValues={rawValues}
               range={range}
+              engReference={engReference}
               size={300}
             />
           </View>

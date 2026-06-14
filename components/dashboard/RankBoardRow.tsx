@@ -1,13 +1,13 @@
 import React from 'react';
 import { View, Text, Pressable, StyleSheet, Platform } from 'react-native';
 import { CardAvatar } from '@/components/card/CardAvatar';
-import { CountUp, formatters } from '@/components/primitives/CountUp';
+import { CountUp } from '@/components/primitives/CountUp';
 import { DevLabel } from '@/components/primitives/DevLabel';
 import { neutral, party, glass, accent } from '@/theme/colors';
 import { spacing, radius } from '@/theme/spacing';
 import { type } from '@/theme/typography';
 import type { Politician, LeaderboardSortKey } from '@/data/types';
-import { leaderboardScore } from '@/data/leaderboard';
+import { leaderboardScore, viewsScore, engagementScore, engagementRate, viralityScoreDisplay, viralityRatioFor } from '@/data/leaderboard';
 
 /**
  * RankBoardRow
@@ -24,19 +24,29 @@ interface Props {
   onPress: () => void;
   /** False when a time filter is active — Knox displays the range-scoped score. */
   isLifetime?: boolean;
+  /** Top page's views in the list — the 100/100 reference for the views score. */
+  viewsMax?: number;
+  /** Engagement display reference rate (%) — tops out at min(this, 15%). */
+  engReference?: number;
 }
 
-export function RankBoardRow({ politician, rank, headlineKey, active, onPress, isLifetime = true }: Props) {
+export function RankBoardRow({ politician, rank, headlineKey, active, onPress, isLifetime = true, viewsMax = 0, engReference = 15 }: Props) {
   const colour  = party[politician.partyKey];
   // An account is silent if it has no posts this week AND no views yesterday.
   // knoxFactor === 0 is a reliable proxy once the @ join bug is fixed.
   const silent  = politician.scores.knoxFactor === 0
     && politician.totals.postsThisWeek === 0;
-  // Same source as RankBoard's sort — display and order can never disagree.
-  const score   = leaderboardScore(politician, headlineKey, isLifetime);
-  // Views is a raw count, not a 0–100 score, so it's formatted compactly with a
-  // 'views' unit rather than '/ 100'.
+  // Views = 0–100 log2 score vs the top page. Engagement = 0–100 filter-scaled
+  // display score (tops out at min(filter rate, 15%)). Everything else reads the
+  // canonical leaderboard score. All shown out of 100.
   const isViews = headlineKey === 'views';
+  const score   = isViews
+    ? viewsScore(politician.totals.viewsInRange, viewsMax)
+    : headlineKey === 'engagement'
+    ? engagementScore(engagementRate(politician), engReference)
+    : headlineKey === 'virality'
+    ? viralityScoreDisplay(viralityRatioFor(politician, isLifetime))
+    : leaderboardScore(politician, headlineKey, isLifetime);
 
   return (
     <Pressable
@@ -70,8 +80,8 @@ export function RankBoardRow({ politician, rank, headlineKey, active, onPress, i
         </View>
       ) : (
         <View style={styles.score}>
-          <CountUp value={score} format={isViews ? formatters.compact : undefined} style={[styles.scoreValue, { color: colour.glow }]} />
-          {!isViews && <Text style={styles.scoreUnit}>/ 100</Text>}
+          <CountUp value={score} style={[styles.scoreValue, { color: colour.glow }]} />
+          <Text style={styles.scoreUnit}>/ 100</Text>
         </View>
       )}
     </Pressable>
