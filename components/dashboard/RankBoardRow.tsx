@@ -6,8 +6,13 @@ import { DevLabel } from '@/components/primitives/DevLabel';
 import { neutral, party, glass, accent } from '@/theme/colors';
 import { spacing, radius } from '@/theme/spacing';
 import { type } from '@/theme/typography';
+<<<<<<< Updated upstream
 import type { Politician, LeaderboardSortKey } from '@/data/types';
 import { leaderboardScore } from '@/data/transformers';
+=======
+import type { Politician, ScoreKey } from '@/data/types';
+import { leaderboardScore } from '@/data/leaderboard';
+>>>>>>> Stashed changes
 
 /**
  * RankBoardRow

@@ -210,6 +210,7 @@ export interface Politician {
     lifetimePostInteractions: number;
   };
   scores: TopTrumpScores;
+<<<<<<< Updated upstream
   /**
    * Knox Factor computed from posts inside the active ?range= only
    * (computeRangeKnox — same caps/curve as lifetime Knox, range-scoped
@@ -231,5 +232,7 @@ export interface Politician {
    * Knox Factor.
    */
   radial?: { activity: number; followers: number };
+=======
+>>>>>>> Stashed changes
   recentPosts?: RecentPost[];
 }

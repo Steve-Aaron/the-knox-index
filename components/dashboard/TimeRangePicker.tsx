@@ -155,9 +155,14 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   // Mobile: fixed equal width per option (keeps the highlight aligned + readable).
+  // flexBasis MUST be set here: `option` uses `flex: 1`, which expands to
+  // flex-basis:0%. Overriding only flexGrow/flexShrink leaves that 0% basis in
+  // place, and a definite flex-basis beats `width`, so the option collapsed to
+  // 0px and clipped its label to nothing. Pinning the basis to the width fixes it.
   optionMobile: {
     flexGrow:   0,
     flexShrink: 0,
+    flexBasis:  104,
     width:      104,
     paddingHorizontal: spacing.sm,
   },

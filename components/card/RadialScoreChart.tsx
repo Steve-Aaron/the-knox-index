@@ -6,7 +6,6 @@ import Animated, { useAnimatedProps, useAnimatedStyle, useSharedValue, withTimin
 import { party, PartyKey, neutral } from '@/theme/colors';
 import { font } from '@/theme/typography';
 import type { TopTrumpScores, ScoreKey } from '@/data/types';
-import { activityScore } from '@/data/knoxConfig';
 import type { TimeRange } from '@/components/dashboard/TimeRangePicker';
 
 /**
@@ -55,10 +54,6 @@ interface Props {
    * Defaults to 'week' so existing call sites stay backward-compatible.
    */
   range?: TimeRange;
-  /** Radar-only display overrides for the activity + followers axes (0–100).
-   *  When set, the radar shape uses these instead of scores.frequency/followers.
-   *  Does not affect Knox Factor. */
-  radial?: { activity: number; followers: number };
 }
 
 /**
@@ -95,18 +90,6 @@ function buildAxes(range: TimeRange): { key: ScoreKey; label: string; desc: stri
   ];
 }
 
-/**
- * RADAR DISPLAY-ONLY virality curve. Maps the raw avg-views-per-follower ratio
- * to a 0–100 dot position on a concave, saturating curve that caps at 4x:
- *   ~0.32x -> 91, ~2.76x -> 98, >=4x -> 100.
- * This is presentation only — it does NOT change the Knox virality score.
- */
-function viralityDisplay(ratio: number): number {
-  if (ratio >= 4) return 100;
-  const r = Math.max(0, ratio);
-  return Math.max(0, Math.min(100, 100 * (1 - 0.11 * Math.exp(-0.62 * r))));
-}
-
 function compact(n: number): string {
   if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M';
   if (n >= 1_000) return (n / 1_000).toFixed(1) + 'K';
@@ -118,12 +101,13 @@ function polar(cx: number, cy: number, radius: number, angleDeg: number) {
   return { x: cx + radius * Math.cos(a), y: cy + radius * Math.sin(a) };
 }
 
-export function RadialScoreChart({ scores, partyKey, size = 440, highlightKey, rawValues, range = 'week', radial }: Props) {
+export function RadialScoreChart({ scores, partyKey, size = 440, highlightKey, rawValues, range = 'week' }: Props) {
   const colour   = party[partyKey];
   const cx       = size / 2;
   const cy       = size / 2;
   const maxR     = size / 2 - 30;
 
+<<<<<<< Updated upstream
   // RADAR-ONLY shape. Activity is ALWAYS the past-7-days post count run through
   // the step scale: it is derived from rawValues.frequency (postsThisWeek, a
   // fixed 7-day window), so it never shifts with the selected date range.
@@ -141,6 +125,13 @@ export function RadialScoreChart({ scores, partyKey, size = 440, highlightKey, r
     frequency: radial?.activity ?? (rawValues ? activityScore(rawValues.frequency) : scores.frequency),
     followers: radial?.followers ?? scores.followers,
   };
+=======
+  // Plot the canonical Knox axis scores directly — no display-only transforms.
+  // The radar shape is exactly the SQL-matching virality / engagement /
+  // frequency / followers / Knox scores. (rawValues is still used for the raw
+  // metric shown in each dot's tooltip, not for the plotted position.)
+  const plotScores: TopTrumpScores = scores;
+>>>>>>> Stashed changes
 
   // AXES depends on the active range — only the frequency axis text varies,
   // but rebuilding the whole array keeps the indexing consistent and lets

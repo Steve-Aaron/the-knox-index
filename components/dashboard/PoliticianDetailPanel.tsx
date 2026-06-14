@@ -223,8 +223,12 @@ export function PoliticianDetailPanel({ politician, headlineKey, range, panelHei
               </View>
             </View>
             <RadialScoreChart
+<<<<<<< Updated upstream
               scores={radarScores}
               radial={radarRadial}
+=======
+              scores={politician.scores}
+>>>>>>> Stashed changes
               partyKey={politician.partyKey}
               highlightKey={headlineKey === 'views' ? null : headlineKey}
               rawValues={rawValues}

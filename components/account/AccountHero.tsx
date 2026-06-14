@@ -251,7 +251,6 @@ export function AccountHero({ politician, overallRank, totalCount, rangeLabel }:
           <View style={styles.radarChartWrap}>
             <RadialScoreChart
               scores={politician.scores}
-              radial={politician.radial}
               partyKey={politician.partyKey}
               rawValues={rawValues}
               size={isDesktop ? 360 : 300}

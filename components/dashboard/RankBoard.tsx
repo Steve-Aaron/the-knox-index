@@ -11,8 +11,13 @@ import { neutral, glass, party, brand, knox } from '@/theme/colors';
 import type { PartyKey } from '@/theme/colors';
 import { spacing, radius } from '@/theme/spacing';
 import { type, font } from '@/theme/typography';
+<<<<<<< Updated upstream
 import type { Politician, ScoreKey, LeaderboardSortKey } from '@/data/types';
 import { leaderboardScore, viralityRatioFor } from '@/data/transformers';
+=======
+import type { Politician, ScoreKey } from '@/data/types';
+import { leaderboardScore } from '@/data/leaderboard';
+>>>>>>> Stashed changes
 
 const PARTY_LABELS: Partial<Record<PartyKey, string>> = {
   labour: 'Labour', conservative: 'Conservative', libdem: 'Lib Dem',

@@ -45,3 +45,13 @@ Scope rules:
   and is unchanged
 - The 'This year' filter means the current calendar year (`bqQueries.ts`),
   not a rolling 365 days
+
+## Amendment — virality normalisation (signed off by Steve, 2026-06-12)
+
+The virality axis no longer winsorises at a 0.5 ratio (that cap tied every
+account above it at an identical 100/100). The raw ratio is uncapped and
+normalised with a cube-root curve: `score = 100 · ∛(ratio ÷ datasetMax)`
+(`cbrtNormalise` in `transformers.ts`). Only the dataset's true best scores
+100; outliers are compressed by the curve rather than clamped. Applies to
+both lifetime and range-scoped scoring. The radar's display-only virality
+curve is unchanged.
