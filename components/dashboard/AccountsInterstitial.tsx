@@ -284,7 +284,7 @@ const styles = StyleSheet.create({
     ...type.caption,
     fontSize:  12,
     color:     neutral.textDim,
-    letterSpacing: 0.8,
+    letterSpacing: 0.3,
   },
 
   // List
@@ -339,7 +339,7 @@ const styles = StyleSheet.create({
 
   // Stat columns
   colStat: {
-    width:     74,
+    width:     92,
     textAlign: 'right' as const,
   },
   stat: {
