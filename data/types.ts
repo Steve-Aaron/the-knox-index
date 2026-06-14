@@ -210,29 +210,5 @@ export interface Politician {
     lifetimePostInteractions: number;
   };
   scores: TopTrumpScores;
-<<<<<<< Updated upstream
-  /**
-   * Knox Factor computed from posts inside the active ?range= only
-   * (computeRangeKnox — same caps/curve as lifetime Knox, range-scoped
-   * inputs, no lifetime penalties). LEADERBOARD ONLY: shown when a time
-   * filter other than 'lifetime' is active. Kept outside `scores` so the
-   * ScoreKey-driven surfaces (rankings, radar, sort chips) are unaffected.
-   */
-  knoxFactorRange?: number;
-  /**
-   * Range-scoped virality / engagement / frequency (0–100), computed from
-   * in-range aggregates. Used by the leaderboard sort and the radar when a
-   * time filter other than 'lifetime' is active. Does not feed Knox Factor.
-   */
-  scoresRange?: { virality: number; engagement: number; frequency: number };
-  /**
-   * RADAR-ONLY display scores (0–100). These deliberately differ from `scores`
-   * (which drive Knox Factor): activity is the absolute 7-day step scale and
-   * followers is log-scaled. They affect the radar chart shape only — never
-   * Knox Factor.
-   */
-  radial?: { activity: number; followers: number };
-=======
->>>>>>> Stashed changes
   recentPosts?: RecentPost[];
 }

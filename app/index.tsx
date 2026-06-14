@@ -47,7 +47,7 @@ import { spacing, radius } from '@/theme/spacing';
 import { type } from '@/theme/typography';
 import { breakpoints } from '@/theme/breakpoints';
 import type { LeaderboardSortKey } from '@/data/types';
-import { leaderboardScore, viralityRatioFor } from '@/data/transformers';
+import { leaderboardScore, viralityRatioFor } from '@/data/leaderboard';
 import type { PartyKey } from '@/theme/colors';
 
 /**

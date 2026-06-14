@@ -127,31 +127,7 @@ export function PoliticianDetailPanel({ politician, headlineKey, range, panelHei
     frequency:  frequencyValue,
     engagement: engViews > 0 ? (engNumerator / engViews) * 100 : 0,
     followers:  politician.totals.followers,
-    knoxFactor: isLifetime ? politician.scores.knoxFactor : (politician.knoxFactorRange ?? politician.scores.knoxFactor),
-  };
-
-  // Radar shape: virality / engagement always read the post-table scores
-  // (scoresRange) in every range, including Lifetime, so the chart reflects the
-  // posts we hold rather than accountMetrics totals and agrees with the
-  // leaderboard. Followers and the activity step-scale are unchanged
-  // (radar-only). Knox stays range-scoped on a filter and the locked lifetime
-  // value on 'Lifetime'.
-  const radarScores = {
-    ...politician.scores,
-    virality:   politician.scoresRange?.virality   ?? politician.scores.virality,
-    engagement: politician.scoresRange?.engagement ?? politician.scores.engagement,
-    knoxFactor: isLifetime
-      ? politician.scores.knoxFactor
-      : (politician.knoxFactorRange ?? politician.scores.knoxFactor),
-  };
-
-  // Activity dot geometry: range-normalised post frequency (your in-range post
-  // count relative to the busiest account in the selected window) so the dot
-  // scales with the timeframe instead of the fixed 7-day step scale — lifetime
-  // spreads out, day-by-day isn't uniformly tiny. Followers unchanged.
-  const radarRadial = {
-    activity:  politician.scoresRange?.frequency ?? politician.radial?.activity ?? politician.scores.frequency,
-    followers: politician.radial?.followers ?? politician.scores.followers,
+    knoxFactor: politician.scores.knoxFactor,
   };
 
   const wrapStyle = {
@@ -223,12 +199,7 @@ export function PoliticianDetailPanel({ politician, headlineKey, range, panelHei
               </View>
             </View>
             <RadialScoreChart
-<<<<<<< Updated upstream
-              scores={radarScores}
-              radial={radarRadial}
-=======
               scores={politician.scores}
->>>>>>> Stashed changes
               partyKey={politician.partyKey}
               highlightKey={headlineKey === 'views' ? null : headlineKey}
               rawValues={rawValues}

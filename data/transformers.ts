@@ -5,7 +5,7 @@
  * components. Field names match the confirmed ariadne_tiktok_demo schema.
  */
 
-import type { Politician, TopTrumpScores, RecentPost, AccountType, LeaderboardSortKey } from './types';
+import type { Politician, TopTrumpScores, RecentPost, AccountType } from './types';
 import type { PartyKey } from '@/theme/colors';
 import { toPartyKeyPublic } from './partyUtils';
 import { computeKnoxFactor, applyKnoxNameBonus, NORMALISATION_LIMITS } from './knoxFactor.server';
@@ -177,19 +177,9 @@ function logNormaliseRaw(value: number, max: number): number {
   return Math.min(100, (Math.log1p(Math.max(0, value)) / Math.log1p(max)) * 100);
 }
 
-/**
- * Raw (unclamped) reach-per-follower ratio for a window. Used ONLY as a
- * leaderboard tie-breaker so accounts that clamp to the same virality score
- * still order by true reach (higher reach can never sit below lower reach).
- * Never feeds the displayed score or Knox.
- */
-export function viralityRatioFor(p: Politician, isLifetime: boolean): number {
-  const f = p.totals.followers;
-  if (f <= 0) return 0;
-  const views = isLifetime ? p.totals.views : p.totals.viewsInRange;
-  const posts = isLifetime ? p.totals.posts : p.totals.postsInRange;
-  return posts > 0 ? views / posts / f : 0;
-}
+// viralityRatioFor (leaderboard tie-breaker) now lives in data/leaderboard.ts
+// (client-safe) alongside leaderboardScore, keeping this server-only module off
+// the client.
 
 /**
  * Raw axis inputs for one account. SINGLE source of the scoring inputs — used by
@@ -251,27 +241,10 @@ function rawAxes(acc: BQAccountRow): RawAxes {
   };
 }
 
-// NOTE: the range-scoped Knox path was removed — there is now a SINGLE scoring
-// calculation (computeScores below, matching the canonical SQL). The leaderboard
-// reads that same score under every date filter; nothing recomputes a separate
-// in-range score.
-
-/**
- * Range-scoped display/sort scores for the non-Knox axes (virality, engagement,
- * frequency), computed from in-range aggregates using the same normalisation as
- * the lifetime axes. Used by the leaderboard sort and the radar when a time
- * filter is active. Does NOT feed computeKnoxFactor — it reuses the sanctioned
- * range layer only. Accounts with no posts in range score 0.
- */
-function computeRangeScores(acc: BQAccountRow, max: RangeMaxValues): { virality: number; engagement: number; frequency: number } {
-  const r = rangeAxes(acc);
-  if (r.postsInRange <= 0) return { virality: 0, engagement: 0, frequency: 0 };
-  return {
-    virality:   logNormalise(r.viralityRaw,  max.virality),
-    engagement: normalise(r.engRate,         max.engagementRate),
-    frequency:  normalise(r.postsInRange,    max.postsInRange),
-  };
-}
+// NOTE: the range-scoped scoring (computeRangeScores / computeRangeKnoxScore /
+// rangeAxes) was removed — there is now a SINGLE scoring calculation
+// (computeScores below, matching the canonical SQL). The leaderboard reads that
+// same score under every date filter; nothing recomputes a separate in-range score.
 
 interface ScoreMaxValues {
   virality:       number;  // clamped virality ratio
@@ -336,42 +309,9 @@ function computeScores(acc: BQAccountRow, max: ScoreMaxValues): TopTrumpScores {
   };
 }
 
-<<<<<<< Updated upstream
-/**
- * The score the leaderboard ranks and displays for a given sort key.
- * Knox Factor is range-scoped when a time filter is active; every other key
- * (and Knox on 'Lifetime') reads the standard scores. Single source for both
- * RankBoard sorting and RankBoardRow display so they can never disagree.
- */
-export function leaderboardScore(p: Politician, key: LeaderboardSortKey, isLifetime: boolean): number {
-  // Views: range-scoped view count when a filter is active, lifetime total on
-  // 'Lifetime'. Not a 0–100 score — the row formats it as a raw count.
-  if (key === 'views') {
-    // Use the post-table sum (viewsInRange tracks the fetched range, including
-    // lifetime) rather than accountMetrics.totalViews, which is incomplete or
-    // zero for some accounts even when their posts have views.
-    return p.totals.viewsInRange;
-  }
-  // Virality / engagement / frequency always read the post-table scores
-  // (scoresRange) in EVERY range, including Lifetime. On a lifetime fetch the
-  // *InRange aggregates equal the full set of posts we hold, so these reflect
-  // our own data rather than the accountMetrics totals (which mix a frozen,
-  // undercounted view cumulative with a profile-sourced post count). Kept on the
-  // 0–100 scale; frequency is the count of posts we store, normalised. Followers
-  // stays the profile snapshot below; Knox Factor is untouched.
-  if (key === 'virality' || key === 'engagement' || key === 'frequency') {
-    return p.scoresRange?.[key] ?? p.scores[key];
-  }
-  if (key === 'knoxFactor') {
-    return isLifetime ? p.scores.knoxFactor : (p.knoxFactorRange ?? p.scores.knoxFactor);
-  }
-  return p.scores[key];
-}
-=======
 // NOTE: leaderboardScore now lives in data/leaderboard.ts (client-safe). It was
 // moved out so this module — which imports the server-only Knox formula
 // (data/knoxFactor.server.ts) — is never pulled into the client bundle.
->>>>>>> Stashed changes
 
 // ── Post transformer ──────────────────────────────────────────────────────────
 
@@ -432,25 +372,7 @@ export function transformToPoliticians(
 
   return accountRows.map((acc): Politician => {
     const posts = (postsByProfile.get(normProfile(acc.profile)) ?? []).slice(0, 5);
-<<<<<<< Updated upstream
-    const scores      = computeScores(acc, max);
-    // Range-scoped Knox — used by the leaderboard when a time filter is
-    // active. For range='lifetime' the API's date filter makes the *InRange
-    // aggregates equal lifetime totals, but the leaderboard shows the true
-    // (penalised) lifetime Knox in that case, not this value.
-    const knoxFactorRange = computeRangeKnoxScore(acc, rangeMax);
-    // Range-scoped virality/engagement/frequency for the leaderboard + radar.
-    const scoresRange = computeRangeScores(acc, rangeMax);
-
-    // RADAR-ONLY display scores. Activity = absolute 7-day step scale; followers
-    // = log-scaled against the dataset max. These never feed Knox Factor.
-    const radial = {
-      activity:  activityScore(acc.postsThisWeek ?? 0),
-      followers: logNormalise(acc.totalFollowers ?? 0, max.followers),
-    };
-=======
     const scores = computeScores(acc, max);
->>>>>>> Stashed changes
 
     return {
       id:             String(acc.id),
@@ -487,12 +409,6 @@ export function transformToPoliticians(
         lifetimePostInteractions: acc.lifetimePostInteractions ?? 0,
       },
       scores,
-<<<<<<< Updated upstream
-      knoxFactorRange,
-      scoresRange,
-      radial,
-=======
->>>>>>> Stashed changes
       recentPosts: posts.map(transformPost),
     };
   });
