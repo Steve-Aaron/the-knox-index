@@ -93,7 +93,17 @@ function DashboardScreenInner() {
   // Area 9: scroll depth — attach to section root Views
   const sectionRef = useSectionTracking();
 
-  const [range, setRange]           = useState<TimeRange>('yesterday');
+  // Logged-in users start on 'This Year' from the first render so there's no
+  // Yesterday→Year fetch flip. We read the persisted login flag (the same one
+  // useAuth maintains) synchronously here. SSR-safe: the server has no
+  // localStorage, so it falls back to 'yesterday' and the effect below still
+  // upgrades the range once auth confirms (covers fresh logins this session).
+  const [range, setRange]           = useState<TimeRange>(() => {
+    if (typeof localStorage !== 'undefined') {
+      try { if (localStorage.getItem('tki_registered') === '1') return 'year'; } catch { /* ignore */ }
+    }
+    return 'yesterday';
+  });
   const [sortKey, setSortKey]       = useState<LeaderboardSortKey>('knoxFactor');
   const [activeId, setActiveId]     = useState<string>('');
   const [showAccounts, setShowAccounts] = useState(false);
@@ -156,12 +166,18 @@ function DashboardScreenInner() {
   // Area 4: enhanced sort/range handlers that carry previous values
   const prevSortRef  = useRef<LeaderboardSortKey>('knoxFactor');
   const prevRangeRef = useRef<TimeRange>('yesterday');
+  // Tracks whether the user has chosen a range themselves, and whether the
+  // logged-in default ('This Year') has already been applied — so the auto
+  // switch fires at most once and never overrides a manual choice.
+  const userChangedRangeRef = useRef(false);
+  const autoYearAppliedRef  = useRef(false);
 
   const handleSetRange = useCallback((r: TimeRange) => {
     track('time_range_changed', {
       range:          r,
       previous_range: prevRangeRef.current,
     });
+    userChangedRangeRef.current = true;
     prevRangeRef.current = r;
     setRange(r);
   }, []);
@@ -238,6 +254,17 @@ function DashboardScreenInner() {
   }, []);
 
   const { isRegistered, email: authEmail } = useAuth();
+
+  // Logged-in users land on 'This Year' instead of Yesterday. Fires once, when
+  // the session is confirmed (on load or on fresh login this session), and only
+  // if the user hasn't already picked a range themselves.
+  useEffect(() => {
+    if (isRegistered && !userChangedRangeRef.current && !autoYearAppliedRef.current) {
+      autoYearAppliedRef.current = true;
+      prevRangeRef.current = 'year';
+      setRange('year');
+    }
+  }, [isRegistered]);
 
   // Post feed sort is lifted here so it can drive the API's ORDER BY (the
   // server returns the top-N for whichever metric is selected). When the user
