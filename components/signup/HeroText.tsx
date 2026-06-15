@@ -20,7 +20,7 @@ const COPY = {
   kicker:    'INSIGHTS SENT 8:00AM EVERY DAY',
   line1:     'Your daily intelligence on',
   highlight: 'UK politicians',
-  line2:     'on TikTok — free.',
+  line2:     'on TikTok - free.',
   body:      'Get TikTok insights in your inbox that you won\'t get anywhere else.',
 };
 

@@ -153,7 +153,7 @@ export function StickyUnlock({ showBar, isRegistered, email }: Props) {
                 {/* Sub-copy is desktop-only — mobile keeps the bar to two lines */}
                 {!isMobile && (
                   <Text style={styles.ctaCopy}>
-                    Register via email — free for a limited time only.
+                    Register via email - free for a limited time only.
                   </Text>
                 )}
               </View>

@@ -731,7 +731,7 @@ function DashboardScreenInner() {
             ? `The full ${RANGE_LABELS[lockedRangeAttempt].toLowerCase()} view is for registered users.`
             : ''
         }
-        text="Free, takes 30 seconds. Magic link sent to your inbox — no password. You'll see every tracked post across this time range, plus party-level filters, virality scoring and CSV export."
+        text="Free, takes 30 seconds. Magic link sent to your inbox - no password. You'll see every tracked post across this time range, plus party-level filters, virality scoring and CSV export."
         ctaLabel="Register free"
         onCta={() => {
           track('locked_range_register_cta', { range: lockedRangeAttempt ?? 'unknown' });
