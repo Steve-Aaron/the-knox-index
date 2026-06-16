@@ -5,10 +5,21 @@
  *
  * Lives in the Vercel-native `/api/` directory (NOT `app/api/`) so Vercel
  * bundles it as a plain Node.js serverless function, served directly by
- * filesystem routing. It originally needed to sit here to use sharp (a
- * native dep Expo Router's Metro bundler cannot externalise); sharp has
- * since been removed (covers are already JPEGs), but the route is kept here
- * because the direct filesystem routing and cache behaviour are convenient.
+ * filesystem routing.
+ *
+ * WRITTEN IN SELF-CONTAINED COMMONJS ON PURPOSE — do not convert to
+ * import/export, and do NOT require local `lib/*` modules.
+ *
+ * Why: the Lambda executes this compiled file as CommonJS (.js, no
+ * "type": "module"). Under the project tsconfig (module: esnext) every
+ * local .ts compiles to an ES module, so:
+ *   - ESM `import` syntax here -> the file itself fails to load
+ *   - `require('../../lib/gcs')` -> that ESM file fails to load
+ * Both surface as 'Failed to load the ES module ... .js' and 500 EVERY
+ * request. The only safe dependencies from this island are npm packages
+ * (published as CommonJS) and Node builtins. That is why the BigQuery +
+ * GCS logic is inlined below rather than imported from lib/. Keep this
+ * file consistent with the sibling api/[...all].ts handler.
  *
  * Vercel's filesystem routing serves this file directly for any request
  * matching /api/cover/<postId>, BEFORE the catch-all rewrite in
@@ -23,29 +34,125 @@
  * The stored objects are already JPEGs
  * (tiktok-content-scraper/{profile}/{date}/{postId}.jpeg), so the bytes are
  * passed straight through. No transcode, and therefore no native image
- * dependency, which keeps this function able to cold-start cleanly on Vercel.
- *
- * Cache: aggressively. The cover image for a given postId never changes
- * after the scrape, so the edge absorbs almost all traffic.
+ * dependency.
  *
  * One job: turn a postId into a permanent, inbox-friendly jpg URL.
  */
 
-import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { signGcsUrl } from '../../lib/gcs';
-import { query, tableRef } from '../../lib/bigquery';
+/* eslint-disable @typescript-eslint/no-var-requires */
+const { BigQuery } = require('@google-cloud/bigquery');
+const { Storage } = require('@google-cloud/storage');
+const path = require('node:path');
+
+// ── Config (mirrors lib/bigquery.ts + lib/gcs.ts; kept inline by design) ──────
+const PROJECT_ID = process.env.BIGQUERY_PROJECT_ID ?? 'project-ariadne';
+const DATASET = process.env.BIGQUERY_DATASET ?? 'ariadne_tiktok_demo';
+const QUERY_LOCATION = 'EU';
 
 // TikTok post IDs are 19-digit numeric strings. Stricter than necessary, but
 // guarantees no SQL injection via the path segment and bounds the query.
 const POST_ID_RE = /^\d{1,25}$/;
 
-interface CoverRow {
-  coverJpeg: string;
+/**
+ * Shared GCP credential resolution (matches lib/bigquery.ts + lib/gcs.ts):
+ *   1. GOOGLE_APPLICATION_CREDENTIALS = JSON string -> credentials object
+ *   2. GOOGLE_APPLICATION_CREDENTIALS = file path   -> keyFilename
+ *   3. Local dev fallback to keys/service-account.json
+ */
+function gcpCredentialOpts(): Record<string, unknown> {
+  const creds = (process.env.GOOGLE_APPLICATION_CREDENTIALS ?? '').trim();
+  if (creds) {
+    if (creds.startsWith('{')) {
+      try {
+        return { credentials: JSON.parse(creds) };
+      } catch {
+        throw new Error(
+          'GOOGLE_APPLICATION_CREDENTIALS looks like JSON but failed to parse. ' +
+          'Newlines inside private_key must be escaped as \\n, not raw line breaks.',
+        );
+      }
+    }
+    return { keyFilename: creds };
+  }
+  return { keyFilename: path.resolve(process.cwd(), 'keys/service-account.json') };
 }
 
-export default async function handler(
-  req: VercelRequest,
-  res: VercelResponse,
+// ── Lazy singletons — reused across requests in a warm Lambda ─────────────────
+let _bq: any = null;
+function getBigQuery(): any {
+  if (!_bq) _bq = new BigQuery({ projectId: PROJECT_ID, ...gcpCredentialOpts() });
+  return _bq;
+}
+
+let _storage: any = null;
+function getStorage(): any {
+  if (!_storage) _storage = new Storage(gcpCredentialOpts());
+  return _storage;
+}
+
+/** Parse a GCS object reference into { bucketName, objectPath }. */
+function parseGcsRef(ref: string): { bucketName: string; objectPath: string } | null {
+  if (!ref) return null;
+
+  // Format 1 — authenticated GCS download URL
+  const apiMatch = ref.match(
+    /storage\.googleapis\.com\/download\/storage\/v1\/b\/([^/]+)\/o\/([^?]+)/,
+  );
+  if (apiMatch) {
+    return {
+      bucketName: decodeURIComponent(apiMatch[1]),
+      objectPath: decodeURIComponent(apiMatch[2]),
+    };
+  }
+
+  // Format 2 — public-style googleapis URL
+  const publicMatch = ref.match(/storage\.googleapis\.com\/([^/]+)\/(.+)/);
+  if (publicMatch) {
+    return {
+      bucketName: decodeURIComponent(publicMatch[1]),
+      objectPath: decodeURIComponent(publicMatch[2]),
+    };
+  }
+
+  // Format 3 — gs:// URI
+  const gsMatch = ref.match(/^gs:\/\/([^/]+)\/(.+)/);
+  if (gsMatch) {
+    return { bucketName: gsMatch[1], objectPath: gsMatch[2] };
+  }
+
+  // Format 4 — storage.cloud.google.com (browser console URL)
+  const cloudMatch = ref.match(/storage\.cloud\.google\.com\/([^/]+)\/(.+)/);
+  if (cloudMatch) {
+    return {
+      bucketName: decodeURIComponent(cloudMatch[1]),
+      objectPath: decodeURIComponent(cloudMatch[2]),
+    };
+  }
+
+  return null;
+}
+
+/** Returns a signed read URL valid for `ttlMs`, or the original ref on failure. */
+async function signGcsUrl(ref: string, ttlMs: number): Promise<string> {
+  if (!ref) return ref;
+  const parsed = parseGcsRef(ref);
+  if (!parsed) return ref;
+
+  try {
+    const [url] = await getStorage()
+      .bucket(parsed.bucketName)
+      .file(parsed.objectPath)
+      .getSignedUrl({ action: 'read', expires: Date.now() + ttlMs });
+    return url;
+  } catch (err: unknown) {
+    console.warn('[/api/cover] signing failed:', err instanceof Error ? err.message : 'unknown error');
+    return ref;
+  }
+}
+
+module.exports = async function handler(
+  req: import('@vercel/node').VercelRequest,
+  res: import('@vercel/node').VercelResponse,
 ): Promise<void> {
   if (req.method !== 'GET' && req.method !== 'HEAD') {
     res.status(405).send('Method not allowed');
@@ -64,14 +171,15 @@ export default async function handler(
   try {
     // 1. Look up the GCS ref for this postId. postId is regex-validated
     //    as digits-only, so safe to interpolate into the SQL.
-    const rows = await query<CoverRow>(`
+    const sql = `
       SELECT COALESCE(coverJpeg, '') AS coverJpeg
-      FROM ${tableRef('post')}
+      FROM \`${PROJECT_ID}.${DATASET}.post\`
       WHERE CAST(postId AS STRING) = '${postId}'
       LIMIT 1
-    `);
+    `;
+    const [rows] = await getBigQuery().query({ query: sql, location: QUERY_LOCATION });
 
-    const ref = rows[0]?.coverJpeg;
+    const ref: string = rows?.[0]?.coverJpeg ?? '';
     if (!ref) {
       res.status(404).send('Cover not found');
       return;
@@ -107,4 +215,4 @@ export default async function handler(
     console.error('[/api/cover] error:', msg);
     res.status(500).send('Internal server error');
   }
-}
+};
