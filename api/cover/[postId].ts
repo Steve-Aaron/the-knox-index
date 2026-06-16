@@ -4,10 +4,11 @@
  * Public proxy for post cover thumbnails.
  *
  * Lives in the Vercel-native `/api/` directory (NOT `app/api/`) so Vercel
- * bundles it as a plain Node.js serverless function. This is deliberate:
- * Expo Router's Metro bundler cannot externalise native deps (sharp,
- * @img/sharp-linux-x64, etc.), so the route HAS to live outside Expo
- * Router to use sharp at all. The Expo docs explicitly call this out.
+ * bundles it as a plain Node.js serverless function, served directly by
+ * filesystem routing. It originally needed to sit here to use sharp (a
+ * native dep Expo Router's Metro bundler cannot externalise); sharp has
+ * since been removed (covers are already JPEGs), but the route is kept here
+ * because the direct filesystem routing and cache behaviour are convenient.
  *
  * Vercel's filesystem routing serves this file directly for any request
  * matching /api/cover/<postId>, BEFORE the catch-all rewrite in
@@ -17,8 +18,12 @@
  *   1. Look up coverJpeg ref for postId in BigQuery
  *   2. Sign the GCS URL server-side
  *   3. Fetch the bytes from GCS
- *   4. Transcode webp -> jpg via sharp (so Outlook + Apple Mail render)
- *   5. Stream back with edge cache headers (1 day client / 30 day edge)
+ *   4. Stream back with edge cache headers (1 day client / 30 day edge)
+ *
+ * The stored objects are already JPEGs
+ * (tiktok-content-scraper/{profile}/{date}/{postId}.jpeg), so the bytes are
+ * passed straight through. No transcode, and therefore no native image
+ * dependency, which keeps this function able to cold-start cleanly on Vercel.
  *
  * Cache: aggressively. The cover image for a given postId never changes
  * after the scrape, so the edge absorbs almost all traffic.
@@ -27,7 +32,6 @@
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import sharp from 'sharp';
 import { signGcsUrl } from '../../lib/gcs';
 import { query, tableRef } from '../../lib/bigquery';
 
@@ -84,25 +88,20 @@ export default async function handler(
       res.status(502).send('Upstream error');
       return;
     }
-    const inputBuffer = Buffer.from(await upstream.arrayBuffer());
+    const imageBuffer = Buffer.from(await upstream.arrayBuffer());
 
-    // 4. Always re-encode through sharp:
-    //      - webp -> jpg for Outlook + Apple Mail compatibility
-    //      - jpg -> jpg ensures consistent quality, strips EXIF, normalises
-    //        colour profile. Cheap (~10ms).
-    const jpgBuffer = await sharp(inputBuffer)
-      .jpeg({ quality: 85, progressive: true, mozjpeg: true })
-      .toBuffer();
-
-    // 5. Stream back with edge cache headers.
+    // 4. Stream the bytes straight back. The stored object is already a JPEG,
+    //    so there is nothing to transcode — just forward it with the right
+    //    content type and aggressive edge caching.
     res.setHeader('Content-Type', 'image/jpeg');
+    res.setHeader('Content-Length', String(imageBuffer.length));
     // 1 day at the client, 30 days at the edge, 7 day SWR
     res.setHeader(
       'Cache-Control',
       'public, max-age=86400, s-maxage=2592000, stale-while-revalidate=604800',
     );
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.status(200).send(jpgBuffer);
+    res.status(200).send(imageBuffer);
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error('[/api/cover] error:', msg);

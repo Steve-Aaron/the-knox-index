@@ -21,6 +21,9 @@ keys/
 # Build artefacts
 build/
 
+# Firebase deploy cache (login.knox.digital auth-handler hosting)
+.firebase/
+
 # Project docs — briefs, reviews, planning notes
 docs/
 
