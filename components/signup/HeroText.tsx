@@ -17,8 +17,11 @@ import { Kicker } from '@/components/ui/Kicker';
  */
 
 const COPY = {
-  kicker:    'INSIGHTS SENT 8:00AM EVERY DAY',
-  line1:     'Your daily intelligence on',
+  // Daily cadence is paused for now — weekly is the default. Old daily copy:
+  //   kicker: 'INSIGHTS SENT 8:00AM EVERY DAY',
+  //   line1:  'Your daily intelligence on',
+  kicker:    'INSIGHTS SENT EVERY WEEK',
+  line1:     'Your weekly intelligence on',
   highlight: 'UK politicians',
   line2:     'on TikTok - free.',
   body:      'Get TikTok insights in your inbox that you won\'t get anywhere else.',

@@ -15,7 +15,7 @@
   Global:
     subjectLine    — drives the email subject (referenced by Brevo template payload)
     previewLine    — drives BOTH the hidden inbox preheader AND a body paragraph
-                     inside the daily-brief card, sitting between the greeting
+                     inside the intro card, sitting between the greeting
                      and the INTRO_SUMMARY
     BRIEFING_DATE, INTRO_SUMMARY, WEEKLY_SUMMARY, SIGNUP_URL, PRIVACY_URL
 
@@ -86,7 +86,7 @@
         </tr>
 
 
-        <!-- ── 1. BLOCK: Summary (greeting + daily summary, no header pill) ── -->
+        <!-- ── 1. BLOCK: Summary (greeting + intro summary, no header pill) ── -->
         <tr>
           <td style="padding:0 0 14px;">
             <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#FFFFFF;border:1px solid #E5E0EC;border-radius:12px;">
@@ -113,9 +113,11 @@
         </tr>
 
         <!-- 2. Total Performance -->
-        <!-- ── BLOCK: Political TikTok Today (no account-type filter) ─────
+        <!-- ── BLOCK: Political TikTok This Week (no account-type filter) ─────
      Three cards: total posts (with account count), total views, eng rate.
-     Each card carries a horizontal bar showing today vs yesterday.
+     Each card carries a horizontal bar comparison.
+     NOTE: the bar labels (params.*_BAR_LABEL) still read "vs yesterday"
+     until the params builder is moved to a weekly window.
 ─────────────────────────────────────────────────────────── -->
 <tr>
   <td style="padding:0 0 14px;">
@@ -123,7 +125,7 @@
       <tr>
         <td style="padding:14px 20px 0;text-align:left;">
           <span style="display:inline-block;background:#F67374;color:#FFFFFF;font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;padding:4px 10px;border-radius:3px;font-family:'Figtree',Helvetica,Arial,sans-serif;">
-            Political TikTok Today
+            Political TikTok This Week
           </span>
         </td>
       </tr>
@@ -198,162 +200,10 @@
 </tr>
 
 
-        <!-- 3. Today's Top Posts (5 cards in one container) -->
-        <!-- ── BLOCK: Top Posts (5 cards in a single white container) ──
-     Header pill → Knox pink (#E83C91). Each of the 5 post cards
-     uses its own gradient colour for the category badge so the
-     section visually steps through the Knox gradient.
-─────────────────────────────────────────────────────────── -->
-<tr>
-  <td style="padding:0 0 14px;">
-    <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#FFFFFF;border:1px solid #E5E0EC;border-radius:12px;">
-      <tr>
-        <td style="padding:14px 20px 4px;text-align:left;">
-          <span style="display:inline-block;background:#E83C91;color:#FFFFFF;font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;padding:4px 10px;border-radius:3px;font-family:'Figtree',Helvetica,Arial,sans-serif;">
-            Today's Top Posts
-          </span>
-        </td>
-      </tr>
-
-      
-      <tr>
-        <td style="padding:10px 10px 4px;">
-          <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#FFFFFF;border:1px solid #E5E0EC;border-radius:10px;">
-            <tr>
-              <td width="33%" valign="top" align="center" background="https://storage.googleapis.com/tiktok-content-scraper/jonathan.hinder.mp/2026-05-31/7645964534485732630.webp?GoogleAccessId=website-bigquery-viewer%40project-ariadne.iam.gserviceaccount.com&Expires=1780391219&Signature=g7YJ%2BkS5xn9nTTub1IzrQe8X4f7UX%2BDBu0MAcqHTOrGsvt7FK5hqSEjlaI6cXIg%2FWQsbd0Gu2BFl%2Fsd45Is1KlAqzEhX0UsaDox4RQAVEx3gNIBdnpJf%2BTAkOkOtytOaXOTL%2F8SZdyi9oxvCcE9Nef%2Ficl1aA18JKgFhyKuIr%2Ft4%2FgoYbQ0I486X6LaPwOWq1TK0vB%2B4kn4Ve0tkQDK5WvNQR3j%2FG2Ab2dwMk5vPWsLGII5BMQBeW7q4O8Zx5nGgep5YfxXXDDS0rbGMf2U8wS8URbLur3OeamHBgR3Dut4DKMaNsZ63uKXL9VQ4RX9SwBzxAKoq1qYXYkLJwT458A%3D%3D" style="width:33%;padding:0;background-image:url('https://storage.googleapis.com/tiktok-content-scraper/jonathan.hinder.mp/2026-05-31/7645964534485732630.webp?GoogleAccessId=website-bigquery-viewer%40project-ariadne.iam.gserviceaccount.com&Expires=1780391219&Signature=g7YJ%2BkS5xn9nTTub1IzrQe8X4f7UX%2BDBu0MAcqHTOrGsvt7FK5hqSEjlaI6cXIg%2FWQsbd0Gu2BFl%2Fsd45Is1KlAqzEhX0UsaDox4RQAVEx3gNIBdnpJf%2BTAkOkOtytOaXOTL%2F8SZdyi9oxvCcE9Nef%2Ficl1aA18JKgFhyKuIr%2Ft4%2FgoYbQ0I486X6LaPwOWq1TK0vB%2B4kn4Ve0tkQDK5WvNQR3j%2FG2Ab2dwMk5vPWsLGII5BMQBeW7q4O8Zx5nGgep5YfxXXDDS0rbGMf2U8wS8URbLur3OeamHBgR3Dut4DKMaNsZ63uKXL9VQ4RX9SwBzxAKoq1qYXYkLJwT458A%3D%3D');background-size:cover;background-position:center center;background-repeat:no-repeat;border-radius:10px 0 0 10px;min-height:200px;mso-padding-alt:0;">
-                <!--[if mso]>
-                <v:rect xmlns:v="urn:schemas-microsoft-com:vml" fill="true" stroke="false" style="width:108px;height:192px;">
-                  <v:fill type="frame" src="https://storage.googleapis.com/tiktok-content-scraper/jonathan.hinder.mp/2026-05-31/7645964534485732630.webp?GoogleAccessId=website-bigquery-viewer%40project-ariadne.iam.gserviceaccount.com&Expires=1780391219&Signature=g7YJ%2BkS5xn9nTTub1IzrQe8X4f7UX%2BDBu0MAcqHTOrGsvt7FK5hqSEjlaI6cXIg%2FWQsbd0Gu2BFl%2Fsd45Is1KlAqzEhX0UsaDox4RQAVEx3gNIBdnpJf%2BTAkOkOtytOaXOTL%2F8SZdyi9oxvCcE9Nef%2Ficl1aA18JKgFhyKuIr%2Ft4%2FgoYbQ0I486X6LaPwOWq1TK0vB%2B4kn4Ve0tkQDK5WvNQR3j%2FG2Ab2dwMk5vPWsLGII5BMQBeW7q4O8Zx5nGgep5YfxXXDDS0rbGMf2U8wS8URbLur3OeamHBgR3Dut4DKMaNsZ63uKXL9VQ4RX9SwBzxAKoq1qYXYkLJwT458A%3D%3D" />
-                  <v:textbox inset="0,0,0,0">
-                <![endif]-->
-                <a href="https://www.tiktok.com/@jonathan.hinder.mp/video/7645964534485732630" style="display:block;width:100%;min-height:200px;text-decoration:none;font-size:0;line-height:0;">&nbsp;</a>
-                <!--[if mso]>
-                  </v:textbox>
-                </v:rect>
-                <![endif]-->
-              </td>
-              <td width="67%" valign="top" style="width:67%;padding:14px 16px 14px 12px;">
-                <p style="margin:0 0 8px;">
-                  <span style="display:inline-block;background:#FF9363;color:#FFFFFF;font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;padding:3px 8px;border-radius:3px;font-family:'Figtree',Helvetica,Arial,sans-serif;">
-                    MOST VIEWED
-                  </span>
-                </p>
-                <p style="margin:0 0 2px;font-size:14px;font-weight:800;color:#1F1D1D;font-family:'Figtree',Helvetica,Arial,sans-serif;line-height:1.2;">Jonathan Hinder MP</p>
-                <p style="margin:0 0 8px;font-size:11px;color:#7C919A;font-family:'Figtree',Helvetica,Arial,sans-serif;">@jonathan.hinder.mp &middot; labour</p>
-                <p style="margin:0 0 10px;font-size:12px;line-height:1.55;color:#4D575C;font-family:'Figtree',Helvetica,Arial,sans-serif;">Jonathan Hinder MP records a piece to camera criticizing the reliability of rail services in the North of England. He argues that passengers deserve more consistent train schedules and improved public transport performance.</p>
-                <p style="margin:0 0 10px;font-size:11px;color:#7C919A;font-family:'Figtree',Helvetica,Arial,sans-serif;line-height:1.5;">
-                  <strong style="color:#1F1D1D;font-weight:700;">35.9K</strong> views &middot;
-                  <strong style="color:#1F1D1D;font-weight:700;">9.9×</strong> virality &middot;
-                  <strong style="color:#1F1D1D;font-weight:700;">5.5%</strong> eng
-                </p>
-                <a href="https://www.tiktok.com/@jonathan.hinder.mp/video/7645964534485732630" style="display:inline-block;background:#553984;color:#FFFFFF;font-size:11px;font-weight:700;letter-spacing:0.3px;padding:8px 14px;border-radius:6px;font-family:'Figtree',Helvetica,Arial,sans-serif;">Watch on TikTok ↗</a>
-              </td>
-            </tr>
-          </table>
-        </td>
-      </tr>
-      
-
-      
-      <tr>
-        <td style="padding:4px 10px;">
-          <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#FFFFFF;border:1px solid #E5E0EC;border-radius:10px;">
-            <tr>
-              <td width="33%" valign="top" align="center" background="https://storage.googleapis.com/tiktok-content-scraper/uklabour/2026-05-31/7645992871274745110.webp?GoogleAccessId=website-bigquery-viewer%40project-ariadne.iam.gserviceaccount.com&Expires=1780391219&Signature=rqk2vK2%2FB%2BB6ewCPd6gSXRghEl82Ij%2Fhh2fMcELygWVes2QAxO0I8nl7qQz%2BSCe%2FE8VrsqPStY1caFmuZcDpmqucFjboMpwMNJbCnZQ2t6q1vcu22Oo9JkZXMBBLkg2phaZcC7B0yzuuE57WFAA3nwasKysKH7CjGwj9e9KlVWceEWkm2ZlaV2TH6Go3RaHMyJiAD2nScDK3QqzIqC2rBTfDc84L2bDL1ZaxOrrhtk2f0Qnrv7LxckjtGFlnOMsaUvhxEil%2FE8IOqKXc6qLpvklCgFfoYviL6OHGh7lvMBV9fRPeVsB57gvFLiN1Q0lKL5GxEyT14j4Pe8P7hc%2FpAA%3D%3D" style="width:33%;padding:0;background-image:url('https://storage.googleapis.com/tiktok-content-scraper/uklabour/2026-05-31/7645992871274745110.webp?GoogleAccessId=website-bigquery-viewer%40project-ariadne.iam.gserviceaccount.com&Expires=1780391219&Signature=rqk2vK2%2FB%2BB6ewCPd6gSXRghEl82Ij%2Fhh2fMcELygWVes2QAxO0I8nl7qQz%2BSCe%2FE8VrsqPStY1caFmuZcDpmqucFjboMpwMNJbCnZQ2t6q1vcu22Oo9JkZXMBBLkg2phaZcC7B0yzuuE57WFAA3nwasKysKH7CjGwj9e9KlVWceEWkm2ZlaV2TH6Go3RaHMyJiAD2nScDK3QqzIqC2rBTfDc84L2bDL1ZaxOrrhtk2f0Qnrv7LxckjtGFlnOMsaUvhxEil%2FE8IOqKXc6qLpvklCgFfoYviL6OHGh7lvMBV9fRPeVsB57gvFLiN1Q0lKL5GxEyT14j4Pe8P7hc%2FpAA%3D%3D');background-size:cover;background-position:center center;background-repeat:no-repeat;border-radius:10px 0 0 10px;min-height:200px;mso-padding-alt:0;">
-                <!--[if mso]><v:rect xmlns:v="urn:schemas-microsoft-com:vml" fill="true" stroke="false" style="width:108px;height:192px;"><v:fill type="frame" src="https://storage.googleapis.com/tiktok-content-scraper/uklabour/2026-05-31/7645992871274745110.webp?GoogleAccessId=website-bigquery-viewer%40project-ariadne.iam.gserviceaccount.com&Expires=1780391219&Signature=rqk2vK2%2FB%2BB6ewCPd6gSXRghEl82Ij%2Fhh2fMcELygWVes2QAxO0I8nl7qQz%2BSCe%2FE8VrsqPStY1caFmuZcDpmqucFjboMpwMNJbCnZQ2t6q1vcu22Oo9JkZXMBBLkg2phaZcC7B0yzuuE57WFAA3nwasKysKH7CjGwj9e9KlVWceEWkm2ZlaV2TH6Go3RaHMyJiAD2nScDK3QqzIqC2rBTfDc84L2bDL1ZaxOrrhtk2f0Qnrv7LxckjtGFlnOMsaUvhxEil%2FE8IOqKXc6qLpvklCgFfoYviL6OHGh7lvMBV9fRPeVsB57gvFLiN1Q0lKL5GxEyT14j4Pe8P7hc%2FpAA%3D%3D"/><v:textbox inset="0,0,0,0"><![endif]-->
-                <a href="https://www.tiktok.com/@uklabour/video/7645992871274745110" style="display:block;width:100%;min-height:200px;text-decoration:none;font-size:0;line-height:0;">&nbsp;</a>
-                <!--[if mso]></v:textbox></v:rect><![endif]-->
-              </td>
-              <td width="67%" valign="top" style="width:67%;padding:14px 16px 14px 12px;">
-                <p style="margin:0 0 8px;"><span style="display:inline-block;background:#F67374;color:#FFFFFF;font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;padding:3px 8px;border-radius:3px;font-family:'Figtree',Helvetica,Arial,sans-serif;">2ND MOST VIEWED</span></p>
-                <p style="margin:0 0 2px;font-size:14px;font-weight:800;color:#1F1D1D;font-family:'Figtree',Helvetica,Arial,sans-serif;line-height:1.2;">UKLabour</p>
-                <p style="margin:0 0 8px;font-size:11px;color:#7C919A;font-family:'Figtree',Helvetica,Arial,sans-serif;">@uklabour &middot; labour</p>
-                <p style="margin:0 0 10px;font-size:12px;line-height:1.55;color:#4D575C;font-family:'Figtree',Helvetica,Arial,sans-serif;">This carousel uses a critical tone to condemn inappropriate language and behavior, framing it as a serious issue rather than trivial locker room talk. The content highlights a pattern of normalized misconduct to challenge the values of political opponents.</p>
-                <p style="margin:0 0 10px;font-size:11px;color:#7C919A;font-family:'Figtree',Helvetica,Arial,sans-serif;line-height:1.5;"><strong style="color:#1F1D1D;font-weight:700;">27K</strong> views &middot; <strong style="color:#1F1D1D;font-weight:700;">0.1×</strong> virality &middot; <strong style="color:#1F1D1D;font-weight:700;">7.6%</strong> eng</p>
-                <a href="https://www.tiktok.com/@uklabour/video/7645992871274745110" style="display:inline-block;background:#553984;color:#FFFFFF;font-size:11px;font-weight:700;letter-spacing:0.3px;padding:8px 14px;border-radius:6px;font-family:'Figtree',Helvetica,Arial,sans-serif;">Watch on TikTok ↗</a>
-              </td>
-            </tr>
-          </table>
-        </td>
-      </tr>
-      
-
-      
-      <tr>
-        <td style="padding:4px 10px;">
-          <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#FFFFFF;border:1px solid #E5E0EC;border-radius:10px;">
-            <tr>
-              <td width="33%" valign="top" align="center" background="https://storage.googleapis.com/tiktok-content-scraper/wesstreetingmp/2026-05-31/7646082467807448342.webp?GoogleAccessId=website-bigquery-viewer%40project-ariadne.iam.gserviceaccount.com&Expires=1780391219&Signature=hHTaFBJbsKTo9EcW3wlWopK7bXojsUGSeLVPJq4jggNs%2FHPU%2Bd5AUb5FxE1zp%2Fj9tqsQwbMnqPT%2FR3QcJ38Q8QqmGvnILOAROeLpu0%2FiOCfqhT3DQCxjLQpY12Zx27pnhXd2iOHhJ43rNG774YHf4zRXMDh8DYL0hKY3YhnwUz%2FG9aMa8k%2F3o3JeE6K%2FO0OPmAyTcPOJOSf8ZVxdivkL9vxGBr49iL3CvYUScKVBK4LaB%2F72PlkyTehBrASQnzG4kUCdSiI5OULb10ZvZ5n4suV%2F1l3F5SjPgF6Wvd8MC3hkkdRIsCVdpDOwEbQmNNQYBN%2FsyIjLds5SAf%2FwzcgV%2Bg%3D%3D" style="width:33%;padding:0;background-image:url('https://storage.googleapis.com/tiktok-content-scraper/wesstreetingmp/2026-05-31/7646082467807448342.webp?GoogleAccessId=website-bigquery-viewer%40project-ariadne.iam.gserviceaccount.com&Expires=1780391219&Signature=hHTaFBJbsKTo9EcW3wlWopK7bXojsUGSeLVPJq4jggNs%2FHPU%2Bd5AUb5FxE1zp%2Fj9tqsQwbMnqPT%2FR3QcJ38Q8QqmGvnILOAROeLpu0%2FiOCfqhT3DQCxjLQpY12Zx27pnhXd2iOHhJ43rNG774YHf4zRXMDh8DYL0hKY3YhnwUz%2FG9aMa8k%2F3o3JeE6K%2FO0OPmAyTcPOJOSf8ZVxdivkL9vxGBr49iL3CvYUScKVBK4LaB%2F72PlkyTehBrASQnzG4kUCdSiI5OULb10ZvZ5n4suV%2F1l3F5SjPgF6Wvd8MC3hkkdRIsCVdpDOwEbQmNNQYBN%2FsyIjLds5SAf%2FwzcgV%2Bg%3D%3D');background-size:cover;background-position:center center;background-repeat:no-repeat;border-radius:10px 0 0 10px;min-height:200px;mso-padding-alt:0;">
-                <!--[if mso]><v:rect xmlns:v="urn:schemas-microsoft-com:vml" fill="true" stroke="false" style="width:108px;height:192px;"><v:fill type="frame" src="https://storage.googleapis.com/tiktok-content-scraper/wesstreetingmp/2026-05-31/7646082467807448342.webp?GoogleAccessId=website-bigquery-viewer%40project-ariadne.iam.gserviceaccount.com&Expires=1780391219&Signature=hHTaFBJbsKTo9EcW3wlWopK7bXojsUGSeLVPJq4jggNs%2FHPU%2Bd5AUb5FxE1zp%2Fj9tqsQwbMnqPT%2FR3QcJ38Q8QqmGvnILOAROeLpu0%2FiOCfqhT3DQCxjLQpY12Zx27pnhXd2iOHhJ43rNG774YHf4zRXMDh8DYL0hKY3YhnwUz%2FG9aMa8k%2F3o3JeE6K%2FO0OPmAyTcPOJOSf8ZVxdivkL9vxGBr49iL3CvYUScKVBK4LaB%2F72PlkyTehBrASQnzG4kUCdSiI5OULb10ZvZ5n4suV%2F1l3F5SjPgF6Wvd8MC3hkkdRIsCVdpDOwEbQmNNQYBN%2FsyIjLds5SAf%2FwzcgV%2Bg%3D%3D"/><v:textbox inset="0,0,0,0"><![endif]-->
-                <a href="https://www.tiktok.com/@wesstreetingmp/video/7646082467807448342" style="display:block;width:100%;min-height:200px;text-decoration:none;font-size:0;line-height:0;">&nbsp;</a>
-                <!--[if mso]></v:textbox></v:rect><![endif]-->
-              </td>
-              <td width="67%" valign="top" style="width:67%;padding:14px 16px 14px 12px;">
-                <p style="margin:0 0 8px;"><span style="display:inline-block;background:#E83C91;color:#FFFFFF;font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;padding:3px 8px;border-radius:3px;font-family:'Figtree',Helvetica,Arial,sans-serif;">3RD MOST VIEWED</span></p>
-                <p style="margin:0 0 2px;font-size:14px;font-weight:800;color:#1F1D1D;font-family:'Figtree',Helvetica,Arial,sans-serif;line-height:1.2;">wesstreetingmp</p>
-                <p style="margin:0 0 8px;font-size:11px;color:#7C919A;font-family:'Figtree',Helvetica,Arial,sans-serif;">@wesstreetingmp &middot; Labour</p>
-                <p style="margin:0 0 10px;font-size:12px;line-height:1.55;color:#4D575C;font-family:'Figtree',Helvetica,Arial,sans-serif;">Wes Streeting visits farmers in Hexham as part of a tour to engage with communities that have drifted away from Labour since the 2024 General Election. The video features footage of him speaking with local farmers and walking through fields to emphasize the importance of supporting the agricultural sector.</p>
-                <p style="margin:0 0 10px;font-size:11px;color:#7C919A;font-family:'Figtree',Helvetica,Arial,sans-serif;line-height:1.5;"><strong style="color:#1F1D1D;font-weight:700;">3K</strong> views &middot; <strong style="color:#1F1D1D;font-weight:700;">1.4×</strong> virality &middot; <strong style="color:#1F1D1D;font-weight:700;">5.6%</strong> eng</p>
-                <a href="https://www.tiktok.com/@wesstreetingmp/video/7646082467807448342" style="display:inline-block;background:#553984;color:#FFFFFF;font-size:11px;font-weight:700;letter-spacing:0.3px;padding:8px 14px;border-radius:6px;font-family:'Figtree',Helvetica,Arial,sans-serif;">Watch on TikTok ↗</a>
-              </td>
-            </tr>
-          </table>
-        </td>
-      </tr>
-      
-
-      
-      <tr>
-        <td style="padding:4px 10px;">
-          <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#FFFFFF;border:1px solid #E5E0EC;border-radius:10px;">
-            <tr>
-              <td width="33%" valign="top" align="center" background="https://storage.googleapis.com/tiktok-content-scraper/jonathan.hinder.mp/2026-05-31/7645964534485732630.webp?GoogleAccessId=website-bigquery-viewer%40project-ariadne.iam.gserviceaccount.com&Expires=1780391219&Signature=g7YJ%2BkS5xn9nTTub1IzrQe8X4f7UX%2BDBu0MAcqHTOrGsvt7FK5hqSEjlaI6cXIg%2FWQsbd0Gu2BFl%2Fsd45Is1KlAqzEhX0UsaDox4RQAVEx3gNIBdnpJf%2BTAkOkOtytOaXOTL%2F8SZdyi9oxvCcE9Nef%2Ficl1aA18JKgFhyKuIr%2Ft4%2FgoYbQ0I486X6LaPwOWq1TK0vB%2B4kn4Ve0tkQDK5WvNQR3j%2FG2Ab2dwMk5vPWsLGII5BMQBeW7q4O8Zx5nGgep5YfxXXDDS0rbGMf2U8wS8URbLur3OeamHBgR3Dut4DKMaNsZ63uKXL9VQ4RX9SwBzxAKoq1qYXYkLJwT458A%3D%3D" style="width:33%;padding:0;background-image:url('https://storage.googleapis.com/tiktok-content-scraper/jonathan.hinder.mp/2026-05-31/7645964534485732630.webp?GoogleAccessId=website-bigquery-viewer%40project-ariadne.iam.gserviceaccount.com&Expires=1780391219&Signature=g7YJ%2BkS5xn9nTTub1IzrQe8X4f7UX%2BDBu0MAcqHTOrGsvt7FK5hqSEjlaI6cXIg%2FWQsbd0Gu2BFl%2Fsd45Is1KlAqzEhX0UsaDox4RQAVEx3gNIBdnpJf%2BTAkOkOtytOaXOTL%2F8SZdyi9oxvCcE9Nef%2Ficl1aA18JKgFhyKuIr%2Ft4%2FgoYbQ0I486X6LaPwOWq1TK0vB%2B4kn4Ve0tkQDK5WvNQR3j%2FG2Ab2dwMk5vPWsLGII5BMQBeW7q4O8Zx5nGgep5YfxXXDDS0rbGMf2U8wS8URbLur3OeamHBgR3Dut4DKMaNsZ63uKXL9VQ4RX9SwBzxAKoq1qYXYkLJwT458A%3D%3D');background-size:cover;background-position:center center;background-repeat:no-repeat;border-radius:10px 0 0 10px;min-height:200px;mso-padding-alt:0;">
-                <!--[if mso]><v:rect xmlns:v="urn:schemas-microsoft-com:vml" fill="true" stroke="false" style="width:108px;height:192px;"><v:fill type="frame" src="https://storage.googleapis.com/tiktok-content-scraper/jonathan.hinder.mp/2026-05-31/7645964534485732630.webp?GoogleAccessId=website-bigquery-viewer%40project-ariadne.iam.gserviceaccount.com&Expires=1780391219&Signature=g7YJ%2BkS5xn9nTTub1IzrQe8X4f7UX%2BDBu0MAcqHTOrGsvt7FK5hqSEjlaI6cXIg%2FWQsbd0Gu2BFl%2Fsd45Is1KlAqzEhX0UsaDox4RQAVEx3gNIBdnpJf%2BTAkOkOtytOaXOTL%2F8SZdyi9oxvCcE9Nef%2Ficl1aA18JKgFhyKuIr%2Ft4%2FgoYbQ0I486X6LaPwOWq1TK0vB%2B4kn4Ve0tkQDK5WvNQR3j%2FG2Ab2dwMk5vPWsLGII5BMQBeW7q4O8Zx5nGgep5YfxXXDDS0rbGMf2U8wS8URbLur3OeamHBgR3Dut4DKMaNsZ63uKXL9VQ4RX9SwBzxAKoq1qYXYkLJwT458A%3D%3D"/><v:textbox inset="0,0,0,0"><![endif]-->
-                <a href="https://www.tiktok.com/@jonathan.hinder.mp/video/7645964534485732630" style="display:block;width:100%;min-height:200px;text-decoration:none;font-size:0;line-height:0;">&nbsp;</a>
-                <!--[if mso]></v:textbox></v:rect><![endif]-->
-              </td>
-              <td width="67%" valign="top" style="width:67%;padding:14px 16px 14px 12px;">
-                <p style="margin:0 0 8px;"><span style="display:inline-block;background:#933A89;color:#FFFFFF;font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;padding:3px 8px;border-radius:3px;font-family:'Figtree',Helvetica,Arial,sans-serif;">MOST VIRAL</span></p>
-                <p style="margin:0 0 2px;font-size:14px;font-weight:800;color:#1F1D1D;font-family:'Figtree',Helvetica,Arial,sans-serif;line-height:1.2;">Jonathan Hinder MP</p>
-                <p style="margin:0 0 8px;font-size:11px;color:#7C919A;font-family:'Figtree',Helvetica,Arial,sans-serif;">@jonathan.hinder.mp &middot; labour</p>
-                <p style="margin:0 0 10px;font-size:12px;line-height:1.55;color:#4D575C;font-family:'Figtree',Helvetica,Arial,sans-serif;">Jonathan Hinder MP records a piece to camera criticizing the reliability of rail services in the North of England. He argues that passengers deserve more consistent train schedules and improved public transport performance.</p>
-                <p style="margin:0 0 10px;font-size:11px;color:#7C919A;font-family:'Figtree',Helvetica,Arial,sans-serif;line-height:1.5;"><strong style="color:#1F1D1D;font-weight:700;">35.9K</strong> views &middot; <strong style="color:#1F1D1D;font-weight:700;">9.9×</strong> virality &middot; <strong style="color:#1F1D1D;font-weight:700;">5.5%</strong> eng</p>
-                <a href="https://www.tiktok.com/@jonathan.hinder.mp/video/7645964534485732630" style="display:inline-block;background:#553984;color:#FFFFFF;font-size:11px;font-weight:700;letter-spacing:0.3px;padding:8px 14px;border-radius:6px;font-family:'Figtree',Helvetica,Arial,sans-serif;">Watch on TikTok ↗</a>
-              </td>
-            </tr>
-          </table>
-        </td>
-      </tr>
-      
-
-      
-      <tr>
-        <td style="padding:4px 10px 14px;">
-          <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#FFFFFF;border:1px solid #E5E0EC;border-radius:10px;">
-            <tr>
-              <td width="33%" valign="top" align="center" background="https://storage.googleapis.com/tiktok-content-scraper/melanie.ward.mp/2026-05-31/7645972622106217750.webp?GoogleAccessId=website-bigquery-viewer%40project-ariadne.iam.gserviceaccount.com&Expires=1780391219&Signature=iUpyWAIl8f1X%2FC%2BQuvjM9HS0z2BhRaWFGGGGd9rYZw3GJjoUMIxEWnn8b1lB4moYyN7Qe%2Ft8ZAZzm4X6W7QnzA7FCcgq9uIog61BZssCZkybOgUJuQCpoNbaUvUwMKQFMqBdFK5zIQsjbnwSQJoOxI2QAux2rJakwr63KBYK7vMoaEMc92hHyqNYSeKpX8GNO5cOFDyFia6kMGVovjghGVHerHjGGC5Ys6tGVAEpE1u%2BL1zyBBE6stIMk25t3S7hMdIJkIebV9AWlQgCiMegXd8tDu915yToPrNCTziQLjIL4cc6lNM8L%2BffLTPgF314jX2GSl2B9lEwoho13NTWUg%3D%3D" style="width:33%;padding:0;background-image:url('https://storage.googleapis.com/tiktok-content-scraper/melanie.ward.mp/2026-05-31/7645972622106217750.webp?GoogleAccessId=website-bigquery-viewer%40project-ariadne.iam.gserviceaccount.com&Expires=1780391219&Signature=iUpyWAIl8f1X%2FC%2BQuvjM9HS0z2BhRaWFGGGGd9rYZw3GJjoUMIxEWnn8b1lB4moYyN7Qe%2Ft8ZAZzm4X6W7QnzA7FCcgq9uIog61BZssCZkybOgUJuQCpoNbaUvUwMKQFMqBdFK5zIQsjbnwSQJoOxI2QAux2rJakwr63KBYK7vMoaEMc92hHyqNYSeKpX8GNO5cOFDyFia6kMGVovjghGVHerHjGGC5Ys6tGVAEpE1u%2BL1zyBBE6stIMk25t3S7hMdIJkIebV9AWlQgCiMegXd8tDu915yToPrNCTziQLjIL4cc6lNM8L%2BffLTPgF314jX2GSl2B9lEwoho13NTWUg%3D%3D');background-size:cover;background-position:center center;background-repeat:no-repeat;border-radius:10px 0 0 10px;min-height:200px;mso-padding-alt:0;">
-                <!--[if mso]><v:rect xmlns:v="urn:schemas-microsoft-com:vml" fill="true" stroke="false" style="width:108px;height:192px;"><v:fill type="frame" src="https://storage.googleapis.com/tiktok-content-scraper/melanie.ward.mp/2026-05-31/7645972622106217750.webp?GoogleAccessId=website-bigquery-viewer%40project-ariadne.iam.gserviceaccount.com&Expires=1780391219&Signature=iUpyWAIl8f1X%2FC%2BQuvjM9HS0z2BhRaWFGGGGd9rYZw3GJjoUMIxEWnn8b1lB4moYyN7Qe%2Ft8ZAZzm4X6W7QnzA7FCcgq9uIog61BZssCZkybOgUJuQCpoNbaUvUwMKQFMqBdFK5zIQsjbnwSQJoOxI2QAux2rJakwr63KBYK7vMoaEMc92hHyqNYSeKpX8GNO5cOFDyFia6kMGVovjghGVHerHjGGC5Ys6tGVAEpE1u%2BL1zyBBE6stIMk25t3S7hMdIJkIebV9AWlQgCiMegXd8tDu915yToPrNCTziQLjIL4cc6lNM8L%2BffLTPgF314jX2GSl2B9lEwoho13NTWUg%3D%3D"/><v:textbox inset="0,0,0,0"><![endif]-->
-                <a href="https://www.tiktok.com/@melanie.ward.mp/video/7645972622106217750" style="display:block;width:100%;min-height:200px;text-decoration:none;font-size:0;line-height:0;">&nbsp;</a>
-                <!--[if mso]></v:textbox></v:rect><![endif]-->
-              </td>
-              <td width="67%" valign="top" style="width:67%;padding:14px 16px 14px 12px;">
-                <p style="margin:0 0 8px;"><span style="display:inline-block;background:#553984;color:#FFFFFF;font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;padding:3px 8px;border-radius:3px;font-family:'Figtree',Helvetica,Arial,sans-serif;">HIGHEST ENGAGEMENT</span></p>
-                <p style="margin:0 0 2px;font-size:14px;font-weight:800;color:#1F1D1D;font-family:'Figtree',Helvetica,Arial,sans-serif;line-height:1.2;">Melanie Ward MP</p>
-                <p style="margin:0 0 8px;font-size:11px;color:#7C919A;font-family:'Figtree',Helvetica,Arial,sans-serif;">@melanie.ward.mp &middot; labour</p>
-                <p style="margin:0 0 10px;font-size:12px;line-height:1.55;color:#4D575C;font-family:'Figtree',Helvetica,Arial,sans-serif;">Melanie Ward MP delivers a speech in Parliament condemning the expansion of Israeli settlements in Palestinian territories. She calls on the government to implement sanctions and trade bans regarding these settlements.</p>
-                <p style="margin:0 0 10px;font-size:11px;color:#7C919A;font-family:'Figtree',Helvetica,Arial,sans-serif;line-height:1.5;"><strong style="color:#1F1D1D;font-weight:700;">251</strong> views &middot; <strong style="color:#1F1D1D;font-weight:700;">0.3×</strong> virality &middot; <strong style="color:#1F1D1D;font-weight:700;">15.5%</strong> eng</p>
-                <a href="https://www.tiktok.com/@melanie.ward.mp/video/7645972622106217750" style="display:inline-block;background:#553984;color:#FFFFFF;font-size:11px;font-weight:700;letter-spacing:0.3px;padding:8px 14px;border-radius:6px;font-family:'Figtree',Helvetica,Arial,sans-serif;">Watch on TikTok ↗</a>
-              </td>
-            </tr>
-          </table>
-        </td>
-      </tr>
-      
-
-    </table>
-  </td>
-</tr>
-
+        <!-- 3. Today's Top Posts — PAUSED for the weekly email; superseded by
+             "This Week's Top Three" below. Restore by renaming the marker back
+             to "INCLUDE:". -->
+        <!-- INCLUDE-PAUSED: top-posts.html -->
 
         <!-- 4. Was this forwarded to you? -->
         <!-- ── BLOCK: Was this forwarded to you? ──────────────────────
@@ -371,10 +221,10 @@
             Get the briefing political insiders read first.
           </p>
           <p style="margin:0 0 16px;font-size:13px;line-height:1.6;color:#4D575C;font-family:'Figtree',Helvetica,Arial,sans-serif;">
-            Learn who's winning on TikTok every morning, condensed to a five-minute read.
+            Learn who's winning on TikTok every week, condensed to a five-minute read.
           </p>
           <a href="https://theknoxindex.knox.digital/signup" style="display:inline-block;background:#553984;color:#FFFFFF;font-size:12px;font-weight:700;letter-spacing:0.3px;padding:10px 18px;border-radius:6px;font-family:'Figtree',Helvetica,Arial,sans-serif;">
-            Subscribe free ↗
+            Subscribe for free ↗
           </a>
         </td>
       </tr>
@@ -383,135 +233,9 @@
 </tr>
 
 
-        <!-- 5 + 6. Poster of the day (MP) + their best post -->
-        <!-- ── BLOCK: Poster of the day (MP) + their best post ───────
-     Two stacked white cards inside one section. Header pill on
-     the first; second card uses the standard image-left/text-right
-     post-card layout matching the Top Posts grid.
-─────────────────────────────────────────────────────────── -->
-
-
-<!-- 1. Poster card (avatar + radial + identity + stats) -->
-<tr>
-  <td style="padding:0 0 14px;">
-    <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#FFFFFF;border:1px solid #E5E0EC;border-radius:12px;">
-      <tr>
-        <td style="padding:14px 20px 0;text-align:left;">
-          <span style="display:inline-block;background:#933A89;color:#FFFFFF;font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;padding:4px 10px;border-radius:3px;font-family:'Figtree',Helvetica,Arial,sans-serif;">
-            MP of the Day
-          </span>
-        </td>
-      </tr>
-      <tr>
-        <td style="padding:18px 20px;">
-
-          <!-- Avatar — circular img with brand-colored ring; VML oval fallback for Outlook -->
-          
-          <table cellpadding="0" cellspacing="0" role="presentation" align="center" style="margin:0 auto 12px;">
-            <tr><td style="text-align:center;line-height:0;">
-              <!--[if !mso]><!-->
-              <img src="https://storage.googleapis.com/tiktok-content-scraper/avatars/jonathan.hinder.mp.webp?GoogleAccessId=website-bigquery-viewer%40project-ariadne.iam.gserviceaccount.com&Expires=1780391219&Signature=M1l2KQ8QOuuqjmkHSHN2zhZ0d6mzmsCPdeycPe3cSnCz9KkuFCAqEzhqgEQaEmP3r3loFvjqshQmKkMv7D60k39zGzMIjQqdqzWqQWn1RfwzQ7FXHmce7MxOojdzid%2FnIPTo7n%2FyMadwAyzQ2PFlBRHUkEOsOt8OZl9J%2B90eKvHRR8UgbhWt6YUCYZPZmyD%2Bq5sB8XGWQqWGk8CAlD2DYy5tSTxeVYasdblQ49v%2BkIONIP4j2UFZQbNAq%2BidJBI6TfyNUrBIDaMT6L1rSbuSHblloLpys8%2F6LISWLruO473%2BfhARfh67g6huQnMGyfTKLI44AlM4vWt%2FCzQgrcNVPg%3D%3D" width="80" height="80" alt=""
-                   style="display:block;width:80px;height:80px;border-radius:50%;border:3px solid #933A89;background:#FFFFFF;" />
-              <!--<![endif]-->
-              <!--[if mso]>
-              <v:oval xmlns:v="urn:schemas-microsoft-com:vml" style="width:86px;height:86px;" stroked="true" strokecolor="#933A89" strokeweight="3px">
-                <v:fill type="frame" src="https://storage.googleapis.com/tiktok-content-scraper/avatars/jonathan.hinder.mp.webp?GoogleAccessId=website-bigquery-viewer%40project-ariadne.iam.gserviceaccount.com&Expires=1780391219&Signature=M1l2KQ8QOuuqjmkHSHN2zhZ0d6mzmsCPdeycPe3cSnCz9KkuFCAqEzhqgEQaEmP3r3loFvjqshQmKkMv7D60k39zGzMIjQqdqzWqQWn1RfwzQ7FXHmce7MxOojdzid%2FnIPTo7n%2FyMadwAyzQ2PFlBRHUkEOsOt8OZl9J%2B90eKvHRR8UgbhWt6YUCYZPZmyD%2Bq5sB8XGWQqWGk8CAlD2DYy5tSTxeVYasdblQ49v%2BkIONIP4j2UFZQbNAq%2BidJBI6TfyNUrBIDaMT6L1rSbuSHblloLpys8%2F6LISWLruO473%2BfhARfh67g6huQnMGyfTKLI44AlM4vWt%2FCzQgrcNVPg%3D%3D"/>
-              </v:oval>
-              <![endif]-->
-            </td></tr>
-          </table>
-          
-
-          <p style="margin:0 0 2px;font-size:18px;font-weight:800;color:#1F1D1D;font-family:'Figtree',Helvetica,Arial,sans-serif;line-height:1.2;text-align:center;">
-            <a href="https://theknoxindex.knox.digital/account/jonathan.hinder.mp" style="color:#1F1D1D;text-decoration:none;">Jonathan Hinder MP</a>
-          </p>
-          <p style="margin:0 0 14px;font-size:12px;color:#7C919A;font-family:'Figtree',Helvetica,Arial,sans-serif;text-align:center;">
-            <a href="https://theknoxindex.knox.digital/account/jonathan.hinder.mp" style="color:#7C919A;text-decoration:none;">@jonathan.hinder.mp</a> &middot; labour
-          </p>
-
-          <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
-            <tr>
-              <td width="33%" style="padding-right:4px;">
-                <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="border-top:1px solid #E5E0EC;">
-                  <tr><td style="padding:8px 4px;text-align:center;">
-                    <p style="margin:0 0 2px;font-size:9px;letter-spacing:1px;color:#7C919A;font-family:'Figtree',Helvetica,Arial,sans-serif;font-weight:600;text-transform:uppercase;">Views</p>
-                    <p style="margin:0;font-size:13px;font-weight:700;color:#4D575C;font-family:'Figtree',Helvetica,Arial,sans-serif;">35.9K</p>
-                  </td></tr>
-                </table>
-              </td>
-              <td width="34%" style="padding:0 2px;">
-                <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="border-top:1px solid #E5E0EC;">
-                  <tr><td style="padding:8px 4px;text-align:center;">
-                    <p style="margin:0 0 2px;font-size:9px;letter-spacing:1px;color:#7C919A;font-family:'Figtree',Helvetica,Arial,sans-serif;font-weight:600;text-transform:uppercase;">Virality</p>
-                    <p style="margin:0;font-size:13px;font-weight:700;color:#4D575C;font-family:'Figtree',Helvetica,Arial,sans-serif;">9.9×</p>
-                  </td></tr>
-                </table>
-              </td>
-              <td width="33%" style="padding-left:4px;">
-                <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="border-top:1px solid #E5E0EC;">
-                  <tr><td style="padding:8px 4px;text-align:center;">
-                    <p style="margin:0 0 2px;font-size:9px;letter-spacing:1px;color:#7C919A;font-family:'Figtree',Helvetica,Arial,sans-serif;font-weight:600;text-transform:uppercase;">Eng</p>
-                    <p style="margin:0;font-size:13px;font-weight:700;color:#4D575C;font-family:'Figtree',Helvetica,Arial,sans-serif;">5.5%</p>
-                  </td></tr>
-                </table>
-              </td>
-            </tr>
-          </table>
-
-        </td>
-      </tr>
-    </table>
-  </td>
-</tr>
-
-<!-- 2. Their best post — image-left / text-right card -->
-<tr>
-  <td style="padding:0 0 14px;">
-    <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#FFFFFF;border:1px solid #E5E0EC;border-radius:12px;">
-      <tr>
-        <td width="33%" valign="top" align="center" background="https://storage.googleapis.com/tiktok-content-scraper/jonathan.hinder.mp/2026-05-31/7645964534485732630.webp?GoogleAccessId=website-bigquery-viewer%40project-ariadne.iam.gserviceaccount.com&Expires=1780391219&Signature=g7YJ%2BkS5xn9nTTub1IzrQe8X4f7UX%2BDBu0MAcqHTOrGsvt7FK5hqSEjlaI6cXIg%2FWQsbd0Gu2BFl%2Fsd45Is1KlAqzEhX0UsaDox4RQAVEx3gNIBdnpJf%2BTAkOkOtytOaXOTL%2F8SZdyi9oxvCcE9Nef%2Ficl1aA18JKgFhyKuIr%2Ft4%2FgoYbQ0I486X6LaPwOWq1TK0vB%2B4kn4Ve0tkQDK5WvNQR3j%2FG2Ab2dwMk5vPWsLGII5BMQBeW7q4O8Zx5nGgep5YfxXXDDS0rbGMf2U8wS8URbLur3OeamHBgR3Dut4DKMaNsZ63uKXL9VQ4RX9SwBzxAKoq1qYXYkLJwT458A%3D%3D" style="width:33%;padding:0;background-image:url('https://storage.googleapis.com/tiktok-content-scraper/jonathan.hinder.mp/2026-05-31/7645964534485732630.webp?GoogleAccessId=website-bigquery-viewer%40project-ariadne.iam.gserviceaccount.com&Expires=1780391219&Signature=g7YJ%2BkS5xn9nTTub1IzrQe8X4f7UX%2BDBu0MAcqHTOrGsvt7FK5hqSEjlaI6cXIg%2FWQsbd0Gu2BFl%2Fsd45Is1KlAqzEhX0UsaDox4RQAVEx3gNIBdnpJf%2BTAkOkOtytOaXOTL%2F8SZdyi9oxvCcE9Nef%2Ficl1aA18JKgFhyKuIr%2Ft4%2FgoYbQ0I486X6LaPwOWq1TK0vB%2B4kn4Ve0tkQDK5WvNQR3j%2FG2Ab2dwMk5vPWsLGII5BMQBeW7q4O8Zx5nGgep5YfxXXDDS0rbGMf2U8wS8URbLur3OeamHBgR3Dut4DKMaNsZ63uKXL9VQ4RX9SwBzxAKoq1qYXYkLJwT458A%3D%3D');background-size:cover;background-position:center center;background-repeat:no-repeat;border-radius:12px 0 0 12px;min-height:200px;mso-padding-alt:0;">
-          <!--[if mso]>
-          <v:rect xmlns:v="urn:schemas-microsoft-com:vml" fill="true" stroke="false" style="width:108px;height:192px;">
-            <v:fill type="frame" src="https://storage.googleapis.com/tiktok-content-scraper/jonathan.hinder.mp/2026-05-31/7645964534485732630.webp?GoogleAccessId=website-bigquery-viewer%40project-ariadne.iam.gserviceaccount.com&Expires=1780391219&Signature=g7YJ%2BkS5xn9nTTub1IzrQe8X4f7UX%2BDBu0MAcqHTOrGsvt7FK5hqSEjlaI6cXIg%2FWQsbd0Gu2BFl%2Fsd45Is1KlAqzEhX0UsaDox4RQAVEx3gNIBdnpJf%2BTAkOkOtytOaXOTL%2F8SZdyi9oxvCcE9Nef%2Ficl1aA18JKgFhyKuIr%2Ft4%2FgoYbQ0I486X6LaPwOWq1TK0vB%2B4kn4Ve0tkQDK5WvNQR3j%2FG2Ab2dwMk5vPWsLGII5BMQBeW7q4O8Zx5nGgep5YfxXXDDS0rbGMf2U8wS8URbLur3OeamHBgR3Dut4DKMaNsZ63uKXL9VQ4RX9SwBzxAKoq1qYXYkLJwT458A%3D%3D" />
-            <v:textbox inset="0,0,0,0">
-          <![endif]-->
-          <a href="https://www.tiktok.com/@jonathan.hinder.mp/video/7645964534485732630" style="display:block;width:100%;min-height:200px;text-decoration:none;font-size:0;line-height:0;">&nbsp;</a>
-          <!--[if mso]>
-            </v:textbox>
-          </v:rect>
-          <![endif]-->
-        </td>
-        <td width="67%" valign="top" style="width:67%;padding:14px 16px 14px 12px;">
-          <p style="margin:0 0 8px;">
-            <span style="display:inline-block;background:#933A89;color:#FFFFFF;font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;padding:3px 8px;border-radius:3px;font-family:'Figtree',Helvetica,Arial,sans-serif;">
-              TODAY’S TOP MP POST
-            </span>
-          </p>
-          <p style="margin:0 0 2px;font-size:14px;font-weight:800;color:#1F1D1D;font-family:'Figtree',Helvetica,Arial,sans-serif;line-height:1.2;">
-            Jonathan Hinder MP
-          </p>
-          <p style="margin:0 0 8px;font-size:11px;color:#7C919A;font-family:'Figtree',Helvetica,Arial,sans-serif;">
-            @jonathan.hinder.mp &middot; labour
-          </p>
-          <p style="margin:0 0 10px;font-size:12px;line-height:1.55;color:#4D575C;font-family:'Figtree',Helvetica,Arial,sans-serif;">
-            Jonathan Hinder MP records a piece to camera criticizing the reliability of rail services in the North of England. He argues that passengers deserve more consistent train schedules and improved public transport performance.
-          </p>
-          <p style="margin:0 0 10px;font-size:11px;color:#7C919A;font-family:'Figtree',Helvetica,Arial,sans-serif;line-height:1.5;">
-            <strong style="color:#1F1D1D;font-weight:700;">35.9K</strong> views &middot;
-            <strong style="color:#1F1D1D;font-weight:700;">9.9×</strong> virality &middot;
-            <strong style="color:#1F1D1D;font-weight:700;">5.5%</strong> eng
-          </p>
-          <a href="https://www.tiktok.com/@jonathan.hinder.mp/video/7645964534485732630" style="display:inline-block;background:#553984;color:#FFFFFF;font-size:11px;font-weight:700;letter-spacing:0.3px;padding:8px 14px;border-radius:6px;font-family:'Figtree',Helvetica,Arial,sans-serif;">
-            Watch on TikTok ↗
-          </a>
-        </td>
-      </tr>
-    </table>
-  </td>
-</tr>
-
-
-
+        <!-- 5 + 6. Poster of the day (MP) — PAUSED for the weekly email (a
+             day-specific section). Restore by renaming the marker to "INCLUDE:". -->
+        <!-- INCLUDE-PAUSED: poster-mp.html -->
 
         <!-- 7. Overall MP performance -->
         <!-- ── BLOCK: Overall MP performance (3 columns) ───────────────
@@ -599,133 +323,9 @@
 </tr>
 
 
-        <!-- 8 + 9. Poster of the day (Party) + their best post -->
-        <!-- ── BLOCK: Poster of the day (Party) + their best post ────
-     Mirror of poster-mp.html, deep-purple variant.
-─────────────────────────────────────────────────────────── -->
-
-
-<!-- 1. Poster card -->
-<tr>
-  <td style="padding:0 0 14px;">
-    <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#FFFFFF;border:1px solid #E5E0EC;border-radius:12px;">
-      <tr>
-        <td style="padding:14px 20px 0;text-align:left;">
-          <span style="display:inline-block;background:#553984;color:#FFFFFF;font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;padding:4px 10px;border-radius:3px;font-family:'Figtree',Helvetica,Arial,sans-serif;">
-            Party of the Day
-          </span>
-        </td>
-      </tr>
-      <tr>
-        <td style="padding:18px 20px;">
-
-          <!-- Avatar — circular img with brand-colored ring; VML oval fallback for Outlook -->
-          
-          <table cellpadding="0" cellspacing="0" role="presentation" align="center" style="margin:0 auto 12px;">
-            <tr><td style="text-align:center;line-height:0;">
-              <!--[if !mso]><!-->
-              <img src="https://storage.googleapis.com/tiktok-content-scraper/avatars/uklabour.webp?GoogleAccessId=website-bigquery-viewer%40project-ariadne.iam.gserviceaccount.com&Expires=1780391219&Signature=bQM7KYiiyvBB0NKnQFj9WvW1CSMD%2B9%2BVP46SPt5QrWLt22ExQ%2FbszrYnIHb8zTrSPpSBpjoJxxxxd%2BGHvHpiAIMa4L%2Bcxdwk5eGRKjKPkkj5NnjpfueDKd%2B0g9U5aWrm3q0OqDP7pdJJr5ReDk14V5RF%2BceJUjX647qIO22%2F48d0W5DGM4WavI4qAR7m8L40FyTdNVrTzXqV8GV3HLueFzatPqE29cOABK3QxoOOjpWElWwZMV1%2BQkJsJS%2FtI0N%2Bv9uxG3xf%2FT5o0niwVc3X9DrK4v6VKGpIkTi%2Bx0mwPYKxp0qT6n5Nqlq%2B8WnHamcZ6YiBF3Wcim7zTvgKEFaXMg%3D%3D" width="80" height="80" alt=""
-                   style="display:block;width:80px;height:80px;border-radius:50%;border:3px solid #553984;background:#FFFFFF;" />
-              <!--<![endif]-->
-              <!--[if mso]>
-              <v:oval xmlns:v="urn:schemas-microsoft-com:vml" style="width:86px;height:86px;" stroked="true" strokecolor="#553984" strokeweight="3px">
-                <v:fill type="frame" src="https://storage.googleapis.com/tiktok-content-scraper/avatars/uklabour.webp?GoogleAccessId=website-bigquery-viewer%40project-ariadne.iam.gserviceaccount.com&Expires=1780391219&Signature=bQM7KYiiyvBB0NKnQFj9WvW1CSMD%2B9%2BVP46SPt5QrWLt22ExQ%2FbszrYnIHb8zTrSPpSBpjoJxxxxd%2BGHvHpiAIMa4L%2Bcxdwk5eGRKjKPkkj5NnjpfueDKd%2B0g9U5aWrm3q0OqDP7pdJJr5ReDk14V5RF%2BceJUjX647qIO22%2F48d0W5DGM4WavI4qAR7m8L40FyTdNVrTzXqV8GV3HLueFzatPqE29cOABK3QxoOOjpWElWwZMV1%2BQkJsJS%2FtI0N%2Bv9uxG3xf%2FT5o0niwVc3X9DrK4v6VKGpIkTi%2Bx0mwPYKxp0qT6n5Nqlq%2B8WnHamcZ6YiBF3Wcim7zTvgKEFaXMg%3D%3D"/>
-              </v:oval>
-              <![endif]-->
-            </td></tr>
-          </table>
-          
-
-          <p style="margin:0 0 2px;font-size:18px;font-weight:800;color:#1F1D1D;font-family:'Figtree',Helvetica,Arial,sans-serif;line-height:1.2;text-align:center;">
-            <a href="https://theknoxindex.knox.digital/account/uklabour" style="color:#1F1D1D;text-decoration:none;">UKLabour</a>
-          </p>
-          <p style="margin:0 0 14px;font-size:12px;color:#7C919A;font-family:'Figtree',Helvetica,Arial,sans-serif;text-align:center;">
-            <a href="https://theknoxindex.knox.digital/account/uklabour" style="color:#7C919A;text-decoration:none;">@uklabour</a> &middot; labour
-          </p>
-
-          <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
-            <tr>
-              <td width="33%" style="padding-right:4px;">
-                <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="border-top:1px solid #E5E0EC;">
-                  <tr><td style="padding:8px 4px;text-align:center;">
-                    <p style="margin:0 0 2px;font-size:9px;letter-spacing:1px;color:#7C919A;font-family:'Figtree',Helvetica,Arial,sans-serif;font-weight:600;text-transform:uppercase;">Views</p>
-                    <p style="margin:0;font-size:13px;font-weight:700;color:#4D575C;font-family:'Figtree',Helvetica,Arial,sans-serif;">27K</p>
-                  </td></tr>
-                </table>
-              </td>
-              <td width="34%" style="padding:0 2px;">
-                <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="border-top:1px solid #E5E0EC;">
-                  <tr><td style="padding:8px 4px;text-align:center;">
-                    <p style="margin:0 0 2px;font-size:9px;letter-spacing:1px;color:#7C919A;font-family:'Figtree',Helvetica,Arial,sans-serif;font-weight:600;text-transform:uppercase;">Virality</p>
-                    <p style="margin:0;font-size:13px;font-weight:700;color:#4D575C;font-family:'Figtree',Helvetica,Arial,sans-serif;">0.1×</p>
-                  </td></tr>
-                </table>
-              </td>
-              <td width="33%" style="padding-left:4px;">
-                <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="border-top:1px solid #E5E0EC;">
-                  <tr><td style="padding:8px 4px;text-align:center;">
-                    <p style="margin:0 0 2px;font-size:9px;letter-spacing:1px;color:#7C919A;font-family:'Figtree',Helvetica,Arial,sans-serif;font-weight:600;text-transform:uppercase;">Eng</p>
-                    <p style="margin:0;font-size:13px;font-weight:700;color:#4D575C;font-family:'Figtree',Helvetica,Arial,sans-serif;">7.6%</p>
-                  </td></tr>
-                </table>
-              </td>
-            </tr>
-          </table>
-
-        </td>
-      </tr>
-    </table>
-  </td>
-</tr>
-
-<!-- 2. A party's best post -->
-<tr>
-  <td style="padding:0 0 14px;">
-    <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#FFFFFF;border:1px solid #E5E0EC;border-radius:12px;">
-      <tr>
-        <td width="33%" valign="top" align="center" background="https://storage.googleapis.com/tiktok-content-scraper/uklabour/2026-05-31/7645992871274745110.webp?GoogleAccessId=website-bigquery-viewer%40project-ariadne.iam.gserviceaccount.com&Expires=1780391219&Signature=rqk2vK2%2FB%2BB6ewCPd6gSXRghEl82Ij%2Fhh2fMcELygWVes2QAxO0I8nl7qQz%2BSCe%2FE8VrsqPStY1caFmuZcDpmqucFjboMpwMNJbCnZQ2t6q1vcu22Oo9JkZXMBBLkg2phaZcC7B0yzuuE57WFAA3nwasKysKH7CjGwj9e9KlVWceEWkm2ZlaV2TH6Go3RaHMyJiAD2nScDK3QqzIqC2rBTfDc84L2bDL1ZaxOrrhtk2f0Qnrv7LxckjtGFlnOMsaUvhxEil%2FE8IOqKXc6qLpvklCgFfoYviL6OHGh7lvMBV9fRPeVsB57gvFLiN1Q0lKL5GxEyT14j4Pe8P7hc%2FpAA%3D%3D" style="width:33%;padding:0;background-image:url('https://storage.googleapis.com/tiktok-content-scraper/uklabour/2026-05-31/7645992871274745110.webp?GoogleAccessId=website-bigquery-viewer%40project-ariadne.iam.gserviceaccount.com&Expires=1780391219&Signature=rqk2vK2%2FB%2BB6ewCPd6gSXRghEl82Ij%2Fhh2fMcELygWVes2QAxO0I8nl7qQz%2BSCe%2FE8VrsqPStY1caFmuZcDpmqucFjboMpwMNJbCnZQ2t6q1vcu22Oo9JkZXMBBLkg2phaZcC7B0yzuuE57WFAA3nwasKysKH7CjGwj9e9KlVWceEWkm2ZlaV2TH6Go3RaHMyJiAD2nScDK3QqzIqC2rBTfDc84L2bDL1ZaxOrrhtk2f0Qnrv7LxckjtGFlnOMsaUvhxEil%2FE8IOqKXc6qLpvklCgFfoYviL6OHGh7lvMBV9fRPeVsB57gvFLiN1Q0lKL5GxEyT14j4Pe8P7hc%2FpAA%3D%3D');background-size:cover;background-position:center center;background-repeat:no-repeat;border-radius:12px 0 0 12px;min-height:200px;mso-padding-alt:0;">
-          <!--[if mso]>
-          <v:rect xmlns:v="urn:schemas-microsoft-com:vml" fill="true" stroke="false" style="width:108px;height:192px;">
-            <v:fill type="frame" src="https://storage.googleapis.com/tiktok-content-scraper/uklabour/2026-05-31/7645992871274745110.webp?GoogleAccessId=website-bigquery-viewer%40project-ariadne.iam.gserviceaccount.com&Expires=1780391219&Signature=rqk2vK2%2FB%2BB6ewCPd6gSXRghEl82Ij%2Fhh2fMcELygWVes2QAxO0I8nl7qQz%2BSCe%2FE8VrsqPStY1caFmuZcDpmqucFjboMpwMNJbCnZQ2t6q1vcu22Oo9JkZXMBBLkg2phaZcC7B0yzuuE57WFAA3nwasKysKH7CjGwj9e9KlVWceEWkm2ZlaV2TH6Go3RaHMyJiAD2nScDK3QqzIqC2rBTfDc84L2bDL1ZaxOrrhtk2f0Qnrv7LxckjtGFlnOMsaUvhxEil%2FE8IOqKXc6qLpvklCgFfoYviL6OHGh7lvMBV9fRPeVsB57gvFLiN1Q0lKL5GxEyT14j4Pe8P7hc%2FpAA%3D%3D" />
-            <v:textbox inset="0,0,0,0">
-          <![endif]-->
-          <a href="https://www.tiktok.com/@uklabour/video/7645992871274745110" style="display:block;width:100%;min-height:200px;text-decoration:none;font-size:0;line-height:0;">&nbsp;</a>
-          <!--[if mso]>
-            </v:textbox>
-          </v:rect>
-          <![endif]-->
-        </td>
-        <td width="67%" valign="top" style="width:67%;padding:14px 16px 14px 12px;">
-          <p style="margin:0 0 8px;">
-            <span style="display:inline-block;background:#553984;color:#FFFFFF;font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;padding:3px 8px;border-radius:3px;font-family:'Figtree',Helvetica,Arial,sans-serif;">
-              TODAY’S TOP PARTY POST
-            </span>
-          </p>
-          <p style="margin:0 0 2px;font-size:14px;font-weight:800;color:#1F1D1D;font-family:'Figtree',Helvetica,Arial,sans-serif;line-height:1.2;">
-            UKLabour
-          </p>
-          <p style="margin:0 0 8px;font-size:11px;color:#7C919A;font-family:'Figtree',Helvetica,Arial,sans-serif;">
-            @uklabour &middot; labour
-          </p>
-          <p style="margin:0 0 10px;font-size:12px;line-height:1.55;color:#4D575C;font-family:'Figtree',Helvetica,Arial,sans-serif;">
-            This carousel uses a critical tone to condemn inappropriate language and behavior, framing it as a serious issue rather than trivial locker room talk. The content highlights a pattern of normalized misconduct to challenge the values of political opponents.
-          </p>
-          <p style="margin:0 0 10px;font-size:11px;color:#7C919A;font-family:'Figtree',Helvetica,Arial,sans-serif;line-height:1.5;">
-            <strong style="color:#1F1D1D;font-weight:700;">27K</strong> views &middot;
-            <strong style="color:#1F1D1D;font-weight:700;">0.1×</strong> virality &middot;
-            <strong style="color:#1F1D1D;font-weight:700;">7.6%</strong> eng
-          </p>
-          <a href="https://www.tiktok.com/@uklabour/video/7645992871274745110" style="display:inline-block;background:#553984;color:#FFFFFF;font-size:11px;font-weight:700;letter-spacing:0.3px;padding:8px 14px;border-radius:6px;font-family:'Figtree',Helvetica,Arial,sans-serif;">
-            Watch on TikTok ↗
-          </a>
-        </td>
-      </tr>
-    </table>
-  </td>
-</tr>
-
-
-
+        <!-- 8 + 9. Poster of the day (Party) — PAUSED for the weekly email (a
+             day-specific section). Restore by renaming the marker to "INCLUDE:". -->
+        <!-- INCLUDE-PAUSED: poster-party.html -->
 
         <!-- 10. Overall Party performance -->
         <!-- ── BLOCK: Overall Party performance ─────────────────────────
@@ -828,19 +428,21 @@
             Knox is a digital communications consultancy built for influencing politicians, shaping public opinion and convincing the hardest-to-reach audiences.
           </p>
           <p style="margin:0 0 12px;font-size:13px;line-height:1.7;color:#4D575C;font-family:'Figtree',Helvetica,Arial,sans-serif;">
-            No recycled campaigns. No &ldquo;playbooks&rdquo;.
+          No recycled campaigns. No &ldquo;playbooks&rdquo;.
           </p>
           <p style="margin:0 0 12px;font-size:13px;line-height:1.7;color:#4D575C;font-family:'Figtree',Helvetica,Arial,sans-serif;">
-            Just a strategy designed by a small group, made up of some of the best campaigners in the world.
+            Just a strategy designed by a small group, made up of some of the best campaigners in the world
           </p>
           <p style="margin:0 0 12px;font-size:13px;line-height:1.7;color:#4D575C;font-family:'Figtree',Helvetica,Arial,sans-serif;">
-            Winning your influence among the audiences that matter to you.
+            Winning you influence among the audiences that matter to you.
           </p>
           <p style="margin:0 0 12px;font-size:13px;line-height:1.7;color:#4D575C;font-family:'Figtree',Helvetica,Arial,sans-serif;">
             That&rsquo;s why Presidents, Prime Ministers and global business leaders trust Knox.
+
           </p>
           <p style="margin:0 0 16px;font-size:13px;line-height:1.7;color:#4D575C;font-family:'Figtree',Helvetica,Arial,sans-serif;">
-            Because whether we&rsquo;re fighting an election, shaping a policy debate or driving demand for your product&mdash;
+            Because whether we&rsquo;re fighting an election, shaping a policy debate or driving demand for your product
+
           </p>
           <p style="margin:0 0 16px;font-size:15px;font-weight:800;color:#1F1D1D;font-family:'Figtree',Helvetica,Arial,sans-serif;">
             We win.
@@ -887,7 +489,7 @@
           <!-- CTA link box → Knox Index home -->
           <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="border-radius:10px;">
             <tr>
-              <td style="padding:0px; text-align:left;">
+              <td style="padding:14px 16px;text-align:center;">
                 <a href="https://theknoxindex.knox.digital/" style="display:inline-block;background:#553984;color:#FFFFFF;font-size:12px;font-weight:700;letter-spacing:0.3px;padding:10px 18px;border-radius:6px;font-family:'Figtree',Helvetica,Arial,sans-serif;">
                   Explore the full Knox Index &#8599;
                 </a>

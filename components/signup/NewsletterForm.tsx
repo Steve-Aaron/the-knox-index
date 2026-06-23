@@ -103,11 +103,11 @@ export function NewsletterForm() {
   const [segment,         setSegment]         = useState<string | null>(null);
   const [interests,       setInterests]       = useState<string[]>([]);
   // Briefing frequency — two mutually-exclusive booleans matching the
-  // Brevo consent model. Default to 'daily' so a one-click signup still
-  // produces a useful subscription; the picker lets users pick weekly or
-  // opt out entirely before submit.
-  const [consentDaily,    setConsentDaily]    = useState(true);
-  const [consentWeekly,   setConsentWeekly]   = useState(false);
+  // Brevo consent model. Weekly is the default cadence for now (Daily is
+  // hidden in FrequencyPicker); a one-click signup still produces a useful
+  // weekly subscription. To restore daily-by-default, flip these back.
+  const [consentDaily,    setConsentDaily]    = useState(false);
+  const [consentWeekly,   setConsentWeekly]   = useState(true);
   const [consentUpdates,  setConsentUpdates]  = useState(true);
   const [consentKnox,     setConsentKnox]     = useState(false);
   const [formState,       setFormState]       = useState<FormState>('idle');
@@ -170,8 +170,8 @@ export function NewsletterForm() {
         <FontAwesome6 name="envelope-circle-check" size={28} color={accent.mint} solid />
         <Text style={styles.successTitle}>You're subscribed</Text>
         <Text style={styles.successBody}>
-          Your first briefing will land at{' '}
-          <Text style={{ color: neutral.text }}>8:00AM tomorrow</Text>.
+          Your first{' '}
+          <Text style={{ color: neutral.text }}>weekly briefing</Text> is on its way.
           {'\n'}We've sent a confirmation to{' '}
           <Text style={{ color: neutral.text }}>{email.trim().toLowerCase()}</Text>.
         </Text>

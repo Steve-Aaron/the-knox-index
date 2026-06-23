@@ -15,7 +15,7 @@
   Global:
     subjectLine    — drives the email subject (referenced by Brevo template payload)
     previewLine    — drives BOTH the hidden inbox preheader AND a body paragraph
-                     inside the daily-brief card, sitting between the greeting
+                     inside the intro card, sitting between the greeting
                      and the INTRO_SUMMARY
     BRIEFING_DATE, INTRO_SUMMARY, WEEKLY_SUMMARY, SIGNUP_URL, PRIVACY_URL
 
@@ -86,7 +86,7 @@
         </tr>
 
 
-        <!-- ── 1. BLOCK: Summary (greeting + daily summary, no header pill) ── -->
+        <!-- ── 1. BLOCK: Summary (greeting + intro summary, no header pill) ── -->
         <tr>
           <td style="padding:0 0 14px;">
             <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#FFFFFF;border:1px solid #E5E0EC;border-radius:12px;">
@@ -115,20 +115,24 @@
         <!-- 2. Total Performance -->
         <!-- INCLUDE: total-performance.html -->
 
-        <!-- 3. Today's Top Posts (5 cards in one container) -->
-        <!-- INCLUDE: top-posts.html -->
+        <!-- 3. Today's Top Posts — PAUSED for the weekly email; superseded by
+             "This Week's Top Three" below. Restore by renaming the marker back
+             to "INCLUDE:". -->
+        <!-- INCLUDE-PAUSED: top-posts.html -->
 
         <!-- 4. Was this forwarded to you? -->
         <!-- INCLUDE: forward-cta.html -->
 
-        <!-- 5 + 6. Poster of the day (MP) + their best post -->
-        <!-- INCLUDE: poster-mp.html -->
+        <!-- 5 + 6. Poster of the day (MP) — PAUSED for the weekly email (a
+             day-specific section). Restore by renaming the marker to "INCLUDE:". -->
+        <!-- INCLUDE-PAUSED: poster-mp.html -->
 
         <!-- 7. Overall MP performance -->
         <!-- INCLUDE: mps-scorecard.html -->
 
-        <!-- 8 + 9. Poster of the day (Party) + their best post -->
-        <!-- INCLUDE: poster-party.html -->
+        <!-- 8 + 9. Poster of the day (Party) — PAUSED for the weekly email (a
+             day-specific section). Restore by renaming the marker to "INCLUDE:". -->
+        <!-- INCLUDE-PAUSED: poster-party.html -->
 
         <!-- 10. Overall Party performance -->
         <!-- INCLUDE: party-scorecard.html -->

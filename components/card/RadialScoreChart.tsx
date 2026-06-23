@@ -50,7 +50,7 @@ interface Props {
   rawValues?: RawScoreValues;
   /**
    * Selected time range. The frequency axis adapts to this:
-   *   yesterday | week         → 'past 7 days'   (rawValues.frequency must be postsThisWeek)
+   *   week                       → 'past 7 days'   (rawValues.frequency must be postsThisWeek)
    *   month     | year | lifetime → matches the range wording (rawValues.frequency = postsInRange)
    * Defaults to 'week' so existing call sites stay backward-compatible.
    */
@@ -75,8 +75,6 @@ function frequencyAxis(range: TimeRange): { desc: string; format: (v: number) =>
       return { desc: 'Posts this year',            format: v => `${v} posts this year`        };
     case 'lifetime':
       return { desc: 'Posts tracked',              format: v => `${v} posts tracked`          };
-    case 'yesterday':
-      return { desc: 'Posts yesterday',            format: v => `${v} posts yesterday`        };
     case 'week':
     default:
       return { desc: 'Posts in the past 7 days',   format: v => `${v} posts in past 7 days`   };

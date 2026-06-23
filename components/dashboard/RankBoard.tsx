@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, Pressable, Platform } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, Pressable, Platform, TextInput } from 'react-native';
+import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { DashCard } from '@/components/primitives/DashCard';
 import { DevLabel } from '@/components/primitives/DevLabel';
 import { SkeletonBlock } from '@/components/primitives/SkeletonBlock';
@@ -59,6 +60,8 @@ const LABELS: Record<ScoreKey, string> = {
 export function RankBoard({ politicians, activeId, headlineKey, timeRangeLabel, onSelect, panelHeight, isRegistered = false, isLifetime = true, engReference = 15 }: Props) {
   const [viewType, setViewType]       = useState<ViewType>('all');
   const [partyFilter, setPartyFilter] = useState<PartyKey | null>(null);
+  const [searchOpen, setSearchOpen]   = useState(false);
+  const [query, setQuery]             = useState('');
 
   // Counts per view type for the tab badges.
   // VIEW_ACCOUNT_TYPES maps each tab to its included AccountType values.
@@ -105,6 +108,14 @@ export function RankBoard({ politicians, activeId, headlineKey, timeRangeLabel, 
     // Only include accounts that posted at least once in the selected range.
     base = base.filter(p => p.totals.postsInRange > 0);
     if (partyFilter) base = base.filter(p => p.partyKey === partyFilter);
+    // Account search — match display name or TikTok handle (case-insensitive).
+    const q = query.trim().toLowerCase();
+    if (q) {
+      base = base.filter(p =>
+        (p.name ?? '').toLowerCase().includes(q) ||
+        (p.handle ?? '').replace(/^@+/, '').toLowerCase().includes(q)
+      );
+    }
     // Knox Factor is range-scoped when a time filter is active (leaderboardScore).
     // Virality clamps many accounts to the same score, so break ties by true
     // reach-per-follower — a higher-reach account can never sit below a lower one.
@@ -123,7 +134,7 @@ export function RankBoard({ politicians, activeId, headlineKey, timeRangeLabel, 
       if (headlineKey === 'followers') return b.totals.followers - a.totals.followers;
       return 0;
     });
-  }, [politicians, headlineKey, viewType, partyFilter, isLifetime]);
+  }, [politicians, headlineKey, viewType, partyFilter, query, isLifetime]);
 
   // Top page's views in the current list — the 100/100 reference for the
   // views display score (each halving below it drops 10 points).
@@ -164,12 +175,40 @@ export function RankBoard({ politicians, activeId, headlineKey, timeRangeLabel, 
           <ViewTabs value={viewType} onChange={handleViewChange} counts={counts} />
         </View>
 
-        {partyOptions.length > 1 && (
+        {politicians.length > 0 && (
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.partyRow}
           >
+            {/* Leading search affordance — icon expands into an inline input */}
+            {searchOpen ? (
+              <View style={styles.searchBox}>
+                <FontAwesome6 name="magnifying-glass" size={12} color={neutral.textMid} />
+                <TextInput
+                  value={query}
+                  onChangeText={setQuery}
+                  placeholder="Search name or @handle"
+                  placeholderTextColor={neutral.textMid}
+                  style={styles.searchInput}
+                  autoFocus
+                  returnKeyType="search"
+                />
+                <Pressable onPress={() => { setQuery(''); setSearchOpen(false); }} hitSlop={8}>
+                  <FontAwesome6 name="xmark" size={12} color={neutral.textMid} />
+                </Pressable>
+              </View>
+            ) : (
+              <Pressable
+                onPress={() => setSearchOpen(true)}
+                style={({ pressed }) => [styles.searchChip, pressed && { opacity: 0.75 }]}
+                accessibilityLabel="Search accounts"
+              >
+                <FontAwesome6 name="magnifying-glass" size={13} color={neutral.textMid} />
+              </Pressable>
+            )}
+
+            {partyOptions.length > 1 && <>
             <Pressable
               onPress={() => setPartyFilter(null)}
               style={({ pressed }) => [
@@ -202,6 +241,7 @@ export function RankBoard({ politicians, activeId, headlineKey, timeRangeLabel, 
                 </Pressable>
               );
             })}
+            </>}
           </ScrollView>
         )}
       </View>
@@ -316,6 +356,7 @@ const styles = StyleSheet.create({
   },
   partyRow: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: spacing.xs,
     paddingTop: spacing.sm,
   },
@@ -346,6 +387,36 @@ const styles = StyleSheet.create({
   },
   partyChipTextAll: {
     color: neutral.text,
+  },
+  searchChip: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.sm + 2,
+    paddingVertical: 5,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: glass.border,
+    backgroundColor: glass.fill,
+  },
+  searchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    width: 210,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 5,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: glass.borderHi,
+    backgroundColor: glass.fill,
+  },
+  searchInput: {
+    flex: 1,
+    ...type.caption,
+    fontSize: 13,
+    color: neutral.text,
+    paddingVertical: 0,
+    ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as any) : {}),
   },
   emptyText: {
     ...type.body,

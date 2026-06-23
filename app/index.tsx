@@ -32,8 +32,10 @@ import { Interstitial } from '@/components/primitives/Interstitial';
 import { DevPanel } from '@/components/primitives/DevPanel';
 import { getDevPreview, setDevPreview, type DevPreviewState } from '@/lib/devPreview';
 import { useAuth } from '@/hooks/useAuth';
+import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { useLiveData } from '@/data/useLiveData';
-import { usePostsData, type PostsSortKey } from '@/data/usePostsData';
+import { usePostsData, type PostsSortKey, type FeedFilters } from '@/data/usePostsData';
+import { useLeagues } from '@/data/useLeagues';
 import { track, startTimer, stopTimer } from '@/lib/analytics';
 import { useSessionTracking } from '@/hooks/useSessionTracking';
 import { useSectionTracking } from '@/hooks/useSectionTracking';
@@ -254,6 +256,7 @@ function DashboardScreenInner() {
   }, []);
 
   const { isRegistered, email: authEmail } = useAuth();
+  const isAdmin = useIsAdmin();
 
   // Logged-in users land on 'This Year' instead of Yesterday. Fires once, when
   // the session is confirmed (on load or on fresh login this session), and only
@@ -272,7 +275,9 @@ function DashboardScreenInner() {
   const [postsSortKey, setPostsSortKey] = useState<PostsSortKey>('views');
 
   const { politicians, totalPostsInDb, totalViewsInDb, topPost, status, isLive, error, retryAttempt, retryTotal, isInitialLoad, refresh } = useLiveData(range);
-  const { posts, loading: postsLoading, loadingMore: postsLoadingMore, hasMore: postsHasMore, error: postsError, loadMore: loadMorePosts } = usePostsData(range, postsSortKey);
+  const [feedFilters, setFeedFilters] = useState<FeedFilters>({});
+  const { posts, loading: postsLoading, loadingMore: postsLoadingMore, hasMore: postsHasMore, error: postsError, loadMore: loadMorePosts, total: postsTotal } = usePostsData(range, postsSortKey, feedFilters);
+  const { styles: styleCounts, topics: topicCounts } = useLeagues(range);
   const { benchmarks } = useBenchmarks();
 
   // Hero entrance animations are gated until the LoadingScreen has fully
@@ -407,7 +412,7 @@ function DashboardScreenInner() {
             {...(Platform.OS === 'web' ? { 'data-container_name': 'row_title_bar' } as any : {})}
           >
             <View>
-              <Kicker tone='dim'>THE KNOX INDEX · DAILY BRIEF</Kicker>
+              <Kicker tone='dim'>THE KNOX INDEX · WEEKLY BRIEF</Kicker>
               <Title style={{ marginTop: 2 }}>Dashboard</Title>
             </View>
             <View style={styles.titleRight}>
@@ -640,9 +645,13 @@ function DashboardScreenInner() {
                 loading={postsLoading}
                 rangeLabel={RANGE_LABELS[range]}
                 activePoliticianName={activePoliticianName}
+                activePoliticianHandle={selectedPolitician?.handle ?? null}
                 onClearPolitician={() => handleSetActiveId('')}
                 benchmarks={benchmarks ?? undefined}
                 isRegistered={isRegistered}
+                isAdmin={isAdmin}
+                onFiltersChange={setFeedFilters}
+                total={postsTotal}
                 externalPartyFilter={partyFilter}
                 onPartyFilterChange={setPartyFilter}
                 externalStyleFilter={styleFilter}
@@ -667,13 +676,14 @@ function DashboardScreenInner() {
             <View style={styles.insightsCol}>
               <StyleBreakdown
                 posts={posts}
+                counts={styleCounts}
                 rangeLabel={RANGE_LABELS[range]}
                 activeStyle={styleFilter}
                 onStyleSelect={handleStyleSelect}
               />
             </View>
             <View style={styles.insightsCol}>
-              <TopicCloud posts={posts} rangeLabel={RANGE_LABELS[range]} />
+              <TopicCloud posts={posts} counts={topicCounts} rangeLabel={RANGE_LABELS[range]} />
             </View>
           </View>
           </MobileSection>

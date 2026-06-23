@@ -34,6 +34,8 @@ export interface PostsState {
   isLive:      boolean;
   /** Whether another page is available on the server. */
   hasMore:     boolean;
+  /** Total matching rows for the current filters/range (null until first load). */
+  total:       number | null;
 }
 
 /** Convert a TimeRange key to a `since` ISO date string, or null for lifetime. */
@@ -52,9 +54,20 @@ function rangeToSince(range: TimeRange): string | null {
   return d.toISOString().slice(0, 10);  // 'YYYY-MM-DD'
 }
 
+export interface FeedFilters {
+  party?:    string | null;
+  /** Account handle (without @), the stable identity for a politician. */
+  profile?:  string | null;
+  minViews?: number;
+  minLikes?: number;
+  style?:    string | null;
+  topic?:    string | null;
+}
+
 export function usePostsData(
   range: TimeRange = 'week',
   sortKey: PostsSortKey = 'postDate',
+  filters: FeedFilters = {},
 ): PostsState & { refresh: () => void; loadMore: () => void } {
   const [state, setState] = useState<PostsState>({
     posts:       [],
@@ -63,9 +76,21 @@ export function usePostsData(
     error:       null,
     isLive:      false,
     hasMore:     false,
+    total:       null,
   });
 
   const since = rangeToSince(range);
+
+  // Stable key for the filter set — used as the fetch dependency so a filter
+  // change refetches (an object would churn identity every render).
+  const filterKey = JSON.stringify({
+    party:      filters.party   ?? null,
+    profile:    filters.profile ?? null,
+    minViews:   filters.minViews   ?? 0,
+    minLikes:   filters.minLikes   ?? 0,
+    style:      filters.style      ?? null,
+    topic:      filters.topic      ?? null,
+  });
 
   // Mirror the loaded count so loadMore() always requests the right offset
   // without recreating the callback on every append.
@@ -89,9 +114,15 @@ export function usePostsData(
       params.set('sortKey', sortKey);
       params.set('limit',  String(PAGE_SIZE));
       params.set('offset', String(offset));
+      if (filters.party)      params.set('party',      filters.party);
+      if (filters.profile)    params.set('profile',    filters.profile);
+      if (filters.minViews)   params.set('minViews',   String(filters.minViews));
+      if (filters.minLikes)   params.set('minLikes',   String(filters.minLikes));
+      if (filters.style)      params.set('style',      filters.style);
+      if (filters.topic)      params.set('topic',      filters.topic);
 
       const res  = await fetchWithRetry(`/api/posts?${params.toString()}`);
-      const data = await res.json() as { posts: PostRecord[]; hasMore?: boolean };
+      const data = await res.json() as { posts: PostRecord[]; hasMore?: boolean; total?: number | null };
       const page = Array.isArray(data.posts) ? data.posts : [];
       const hasMore = typeof data.hasMore === 'boolean' ? data.hasMore : page.length === PAGE_SIZE;
 
@@ -102,6 +133,7 @@ export function usePostsData(
         error:       null,
         isLive:      true,
         hasMore,
+        total:       typeof data.total === 'number' ? data.total : prev.total,
       }));
     } catch (err: unknown) {
       const uiMessage = err instanceof Error && /^HTTP \d+$/.test(err.message)
@@ -117,7 +149,7 @@ export function usePostsData(
     } finally {
       inFlightRef.current = false;
     }
-  }, [since, sortKey]);
+  }, [since, sortKey, filterKey]);
 
   // Reset to page 0 whenever the range or sort changes.
   useEffect(() => { fetchPage(0, true); }, [fetchPage]);

@@ -27,16 +27,19 @@ import type { TimeRange } from '@/components/dashboard/TimeRangePicker';
  */
 interface Props {
   politicians:  Politician[];
-  /** Drives the daily-vs-weekly swap. Defaults to 'yesterday' so existing
-   *  call sites that haven't been updated keep their old behaviour. */
+  /** Drives the daily-vs-weekly swap. Defaults to 'week' so untouched call
+   *  sites show the weekly briefing while the daily cadence is paused. */
   range?:       TimeRange;
   panelHeight?: number;
 }
 
 const INSIGHT_COLOURS = [dataVis[0], dataVis[4], dataVis[2]];
 
-export function SummaryPanel({ politicians, range = 'yesterday', panelHeight }: Props) {
-  const isWeekly = range === 'week';
+export function SummaryPanel({ politicians, range = 'week', panelHeight }: Props) {
+  // The daily briefing is paused, so the panel always presents the weekly
+  // digest regardless of the selected leaderboard range. To restore the
+  // range-driven daily/weekly swap, revert this to: range === 'week'.
+  const isWeekly = true;
   const [brief, setBrief]             = useState<BriefsApiResponse | null>(null);
   const [briefLoading, setBriefLoading] = useState(true);
   const [briefError, setBriefError]   = useState<string | null>(null);

@@ -166,7 +166,7 @@ function FilterRow({ rule, isFirst, onUpdate, onRemove }: RowProps) {
         <TextInput
           value={rule.value}
           onChangeText={v => onUpdate({ value: v })}
-          placeholder={placeholderFor(fieldType)}
+          placeholder={placeholderFor(fieldType, rule.op)}
           placeholderTextColor={neutral.textDim}
           style={[rowStyles.input, { flex: 1 }]}
           keyboardType={fieldType === 'number' ? 'numeric' : 'default'}
@@ -201,9 +201,10 @@ function FilterRow({ rule, isFirst, onUpdate, onRemove }: RowProps) {
   );
 }
 
-function placeholderFor(type: 'string' | 'number' | 'date'): string {
+function placeholderFor(type: 'string' | 'number' | 'date', op?: AnyOp): string {
   if (type === 'number') return '0';
   if (type === 'date')   return 'YYYY-MM-DD';
+  if (op === 'matches')  return 'regex e.g. ^lab|reform$';
   return 'value...';
 }
 

@@ -140,13 +140,26 @@ export default function PreferencesScreen() {
     setInterests(readLSArray(LS.INTERESTS));
     const savedUpdates = readLS(LS.CONSENT_UPDATES);
     setConsentUpdates(savedUpdates === '' ? true : savedUpdates === '1');
-    // Briefing pair — read both keys. If the legacy daily-only key was set
-    // but the new weekly key is missing, the existing daily subscription
-    // carries over unchanged. New users with no history land on 'none'.
-    const savedDaily  = readLS(LS.CONSENT_BRIEFING);
-    const savedWeekly = readLS(LS.CONSENT_WEEKLY);
-    setConsentDaily(savedDaily   === '1');
-    setConsentWeekly(savedWeekly === '1');
+    // Briefing pair — read both keys. The daily cadence is retired, so any
+    // returning daily subscriber is normalised to weekly on hydration: this
+    // keeps the (Daily-hidden) FrequencyPicker showing the right selection
+    // AND prevents a subsequent Save from re-subscribing them to the daily
+    // list. New users with no history land on 'none'.
+    const savedDaily  = readLS(LS.CONSENT_BRIEFING) === '1';
+    const savedWeekly = readLS(LS.CONSENT_WEEKLY) === '1';
+    if (savedDaily) {
+      // Daily → Weekly migration (local mirror; Brevo is migrated separately
+      // by scripts/migrate-daily-to-weekly.mjs).
+      setConsentDaily(false);
+      setConsentWeekly(true);
+      if (Platform.OS === 'web') {
+        localStorage.setItem(LS.CONSENT_BRIEFING, '0');
+        localStorage.setItem(LS.CONSENT_WEEKLY,   '1');
+      }
+    } else {
+      setConsentDaily(false);
+      setConsentWeekly(savedWeekly);
+    }
     setConsentKnox(readLS(LS.CONSENT_KNOX) === '1');
   }, []);
 
