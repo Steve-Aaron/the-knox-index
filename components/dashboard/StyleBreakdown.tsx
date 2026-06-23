@@ -22,6 +22,8 @@ import { track } from '@/lib/analytics';
 
 interface Props {
   posts:           PostRecord[];
+  /** Whole-range server counts; when provided, used instead of the loaded feed. */
+  counts?:         { label: string; count: number }[];
   rangeLabel?:     string;
   topN?:           number;
   /** Currently-active style filter (lowercased). When set, that row is highlighted. */
@@ -32,21 +34,29 @@ interface Props {
 
 const PALETTE = [...dataVis];
 
-export function StyleBreakdown({ posts, rangeLabel, topN = 8, activeStyle, onStyleSelect }: Props) {
+export function StyleBreakdown({ posts, counts, rangeLabel, topN = 8, activeStyle, onStyleSelect }: Props) {
   // Each row carries both the display label and the raw key — the raw key is
   // what we hand back to the parent so filters compare against post.styles
   // exactly as stored.
   const rows = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const p of posts) {
-      for (const s of p.styles ?? []) {
-        const key = s.trim().toLowerCase();
+    const tally = new Map<string, number>();
+    if (counts && counts.length) {
+      for (const c of counts) {
+        const key = String(c.label ?? '').trim().toLowerCase();
         if (!key) continue;
-        counts.set(key, (counts.get(key) ?? 0) + 1);
+        tally.set(key, (tally.get(key) ?? 0) + Number(c.count ?? 0));
+      }
+    } else {
+      for (const p of posts) {
+        for (const s of p.styles ?? []) {
+          const key = s.trim().toLowerCase();
+          if (!key) continue;
+          tally.set(key, (tally.get(key) ?? 0) + 1);
+        }
       }
     }
-    const total = Array.from(counts.values()).reduce((s, c) => s + c, 0);
-    return Array.from(counts.entries())
+    const total = Array.from(tally.values()).reduce((s, c) => s + c, 0);
+    return Array.from(tally.entries())
       .map(([key, count]) => ({
         key,
         label: fmtLabel(key),
@@ -55,7 +65,7 @@ export function StyleBreakdown({ posts, rangeLabel, topN = 8, activeStyle, onSty
       }))
       .sort((a, b) => b.count - a.count)
       .slice(0, topN);
-  }, [posts, topN]);
+  }, [posts, counts, topN]);
 
   const max = rows[0];
   const activeKey = activeStyle?.toLowerCase() ?? null;

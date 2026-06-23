@@ -33,17 +33,30 @@ interface Props {
 
 type Option = 'daily' | 'weekly' | 'none';
 
+// Daily briefing is hidden for now while weekly is the default cadence.
+// Flip this back to true to restore the Daily option — all the daily
+// plumbing (props, boolean pair, handlePress) is left intact below.
+const SHOW_DAILY = false;
+
 const OPTIONS: { id: Option; label: string; desc: string }[] = [
   { id: 'daily',  label: 'Daily',  desc: 'A briefing every morning at 8:00.' },
   { id: 'weekly', label: 'Weekly', desc: 'A round-up once a week.' },
   { id: 'none',   label: 'None',   desc: 'No briefing emails.' },
 ];
 
+// Rendered options respect the SHOW_DAILY flag. The full OPTIONS list above
+// is kept so the daily entry can be re-enabled with a one-line change.
+const VISIBLE_OPTIONS = OPTIONS.filter(opt => opt.id !== 'daily' || SHOW_DAILY);
+
 export function FrequencyPicker({ daily, weekly, onChange, disabled = false }: Props) {
   // Derive the currently-active option from the boolean pair.
   // If both somehow ended up true (state coming in from an older client),
   // treat it as daily and let the next user action clear the weekly flag.
-  const active: Option = daily ? 'daily' : weekly ? 'weekly' : 'none';
+  let active: Option = daily ? 'daily' : weekly ? 'weekly' : 'none';
+  // While Daily is hidden, an existing daily subscriber should see Weekly
+  // highlighted rather than no selection at all (display-only — the stored
+  // boolean pair is untouched until the user actively picks an option).
+  if (!SHOW_DAILY && active === 'daily') active = 'weekly';
 
   const handlePress = (next: Option) => {
     if (disabled) return;
@@ -57,7 +70,7 @@ export function FrequencyPicker({ daily, weekly, onChange, disabled = false }: P
     <View style={styles.wrap}>
       <DevLabel name="FrequencyPicker" />
       <View style={styles.row}>
-        {OPTIONS.map(opt => {
+        {VISIBLE_OPTIONS.map(opt => {
           const isActive = active === opt.id;
           return (
             <Pressable

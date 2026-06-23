@@ -32,8 +32,10 @@ import { Interstitial } from '@/components/primitives/Interstitial';
 import { DevPanel } from '@/components/primitives/DevPanel';
 import { getDevPreview, setDevPreview, type DevPreviewState } from '@/lib/devPreview';
 import { useAuth } from '@/hooks/useAuth';
+import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { useLiveData } from '@/data/useLiveData';
-import { usePostsData, type PostsSortKey } from '@/data/usePostsData';
+import { usePostsData, type PostsSortKey, type FeedFilters } from '@/data/usePostsData';
+import { useLeagues } from '@/data/useLeagues';
 import { track, startTimer, stopTimer } from '@/lib/analytics';
 import { useSessionTracking } from '@/hooks/useSessionTracking';
 import { useSectionTracking } from '@/hooks/useSectionTracking';
@@ -93,7 +95,9 @@ function DashboardScreenInner() {
   // Area 9: scroll depth — attach to section root Views
   const sectionRef = useSectionTracking();
 
-  const [range, setRange]           = useState<TimeRange>('yesterday');
+  // 'week' is both the default and the shortest selectable range now that the
+  // daily ('yesterday') view has been retired from the picker.
+  const [range, setRange]           = useState<TimeRange>('week');
   const [sortKey, setSortKey]       = useState<LeaderboardSortKey>('knoxFactor');
   const [activeId, setActiveId]     = useState<string>('');
   const [showAccounts, setShowAccounts] = useState(false);
@@ -155,7 +159,7 @@ function DashboardScreenInner() {
 
   // Area 4: enhanced sort/range handlers that carry previous values
   const prevSortRef  = useRef<LeaderboardSortKey>('knoxFactor');
-  const prevRangeRef = useRef<TimeRange>('yesterday');
+  const prevRangeRef = useRef<TimeRange>('week');
 
   const handleSetRange = useCallback((r: TimeRange) => {
     track('time_range_changed', {
@@ -238,6 +242,7 @@ function DashboardScreenInner() {
   }, []);
 
   const { isRegistered, email: authEmail } = useAuth();
+  const isAdmin = useIsAdmin();
 
   // Post feed sort is lifted here so it can drive the API's ORDER BY (the
   // server returns the top-N for whichever metric is selected). When the user
@@ -245,7 +250,9 @@ function DashboardScreenInner() {
   const [postsSortKey, setPostsSortKey] = useState<PostsSortKey>('views');
 
   const { politicians, totalPostsInDb, totalViewsInDb, topPost, status, isLive, error, retryAttempt, retryTotal, isInitialLoad, refresh } = useLiveData(range);
-  const { posts, loading: postsLoading, loadingMore: postsLoadingMore, hasMore: postsHasMore, error: postsError, loadMore: loadMorePosts } = usePostsData(range, postsSortKey);
+  const [feedFilters, setFeedFilters] = useState<FeedFilters>({});
+  const { posts, loading: postsLoading, loadingMore: postsLoadingMore, hasMore: postsHasMore, error: postsError, loadMore: loadMorePosts, total: postsTotal } = usePostsData(range, postsSortKey, feedFilters);
+  const { styles: styleCounts, topics: topicCounts } = useLeagues(range);
   const { benchmarks } = useBenchmarks();
 
   // Hero entrance animations are gated until the LoadingScreen has fully
@@ -380,7 +387,7 @@ function DashboardScreenInner() {
             {...(Platform.OS === 'web' ? { 'data-container_name': 'row_title_bar' } as any : {})}
           >
             <View>
-              <Kicker tone='dim'>THE KNOX INDEX · DAILY BRIEF</Kicker>
+              <Kicker tone='dim'>THE KNOX INDEX · WEEKLY BRIEF</Kicker>
               <Title style={{ marginTop: 2 }}>Dashboard</Title>
             </View>
             <View style={styles.titleRight}>
@@ -613,9 +620,13 @@ function DashboardScreenInner() {
                 loading={postsLoading}
                 rangeLabel={RANGE_LABELS[range]}
                 activePoliticianName={activePoliticianName}
+                activePoliticianHandle={selectedPolitician?.handle ?? null}
                 onClearPolitician={() => handleSetActiveId('')}
                 benchmarks={benchmarks ?? undefined}
                 isRegistered={isRegistered}
+                isAdmin={isAdmin}
+                onFiltersChange={setFeedFilters}
+                total={postsTotal}
                 externalPartyFilter={partyFilter}
                 onPartyFilterChange={setPartyFilter}
                 externalStyleFilter={styleFilter}
@@ -640,13 +651,14 @@ function DashboardScreenInner() {
             <View style={styles.insightsCol}>
               <StyleBreakdown
                 posts={posts}
+                counts={styleCounts}
                 rangeLabel={RANGE_LABELS[range]}
                 activeStyle={styleFilter}
                 onStyleSelect={handleStyleSelect}
               />
             </View>
             <View style={styles.insightsCol}>
-              <TopicCloud posts={posts} rangeLabel={RANGE_LABELS[range]} />
+              <TopicCloud posts={posts} counts={topicCounts} rangeLabel={RANGE_LABELS[range]} />
             </View>
           </View>
           </MobileSection>

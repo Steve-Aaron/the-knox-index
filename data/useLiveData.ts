@@ -42,7 +42,7 @@ const API_PATH    = '/api/ariadne';
 const RETRY_TOTAL = 3;
 const TIMER_KEY   = 'data_load';
 
-export function useLiveData(range: TimeRange = 'yesterday'): DataState & { refresh: () => void } {
+export function useLiveData(range: TimeRange = 'week'): DataState & { refresh: () => void } {
   const [state, setState] = useState<DataState>({
     status:         'loading',
     politicians:    [],

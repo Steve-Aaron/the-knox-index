@@ -33,6 +33,8 @@ import { track } from '@/lib/analytics';
 import { fmtLabel, fmtDate } from '@/lib/format';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { AdvancedFilterPanel } from './AdvancedFilterPanel';
+import { AdminSummaryEditor } from './AdminSummaryEditor';
+import type { FeedFilters } from '@/data/usePostsData';
 import { applyAdvancedFilter, type Rule } from '@/lib/advancedFilters';
 
 /**
@@ -155,6 +157,8 @@ interface Props {
   loading:                boolean;
   rangeLabel?:            string;
   activePoliticianName?:  string | null;
+  /** Active politician account handle — stable identity used for filtering. */
+  activePoliticianHandle?: string | null;
   onClearPolitician?:     () => void;
   benchmarks?:            PostBenchmarks;
   /** When false, the post feed is hidden behind a registration gate. */
@@ -175,6 +179,12 @@ interface Props {
   loadingMore?:           boolean;
   /** Fetch and append the next server page. */
   onLoadMore?:            () => void;
+  /** When true, render admin-only inline controls (e.g. summary editing). */
+  isAdmin?:               boolean;
+  /** Reports the active structured filters so they can be applied server-side. */
+  onFiltersChange?:       (f: FeedFilters) => void;
+  /** Whole-table count of matching rows (server-side); drives the real total. */
+  total?:                 number | null;
 }
 
 export function PostsTable({
@@ -182,6 +192,7 @@ export function PostsTable({
   loading,
   rangeLabel,
   activePoliticianName,
+  activePoliticianHandle,
   onClearPolitician,
   benchmarks,
   isRegistered = false,
@@ -194,6 +205,9 @@ export function PostsTable({
   hasMore = false,
   loadingMore = false,
   onLoadMore,
+  isAdmin = false,
+  onFiltersChange,
+  total,
 }: Props) {
   const { width: windowWidth } = useWindowDimensions();
   const isMobile = windowWidth < breakpoints.tablet;
@@ -301,8 +315,11 @@ export function PostsTable({
 
   const filtered = useMemo(() => {
     let base = posts;
-    if (activePoliticianName) {
-      base = base.filter(p => p.politicianName === activePoliticianName);
+    if (activePoliticianHandle || activePoliticianName) {
+      const wantHandle = (activePoliticianHandle ?? '').replace(/^@+/, '').trim().toLowerCase();
+      base = wantHandle
+        ? base.filter(p => (p.profile ?? '').replace(/^@+/, '').trim().toLowerCase() === wantHandle)
+        : base.filter(p => p.politicianName === activePoliticianName);
     }
     if (wingFilter) {
       base = base.filter(p => WING_MAP[p.partyKey] === wingFilter);
@@ -333,7 +350,28 @@ export function PostsTable({
       if (sortKey === 'engagement') return engagementRate(b) - engagementRate(a);
       return (b[sortKey] as number) - (a[sortKey] as number);
     });
-  }, [posts, sortKey, wingFilter, partyFilter, activePoliticianName, minViews, minLikes, styleFilter, topicFilter, advancedRules]);
+  }, [posts, sortKey, wingFilter, partyFilter, activePoliticianName, activePoliticianHandle, minViews, minLikes, styleFilter, topicFilter, advancedRules]);
+
+  // Report active structured filters upward so usePostsData applies them across
+  // the whole table (not just the loaded page). wing + advanced rules stay
+  // client-side and are handled in `filtered` above.
+  useEffect(() => {
+    onFiltersChange?.({
+      party:      partyFilter ?? null,
+      profile:    (activePoliticianHandle ?? '').replace(/^@+/, '').trim().toLowerCase() || null,
+      minViews,
+      minLikes,
+      style:      styleFilter ?? null,
+      topic:      topicFilter ?? null,
+    });
+  }, [partyFilter, activePoliticianHandle, activePoliticianName, minViews, minLikes, styleFilter, topicFilter, onFiltersChange]);
+
+  // Headline total: prefer the server whole-table count, but fall back to the
+  // loaded/filtered length when client-only filters (wing, advanced rules) are
+  // active, since the server total does not reflect those.
+  const clientOnlyFilterActive = !!wingFilter || advancedRules.length > 0;
+  const feedTotal = (!clientOnlyFilterActive && typeof total === 'number') ? total : filtered.length;
+  const feedTotalApprox = clientOnlyFilterActive && hasMore;
 
   // Keep the ref in sync so analytics handlers always read the current count.
   filteredCountRef.current = filtered.length;
@@ -443,10 +481,11 @@ export function PostsTable({
           onStylePress={handleStyleFilter}
           onTopicPress={handleTopicFilter}
           sortKey={sortKey}
+          isAdmin={isAdmin}
         />
       </ScaleDecorator>
     );
-  }, [benchmarks, isMobile, handleCardPress, styleFilter, topicFilter, handleStyleFilter, handleTopicFilter, sortKey]);
+  }, [benchmarks, isMobile, handleCardPress, styleFilter, topicFilter, handleStyleFilter, handleTopicFilter, sortKey, isAdmin]);
 
   return (
     <DashCard style={styles.wrap} topAccent={undefined}>
@@ -465,7 +504,7 @@ export function PostsTable({
               </Title>
               {/* Result count — updates immediately so users can see the filter is working */}
               <View style={styles.countBadge}>
-                <Text style={styles.countText}>{filtered.length}</Text>
+                <Text style={styles.countText}>{feedTotal}</Text>
               </View>
               {/* Magnifying glass — toggles the AdvancedFilterPanel below */}
               <Pressable
@@ -750,7 +789,7 @@ export function PostsTable({
 
                 <Text style={styles.pageInfo}>
                   Page <Text style={styles.pageInfoNum}>{safePageIndex + 1}</Text> of {totalPages}{hasMore ? '+' : ''}
-                  <Text style={styles.pageInfoCount}>  ·  {filtered.length}{hasMore ? '+' : ''} post{filtered.length === 1 ? '' : 's'}</Text>
+                  <Text style={styles.pageInfoCount}>  ·  {feedTotal}{feedTotalApprox ? '+' : ''} post{feedTotal === 1 ? '' : 's'}</Text>
                 </Text>
 
                 {(() => {
@@ -816,6 +855,8 @@ interface CardProps {
   onTopicPress?:     (topic: string) => void;
   /** Current sort key — included in post_dwell event for analytics context */
   sortKey?:          SortKey;
+  /** Admin viewer → show inline summary editing. */
+  isAdmin?:          boolean;
 }
 
 /**
@@ -824,7 +865,7 @@ interface CardProps {
  */
 const POST_DWELL_MIN_MS = 500;
 
-function PostCard({ post, index, benchmarks, onPress, drag, isActive, compact, activeStyleFilter, activeTopicFilter, onStylePress, onTopicPress, sortKey }: CardProps) {
+function PostCard({ post, index, benchmarks, onPress, drag, isActive, compact, activeStyleFilter, activeTopicFilter, onStylePress, onTopicPress, sortKey, isAdmin }: CardProps) {
   const colour = party[post.partyKey];
   const engRate = post.views > 0
     ? +((post.likes + post.comments + post.saves + post.shares) / post.views * 100).toFixed(2)
@@ -959,6 +1000,14 @@ function PostCard({ post, index, benchmarks, onPress, drag, isActive, compact, a
                 </Pressable>
               </>
             )}
+
+            {isAdmin ? (
+              <AdminSummaryEditor
+                postId={String(post.postId)}
+                value={summary}
+                onSaved={setSummary}
+              />
+            ) : null}
           </View>
 
           <View style={styles.divider} />

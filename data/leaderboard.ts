@@ -88,14 +88,17 @@ export function engagementScore(rate: number, referenceRate: number): number {
 
 /**
  * Virality display score (0–100), DISPLAY-ONLY. Avg-views-per-follower ratio on
- * a log10 scale: 0.1×→50, 10×→90, 100×→100. Absolute (NOT dataset-relative), so
- * the leaderboard agrees with the radar instead of clustering near 100. Never
- * feeds the Knox Factor.
+ * a log10 scale anchored so 0.2× reach = 50 (the midpoint), at 25 points per
+ * 10× of reach: 0.02×→25, 0.2×→50, 2×→75, 20×→100. Absolute (NOT
+ * dataset-relative), so the leaderboard agrees with the radar instead of
+ * clustering near 100. Never feeds the Knox Factor.
  */
+const VIRALITY_DISPLAY_ANCHOR = 0.2;   // reach ratio that maps to the 50 midpoint
+const VIRALITY_DISPLAY_SLOPE  = 25;    // points added per 10× of reach
+
 export function viralityScoreDisplay(ratio: number): number {
   if (ratio <= 0) return 0;
-  const L = Math.log10(ratio);
-  const s = L <= 1 ? 50 + 20 * (L + 1) : 90 + 10 * (L - 1);
+  const s = 50 + VIRALITY_DISPLAY_SLOPE * (Math.log10(ratio) - Math.log10(VIRALITY_DISPLAY_ANCHOR));
   return Math.round(Math.max(0, Math.min(100, s)));
 }
 

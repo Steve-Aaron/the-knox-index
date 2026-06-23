@@ -54,7 +54,7 @@ export const FIELD_OPTIONS: { id: FieldId; label: string }[] =
 
 // ── Operators ─────────────────────────────────────────────────────────────────
 
-export type StringOp = 'contains' | 'equals' | 'startsWith' | 'notContains';
+export type StringOp = 'contains' | 'equals' | 'startsWith' | 'notContains' | 'matches';
 export type NumberOp = 'eq' | 'lt' | 'lte' | 'gt' | 'gte' | 'between';
 export type DateOp   = 'on' | 'before' | 'after' | 'between';
 
@@ -65,6 +65,7 @@ const STRING_OPS: { id: StringOp; label: string }[] = [
   { id: 'notContains', label: 'does not contain' },
   { id: 'equals',      label: 'equals'       },
   { id: 'startsWith',  label: 'starts with'  },
+  { id: 'matches',     label: 'matches regex' },
 ];
 
 const NUMBER_OPS: { id: NumberOp; label: string }[] = [
@@ -143,9 +144,24 @@ function getValue(post: PostRecord, field: FieldId): unknown {
 
 function matchString(postValue: unknown, op: StringOp, target: string): boolean {
   if (postValue == null) return false;
-  const a = String(postValue).toLowerCase();
-  const b = target.toLowerCase().trim();
-  if (b === '') return true;   // empty input acts as 'no constraint'
+  const raw = String(postValue);
+  const t   = target.trim();
+  if (t === '') return true;   // empty input acts as 'no constraint'
+
+  // Regex operator: treat the input as a JS regular expression, case-insensitive.
+  // Match against the RAW value (not lowercased) — lowercasing would corrupt
+  // escapes such as \D \W \S \B. An invalid pattern matches nothing rather than
+  // throwing, so a half-typed regex never breaks the feed.
+  if (op === 'matches') {
+    try {
+      return new RegExp(t, 'i').test(raw);
+    } catch {
+      return false;
+    }
+  }
+
+  const a = raw.toLowerCase();
+  const b = t.toLowerCase();
   switch (op) {
     case 'contains':    return a.includes(b);
     case 'notContains': return !a.includes(b);

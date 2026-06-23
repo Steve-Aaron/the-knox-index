@@ -62,3 +62,13 @@ export function toPartyKeyPublic(raw: string | null | undefined): PartyKey {
   const norm = raw.toLowerCase().trim().replace(/[_-]+/g, ' ').replace(/\s+/g, ' ');
   return PARTY_MAP[norm] ?? 'unknown';
 }
+
+/**
+ * Reverse of toPartyKeyPublic: every normalised raw spelling that maps to the
+ * given party key. Used to filter the post table server-side by party — the DB
+ * stores raw `a.party` strings, so we match the normalised value against this
+ * set. Returns [] for unknown/unmapped keys (caller should then skip the filter).
+ */
+export function partyKeyToRawNames(key: string): string[] {
+  return Object.keys(PARTY_MAP).filter(name => PARTY_MAP[name] === key);
+}

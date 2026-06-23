@@ -20,6 +20,8 @@ import type { PostRecord } from '@/data/types';
 
 interface Props {
   posts:       PostRecord[];
+  /** Whole-range server counts; when provided, used instead of the loaded feed. */
+  counts?:     { label: string; count: number }[];
   rangeLabel?: string;
   topN?:       number;
 }
@@ -31,20 +33,28 @@ interface TopicEntry {
   bucket: 0 | 1 | 2 | 3;  // size tier
 }
 
-export function TopicCloud({ posts, rangeLabel, topN = 24 }: Props) {
+export function TopicCloud({ posts, counts, rangeLabel, topN = 24 }: Props) {
   const entries = useMemo<TopicEntry[]>(() => {
-    const counts = new Map<string, number>();
-    for (const p of posts) {
-      for (const t of p.topics ?? []) {
-        const key = (t || '').trim().toLowerCase();
+    const tally = new Map<string, number>();
+    if (counts && counts.length) {
+      for (const c of counts) {
+        const key = String(c.label ?? '').trim().toLowerCase();
         if (!key) continue;
-        counts.set(key, (counts.get(key) ?? 0) + 1);
+        tally.set(key, (tally.get(key) ?? 0) + Number(c.count ?? 0));
+      }
+    } else {
+      for (const p of posts) {
+        for (const t of p.topics ?? []) {
+          const key = (t || '').trim().toLowerCase();
+          if (!key) continue;
+          tally.set(key, (tally.get(key) ?? 0) + 1);
+        }
       }
     }
-    const total = Array.from(counts.values()).reduce((s, c) => s + c, 0);
+    const total = Array.from(tally.values()).reduce((s, c) => s + c, 0);
     if (total === 0) return [];
 
-    const sorted = Array.from(counts.entries())
+    const sorted = Array.from(tally.entries())
       .map(([key, count]) => ({
         label: key.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
         count,
@@ -64,7 +74,7 @@ export function TopicCloud({ posts, rangeLabel, topN = 24 }: Props) {
             ? 1
             : 0,
     }) as TopicEntry);
-  }, [posts, topN]);
+  }, [posts, counts, topN]);
 
   return (
     <DashCard

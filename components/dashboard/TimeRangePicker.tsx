@@ -17,10 +17,13 @@ import { breakpoints } from '@/theme/breakpoints';
 /**
  * TimeRangePicker
  * ----------------
- * Segmented pill for the five time ranges. The "selected" highlight is a single
+ * Segmented pill for the time ranges. The "selected" highlight is a single
  * translated element behind the labels — shared-element feel.
  * month / year / lifetime are locked behind registration.
  * One job: pick a time range.
+ *
+ * Note: 'yesterday' is the shortest selectable window (postDate >= today - 1
+ * day) and maps to the matching server-side range in lib/bqQueries.ts.
  */
 export type TimeRange = 'yesterday' | 'week' | 'month' | 'year' | 'lifetime';
 

@@ -396,11 +396,11 @@ function ProfilingModal({ email, onClose, onDone }: ProfilingModalProps) {
   const [otherText, setOtherText] = useState('');
   const [interests, setInterests] = useState<string[]>([]);
   const [consentUpdates,  setConsentUpdates]  = useState(true);
-  // Briefing frequency — mutually-exclusive pair. Default to 'daily' so
-  // a user who skims through accepts the same subscription they would
-  // have under the old single-toggle flow.
-  const [consentDaily,    setConsentDaily]    = useState(true);
-  const [consentWeekly,   setConsentWeekly]   = useState(false);
+  // Briefing frequency — mutually-exclusive pair. Weekly is the default
+  // cadence for now (Daily is hidden in FrequencyPicker), so a user who
+  // skims through lands on a weekly subscription. Flip these to restore daily.
+  const [consentDaily,    setConsentDaily]    = useState(false);
+  const [consentWeekly,   setConsentWeekly]   = useState(true);
   const [consentKnox,     setConsentKnox]     = useState(false);
   const [loading, setLoading] = useState(false);
 
