@@ -36,10 +36,9 @@ interface Props {
 const INSIGHT_COLOURS = [dataVis[0], dataVis[4], dataVis[2]];
 
 export function SummaryPanel({ politicians, range = 'week', panelHeight }: Props) {
-  // The daily briefing is paused, so the panel always presents the weekly
-  // digest regardless of the selected leaderboard range. To restore the
-  // range-driven daily/weekly swap, revert this to: range === 'week'.
-  const isWeekly = true;
+  // Daily summary by default; the weekly digest shows only when the leaderboard
+  // is on the 'This week' range.
+  const isWeekly = range === 'week';
   const [brief, setBrief]             = useState<BriefsApiResponse | null>(null);
   const [briefLoading, setBriefLoading] = useState(true);
   const [briefError, setBriefError]   = useState<string | null>(null);

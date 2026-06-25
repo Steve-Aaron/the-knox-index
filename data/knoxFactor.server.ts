@@ -181,7 +181,7 @@ export function computeKnoxFactor(
 // display name, case-insensitive. Edit here to adjust.
 
 const KNOX_NAME_BONUS: Record<string, number> = {
-  'nigel farage':   10,
+  'nigel farage':    5,
   'sarah pochin':   10,
   'jeremy corbyn':   5,
   'nadia whittome':  5,
