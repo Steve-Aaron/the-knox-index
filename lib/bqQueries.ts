@@ -7,7 +7,7 @@
  * One job: produce correct, safe SQL strings for each query pattern.
  */
 
-import { tableRef } from '@/lib/bigquery';
+import { tableRef, ACCOUNT_WEB, POST_WEB } from '@/lib/bigquery';
 
 // ── Range helpers ─────────────────────────────────────────────────────────────
 
@@ -102,7 +102,7 @@ export function buildAccountsSQL(range: Range): string {
     COALESCE(la.lifetimePostCount, 0) AS lifetimePostCount,
     COALESCE(la.lifetimePostInteractions, 0) AS lifetimePostInteractions,
     acct.accountTypeNames
-  FROM ${tableRef('account')} a
+  FROM ${ACCOUNT_WEB} a
   LEFT JOIN (
     SELECT axat.accountId, STRING_AGG(atype.name, ',' ORDER BY atype.id) AS accountTypeNames
     FROM ${tableRef('account_x_accountType')} axat
@@ -119,13 +119,13 @@ export function buildAccountsSQL(range: Range): string {
   ) m ON a.id = m.pageId
   LEFT JOIN (
     SELECT LTRIM(profile, '@') AS profile, COUNT(*) AS postsThisWeek
-    FROM ${tableRef('post')}
+    FROM ${POST_WEB}
     WHERE postDate >= DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY)
     GROUP BY LTRIM(profile, '@')
   ) pw ON LTRIM(a.profile, '@') = pw.profile
   LEFT JOIN (
     SELECT LTRIM(profile, '@') AS profile, COUNT(*) AS postsLast28d
-    FROM ${tableRef('post')}
+    FROM ${POST_WEB}
     WHERE postDate >= DATE_SUB(CURRENT_DATE(), INTERVAL 28 DAY)
     GROUP BY LTRIM(profile, '@')
   ) p28 ON LTRIM(a.profile, '@') = p28.profile
@@ -138,7 +138,7 @@ export function buildAccountsSQL(range: Range): string {
       SUM(COALESCE(comments, 0))   AS commentsInRange,
       SUM(COALESCE(saves,    0))   AS savesInRange,
       SUM(COALESCE(shares,   0))   AS sharesInRange
-    FROM ${tableRef('post')}
+    FROM ${POST_WEB}
     WHERE ${dateFilter}
     GROUP BY LTRIM(profile, '@')
   ) ra ON LTRIM(a.profile, '@') = ra.profile
@@ -149,7 +149,7 @@ export function buildAccountsSQL(range: Range): string {
       COUNT(*)                   AS lifetimePostCount,
       SUM(COALESCE(likes, 0) + COALESCE(comments, 0) + COALESCE(saves, 0) + COALESCE(shares, 0))
                                  AS lifetimePostInteractions
-    FROM ${tableRef('post')}
+    FROM ${POST_WEB}
     WHERE postDate IS NOT NULL
     GROUP BY LTRIM(profile, '@')
   ) la ON LTRIM(a.profile, '@') = la.profile
@@ -176,8 +176,8 @@ export function buildTopPostSQL(): string {
     p.postUrl                AS postUrl,
     COALESCE(a.displayName, a.name) AS accountName,   -- prefer human display name over username
     a.party                  AS party
-  FROM ${tableRef('post')} p
-  JOIN ${tableRef('account')} a
+  FROM ${POST_WEB} p
+  JOIN ${ACCOUNT_WEB} a
     ON LTRIM(p.profile, '@') = LTRIM(a.profile, '@')
   WHERE p.videoSummary IS NOT NULL AND ${excludeHidden('a.profile')}
   ORDER BY CAST(p.views AS INT64) DESC
@@ -217,7 +217,7 @@ export function buildPostsSQL(range: Range): string {
         PARTITION BY LTRIM(profile, '@')
         ORDER BY postDate DESC
       ) AS _rn
-    FROM ${tableRef('post')}
+    FROM ${POST_WEB}
     WHERE videoSummary IS NOT NULL      AND ${dateFilter} AND ${excludeHidden('profile')}
   ) p
   LEFT JOIN ${tableRef('post_x_style')} pxs ON p.postId = pxs.postId
@@ -255,7 +255,7 @@ export function buildAccountPostsSQL(handle: string, range: Range, limit = 20): 
     p.coverJpeg,
     p.videoMp4,
     ARRAY_AGG(DISTINCT s.name IGNORE NULLS) AS styles
-  FROM ${tableRef('post')} p
+  FROM ${POST_WEB} p
   LEFT JOIN ${tableRef('post_x_style')} pxs ON p.postId = pxs.postId
   LEFT JOIN ${tableRef('style')} s ON pxs.styleId = s.id
   WHERE LTRIM(p.profile, '@') = '${safe}'
@@ -294,7 +294,7 @@ export function buildAllAccountPostsSQL(handle: string, limit = 200): string {
     p.coverJpeg,
     p.videoMp4,
     ARRAY_AGG(DISTINCT s.name IGNORE NULLS) AS styles
-  FROM ${tableRef('post')} p
+  FROM ${POST_WEB} p
   LEFT JOIN ${tableRef('post_x_style')} pxs ON p.postId = pxs.postId
   LEFT JOIN ${tableRef('style')} s ON pxs.styleId = s.id
   WHERE LTRIM(p.profile, '@') = '${safe}'

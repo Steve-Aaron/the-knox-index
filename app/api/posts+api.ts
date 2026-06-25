@@ -13,7 +13,7 @@
  * top-engaged posts always appear.
  */
 
-import { getBigQuery, tableRef } from '@/lib/bigquery';
+import { getBigQuery, tableRef, ACCOUNT_WEB, POST_WEB } from '@/lib/bigquery';
 import { signMediaFields } from '@/lib/gcs';
 import { safeErrorDetail } from '@/lib/errors';
 import { toPartyKeyPublic, partyKeyToRawNames } from '@/data/partyUtils';
@@ -77,8 +77,8 @@ const POSTS_SQL = (whereClause: string, orderBy: string, limit: number, offset: 
     COALESCE(a.totalFollowers, 0) AS accountFollowers,
     ARRAY_AGG(DISTINCT t.name IGNORE NULLS) AS topics,
     ARRAY_AGG(DISTINCT s.name IGNORE NULLS) AS styles
-  FROM ${tableRef('post')} p
-  LEFT JOIN ${tableRef('account')} a ON LTRIM(p.profile, '@') = LTRIM(a.profile, '@')
+  FROM ${POST_WEB} p
+  LEFT JOIN ${ACCOUNT_WEB} a ON LTRIM(p.profile, '@') = LTRIM(a.profile, '@')
   LEFT JOIN ${tableRef('post_x_topic')} pt ON p.postId = pt.postId
   LEFT JOIN ${tableRef('topic')} t ON pt.topicId = t.id
   LEFT JOIN ${tableRef('post_x_style')} pxs ON p.postId = pxs.postId
@@ -98,8 +98,8 @@ const POSTS_SQL = (whereClause: string, orderBy: string, limit: number, offset: 
 // count instead of the misleading 'first page' size.
 const COUNT_SQL = (whereClause: string) => `
   SELECT COUNT(DISTINCT p.postId) AS total
-  FROM ${tableRef('post')} p
-  LEFT JOIN ${tableRef('account')} a ON LTRIM(p.profile, '@') = LTRIM(a.profile, '@')
+  FROM ${POST_WEB} p
+  LEFT JOIN ${ACCOUNT_WEB} a ON LTRIM(p.profile, '@') = LTRIM(a.profile, '@')
   WHERE ${whereClause}
 `;
 

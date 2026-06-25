@@ -9,7 +9,7 @@
  * GET  /api/ariadne?debug=1       → returns raw field names + sample rows for schema verification
  */
 
-import { query, tableRef } from '@/lib/bigquery';
+import { query, tableRef, POST_WEB } from '@/lib/bigquery';
 import { signMediaFields, signGcsUrl } from '@/lib/gcs';
 import { safeErrorDetail } from '@/lib/errors';
 import { transformToPoliticians } from '@/data/transformers';
@@ -105,7 +105,7 @@ export async function GET(request: Request): Promise<Response> {
       SELECT
         COUNT(*)                AS totalPostsInDb,
         SUM(COALESCE(views, 0)) AS totalViewsInDb
-      FROM ${tableRef('post')}
+      FROM ${POST_WEB}
       WHERE videoSummary IS NOT NULL
     `;
 

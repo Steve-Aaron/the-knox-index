@@ -14,7 +14,7 @@
  * NULL); it intentionally ignores transient feed filters like party/min-views.
  */
 
-import { query, tableRef } from '@/lib/bigquery';
+import { query, tableRef, POST_WEB } from '@/lib/bigquery';
 import { parseRange, rangeDateFilter } from '@/lib/bqQueries';
 import { safeErrorDetail } from '@/lib/errors';
 
@@ -22,7 +22,7 @@ interface TagRow { label: string; count: number }
 
 const STYLES_SQL = (dateFilter: string) => `
   SELECT s.name AS label, COUNT(DISTINCT p.postId) AS count
-  FROM ${tableRef('post')} p
+  FROM ${POST_WEB} p
   JOIN ${tableRef('post_x_style')} pxs ON p.postId = pxs.postId
   JOIN ${tableRef('style')} s ON pxs.styleId = s.id
   WHERE p.videoSummary IS NOT NULL
@@ -34,7 +34,7 @@ const STYLES_SQL = (dateFilter: string) => `
 
 const TOPICS_SQL = (dateFilter: string) => `
   SELECT t.name AS label, COUNT(DISTINCT p.postId) AS count
-  FROM ${tableRef('post')} p
+  FROM ${POST_WEB} p
   JOIN ${tableRef('post_x_topic')} pt ON p.postId = pt.postId
   JOIN ${tableRef('topic')} t ON pt.topicId = t.id
   WHERE p.videoSummary IS NOT NULL

@@ -53,6 +53,47 @@ export function tableRef(table: string): string {
   return `\`${PROJECT_ID}.${DATASET}.${table}\``;
 }
 
+// ── Dashboard membership gate ─────────────────────────────────────────────────
+//
+// The PUBLIC WEBSITE must only ever surface accounts that are mapped to
+// dashboard 1, and only posts whose parent account is. Membership lives in the
+// external `account_x_dashboard` table (managed manually at source — a Sheet).
+//
+// These two gated sources are the SINGLE chokepoint: every website read of
+// accounts/posts selects FROM them instead of the base `account`/`post` tables,
+// so the dashboardId = 1 filter is defined in exactly one place and can't be
+// bypassed by an individual query. Admin APIs and the ingest pipeline keep
+// using the base tables (admin must see accounts NOT yet on the dashboard).
+//
+// Nothing changes visibly while every account is on dashboard 1; the gate only
+// hides accounts (and their posts) that are absent from the membership table.
+const DASHBOARD_ID = 1;
+
+/** Gated account source — accounts mapped to dashboard 1. Use as a derived
+ *  table, e.g. `FROM ${ACCOUNT_WEB} a`. */
+export const ACCOUNT_WEB = `(
+  SELECT a.*
+  FROM ${tableRef('account')} a
+  JOIN ${tableRef('account_x_dashboard')} d
+    ON CAST(d.accountId AS STRING) = CAST(a.id AS STRING)
+  WHERE d.dashboardId = ${DASHBOARD_ID}
+)`;
+
+/** Gated post source — posts whose parent account is mapped to dashboard 1
+ *  (matched on the profile link). Use as a derived table, e.g.
+ *  `FROM ${POST_WEB} p`. */
+export const POST_WEB = `(
+  SELECT p.*
+  FROM ${tableRef('post')} p
+  WHERE LTRIM(LOWER(p.profile), '@') IN (
+    SELECT LTRIM(LOWER(a.profile), '@')
+    FROM ${tableRef('account')} a
+    JOIN ${tableRef('account_x_dashboard')} d
+      ON CAST(d.accountId AS STRING) = CAST(a.id AS STRING)
+    WHERE d.dashboardId = ${DASHBOARD_ID}
+  )
+)`;
+
 /** Run a parameterised query and return typed rows. */
 export async function query<T>(sql: string): Promise<T[]> {
   const bq = getBigQuery();

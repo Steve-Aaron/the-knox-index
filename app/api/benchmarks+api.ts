@@ -13,7 +13,7 @@
  * Statistics per metric: min, p25, median, mean, p75, max
  */
 
-import { query, tableRef } from '@/lib/bigquery';
+import { query, POST_WEB } from '@/lib/bigquery';
 import { safeErrorDetail } from '@/lib/errors';
 import type { PostBenchmarks } from '@/data/types';
 
@@ -65,7 +65,7 @@ const BENCHMARKS_SQL = `
       4
     )[OFFSET(4)]  AS eng_max
 
-  FROM ${tableRef('post')}
+  FROM ${POST_WEB}
   WHERE views > 0
 `;
 
