@@ -12,6 +12,7 @@
     "ios": "EXPO_OFFLINE=1 expo start --ios",
     "typecheck": "tsc --noEmit",
     "check:knox": "node scripts/check-knox-isolation.mjs",
+    "docs:build": "node scripts/build-api-docs.mjs",
     "migrate:weekly": "node scripts/migrate-daily-to-weekly.mjs"
   },
   "dependencies": {
