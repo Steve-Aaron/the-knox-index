@@ -25,18 +25,20 @@
  * matching /api/cover/<postId>, BEFORE the catch-all rewrite in
  * vercel.json forwards everything else to the Expo handler.
  *
- * GET /api/cover/<postId>.jpg
+ * GET /api/cover/<postId>[.jpg|.jpeg|.webp|.png]
  *   1. Look up coverJpeg ref for postId in BigQuery
  *   2. Sign the GCS URL server-side
  *   3. Fetch the bytes from GCS
- *   4. Stream back with edge cache headers (1 day client / 30 day edge)
+ *   4. Detect the real image format and stream back with edge cache headers
  *
- * The stored objects are already JPEGs
- * (tiktok-content-scraper/{profile}/{date}/{postId}.jpeg), so the bytes are
- * passed straight through. No transcode, and therefore no native image
- * dependency.
+ * FORMAT NOTE: the column is called `coverJpeg` for historical reasons but
+ * the objects are NOT all JPEGs. The n8n `Download content` workflow uploads
+ * covers as `.webp`; older rows may be `.jpeg`. The extension in the request
+ * URL is decorative and is IGNORED for content negotiation — the response
+ * Content-Type is derived from the actual bytes. There is no transcode, so
+ * a `.jpg` URL can legitimately return `image/webp`.
  *
- * One job: turn a postId into a permanent, inbox-friendly jpg URL.
+ * One job: turn a postId into a permanent, correctly-typed image URL.
  */
 
 /* eslint-disable @typescript-eslint/no-var-requires */
@@ -52,6 +54,19 @@ const QUERY_LOCATION = 'EU';
 // TikTok post IDs are 19-digit numeric strings. Stricter than necessary, but
 // guarantees no SQL injection via the path segment and bounds the query.
 const POST_ID_RE = /^\d{1,25}$/;
+
+// Extensions the route accepts on the URL. Decorative only.
+const URL_EXT_RE = /\.(jpe?g|webp|png|gif)$/i;
+
+const MIME_BY_EXT: Record<string, string> = {
+  jpg:  'image/jpeg',
+  jpeg: 'image/jpeg',
+  webp: 'image/webp',
+  png:  'image/png',
+  gif:  'image/gif',
+};
+
+const ALLOWED_MIMES = new Set(Object.values(MIME_BY_EXT));
 
 /**
  * Shared GCP credential resolution (matches lib/bigquery.ts + lib/gcs.ts):
@@ -150,6 +165,85 @@ async function signGcsUrl(ref: string, ttlMs: number): Promise<string> {
   }
 }
 
+// ── Format detection ──────────────────────────────────────────────────────────
+
+/**
+ * Identify an image format from its magic bytes.
+ * Authoritative: it reads the file itself rather than trusting metadata,
+ * which is what the old hardcoded `image/jpeg` header got wrong.
+ * Returns null when the bytes match no known image signature.
+ */
+function sniffImageMime(buf: Buffer): string | null {
+  if (buf.length < 12) return null;
+
+  // JPEG — FF D8 FF
+  if (buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) {
+    return 'image/jpeg';
+  }
+
+  // PNG — 89 50 4E 47 0D 0A 1A 0A
+  if (
+    buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47 &&
+    buf[4] === 0x0d && buf[5] === 0x0a && buf[6] === 0x1a && buf[7] === 0x0a
+  ) {
+    return 'image/png';
+  }
+
+  // WebP — 'RIFF' ....  'WEBP'
+  if (buf.toString('ascii', 0, 4) === 'RIFF' && buf.toString('ascii', 8, 12) === 'WEBP') {
+    return 'image/webp';
+  }
+
+  // GIF — 'GIF8'
+  if (buf.toString('ascii', 0, 4) === 'GIF8') {
+    return 'image/gif';
+  }
+
+  return null;
+}
+
+/** Map a stored GCS ref's file extension to a MIME type, ignoring any query string. */
+function mimeFromRef(ref: string): string | null {
+  const withoutQuery = ref.split('?')[0];
+  const match = withoutQuery.match(/\.([a-z0-9]+)$/i);
+  if (!match) return null;
+  return MIME_BY_EXT[match[1].toLowerCase()] ?? null;
+}
+
+/** Accept an upstream Content-Type only if it is one we recognise. */
+function mimeFromUpstream(header: string | null): string | null {
+  if (!header) return null;
+  const base = header.split(';')[0].trim().toLowerCase();
+  return ALLOWED_MIMES.has(base) ? base : null;
+}
+
+/**
+ * Resolve the Content-Type to send back.
+ * Priority: actual bytes > stored object extension > upstream header.
+ * Falls back to application/octet-stream so a non-image never masquerades
+ * as one, and logs it so the bad row is findable.
+ */
+function resolveContentType(
+  buf: Buffer,
+  ref: string,
+  upstreamHeader: string | null,
+  postId: string,
+): { contentType: string; source: string } {
+  const sniffed = sniffImageMime(buf);
+  if (sniffed) return { contentType: sniffed, source: 'bytes' };
+
+  const byExt = mimeFromRef(ref);
+  if (byExt) return { contentType: byExt, source: 'extension' };
+
+  const byHeader = mimeFromUpstream(upstreamHeader);
+  if (byHeader) return { contentType: byHeader, source: 'upstream' };
+
+  console.warn(`[/api/cover] unrecognised image format for postId=${postId} ref=${ref}`);
+  return { contentType: 'application/octet-stream', source: 'fallback' };
+}
+
+// ── Handler ───────────────────────────────────────────────────────────────────
+
 module.exports = async function handler(
   req: import('@vercel/node').VercelRequest,
   res: import('@vercel/node').VercelResponse,
@@ -159,9 +253,11 @@ module.exports = async function handler(
     return;
   }
 
-  // Vercel parses `[postId]` from the filename into req.query.postId
+  // Vercel parses `[postId]` from the filename into req.query.postId.
+  // The extension is decorative: it is stripped and never used to decide
+  // the response Content-Type.
   const raw = String(req.query.postId ?? '');
-  const postId = raw.replace(/\.(jpe?g|webp|png)$/i, '');
+  const postId = raw.replace(URL_EXT_RE, '');
 
   if (!POST_ID_RE.test(postId)) {
     res.status(400).send('Invalid postId');
@@ -192,23 +288,42 @@ module.exports = async function handler(
     // 3. Fetch the bytes from GCS.
     const upstream = await fetch(signedUrl);
     if (!upstream.ok) {
-      console.warn(`[/api/cover] upstream ${upstream.status} for postId=${postId}`);
+      console.warn(
+        `[/api/cover] upstream ${upstream.status} for postId=${postId} ref=${ref}`,
+      );
       res.status(502).send('Upstream error');
       return;
     }
     const imageBuffer = Buffer.from(await upstream.arrayBuffer());
 
-    // 4. Stream the bytes straight back. The stored object is already a JPEG,
-    //    so there is nothing to transcode — just forward it with the right
-    //    content type and aggressive edge caching.
-    res.setHeader('Content-Type', 'image/jpeg');
+    // 4. Work out what the bytes actually are, then stream them back.
+    //    No transcode, so a .jpg URL may legitimately return image/webp.
+    const { contentType, source } = resolveContentType(
+      imageBuffer,
+      ref,
+      upstream.headers.get('content-type'),
+      postId,
+    );
+
+    res.setHeader('Content-Type', contentType);
     res.setHeader('Content-Length', String(imageBuffer.length));
+    // Surfaces how the type was decided, for debugging bad rows.
+    res.setHeader('X-Cover-Type-Source', source);
+    // Same URL can serve jpeg or webp depending on the stored object, so
+    // make it explicit that the body is not negotiated on Accept.
+    res.setHeader('Vary', 'Accept');
     // 1 day at the client, 30 days at the edge, 7 day SWR
     res.setHeader(
       'Cache-Control',
       'public, max-age=86400, s-maxage=2592000, stale-while-revalidate=604800',
     );
     res.setHeader('Access-Control-Allow-Origin', '*');
+
+    if (req.method === 'HEAD') {
+      res.status(200).end();
+      return;
+    }
+
     res.status(200).send(imageBuffer);
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
