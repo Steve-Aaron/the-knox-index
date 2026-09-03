@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Usage policy — Ariadne / Knox Index API</title>
+  <style>
+    :root { color-scheme: dark; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: #0b0d12;
+      color: #c9d1d9;
+      font: 16px/1.65 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+    [data-component='docsNav'] {
+      position: sticky; top: 0; z-index: 10;
+      display: flex; gap: 4px; align-items: center;
+      padding: 12px 24px;
+      background: rgba(11, 13, 18, 0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid #21262d;
+    }
+    [data-component='docsNav'] a,
+    [data-component='docsNav'] .current {
+      padding: 6px 12px; border-radius: 6px;
+      font-size: 14px; text-decoration: none;
+      transition: background 120ms ease, color 120ms ease;
+    }
+    [data-component='docsNav'] a { color: #8b949e; }
+    [data-component='docsNav'] a:hover { background: #161b22; color: #e6edf3; }
+    [data-component='docsNav'] .current { background: #1f6feb; color: #fff; }
+    main { max-width: 820px; margin: 0 auto; padding: 40px 24px 96px; }
+    h1, h2, h3 { color: #e6edf3; line-height: 1.25; margin-top: 2em; }
+    h1 { margin-top: 0; font-size: 2rem; }
+    h2 { font-size: 1.4rem; padding-bottom: .3em; border-bottom: 1px solid #21262d; }
+    h3 { font-size: 1.1rem; }
+    a { color: #58a6ff; }
+    code {
+      background: #161b22; border: 1px solid #21262d; border-radius: 4px;
+      padding: .15em .4em; font-size: .875em;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+    pre {
+      background: #161b22; border: 1px solid #21262d; border-radius: 8px;
+      padding: 16px; overflow-x: auto;
+    }
+    pre code { background: none; border: 0; padding: 0; font-size: .85rem; }
+    table { border-collapse: collapse; width: 100%; margin: 1.2em 0; display: block; overflow-x: auto; }
+    th, td { border: 1px solid #21262d; padding: 8px 12px; text-align: left; font-size: .9rem; }
+    th { background: #161b22; color: #e6edf3; }
+    blockquote { margin: 1.2em 0; padding: .5em 1em; border-left: 3px solid #1f6feb; background: #10141b; }
+    hr { border: 0; border-top: 1px solid #21262d; margin: 2.5em 0; }
+  </style>
+</head>
+<body data-component="apiDocsMarkdown">
+  
+  <nav data-component="docsNav">
+    <a href="./ariadne-api-docs.html">API reference</a><a href="./getting-started.html">Getting started</a><span class="current">Usage policy</span>
+  </nav>
+  <main id="content">Loading…</main>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script>
+    (function () {
+      var source = "# Usage policy\n\nApplies to all access to the Ariadne / Knox Index API. By using the API you\naccept these terms. Knox Digital may revoke access at any time.\n\nStatus note: the limits below are a contract, but enforcement is not yet\nimplemented server-side. There is currently no rate limiting. Treat the limits\nas binding regardless. Enforcement is a scheduled follow-up, and clients that\nexceed these figures once it lands will start receiving 429 responses.\n\n## 1. Rate limits\n\nPer credential, or per IP address for unauthenticated access.\n\n| Endpoint group | Limit | Burst |\n|---|---|---|\n| Public reads (`/api/posts`, `/api/account`, `/api/leagues`, `/api/benchmarks`) | 60 req/min | 20 |\n| Dashboard payload (`/api/ariadne`) | 10 req/min | 5 |\n| AI generation (`/api/brief`, `/api/briefs`, `/api/summarise`) | 10 req/min | 3 |\n| Auth (`/api/auth/request`) | 5 req/min | 5 |\n| Admin (`/api/admin/*`) | 30 req/min | 10 |\n| Media proxy (`/api/cover/*`, `/api/mp/*`) | 300 req/min | 100 |\n\nDaily ceiling: 20,000 requests per credential per 24 hours.\n\n`/api/ariadne` is deliberately low. It runs a multi-query BigQuery aggregation\nacross every tracked account and is the most expensive route in the system.\nThe AI routes are low because they invoke Gemini per call and cost money on\nevery request.\n\n## 2. Caching\n\nRespect the `Cache-Control` headers we send. Most read endpoints return\n`private, max-age=1800`, meaning a 30 minute window. Polling faster than that\nreturns identical data and counts against your limit for nothing.\n\n- Do not poll `/api/ariadne` more than twice an hour\n- Underlying data refreshes on a daily pipeline, so sub-daily polling of post\n  metrics gains you nothing\n- Cache responses on your side. Do not cache signed media URLs, which expire\n  after 1 hour; re-fetch the parent resource\n\n## 3. Acceptable use\n\nPermitted:\n\n- Building applications, dashboards and analyses that consume the API\n- Storing derived aggregates and analysis outputs\n- Internal reporting and research\n\nNot permitted:\n\n- Bulk extraction of the dataset, whether by pagination sweeps, parallel\n  workers or distributed clients. Systematic enumeration intended to\n  reconstruct the underlying tables is prohibited regardless of request rate\n- Redistribution or resale of raw API responses, in whole or in substantial\n  part, to third parties\n- Reverse engineering the Knox Factor or any other proprietary score\n- Presenting Knox Index data as your own, or as an official record of the\n  accounts covered\n- Sharing credentials, session cookies or magic links with anyone outside the\n  team the access was granted to\n- Circumventing dashboard gating, the `ukgov` exclusion, or any access control,\n  including via the media proxies\n- Proxying API calls through a third-party service in order to bypass the CORS\n  allowlist. Request that your origin be allowlisted instead\n- Automated traffic that degrades service for other users\n\n## 4. Attribution\n\nPublic-facing use of Knox Index data requires visible attribution to\nThe Knox Index, with a link to https://index.knox.digital. Scores including the\nKnox Factor must be labelled as Knox Index figures and not restated as neutral\nor official measures.\n\n## 5. Data handling\n\nThe dataset covers TikTok activity by UK political accounts. It concerns\nidentifiable public figures and their published content.\n\n- Use the data for analysis of public political communication, not for\n  profiling, targeting or harassment of individuals\n- Do not combine it with other datasets in order to identify or track private\n  individuals appearing in the content\n- Post content, cover images and video remain the property of their original\n  creators. The API provides access, not a licence to republish\n- If you cache personal data, you are the controller of that copy and\n  responsible for your own UK GDPR compliance, including retention limits and\n  deletion requests\n\n## 6. Admin access conduct\n\nAdmin credentials operate on ungated production tables and permit writes.\nThere is no staging environment, no soft delete and no undo.\n\n- Use read endpoints to explore. Do not test write endpoints against\n  production to see what happens\n- Do not delete account types or overwrite post summaries unless the change\n  has been agreed with Knox Digital\n- Admin access is granted to named individuals via the `ADMIN_EMAILS`\n  allowlist. Do not share a session with a colleague; ask for them to be added\n- Report anything you break immediately to hello@knoxdigi.com. Fixing a\n  reported mistake is straightforward; finding an unreported one is not\n\n## 7. Availability\n\nNo uptime commitment is offered. The API runs on serverless functions with a\n30 second execution ceiling (15 seconds on `/api/cover/*`). Long-running\nBigQuery aggregations can time out under load.\n\n- Handle 5xx responses and timeouts with exponential backoff, minimum 1 second\n  initial delay\n- Do not retry 4xx responses. They will fail identically\n- Do not retry more than 3 times\n\nBreaking changes may be made without notice while the API is at version 0.x.\n\n## 8. Security\n\n- Never commit credentials, `.env` files or session cookies to a repository\n- The session cookie is `SameSite=None; Secure` in production, which means the\n  browser's built-in CSRF protection does not apply to it. The CORS allowlist is\n  what stands in its place. Do not ask for a wildcard origin, and do not host\n  allowlisted origins on shared or user-controlled domains\n- The `INTERNAL_API_TOKEN` bearer used by `/api/sign-coverjpeg` is a\n  machine-to-machine secret and is not issued to developers. If you have been\n  given it, you have been given it in error; report that\n- Report suspected vulnerabilities privately to hello@knoxdigi.com. Do not\n  test them against production or disclose them publicly first\n\n## 9. Revocation\n\nAccess may be withdrawn without notice for breach of this policy, for security\nreasons, or at Knox Digital's discretion. On revocation, delete any cached\ncopies of API data on request.\n\nQuestions: hello@knoxdigi.com\n";
+      var target = document.getElementById('content');
+      if (window.marked && typeof window.marked.parse === 'function') {
+        target.innerHTML = window.marked.parse(source);
+      } else {
+        // CDN blocked or offline: show the markdown as plain text rather than
+        // an empty page. Still readable, just unstyled.
+        var pre = document.createElement('pre');
+        pre.textContent = source;
+        target.replaceChildren(pre);
+      }
+    })();
+  </script>
+</body>
+</html>

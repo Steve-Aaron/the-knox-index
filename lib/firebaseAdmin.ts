@@ -15,7 +15,9 @@
  *   2. Otherwise → treated as a path on disk (local dev: ./keys/firebase.json)
  *
  * Session cookie: name `tki_auth` (unchanged), 14 days (Firebase maximum),
- * httpOnly, SameSite=Lax, Secure in production.
+ * httpOnly, Secure in production. SameSite is None in production so the cookie
+ * travels on cross-origin calls from allowlisted origins, Lax in development
+ * where Secure is unavailable over http. See sameSite() for the trade-off.
  *
  * One job: be the only module that talks to firebase-admin.
  */
@@ -155,10 +157,39 @@ export async function revokeSessions(uid: string): Promise<void> {
 
 /** Set-Cookie header that immediately expires the session cookie. */
 export function clearSessionCookie(): string {
-  return `${SESSION_COOKIE_NAME}=; Max-Age=0; Path=/; HttpOnly; SameSite=Lax`;
+  const directives = [
+    `${SESSION_COOKIE_NAME}=`,
+    'Max-Age=0',
+    'Path=/',
+    'HttpOnly',
+    `SameSite=${sameSite()}`,
+  ];
+  if (isProduction()) directives.push('Secure');
+  return directives.join('; ');
 }
 
 // ── Cookie helpers ─────────────────────────────────────────────────────────────
+
+function isProduction(): boolean {
+  return process.env.NODE_ENV === 'production';
+}
+
+/**
+ * SameSite policy for the session cookie.
+ *
+ * `None` is required for the cookie to travel on cross-origin requests, which
+ * is what lets a browser client on an allowlisted origin (see lib/cors.ts)
+ * authenticate against this API. `None` is only legal alongside `Secure`, so
+ * it is production-only; local development over http falls back to `Lax`.
+ *
+ * TRADE-OFF: `None` removes the browser's built-in CSRF protection for this
+ * cookie. State-changing routes are protected instead by the CORS allowlist,
+ * which is deliberately narrow. Widening CORS_ALLOWED_ORIGINS widens CSRF
+ * exposure — treat that env var as a security control, not a convenience.
+ */
+function sameSite(): 'None' | 'Lax' {
+  return isProduction() ? 'None' : 'Lax';
+}
 
 function buildCookie(value: string, maxAgeS: number): string {
   const directives = [
@@ -166,9 +197,9 @@ function buildCookie(value: string, maxAgeS: number): string {
     `Max-Age=${maxAgeS}`,
     'Path=/',
     'HttpOnly',
-    'SameSite=Lax',
+    `SameSite=${sameSite()}`,
   ];
-  if (process.env.NODE_ENV === 'production') directives.push('Secure');
+  if (isProduction()) directives.push('Secure');
   return directives.join('; ');
 }
 

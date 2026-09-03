@@ -24,8 +24,12 @@ build/
 # Firebase deploy cache (login.knox.digital auth-handler hosting)
 .firebase/
 
-# Project docs — briefs, reviews, planning notes
-docs/
+# Project docs — briefs, reviews, planning notes.
+# docs/api/ is the published developer documentation and IS tracked; everything
+# else under docs/ stays private. Negation requires un-ignoring the parent dir
+# first, hence the two-step: git cannot descend into an ignored directory.
+docs/*
+!docs/api/
 
 # Email templates — design files, previews, drafts
 # Not for publishing upstream; managed separately

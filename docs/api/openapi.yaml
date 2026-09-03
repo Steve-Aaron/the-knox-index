@@ -1,0 +1,2060 @@
+openapi: 3.0.3
+
+info:
+  title: Ariadne / Knox Index API
+  version: 0.2.0
+  description: |
+    REST API for the Ariadne app (The Knox Index) — a dashboard tracking the TikTok
+    performance of UK political accounts.
+
+    ## Architecture
+
+    All routes under `/api/*` are Expo Router API routes served through a single Vercel
+    catch-all function (`api/[...all].ts`, `maxDuration: 30s`), except `/api/cover/{postId}`,
+    which is a native Vercel Node function served directly by filesystem routing
+    (`maxDuration: 15s`).
+
+    Data stores behind the API:
+
+    - **BigQuery** `project-ariadne.ariadne_tiktok_demo` (location EU) — the analytics
+      warehouse holding accounts, posts, metrics, tags and briefings. See `database.md`
+      for the full schema reference.
+    - **Google Cloud Storage** — post cover JPEGs, post MP4s and account avatars. Stored
+      URLs are re-signed at read time (default 1 hour TTL).
+    - **Firebase Authentication** — identity only (magic link / Google). No Firestore is used.
+    - **Brevo** — canonical email subscription state (contact attributes + list membership).
+    - **Gemini** (`gemini-3-flash-preview`) — AI summaries and briefs.
+
+    ## Dashboard gating
+
+    Every public read of accounts and posts goes through derived tables `ACCOUNT_WEB` /
+    `POST_WEB`, which restrict rows to accounts joined to `account_x_dashboard` with
+    `dashboardId = 1`. Admin routes operate on the ungated base tables. The handle
+    `ukgov` is additionally hidden from all public reads.
+
+    ## Authentication
+
+    Three mechanisms are used (see `securitySchemes`):
+
+    1. **Session cookie** `tki_auth` — httpOnly, SameSite=Lax, Secure in production,
+       14 day lifetime. Minted by `POST /api/auth/session` from a Firebase ID token no
+       older than 5 minutes. Verified server-side with revocation checking.
+    2. **Admin allowlist** — the same session cookie, but the session email must also be
+       present in the comma-separated `ADMIN_EMAILS` environment variable
+       (case-insensitive, fails closed). Failure returns `403 {"error":"Forbidden"}`.
+    3. **Internal bearer token** — `Authorization: Bearer <INTERNAL_API_TOKEN>`, used only
+       by `POST /api/sign-coverjpeg` (machine-to-machine, n8n pipeline).
+
+    ## Errors
+
+    Expo routes return JSON errors of the shape `{ "error": string, "detail"?: string }`.
+    `detail`, when present, is always one of three redacted strings ('Authentication error
+    contacting upstream service', 'Upstream service unreachable', 'Internal server error');
+    raw error messages are never leaked. The `/api/cover/*` and `/api/mp/*` proxies return
+    plain-text error bodies instead.
+
+    ## CORS
+
+    Cross-origin browser access is allowlisted, not open. The `CORS_ALLOWED_ORIGINS`
+    environment variable (comma-separated) names the origins permitted to make
+    credentialed browser calls to `/api/*`; unset means none. Allowlisted origins
+    receive `Access-Control-Allow-Origin: <that origin>` plus
+    `Access-Control-Allow-Credentials: true`, and preflight `OPTIONS` is answered
+    directly by the Vercel entry point. The wildcard is not used on these routes
+    because it is illegal alongside credentials.
+
+    The session cookie is `SameSite=None; Secure` in production so it travels on
+    those cross-origin calls, and `SameSite=Lax` in local development where `Secure`
+    is unavailable over http.
+
+    Two consequences for developers. First, CORS is a browser rule only: curl,
+    Postman and any server-to-server client are unaffected by all of the above and
+    can call every endpoint. Second, this wrapper runs on Vercel only, so the local
+    Expo dev server (`http://localhost:8081`) does not apply it and cross-origin
+    browser calls in local development will fail.
+
+    `/api/cover/*` and `/api/mp/*` are unauthenticated media proxies and keep their
+    own `Access-Control-Allow-Origin: *`.
+
+    ## Rate limiting
+
+    Documented limits apply to all callers and are published in `usage-policy.md`.
+    They are not yet enforced server-side; enforcement is planned, after which
+    exceeding them will return `429`. Treat the published figures as binding now.
+    ## Where to start
+
+    New developers should read `getting-started.md` first: it walks through the
+    base URL, a first unauthenticated request, the full Firebase magic link to
+    session cookie exchange, and admin access. `usage-policy.md` sets out rate
+    limits, acceptable use and data handling obligations, and applies to all
+    access. `database.md` documents the BigQuery schema behind these endpoints.
+
+  contact:
+    name: Knox Digital
+    email: hello@knoxdigi.com
+
+servers:
+  - url: https://index.knox.digital
+    description: Production
+  - url: http://localhost:8081
+    description: Local Expo dev server
+  - url: /
+    description: Same origin
+
+tags:
+  - name: Public Data
+    description: Unauthenticated, BigQuery-backed read endpoints powering the dashboard
+  - name: AI
+    description: Gemini-backed generation endpoints
+  - name: Media
+    description: Public media proxy for post cover images
+  - name: Auth
+    description: Magic link sign-in, session cookie lifecycle
+  - name: Marketing
+    description: Signup, preferences, registration and contact endpoints backed by Brevo
+  - name: Admin
+    description: Session + ADMIN_EMAILS allowlist protected management endpoints
+  - name: Internal
+    description: Machine-to-machine endpoints protected by INTERNAL_API_TOKEN
+  - name: Proxy
+    description: Pass-through proxies
+
+paths:
+  /api/ariadne:
+    get:
+      tags: [Public Data]
+      operationId: getAriadne
+      summary: Main dashboard payload (all politicians, DB totals, lifetime top post)
+      description: |
+        Returns every dashboard-gated account as a fully scored `Politician`, plus global
+        post/view totals and the single most viewed post of all time.
+
+        Scores (including the proprietary Knox Factor) are computed server-side only.
+        Media URLs (`avatarUrl`, and `coverJpeg` / `videoMp4` on recent posts) are GCS
+        signed URLs valid for 1 hour.
+
+        Two diagnostic modes exist: `?debug=1` returns table field dumps and sample rows;
+        `?diag=1` returns per-query step diagnostics. Both replace the normal response.
+      parameters:
+        - $ref: '#/components/parameters/RangeYesterdayDefault'
+        - name: debug
+          in: query
+          required: false
+          description: Set to `1` to return a schema-dump diagnostic response instead
+          schema: { type: string, enum: ['1'] }
+        - name: diag
+          in: query
+          required: false
+          description: Set to `1` to return per-step query diagnostics instead
+          schema: { type: string, enum: ['1'] }
+      responses:
+        '200':
+          description: |
+            Dashboard payload. `Cache-Control: private, max-age=1800, stale-while-revalidate=120`.
+          headers:
+            Cache-Control:
+              schema: { type: string, example: 'private, max-age=1800, stale-while-revalidate=120' }
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/AriadneResponse'
+                  - $ref: '#/components/schemas/AriadneDebugResponse'
+                  - $ref: '#/components/schemas/AriadneDiagResponse'
+        '500':
+          description: BigQuery failure
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              examples:
+                normal:
+                  value: { error: 'Failed to fetch data from BigQuery', detail: 'Upstream service unreachable' }
+                debug:
+                  value: { error: 'Debug query failed', detail: 'Internal server error' }
+
+  /api/posts:
+    get:
+      tags: [Public Data]
+      operationId: getPosts
+      summary: Paginated, filterable post feed
+      description: |
+        Server-side paginated feed of processed posts (`videoSummary IS NOT NULL`) from
+        dashboard-gated accounts. All filters are optional. Invalid `since` values and
+        unknown `sortKey` values are silently ignored (fall back to defaults), never a 400.
+
+        `total` is only computed on the first page (`offset=0`); it is `null` on
+        subsequent pages. `hasMore` is true when the page is full (`posts.length === limit`).
+      parameters:
+        - name: since
+          in: query
+          required: false
+          description: Only posts with `postDate >= since`. Must match `YYYY-MM-DD` or it is ignored
+          schema: { type: string, pattern: '^\d{4}-\d{2}-\d{2}$', example: '2026-07-01' }
+        - name: sortKey
+          in: query
+          required: false
+          description: Sort column (descending). Unknown values fall back to `postDate`
+          schema:
+            type: string
+            enum: [views, likes, comments, shares, engagement, virality, postDate]
+            default: postDate
+        - name: limit
+          in: query
+          required: false
+          description: Page size, clamped to 1..500
+          schema: { type: integer, default: 200, minimum: 1, maximum: 500 }
+        - name: offset
+          in: query
+          required: false
+          description: Row offset, clamped to >= 0
+          schema: { type: integer, default: 0, minimum: 0 }
+        - name: minViews
+          in: query
+          required: false
+          description: Minimum view count filter (applied only when > 0)
+          schema: { type: integer, default: 0 }
+        - name: minLikes
+          in: query
+          required: false
+          description: Minimum like count filter (applied only when > 0)
+          schema: { type: integer, default: 0 }
+        - name: profile
+          in: query
+          required: false
+          description: Exact handle match (lower-cased, leading `@` stripped)
+          schema: { type: string, example: 'uklabour' }
+        - name: style
+          in: query
+          required: false
+          description: Filter to posts linked to this content style name (lower-cased)
+          schema: { type: string, example: 'talking head' }
+        - name: topic
+          in: query
+          required: false
+          description: Filter to posts linked to this topic name (lower-cased)
+          schema: { type: string, example: 'nhs' }
+        - name: party
+          in: query
+          required: false
+          description: Public party key, mapped back to raw DB party spellings. Ignored if unmappable
+          schema: { $ref: '#/components/schemas/PartyKey' }
+          example: labour
+      responses:
+        '200':
+          description: |
+            Post page. `Cache-Control: private, max-age=1800, stale-while-revalidate=120`.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PostsResponse' }
+        '500':
+          description: BigQuery failure
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example: { error: 'Failed to fetch posts', detail: 'Upstream service unreachable' }
+
+  /api/account:
+    get:
+      tags: [Public Data]
+      operationId: getAccount
+      summary: Single politician profile, rankings and full post history
+      description: |
+        Returns the full profile for one account, its rank on each score axis (with top 5
+        and contextual neighbours), its overall rank, and every processed post it has made.
+        Runs three parallel BigQuery queries; avatar and post media URLs are signed (1 hour).
+      parameters:
+        - name: handle
+          in: query
+          required: true
+          description: |
+            Account handle. Sanitised server-side: characters outside `[a-zA-Z0-9._-]`
+            stripped, max 80 chars, lower-cased
+          schema: { type: string, example: 'uklabour' }
+        - $ref: '#/components/parameters/RangeWeekDefault'
+      responses:
+        '200':
+          description: |
+            Account page payload. `Cache-Control: private, max-age=900, stale-while-revalidate=120`.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AccountPageResponse' }
+        '400':
+          description: Missing handle
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example: { error: 'Missing handle parameter' }
+        '404':
+          description: Unknown handle
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example: { error: 'No account found for handle: notarealhandle' }
+        '500':
+          description: BigQuery failure
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example: { error: 'Failed to load account data', detail: 'Upstream service unreachable' }
+
+  /api/leagues:
+    get:
+      tags: [Public Data]
+      operationId: getLeagues
+      summary: Style League and Topic Cloud counts
+      description: |
+        Counts of processed posts per content style and per topic within the range.
+        Entries with an empty label or a zero count are removed; ordered by count descending.
+      parameters:
+        - $ref: '#/components/parameters/RangeWeekDefault'
+      responses:
+        '200':
+          description: |
+            League counts. `Cache-Control: private, max-age=1800, stale-while-revalidate=120`.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LeaguesResponse' }
+        '500':
+          description: BigQuery failure
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example: { error: 'Failed to fetch leagues', detail: 'Upstream service unreachable' }
+
+  /api/benchmarks:
+    get:
+      tags: [Public Data]
+      operationId: getBenchmarks
+      summary: Distribution statistics for views and engagement rate
+      description: |
+        Box plot statistics (min, p25, median, mean, p75, max) computed with
+        `APPROX_QUANTILES` over all dashboard-gated posts with `views > 0`.
+        Views statistics are rounded integers; engagement statistics are percentages to
+        2 decimal places, where engagement rate = (likes + comments + saves + shares) / views x 100.
+      responses:
+        '200':
+          description: |
+            Benchmark stats. `Cache-Control: public, max-age=3600, stale-while-revalidate=300`.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BenchmarksResponse' }
+        '404':
+          description: No rows in the post table
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example: { error: 'No data' }
+        '500':
+          description: BigQuery failure
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example: { error: 'Failed to fetch benchmarks', detail: 'Upstream service unreachable' }
+
+  /api/brief:
+    get:
+      tags: [AI]
+      operationId: getBrief
+      summary: Live Gemini-generated weekly brief (legacy)
+      description: |
+        Generates a narrative brief on demand by feeding weekly aggregates from BigQuery
+        into Gemini (`gemini-3-flash-preview`, temperature 0.3, maxOutputTokens 4196).
+        No writes occur. Prefer `GET /api/briefs` (stored briefs) for production use.
+      responses:
+        '200':
+          description: |
+            Generated brief. `Cache-Control: public, max-age=43200, stale-while-revalidate=3600`.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [brief]
+                properties:
+                  brief: { $ref: '#/components/schemas/BriefContent' }
+        '500':
+          description: BigQuery or Gemini failure (including unparseable Gemini output)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example: { error: 'Failed to generate brief', detail: 'Upstream service unreachable' }
+
+  /api/briefs:
+    get:
+      tags: [Public Data]
+      operationId: getLatestStoredBrief
+      summary: Latest stored editorial brief
+      description: |
+        Returns the newest row of the BigQuery `brief` table (written by the n8n pipeline,
+        never by this app). `isToday` indicates whether `briefDate` equals today (UTC).
+        A malformed `topNarrativesThisWeek` JSON value degrades to an empty array rather
+        than an error.
+      responses:
+        '200':
+          description: |
+            Latest brief. `Cache-Control: public, max-age=300, stale-while-revalidate=60`.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BriefsResponse' }
+        '404':
+          description: Brief table is empty
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example: { error: 'No briefings found', detail: 'The brief table is empty.' }
+        '500':
+          description: BigQuery failure
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example: { error: 'Failed to load briefing', detail: 'Upstream service unreachable' }
+
+  /api/summarise:
+    post:
+      tags: [AI]
+      operationId: summarisePost
+      summary: Generate an AI summary for one post
+      description: |
+        Looks up the post's caption and metadata in BigQuery, then asks Gemini for a
+        summary. Despite the `source` field, the current implementation is always
+        text-based (`source: "text"`) and does not write the summary back to the database.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [postId]
+              properties:
+                postId:
+                  type: string
+                  pattern: '^\d+$'
+                  description: TikTok post id, digits only (trimmed server-side)
+                  example: '7501234567890123456'
+            example:
+              postId: '7501234567890123456'
+      responses:
+        '200':
+          description: Generated summary
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [summary, source]
+                properties:
+                  summary: { type: string }
+                  source:
+                    type: string
+                    enum: [video, text]
+                    description: Always `text` in the current implementation
+        '400':
+          description: Validation failure
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              examples:
+                missing: { value: { error: 'postId required' } }
+                invalid: { value: { error: 'Invalid postId' } }
+                badJson: { value: { error: 'Invalid JSON body' } }
+        '404':
+          description: Post not found
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example: { error: 'Post 7501234567890123456 not found' }
+        '500':
+          description: BigQuery or Gemini failure
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example: { error: 'Summarisation failed', detail: 'Upstream service unreachable' }
+
+  /api/cover/{postId}:
+    get:
+      tags: [Media]
+      operationId: getCoverImage
+      summary: Public cover image proxy for a post
+      description: |
+        Native Vercel function (bypasses the Expo catch-all). Looks up the post's
+        `coverJpeg` GCS reference in BigQuery, signs it server-side (5 minute TTL),
+        fetches the object and streams the bytes. Heavily edge-cached.
+        Error responses are plain text, not JSON.
+
+        FORMAT: despite the column name `coverJpeg`, stored objects are not all
+        JPEGs — some are WebP or PNG. The `Content-Type` is derived from the actual
+        bytes, not from the request URL, and there is no transcode. A `.jpg` URL can
+        legitimately return `image/webp`, `image/png` or `image/gif`. Do not assume
+        JPEG.
+      parameters:
+        - name: postId
+          in: path
+          required: true
+          description: |
+            TikTok post id. A trailing `.jpg`, `.jpeg`, `.webp`, `.png` or `.gif`
+            extension is stripped and otherwise ignored, then the remainder must
+            match `^\d{1,25}$`
+          schema: { type: string, example: '7501234567890123456.jpg' }
+      responses:
+        '200':
+          description: |
+            Image bytes. Headers include `Content-Type` (one of `image/jpeg`,
+            `image/webp`, `image/png`, `image/gif`, detected from the bytes),
+            `Content-Length`,
+            `Cache-Control: public, max-age=86400, s-maxage=2592000, stale-while-revalidate=604800`
+            and `Access-Control-Allow-Origin: *`.
+          content:
+            image/jpeg:
+              schema: { type: string, format: binary }
+            image/webp:
+              schema: { type: string, format: binary }
+            image/png:
+              schema: { type: string, format: binary }
+            image/gif:
+              schema: { type: string, format: binary }
+        '400':
+          description: postId fails validation
+          content:
+            text/plain:
+              schema: { type: string, example: 'Invalid postId' }
+        '404':
+          description: No cover reference stored for this post
+          content:
+            text/plain:
+              schema: { type: string, example: 'Cover not found' }
+        '405':
+          description: Method other than GET or HEAD
+          content:
+            text/plain:
+              schema: { type: string, example: 'Method not allowed' }
+        '502':
+          description: GCS fetch failed
+          content:
+            text/plain:
+              schema: { type: string, example: 'Upstream error' }
+        '500':
+          description: Internal failure
+          content:
+            text/plain:
+              schema: { type: string, example: 'Internal server error' }
+    head:
+      tags: [Media]
+      operationId: headCoverImage
+      summary: HEAD variant of the cover image proxy
+      parameters:
+        - name: postId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: Same headers as GET with no body }
+        '400': { description: Invalid postId }
+        '404': { description: Cover not found }
+
+  /api/mp/{path}:
+    get:
+      tags: [Proxy]
+      operationId: mixpanelProxyGet
+      summary: Mixpanel EU ingestion proxy (GET)
+      description: &mpDescription |
+        Forwards the request to `https://api-eu.mixpanel.com/{path}{query}` verbatim,
+        stripping the `/api/mp` prefix. Upstream status and body are passed through with
+        `Access-Control-Allow-Origin: *`. Used by client-side analytics to avoid ad
+        blockers. Returns plain text `Proxy error` with status 502 if the upstream fetch
+        fails.
+      parameters:
+        - &mpPathParam
+          name: path
+          in: path
+          required: true
+          description: Remainder of the Mixpanel API path (e.g. `track`, `engage`)
+          schema: { type: string, example: 'track' }
+      responses:
+        '2XX': { description: Upstream response passed through }
+        '4XX': { description: Upstream response passed through }
+        '502':
+          description: Upstream fetch failed
+          content:
+            text/plain:
+              schema: { type: string, example: 'Proxy error' }
+    post:
+      tags: [Proxy]
+      operationId: mixpanelProxyPost
+      summary: Mixpanel EU ingestion proxy (POST)
+      description: *mpDescription
+      parameters:
+        - *mpPathParam
+      requestBody:
+        description: Forwarded verbatim to Mixpanel (Content-Type header preserved)
+        content:
+          '*/*':
+            schema: { type: string }
+      responses:
+        '2XX': { description: Upstream response passed through }
+        '4XX': { description: Upstream response passed through }
+        '502':
+          description: Upstream fetch failed
+          content:
+            text/plain:
+              schema: { type: string, example: 'Proxy error' }
+    options:
+      tags: [Proxy]
+      operationId: mixpanelProxyOptions
+      summary: CORS preflight for the Mixpanel proxy
+      parameters:
+        - *mpPathParam
+      responses:
+        '204':
+          description: |
+            Preflight OK. Headers: `Access-Control-Allow-Origin: *`,
+            `Access-Control-Allow-Methods: GET, POST, OPTIONS`,
+            `Access-Control-Allow-Headers: Content-Type`
+
+  /api/auth/request:
+    post:
+      tags: [Auth]
+      operationId: requestMagicLink
+      summary: Send a magic sign-in link by email
+      description: |
+        Generates a Firebase passwordless sign-in link landing on `/login`, upserts the
+        contact into Brevo (attribute `SOURCE: 'TKI magic link'`, non-fatal) and sends the
+        link via Brevo from hello@knoxdigi.com. Always returns 200 for a valid email
+        whether or not an account exists (no user enumeration).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email:
+                  type: string
+                  format: email
+                  description: Trimmed and lower-cased; validated against a standard email regex
+            example:
+              email: you@example.com
+      responses:
+        '200':
+          description: Email dispatched (or silently accepted)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OkResponse' }
+        '400':
+          description: Validation failure
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              examples:
+                badJson: { value: { error: 'Invalid JSON' } }
+                badEmail: { value: { error: 'Invalid email address' } }
+        '500':
+          description: Firebase link generation failed or unexpected error
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              examples:
+                firebase: { value: { error: 'Sign-in link generation failed' } }
+                unexpected: { value: { error: 'Unexpected error' } }
+        '502':
+          description: Brevo send failure
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example: { error: 'Failed to send email — please try again in a moment.' }
+        '503':
+          description: BREVO_API_KEY not configured
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example: { error: 'Email service is not configured' }
+
+  /api/auth/session:
+    post:
+      tags: [Auth]
+      operationId: createSession
+      summary: Exchange a Firebase ID token for the tki_auth session cookie
+      description: |
+        The ID token must verify, be less than 5 minutes old (`auth_time`) and carry an
+        email claim. On success a 14 day httpOnly session cookie is set via `Set-Cookie`.
+        Response carries `Cache-Control: no-store`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [idToken]
+              properties:
+                idToken:
+                  type: string
+                  description: Fresh Firebase ID token from the client SDK
+            example:
+              idToken: eyJhbGciOiJSUzI1NiIsImtpZCI6IjEifQ.PASTE-A-REAL-ID-TOKEN-HERE
+      responses:
+        '200':
+          description: Session created; cookie set
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+                example: 'tki_auth=<jwt>; Max-Age=1209600; Path=/; HttpOnly; SameSite=Lax; Secure'
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, email, profiled]
+                properties:
+                  ok: { type: boolean, enum: [true] }
+                  email: { type: string, format: email }
+                  profiled:
+                    type: boolean
+                    description: Firebase custom claim set once the user saves preferences
+        '400':
+          description: Validation failure
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              examples:
+                badJson: { value: { error: 'Invalid JSON' } }
+                missing: { value: { error: 'Missing idToken' } }
+        '401':
+          description: Token invalid, stale (>5 min) or missing an email claim
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example: { error: 'Invalid or expired sign-in. Please try again.' }
+
+  /api/auth/me:
+    get:
+      tags: [Auth]
+      operationId: getMe
+      summary: Current user from the session cookie
+      description: |
+        Verifies the `tki_auth` cookie with revocation checking. Response carries
+        `Cache-Control: no-store`.
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: Authenticated user
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [email, profiled]
+                properties:
+                  email: { type: string, format: email }
+                  profiled: { type: boolean }
+        '401':
+          description: Cookie absent, expired, tampered or revoked
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example: { error: 'Unauthenticated' }
+
+  /api/auth/logout:
+    post:
+      tags: [Auth]
+      operationId: logout
+      summary: Revoke sessions and clear the cookie
+      description: |
+        Safe to call unauthenticated. If a valid session exists, all Firebase refresh
+        tokens for the uid are revoked (revocation failures are swallowed). Always clears
+        the cookie and returns 200. Response carries `Cache-Control: no-store`.
+      responses:
+        '200':
+          description: Logged out
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+                example: 'tki_auth=; Max-Age=0; Path=/; HttpOnly; SameSite=Lax'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OkResponse' }
+
+  /api/preferences:
+    post:
+      tags: [Marketing]
+      operationId: savePreferences
+      summary: Save profile and consent preferences (authenticated)
+      description: |
+        The email is taken from the session, never from the body. Upserts the contact
+        into Brevo (attributes + list membership sync across lists 4 daily / 7 updates /
+        8 Knox Digital / 9 weekly) and sets the Firebase `profiled` custom claim.
+        Daily and weekly briefing consents are mutually exclusive; if both are true,
+        weekly is forced false. Brevo and claim failures are non-fatal (still 200).
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PreferencesRequest' }
+            example:
+              firstName: Sam
+              lastName: Example
+              company: Knox Digital
+              linkedin: https://www.linkedin.com/company/knox-digital
+              segment: Comms professional
+              interests: [TikTok strategy, Political comms]
+              consentKnoxUpdates: true
+              consentDailyBriefing: false
+              consentWeeklyBriefing: true
+              consentKnoxDigital: false
+      responses:
+        '200':
+          description: Preferences accepted
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OkResponse' }
+        '400':
+          description: Malformed JSON
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example: { error: 'Invalid JSON' }
+        '401':
+          description: No valid session
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example: { error: 'Unauthenticated' }
+        '503':
+          description: BREVO_API_KEY not configured
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example: { error: 'Service unavailable' }
+
+  /api/signup:
+    post:
+      tags: [Marketing]
+      operationId: signup
+      summary: Public signup form submission
+      description: |
+        Fire-and-forget Brevo upsert (attributes `SOURCE: 'TKI signup page'`, `COMPANY`,
+        `JOB_ROLE`, `WHY_USE_KNOX_INDEX`, consents + list sync), an awaited welcome email
+        to the subscriber, and a fire-and-forget internal notification. Always 200 for a
+        valid email (no enumeration); email failures are non-fatal.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SignupRequest' }
+            example:
+              email: you@example.com
+              company: Knox Digital
+              segment: Comms professional
+              interests: [TikTok strategy]
+              consentBriefing: true
+              consentUpdates: false
+              consentKnox: false
+      responses:
+        '200':
+          description: Signup accepted
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OkResponse' }
+        '400':
+          description: Validation failure
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              examples:
+                badJson: { value: { error: 'Invalid JSON' } }
+                badEmail: { value: { error: 'Invalid email address' } }
+        '503':
+          description: BREVO_API_KEY not configured
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example: { error: 'Service unavailable' }
+
+  /api/register:
+    post:
+      tags: [Marketing]
+      operationId: register
+      summary: Dual-mode registration or profile update
+      description: |
+        Two modes, discriminated by `profileUpdate`:
+
+        - **Initial registration** (no `profileUpdate`): requires a valid `email`; upserts
+          the Brevo contact with `SOURCE: 'TKI dashboard'` and `PERM_REPORT` /
+          `PERM_DAILY` / `PERM_WIDER` (each stored as 'yes' or 'no'); sends a confirmation
+          email plus an internal notification. Email failures are non-fatal.
+        - **Profile update** (`profileUpdate: true`): best-effort write of `SEGMENT` and
+          `INTERESTS` to Brevo, only if a valid email is supplied. Always returns 200.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: '#/components/schemas/RegisterInitialRequest'
+                - $ref: '#/components/schemas/RegisterProfileUpdateRequest'
+            examples:
+              initialRegistration:
+                summary: Initial registration
+                value:
+                  email: you@example.com
+                  permReport: true
+                  permDaily: false
+                  permWider: false
+              profileUpdate:
+                summary: Profile update
+                value:
+                  profileUpdate: true
+                  email: you@example.com
+                  segment: Comms professional
+                  interests: [TikTok strategy]
+      responses:
+        '200':
+          description: Accepted
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OkResponse' }
+        '400':
+          description: Validation failure
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              examples:
+                badJson: { value: { error: 'Invalid JSON body' } }
+                badEmail:
+                  value: { error: 'Invalid email address' }
+                  description: Initial mode only
+        '503':
+          description: BREVO_API_KEY not configured
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example: { error: 'Registration unavailable' }
+
+  /api/contact:
+    post:
+      tags: [Marketing]
+      operationId: contact
+      summary: Contact form submission
+      description: |
+        Sends an awaited notification email to the brand contact address (replyTo set to
+        the sender) and a fire-and-forget auto-reply to the sender. All fields are
+        HTML-escaped before templating.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email, message]
+              properties:
+                name: { type: string, maxLength: 128 }
+                email: { type: string, format: email, maxLength: 256 }
+                message: { type: string, maxLength: 2000, minLength: 1 }
+            example:
+              name: Sam Example
+              email: you@example.com
+              message: Hello, a quick question about the Knox Index.
+      responses:
+        '200':
+          description: Message sent
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OkResponse' }
+        '400':
+          description: Validation failure
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              examples:
+                badJson: { value: { error: 'Invalid JSON body' } }
+                badEmail: { value: { error: 'Invalid email address' } }
+                noMessage: { value: { error: 'Message is required' } }
+        '502':
+          description: Brevo notification send failed
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example: { error: 'Failed to send message' }
+        '503':
+          description: BREVO_API_KEY not configured
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example: { error: 'Contact unavailable' }
+
+  /api/sign-coverjpeg:
+    post:
+      tags: [Internal]
+      operationId: signCoverJpeg
+      summary: Sign GCS cover references (machine-to-machine)
+      description: |
+        Bearer-protected GCS URL signer used by the n8n pipeline. Accepts either a single
+        `ref` or a batch of up to 50 `refs`. `ttlHours` is clamped to 1..168 (7 days),
+        default 24. No writes occur.
+      security:
+        - internalBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required: [ref]
+                  title: Single
+                  properties:
+                    ref:
+                      type: string
+                      description: GCS reference or URL to sign
+                    ttlHours:
+                      type: number
+                      minimum: 1
+                      maximum: 168
+                      default: 24
+                - type: object
+                  required: [refs]
+                  title: Batch
+                  properties:
+                    refs:
+                      type: array
+                      maxItems: 50
+                      items: { type: string }
+                    ttlHours:
+                      type: number
+                      minimum: 1
+                      maximum: 168
+                      default: 24
+            examples:
+              single:
+                summary: Single reference
+                value:
+                  ref: gs://tiktok-content-scraper/uklabour/2026-07-01/7501234567890123456.jpeg
+                  ttlHours: 24
+              batch:
+                summary: Batch (max 50)
+                value:
+                  refs:
+                    - gs://tiktok-content-scraper/uklabour/2026-07-01/7501234567890123456.jpeg
+                  ttlHours: 24
+      responses:
+        '200':
+          description: Signed URL(s)
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: object
+                    required: [signed]
+                    properties:
+                      signed: { type: string, format: uri, description: Single mode }
+                  - type: object
+                    required: [signed]
+                    properties:
+                      signed:
+                        type: array
+                        items: { type: string, format: uri }
+                        description: Batch mode (empty array in gives empty array out)
+        '400':
+          description: Validation failure
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              examples:
+                badJson: { value: { error: 'Invalid JSON' } }
+                tooMany: { value: { error: 'Too many refs — max 50 per request' } }
+                badShape: { value: { error: 'Body must contain `ref` (string) or `refs` (array of strings)' } }
+        '401':
+          description: Bearer token mismatch
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example: { error: 'Unauthorized' }
+        '503':
+          description: INTERNAL_API_TOKEN not configured
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example: { error: 'Service unavailable' }
+
+  /api/admin/me:
+    get:
+      tags: [Admin]
+      operationId: adminMe
+      summary: Is the current session an admin? (UI hint)
+      description: |
+        Runs the admin check but returns the boolean result instead of 403, so the client
+        can decide whether to render admin UI. Response carries `Cache-Control: private, no-store`.
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: Admin status
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [admin]
+                properties:
+                  admin: { type: boolean }
+
+  /api/admin/post-summary:
+    post:
+      tags: [Admin]
+      operationId: adminUpdatePostSummary
+      summary: Overwrite a post's videoSummary
+      description: |
+        Parameterised BigQuery DML:
+        `UPDATE post SET videoSummary = @summary WHERE CAST(postId AS STRING) = @postId`.
+        Note BigQuery DML can fail for rows still in the streaming buffer.
+      security:
+        - adminSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [postId, summary]
+              properties:
+                postId: { type: string, pattern: '^\d+$' }
+                summary: { type: string, minLength: 1, maxLength: 5000, description: Trimmed server-side }
+            example:
+              postId: '7501234567890123456'
+              summary: Updated AI summary text for this post.
+      responses:
+        '200':
+          description: Summary updated
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, summary]
+                properties:
+                  success: { type: boolean, enum: [true] }
+                  summary: { type: string }
+        '400':
+          description: Validation failure
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              examples:
+                badPostId: { value: { error: 'Invalid postId' } }
+                empty: { value: { error: 'Summary cannot be empty' } }
+                tooLong: { value: { error: 'Summary too long (max 5000 chars)' } }
+                badJson: { value: { error: 'Invalid JSON body' } }
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          description: BigQuery failure
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example: { error: 'Failed to update summary', detail: 'Internal server error' }
+
+  /api/admin/account-types:
+    get:
+      tags: [Admin]
+      operationId: adminListAccountTypes
+      summary: List all account types
+      security:
+        - adminSession: []
+      responses:
+        '200':
+          description: Types ordered by id
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [types]
+                properties:
+                  types:
+                    type: array
+                    items: { $ref: '#/components/schemas/AccountTypeItem' }
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          description: BigQuery failure
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example: { error: 'Failed to fetch account types', detail: 'Internal server error' }
+    post:
+      tags: [Admin]
+      operationId: adminCreateAccountType
+      summary: Create an account type
+      description: |
+        The next id is derived with `SELECT COALESCE(MAX(id), 0) + 1` (no auto-increment
+        in BigQuery), then inserted into `accountType`.
+      security:
+        - adminSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string, minLength: 1, description: Trimmed server-side }
+            example:
+              name: metro_mayor
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, id, name]
+                properties:
+                  success: { type: boolean, enum: [true] }
+                  id: { type: integer }
+                  name: { type: string }
+        '400':
+          description: Validation failure
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              examples:
+                badJson: { value: { error: 'Invalid JSON body' } }
+                noName: { value: { error: '"name" is required' } }
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          description: BigQuery failure
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example: { error: 'Failed to create account type', detail: 'Internal server error' }
+
+  /api/admin/account-types/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: Account type id (parsed with parseInt; non-numeric gives 400)
+        schema: { type: integer }
+        example: 7
+    patch:
+      tags: [Admin]
+      operationId: adminRenameAccountType
+      summary: Rename an account type
+      security:
+        - adminSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string, minLength: 1 }
+            example:
+              name: metro_mayor
+      responses:
+        '200':
+          description: Renamed
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SuccessResponse' }
+        '400':
+          description: Validation failure
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              examples:
+                badId: { value: { error: 'Invalid id' } }
+                badJson: { value: { error: 'Invalid JSON body' } }
+                noName: { value: { error: '"name" is required' } }
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          description: BigQuery failure
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example: { error: 'Failed to rename account type', detail: 'Internal server error' }
+    delete:
+      tags: [Admin]
+      operationId: adminDeleteAccountType
+      summary: Delete an account type
+      description: |
+        Two-step delete: junction rows in `account_x_accountType` where
+        `accountTypeId = @id` first, then the `accountType` row itself.
+      security:
+        - adminSession: []
+      responses:
+        '200':
+          description: Deleted
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SuccessResponse' }
+        '400':
+          description: Invalid id
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example: { error: 'Invalid id' }
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          description: BigQuery failure
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example: { error: 'Failed to delete account type', detail: 'Internal server error' }
+
+  /api/admin/accounts:
+    get:
+      tags: [Admin]
+      operationId: adminListAccounts
+      summary: List all accounts (ungated) with their types
+      description: |
+        Reads the base `account` table (NOT dashboard-gated), with account type ids and
+        names aggregated to comma-separated strings via `STRING_AGG`. Also returns the
+        full account type list for the editing UI.
+      security:
+        - adminSession: []
+      responses:
+        '200':
+          description: All accounts and types
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [accounts, accountTypes]
+                properties:
+                  accounts:
+                    type: array
+                    items: { $ref: '#/components/schemas/AdminAccountRow' }
+                  accountTypes:
+                    type: array
+                    items: { $ref: '#/components/schemas/AccountTypeItem' }
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          description: BigQuery failure
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example: { error: 'Failed to fetch accounts', detail: 'Internal server error' }
+    post:
+      tags: [Admin]
+      operationId: adminCreateAccount
+      summary: Create a new tracked account
+      description: |
+        Inserts into `account` with `GENERATE_UUID()` as a placeholder id (the n8n
+        pipeline later resolves the real TikTok id), re-selects the generated id, inserts
+        junction rows into `account_x_accountType`, and fires a non-blocking POST to the
+        `N8N_WEBHOOK_NEW_ACCOUNT` webhook (if configured) with the new account payload.
+        `profile` is auto-prefixed with `@` if missing.
+      security:
+        - adminSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, profile]
+              properties:
+                name: { type: string }
+                profile: { type: string, description: Handle; '@' auto-prefixed if missing }
+                party: { type: string, nullable: true }
+                affiliation: { type: string, nullable: true }
+                displayName: { type: string, nullable: true }
+                displayJobTitle: { type: string, nullable: true }
+                accountTypeIds:
+                  type: array
+                  items: { type: integer }
+                  default: []
+            example:
+              name: newpolitician
+              profile: '@newpolitician'
+              party: labour
+              affiliation: MP, Example Constituency
+              displayName: New Politician
+              displayJobTitle: MP for Example Constituency
+              accountTypeIds: [1]
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, id]
+                properties:
+                  success: { type: boolean, enum: [true] }
+                  id:
+                    type: string
+                    nullable: true
+                    description: Generated UUID, or null if the re-select failed
+        '400':
+          description: Validation failure
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              examples:
+                badJson: { value: { error: 'Invalid JSON body' } }
+                missing: { value: { error: '"name" and "profile" are required' } }
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          description: BigQuery failure
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example: { error: 'Failed to create account', detail: 'Internal server error' }
+
+  /api/admin/accounts/{id}:
+    patch:
+      tags: [Admin]
+      operationId: adminUpdateAccount
+      summary: Partially update an account
+      description: |
+        Only fields present in the body are updated; explicit `null` writes SQL NULL.
+        If `accountTypeIds` is present, the junction table is fully re-synced (all rows
+        for the account deleted, then the new set inserted). There is no DELETE handler
+        for accounts.
+      security:
+        - adminSession: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Account id (opaque string; empty gives 400)
+          schema: { type: string }
+          example: 6a1f6c2e-8f4b-4c1d-9e2a-3b5d7f9c0a1b
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string, nullable: true }
+                displayName: { type: string, nullable: true }
+                displayJobTitle: { type: string, nullable: true }
+                party: { type: string, nullable: true }
+                affiliation: { type: string, nullable: true }
+                isActive: { type: boolean }
+                accountTypeIds:
+                  type: array
+                  items: { type: integer }
+                  description: If present, junction rows are deleted and re-inserted
+            example:
+              displayJobTitle: MP for Ipswich
+              isActive: true
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SuccessResponse' }
+        '400':
+          description: Validation failure
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              examples:
+                noId: { value: { error: 'Missing account id' } }
+                badJson: { value: { error: 'Invalid JSON body' } }
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          description: BigQuery failure
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example: { error: 'Failed to update account', detail: 'Internal server error' }
+
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: tki_auth
+      description: |
+        Firebase session cookie minted by `POST /api/auth/session`. httpOnly,
+        SameSite=Lax, Secure in production, 14 day lifetime, verified with revocation
+        checking on every request.
+    adminSession:
+      type: apiKey
+      in: cookie
+      name: tki_auth
+      description: |
+        Same cookie as `sessionCookie`, but the session email must also appear in the
+        `ADMIN_EMAILS` environment allowlist (comma-separated, case-insensitive, fails
+        closed). Failure returns `403 {"error":"Forbidden"}`.
+    internalBearer:
+      type: http
+      scheme: bearer
+      description: Exact match against the `INTERNAL_API_TOKEN` environment variable
+
+  parameters:
+    RangeYesterdayDefault:
+      name: range
+      in: query
+      required: false
+      description: Date window applied to `post.postDate`. Unknown values silently fall back to the default
+      schema:
+        type: string
+        enum: [yesterday, week, month, year, lifetime]
+        default: yesterday
+    RangeWeekDefault:
+      name: range
+      in: query
+      required: false
+      description: Date window applied to `post.postDate`. Unknown values silently fall back to the default
+      schema:
+        type: string
+        enum: [yesterday, week, month, year, lifetime]
+        default: week
+
+  responses:
+    Forbidden:
+      description: Session missing, invalid, or email not in ADMIN_EMAILS
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { error: 'Forbidden' }
+
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+          description: Human-readable error label
+        detail:
+          type: string
+          description: |
+            Redacted detail, always one of 'Authentication error contacting upstream
+            service', 'Upstream service unreachable' or 'Internal server error'
+
+    OkResponse:
+      type: object
+      required: [ok]
+      properties:
+        ok: { type: boolean, enum: [true] }
+
+    SuccessResponse:
+      type: object
+      required: [success]
+      properties:
+        success: { type: boolean, enum: [true] }
+
+    PartyKey:
+      type: string
+      description: Normalised party key. Raw `account.party` strings are mapped to these values; unmappable values become `unknown`
+      enum:
+        - labour
+        - conservative
+        - libdem
+        - snp
+        - green
+        - reform
+        - plaid
+        - dup
+        - sinnfein
+        - alliance
+        - restore
+        - sdlp
+        - uup
+        - tuv
+        - workers
+        - advance
+        - yourparty
+        - independent
+        - unknown
+
+    AccountType:
+      type: string
+      description: |
+        Political role classification (many-to-many; one account can hold several).
+        Stored in the `accountType` table; `council` and `other` are inference-only fallbacks
+      enum:
+        - member_of_parliament
+        - political_party
+        - party_leader
+        - prime_minister
+        - cabinet_minister
+        - shadow_cabinet_minister
+        - council
+        - other
+
+    TopTrumpScores:
+      type: object
+      description: |
+        Score axes, each normalised 0..100 against the dataset maximum. `knoxFactor` is
+        the proprietary composite computed server-side only (capped axes, compression
+        curve, recency and volume penalties)
+      required: [virality, frequency, engagement, followers, knoxFactor]
+      properties:
+        virality:
+          type: number
+          description: Average views per post divided by followers, log-scaled
+        frequency:
+          type: number
+          description: Posting frequency over the last 28 days
+        engagement:
+          type: number
+          description: (likes + comments + saves + shares) / views
+        followers:
+          type: number
+          description: Log-scaled follower count
+        knoxFactor:
+          type: number
+          description: Composite Knox Factor score
+
+    PoliticianTotals:
+      type: object
+      description: Aggregate metric block. `*InRange` values respect the `range` query parameter; `*Today` values come from the latest accountMetrics snapshot
+      required:
+        - posts
+        - followers
+        - likes
+        - views
+        - views24h
+        - likesToday
+        - commentsToday
+        - savesToday
+        - postsToday
+        - postsThisWeek
+        - postsInRange
+        - viewsInRange
+        - likesInRange
+        - commentsInRange
+        - savesInRange
+        - sharesInRange
+        - lifetimePostViews
+        - lifetimePostCount
+        - lifetimePostInteractions
+      properties:
+        posts: { type: integer, description: Lifetime post count (accountMetrics.totalPosts) }
+        followers: { type: integer, description: Total followers (account.totalFollowers) }
+        followerChange:
+          type: integer
+          nullable: true
+          description: Daily follower delta from the latest snapshot; positive means growth
+        likes: { type: integer, description: Lifetime likes (accountMetrics.totalLikes) }
+        views: { type: integer, description: Lifetime views (accountMetrics.totalViews) }
+        views24h: { type: integer, description: Views in the last day (accountMetrics.viewsToday) }
+        likesToday: { type: integer }
+        commentsToday: { type: integer }
+        savesToday: { type: integer }
+        postsToday: { type: integer }
+        postsThisWeek: { type: integer, description: Computed live from the post table }
+        postsInRange: { type: integer }
+        viewsInRange: { type: integer }
+        likesInRange: { type: integer }
+        commentsInRange: { type: integer }
+        savesInRange: { type: integer }
+        sharesInRange: { type: integer }
+        lifetimePostViews: { type: integer }
+        lifetimePostCount: { type: integer }
+        lifetimePostInteractions: { type: integer }
+
+    RecentPost:
+      type: object
+      description: A post as embedded in a Politician profile or account page. Media URLs are 1 hour signed GCS URLs
+      required: [postId, caption, views, likes, comments, shares]
+      properties:
+        postId: { type: string, description: 'TikTok snowflake id, always a string (exceeds JS safe integer range)' }
+        caption: { type: string }
+        views: { type: integer }
+        likes: { type: integer }
+        comments: { type: integer }
+        shares: { type: integer }
+        saves: { type: integer }
+        summary: { type: string, description: AI-generated video summary }
+        styles:
+          type: array
+          items: { type: string }
+          description: Content style labels (talking head, b-roll, ...)
+        topic: { type: string, description: Primary topic label }
+        coverJpeg: { type: string, format: uri, description: Signed GCS URL for the cover thumbnail }
+        videoMp4: { type: string, format: uri, description: Signed GCS URL for the video }
+        postUrl: { type: string, format: uri, description: Direct TikTok URL }
+        postDate: { type: string, description: 'Publication date, YYYY-MM-DD' }
+
+    Politician:
+      type: object
+      description: A fully scored, dashboard-gated tracked account
+      required:
+        - id
+        - name
+        - handle
+        - role
+        - displayJobTitle
+        - partyKey
+        - partyLabel
+        - country
+        - avatarInitials
+        - totals
+        - scores
+      properties:
+        id: { type: string, description: account.id (opaque string) }
+        name: { type: string, description: 'COALESCE(displayName, name)' }
+        handle: { type: string, example: '@rishisunak' }
+        role: { type: string, example: 'MP, Richmond', description: From account.affiliation }
+        displayJobTitle: { type: string, example: 'MP for Ipswich' }
+        partyKey: { $ref: '#/components/schemas/PartyKey' }
+        partyLabel: { type: string, description: Human-readable party name }
+        country: { type: string }
+        avatarInitials: { type: string, description: Fallback initials when no avatar }
+        avatarUrl: { type: string, format: uri, description: 'Signed GCS URL, 1 hour TTL' }
+        accountTypes:
+          type: array
+          items: { $ref: '#/components/schemas/AccountType' }
+        totals: { $ref: '#/components/schemas/PoliticianTotals' }
+        scores: { $ref: '#/components/schemas/TopTrumpScores' }
+        recentPosts:
+          type: array
+          items: { $ref: '#/components/schemas/RecentPost' }
+
+    LifetimeTopPost:
+      type: object
+      description: The single most viewed processed post of all time
+      required: [postId, caption, views, postUrl, accountName, partyKey]
+      properties:
+        postId: { type: string }
+        caption: { type: string }
+        views: { type: integer }
+        postUrl: { type: string, format: uri }
+        accountName: { type: string }
+        partyKey: { $ref: '#/components/schemas/PartyKey' }
+
+    AriadneResponse:
+      type: object
+      required: [politicians, totalPostsInDb, totalViewsInDb, topPost]
+      properties:
+        politicians:
+          type: array
+          items: { $ref: '#/components/schemas/Politician' }
+        totalPostsInDb:
+          type: integer
+          description: COUNT(*) of processed dashboard-gated posts
+        totalViewsInDb:
+          type: integer
+          description: SUM(views) of processed dashboard-gated posts
+        topPost:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/LifetimeTopPost'
+          description: Null if the top-post sub-query fails (non-fatal)
+
+    AriadneDebugResponse:
+      type: object
+      description: Returned when `?debug=1` is set
+      properties:
+        accountFields: { type: array, items: { type: string } }
+        postFields: { type: array, items: { type: string } }
+        metricsFields: { type: array, items: { type: string } }
+        accountSample: { type: object }
+        postSample: { type: object }
+
+    AriadneDiagResponse:
+      type: object
+      description: >-
+        Returned when `?diag=1` is set. Each step is an object with `ok: true`
+        plus step data, or `ok: false` plus an `error` string
+      properties:
+        steps:
+          type: object
+          properties:
+            accounts_sql: { type: object }
+            posts_sql: { type: object }
+            account_x_accountType: { type: object }
+            accountType: { type: object }
+
+    PostRecord:
+      type: object
+      description: A post row in the feed. Numeric fields default to 0, strings to '' when NULL in BigQuery
+      required:
+        - postId
+        - profile
+        - politicianName
+        - partyKey
+        - caption
+        - videoSummary
+        - coverJpeg
+        - videoMp4
+        - postUrl
+        - postDate
+        - styles
+        - topics
+        - views
+        - likes
+        - comments
+        - shares
+        - saves
+        - accountFollowers
+      properties:
+        postId: { type: string }
+        profile: { type: string, description: Authoring account handle }
+        politicianName: { type: string, description: Display name; falls back to the handle }
+        partyKey: { $ref: '#/components/schemas/PartyKey' }
+        caption: { type: string }
+        videoSummary: { type: string }
+        coverJpeg: { type: string, description: Signed GCS URL or empty string }
+        videoMp4: { type: string, description: Signed GCS URL or empty string }
+        postUrl: { type: string }
+        postDate: { type: string, description: YYYY-MM-DD or empty string }
+        styles:
+          type: array
+          items: { type: string }
+        topics:
+          type: array
+          items: { type: string }
+        views: { type: integer }
+        likes: { type: integer }
+        comments: { type: integer }
+        shares: { type: integer }
+        saves: { type: integer }
+        accountFollowers: { type: integer, description: Authoring account's follower count }
+
+    PostsResponse:
+      type: object
+      required: [posts, hasMore, total]
+      properties:
+        posts:
+          type: array
+          items: { $ref: '#/components/schemas/PostRecord' }
+        hasMore:
+          type: boolean
+          description: True when the page is full (posts.length === limit)
+        total:
+          type: integer
+          nullable: true
+          description: Total matching rows; only computed on the first page (offset=0), null otherwise
+
+    AccountRankEntry:
+      type: object
+      required: [id, name, handle, partyKey, avatarInitials, score]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        handle: { type: string }
+        partyKey: { $ref: '#/components/schemas/PartyKey' }
+        avatarUrl: { type: string, format: uri }
+        avatarInitials: { type: string }
+        score: { type: number }
+
+    AccountRanking:
+      type: object
+      description: Ranking of the target account on one score axis
+      required: [rank, total, top5, targetInTop5]
+      properties:
+        rank: { type: integer, description: 1-based rank of the target account }
+        total: { type: integer, description: Total ranked accounts }
+        top5:
+          type: array
+          items: { $ref: '#/components/schemas/AccountRankEntry' }
+        targetInTop5: { type: boolean }
+        contextRows:
+          type: array
+          description: Neighbouring rows around the target when it is outside the top 5
+          items:
+            type: object
+            required: [entry, rank]
+            properties:
+              entry: { $ref: '#/components/schemas/AccountRankEntry' }
+              rank: { type: integer }
+
+    AccountPageResponse:
+      type: object
+      required: [politician, rankings, overallRank, allPosts, rangeLabel]
+      properties:
+        politician: { $ref: '#/components/schemas/Politician' }
+        rankings:
+          type: object
+          description: One ranking per score axis
+          required: [knoxFactor, virality, engagement, frequency, followers]
+          properties:
+            knoxFactor: { $ref: '#/components/schemas/AccountRanking' }
+            virality: { $ref: '#/components/schemas/AccountRanking' }
+            engagement: { $ref: '#/components/schemas/AccountRanking' }
+            frequency: { $ref: '#/components/schemas/AccountRanking' }
+            followers: { $ref: '#/components/schemas/AccountRanking' }
+        overallRank: { type: integer }
+        allPosts:
+          type: array
+          items: { $ref: '#/components/schemas/RecentPost' }
+        rangeLabel:
+          type: string
+          enum: ['Yesterday', 'This week', 'This month', 'This year', 'Lifetime']
+
+    LabelCount:
+      type: object
+      required: [label, count]
+      properties:
+        label: { type: string }
+        count: { type: integer }
+
+    LeaguesResponse:
+      type: object
+      required: [styles, topics]
+      properties:
+        styles:
+          type: array
+          items: { $ref: '#/components/schemas/LabelCount' }
+          description: Style League, ordered by count descending
+        topics:
+          type: array
+          items: { $ref: '#/components/schemas/LabelCount' }
+          description: Topic Cloud, ordered by count descending
+
+    BenchmarkStats:
+      type: object
+      required: [min, p25, median, mean, p75, max]
+      properties:
+        min: { type: number }
+        p25: { type: number }
+        median: { type: number }
+        mean: { type: number }
+        p75: { type: number }
+        max: { type: number }
+
+    BenchmarksResponse:
+      type: object
+      required: [benchmarks]
+      properties:
+        benchmarks:
+          type: object
+          required: [views, engagement]
+          properties:
+            views:
+              allOf: [{ $ref: '#/components/schemas/BenchmarkStats' }]
+              description: View count distribution (rounded integers)
+            engagement:
+              allOf: [{ $ref: '#/components/schemas/BenchmarkStats' }]
+              description: Engagement rate percentage distribution, 2 decimal places
+
+    Insight:
+      type: object
+      required: [headline, body]
+      properties:
+        headline: { type: string }
+        body: { type: string }
+
+    BriefContent:
+      type: object
+      required: [narrative, insights]
+      properties:
+        narrative: { type: string }
+        insights:
+          type: array
+          items: { $ref: '#/components/schemas/Insight' }
+
+    StoredBrief:
+      type: object
+      description: A row of the BigQuery `brief` table (written by n8n)
+      required: [briefDate, briefDailySummary, briefWeeklySummary, topNarrativesThisWeek]
+      properties:
+        briefDate: { type: string, example: '2026-07-23', description: YYYY-MM-DD }
+        briefDailySummary: { type: string }
+        briefWeeklySummary: { type: string }
+        topNarrativesThisWeek:
+          type: array
+          items: { $ref: '#/components/schemas/Insight' }
+          description: Parsed from a BigQuery JSON column; malformed JSON degrades to []
+
+    BriefsResponse:
+      type: object
+      required: [brief, isToday]
+      properties:
+        brief: { $ref: '#/components/schemas/StoredBrief' }
+        isToday:
+          type: boolean
+          description: briefDate === today (UTC)
+
+    PreferencesRequest:
+      type: object
+      description: All fields optional; strings truncated to the stated max lengths server-side
+      properties:
+        firstName: { type: string, maxLength: 64 }
+        lastName: { type: string, maxLength: 64 }
+        company: { type: string, maxLength: 128 }
+        linkedin: { type: string, maxLength: 256 }
+        segment: { type: string, maxLength: 64, description: Stored as Brevo JOB_ROLE }
+        interests:
+          type: array
+          maxItems: 10
+          items: { type: string, maxLength: 64 }
+          description: Stored as Brevo WHY_USE_KNOX_INDEX
+        consentKnoxUpdates: { type: boolean, description: Brevo list 7 }
+        consentDailyBriefing: { type: boolean, description: Brevo list 4. Mutually exclusive with weekly }
+        consentWeeklyBriefing: { type: boolean, description: Brevo list 9. Forced false if daily is also true }
+        consentKnoxDigital: { type: boolean, description: Brevo list 8 }
+
+    SignupRequest:
+      type: object
+      required: [email]
+      properties:
+        email: { type: string, format: email, description: Trimmed and lower-cased }
+        company: { type: string, maxLength: 128 }
+        segment: { type: string, maxLength: 64, description: Stored as Brevo JOB_ROLE }
+        interests:
+          type: array
+          maxItems: 10
+          items: { type: string, maxLength: 64 }
+        consentBriefing: { type: boolean, description: Brevo list 4 }
+        consentUpdates: { type: boolean, description: Brevo list 7 }
+        consentKnox: { type: boolean, description: Brevo list 8 }
+
+    RegisterInitialRequest:
+      type: object
+      description: Initial registration mode
+      required: [email, permReport, permDaily, permWider]
+      properties:
+        email: { type: string, format: email }
+        permReport: { type: boolean, description: Stored in Brevo as PERM_REPORT ('yes'/'no') }
+        permDaily: { type: boolean, description: Stored as PERM_DAILY }
+        permWider: { type: boolean, description: Stored as PERM_WIDER }
+
+    RegisterProfileUpdateRequest:
+      type: object
+      description: Profile update mode; always returns 200
+      required: [profileUpdate]
+      properties:
+        profileUpdate: { type: boolean, enum: [true] }
+        email: { type: string, format: email, description: Optional; Brevo write skipped if absent or invalid }
+        segment: { type: string, maxLength: 64 }
+        interests:
+          type: array
+          maxItems: 10
+          items: { type: string, maxLength: 64 }
+
+    AccountTypeItem:
+      type: object
+      required: [id, name]
+      properties:
+        id: { type: integer }
+        name: { type: string, example: 'member_of_parliament' }
+
+    AdminAccountRow:
+      type: object
+      description: A base-table account row for the admin UI (not dashboard-gated)
+      required: [id]
+      properties:
+        id: { type: string }
+        name: { type: string, nullable: true }
+        profile: { type: string, nullable: true }
+        party: { type: string, nullable: true, description: Raw party spelling as stored }
+        affiliation: { type: string, nullable: true }
+        avatar: { type: string, nullable: true, description: Raw stored GCS URL (unsigned) }
+        displayName: { type: string, nullable: true }
+        displayJobTitle: { type: string, nullable: true }
+        isActive: { type: boolean, nullable: true }
+        accountTypeIds:
+          type: string
+          nullable: true
+          description: Comma-separated ids (STRING_AGG)
+        accountTypeNames:
+          type: string
+          nullable: true
+          description: Comma-separated names (STRING_AGG)
