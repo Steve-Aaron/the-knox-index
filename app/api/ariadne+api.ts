@@ -11,6 +11,7 @@
 
 import { query, tableRef, postWeb } from '@/lib/bigquery';
 import { guardTenant } from '@/lib/tenantGuard';
+import { dataCacheHeaders } from '@/lib/cacheHeaders';
 import { signMediaFields, signGcsUrl } from '@/lib/gcs';
 import { safeErrorDetail } from '@/lib/errors';
 import { transformToPoliticians } from '@/data/transformers';
@@ -171,7 +172,7 @@ export async function GET(request: Request): Promise<Response> {
 
     return Response.json(
       { politicians, totalPostsInDb, totalViewsInDb, topPost, tenant: tenant.id },
-      { headers: { 'Cache-Control': 'private, max-age=1800, stale-while-revalidate=120' } }
+      { headers: dataCacheHeaders(tenant) }
     );
 
   } catch (err: unknown) {
