@@ -14,11 +14,14 @@
 import type { TenantConfig } from '@/lib/tenants';
 
 /**
- * Default CDN policy: 2h fresh + up to 4h stale while it revalidates.
+ * Default CDN policy: 30 min fresh, then one request gets the stale copy while
+ * the CDN refetches in the background (up to 1h). The n8n pipeline writes to
+ * BigQuery only ~3 times a day, so visitors see an update within ~30 min, as
+ * they did with the old 30-min browser cache.
  * Responses embedding signed GCS URLs rely on this staying well below
- * SIGNED_URL_TTL_MS in lib/gcs.ts (worst case ~6h vs a 24h signature).
+ * SIGNED_URL_TTL_MS in lib/gcs.ts (worst case ~1.6h vs a 24h signature).
  */
-export const CDN_DATA = 's-maxage=7200, stale-while-revalidate=14400';
+export const CDN_DATA = 's-maxage=1800, stale-while-revalidate=3600';
 
 /** Gated tenants: browser-only cache, never a shared copy. */
 const PRIVATE_HEADERS = { 'Cache-Control': 'private, max-age=1800' };
