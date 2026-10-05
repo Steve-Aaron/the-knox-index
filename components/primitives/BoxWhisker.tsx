@@ -6,6 +6,7 @@ import { neutral } from '@/theme/colors';
 import { type, font } from '@/theme/typography';
 import type { MetricBenchmark } from '@/data/types';
 import { DevLabel } from '@/components/primitives/DevLabel';
+import { fmtCount } from '@/lib/format';
 
 /**
  * BoxWhisker
@@ -76,11 +77,8 @@ const PART_TIPS: Record<NonNullable<HoveredPart>, (b: MetricBenchmark, fmt: (n: 
   right:  (b, f) => `Top 25%: all posts with more than ${f(b.p75)}`,
 };
 
-function defaultFmt(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000)     return `${(n / 1_000).toFixed(1)}K`;
-  return String(Math.round(n));
-}
+/** Compact counts come from the one implementation in lib/format.ts. */
+const defaultFmt = fmtCount;
 
 function hex(colour: string, opacity: number): string {
   // Convert a hex colour to rgba

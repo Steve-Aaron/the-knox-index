@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Text, TextStyle, StyleProp } from 'react-native';
+import { fmtCount } from '@/lib/format';
 
 /**
  * CountUp
@@ -43,9 +44,6 @@ export function CountUp({ value, durationMs = 700, format, style }: Props) {
 export const formatters = {
   int: (n: number) => n.toLocaleString(),
   pct: (n: number) => `${n}`,
-  compact: (n: number) => {
-    if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-    if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
-    return `${n}`;
-  },
+  // Single implementation in lib/format.ts, so 1,000M reads as 1B everywhere.
+  compact: fmtCount,
 };

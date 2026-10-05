@@ -8,7 +8,7 @@ import { DevLabel } from '@/components/primitives/DevLabel';
 import { PostBangerCard } from './PostBangerCard';
 import { Kicker } from '@/components/ui/Kicker';
 import { Title } from '@/components/ui/Title';
-import { neutral, party, glass, accent, brand, dataVis } from '@/theme/colors';
+import { neutral, party, glass, accent, brand, dataVis, colourFor } from '@/theme/colors';
 import { font } from '@/theme/typography';
 import { spacing, radius } from '@/theme/spacing';
 import { type } from '@/theme/typography';
@@ -110,7 +110,7 @@ export function SummaryPanel({ politicians, range = 'week', panelHeight }: Props
         label: '#1 this week',
         value: top?.name ?? '—',
         sub: `Knox Factor · ${top?.scores.knoxFactor ?? 0}`,
-        accentColor: party[top?.partyKey ?? 'unknown'].glow,
+        accentColor: colourFor(top?.groupKey ?? 'unknown').glow,
       },
       {
         id: 'i2',
@@ -142,7 +142,7 @@ export function SummaryPanel({ politicians, range = 'week', panelHeight }: Props
     const posted    = politicians.filter(p => (p.recentPosts ?? []).length > 0);
     const silent    = politicians.filter(p => (p.recentPosts ?? []).length === 0);
     // Unique party labels among those who posted
-    const partiesPosted = [...new Set(posted.map(p => p.partyLabel))].sort();
+    const partiesPosted = [...new Set(posted.map(p => p.groupLabel))].sort();
     return { posted: posted.length, silent: silent.length, partiesPosted };
   }, [politicians]);
 
@@ -265,7 +265,7 @@ export function SummaryPanel({ politicians, range = 'week', panelHeight }: Props
                   key={post.postId}
                   post={post}
                   politicianName={politician.name}
-                  partyKey={politician.partyKey}
+                  groupKey={politician.groupKey}
                   delay={i * 60}
                 />
               ))}

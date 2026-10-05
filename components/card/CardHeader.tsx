@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { CardAvatar } from './CardAvatar';
 import { DevLabel } from '@/components/primitives/DevLabel';
-import { PartyKey, neutral } from '@/theme/colors';
+import { GroupKey, neutral } from '@/theme/colors';
 import { type } from '@/theme/typography';
 import { spacing } from '@/theme/spacing';
 import { layout } from '@/theme/layoutTokens';
@@ -15,17 +15,17 @@ import { layout } from '@/theme/layoutTokens';
 interface Props {
   name:       string;
   role:       string;
-  partyLabel: string;
-  partyKey:   PartyKey;
+  groupLabel: string;
+  groupKey:   GroupKey;
   initials:   string;
   avatarUrl?: string;
 }
 
-export function CardHeader({ name, role, partyLabel, partyKey, initials, avatarUrl }: Props) {
+export function CardHeader({ name, role, groupLabel, groupKey, initials, avatarUrl }: Props) {
   return (
     <View style={styles.row}>
       <DevLabel name="CardHeader" />
-      <CardAvatar partyKey={partyKey} initials={initials} avatarUrl={avatarUrl} />
+      <CardAvatar groupKey={groupKey} initials={initials} avatarUrl={avatarUrl} />
       <View style={styles.text}>
         <Text style={styles.name} numberOfLines={1}>
           {name}
@@ -34,7 +34,7 @@ export function CardHeader({ name, role, partyLabel, partyKey, initials, avatarU
           {role}
         </Text>
         <Text style={[styles.party, { color: neutral.textDim }]} numberOfLines={1}>
-          {partyLabel}
+          {groupLabel}
         </Text>
       </View>
     </View>

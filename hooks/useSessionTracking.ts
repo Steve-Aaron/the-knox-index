@@ -23,6 +23,7 @@ import { useEffect } from 'react';
 import { Platform, useWindowDimensions } from 'react-native';
 import { track, setSuperProperties, startTimer, stopTimer, elapsedMs } from '@/lib/analytics';
 import { breakpoints } from '@/theme/breakpoints';
+import { getTenant } from '@/hooks/useTenant';
 
 function screenCategory(width: number): 'mobile' | 'tablet' | 'desktop' {
   if (width >= breakpoints.desktop) return 'desktop';
@@ -39,6 +40,8 @@ export function useSessionTracking(): void {
     setSuperProperties({
       platform:        Platform.OS,
       screen_category: category,
+      // Which dashboard this session is on — every event can be split by it.
+      tenant:          getTenant().id,
     });
 
     // ── session_started ────────────────────────────────────────────────────

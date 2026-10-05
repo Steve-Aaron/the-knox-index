@@ -6,16 +6,18 @@ import { DevLabel } from '@/components/primitives/DevLabel';
 import { SkeletonBlock } from '@/components/primitives/SkeletonBlock';
 import { RankBoardRow } from './RankBoardRow';
 import { ViewTabs, VIEW_ACCOUNT_TYPES, type ViewType } from './ViewTabs';
+import { useTenant } from '@/hooks/useTenant';
+import { labelForGroupKey } from '@/data/grouping';
 import { Kicker } from '@/components/ui/Kicker';
 import { Title } from '@/components/ui/Title';
-import { neutral, glass, party, brand, knox } from '@/theme/colors';
-import type { PartyKey } from '@/theme/colors';
+import { neutral, glass, party, brand, knox, colourFor } from '@/theme/colors';
+import type { GroupKey } from '@/theme/colors';
 import { spacing, radius } from '@/theme/spacing';
 import { type, font } from '@/theme/typography';
 import type { Politician, ScoreKey, LeaderboardSortKey } from '@/data/types';
 import { leaderboardScore, viralityRatioFor, engagementRate } from '@/data/leaderboard';
 
-const PARTY_LABELS: Partial<Record<PartyKey, string>> = {
+const PARTY_LABELS: Partial<Record<GroupKey, string>> = {
   labour: 'Labour', conservative: 'Conservative', libdem: 'Lib Dem',
   snp: 'SNP', green: 'Greens', reform: 'Reform', plaid: 'Plaid',
   dup: 'DUP', sinnfein: 'Sinn Féin', independent: 'Independent', unknown: 'Unknown',
@@ -58,10 +60,18 @@ const LABELS: Record<ScoreKey, string> = {
 };
 
 export function RankBoard({ politicians, activeId, headlineKey, timeRangeLabel, onSelect, panelHeight, isRegistered = false, isLifetime = true, engReference = 15 }: Props) {
+  const tenant = useTenant();
   const [viewType, setViewType]       = useState<ViewType>('all');
-  const [partyFilter, setPartyFilter] = useState<PartyKey | null>(null);
+  const [partyFilter, setPartyFilter] = useState<GroupKey | null>(null);
   const [searchOpen, setSearchOpen]   = useState(false);
   const [query, setQuery]             = useState('');
+
+  // Does this dataset use the account-type taxonomy at all? The Knox Index
+  // classifies nearly every account; World Leaders classifies none.
+  const hasAccountTypes = useMemo(
+    () => politicians.some(p => (p.accountTypes?.length ?? 0) > 0),
+    [politicians],
+  );
 
   // Counts per view type for the tab badges.
   // VIEW_ACCOUNT_TYPES maps each tab to its included AccountType values.
@@ -82,14 +92,14 @@ export function RankBoard({ politicians, activeId, headlineKey, timeRangeLabel, 
     };
   }, [politicians]);
 
-  const partyOptions = useMemo<PartyKey[]>(() => {
+  const partyOptions = useMemo<GroupKey[]>(() => {
     const types = VIEW_ACCOUNT_TYPES[viewType];
     const base = types ? politicians.filter(p => p.accountTypes?.some(t => types.includes(t))) : politicians;
     // Order chips by party size (account count) descending, so the largest
     // parties lead and one-account fringe parties fall to the end.
     // Alphabetical tie-break keeps the order stable.
-    const counts = new Map<PartyKey, number>();
-    base.forEach(p => counts.set(p.partyKey, (counts.get(p.partyKey) ?? 0) + 1));
+    const counts = new Map<GroupKey, number>();
+    base.forEach(p => counts.set(p.groupKey, (counts.get(p.groupKey) ?? 0) + 1));
     return Array.from(counts.keys()).sort((a, b) => {
       const diff = (counts.get(b) ?? 0) - (counts.get(a) ?? 0);
       return diff !== 0 ? diff : a.localeCompare(b);
@@ -107,7 +117,7 @@ export function RankBoard({ politicians, activeId, headlineKey, timeRangeLabel, 
     let base = types ? politicians.filter(p => p.accountTypes?.some(t => types.includes(t))) : politicians;
     // Only include accounts that posted at least once in the selected range.
     base = base.filter(p => p.totals.postsInRange > 0);
-    if (partyFilter) base = base.filter(p => p.partyKey === partyFilter);
+    if (partyFilter) base = base.filter(p => p.groupKey === partyFilter);
     // Account search — match display name or TikTok handle (case-insensitive).
     const q = query.trim().toLowerCase();
     if (q) {
@@ -167,13 +177,17 @@ export function RankBoard({ politicians, activeId, headlineKey, timeRangeLabel, 
           {timeRangeLabel}
           {' · '}
           {ranked.reduce((sum, p) => sum + p.totals.postsInRange, 0)} posts by {ranked.filter(p => p.totals.postsInRange > 0).length} accounts
-          {partyFilter ? ` · ${PARTY_LABELS[partyFilter] ?? partyFilter}` : ''}
+          {partyFilter ? ` · ${PARTY_LABELS[partyFilter] ?? labelForGroupKey(tenant.grouping.mode, partyFilter)}` : ''}
         </Text>
 
-        {/* Account-type tabs — MPs / Parties / Councils / All */}
-        <View style={styles.viewTabsWrap}>
-          <ViewTabs value={viewType} onChange={handleViewChange} counts={counts} />
-        </View>
+        {/* Account-type tabs — MPs / Parties / Cabinet / All.
+            Hidden when the dataset carries no account types at all (World
+            Leaders): every tab would read zero and filter to an empty board. */}
+        {hasAccountTypes && (
+          <View style={styles.viewTabsWrap}>
+            <ViewTabs value={viewType} onChange={handleViewChange} counts={counts} />
+          </View>
+        )}
 
         {politicians.length > 0 && (
           <ScrollView
@@ -222,7 +236,7 @@ export function RankBoard({ politicians, activeId, headlineKey, timeRangeLabel, 
               </Text>
             </Pressable>
             {partyOptions.map(pk => {
-              const colour = party[pk];
+              const colour = colourFor(pk);
               const active = partyFilter === pk;
               return (
                 <Pressable

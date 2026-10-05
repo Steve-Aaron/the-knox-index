@@ -11,7 +11,8 @@
  * Cached 1 hour — expensive but infrequently needed.
  */
 
-import { query, tableRef } from '@/lib/bigquery';
+import { query, tableRef, accountWeb, postWeb } from '@/lib/bigquery';
+import { guardTenant } from '@/lib/tenantGuard';
 import { generateContent } from '@/lib/gemini';
 import { safeErrorDetail } from '@/lib/errors';
 import type { BriefResponse } from '@/data/types';
@@ -38,7 +39,7 @@ interface TopPost {
   viralityScore:   number;   // views / totalFollowers
 }
 
-const STATS_SQL = `
+const STATS_SQL = (dashboardId: number) => `
   SELECT
     a.name,
     a.party,
@@ -50,7 +51,7 @@ const STATS_SQL = `
     COALESCE(m.savesToday,      0)  AS savesToday,
     COALESCE(pw.postsThisWeek,  0)  AS postsThisWeek,
     COALESCE(m.totalViews,      0)  AS totalViews
-  FROM ${tableRef('account')} a
+  FROM ${accountWeb(dashboardId)} a
   LEFT JOIN (
     SELECT * FROM ${tableRef('accountMetrics')}
     WHERE dateUpdated = (
@@ -60,7 +61,7 @@ const STATS_SQL = `
   ) m ON a.id = m.pageId
   LEFT JOIN (
     SELECT LTRIM(profile, '@') AS profile, COUNT(*) AS postsThisWeek
-    FROM ${tableRef('post')}
+    FROM ${postWeb(dashboardId)}
     WHERE postDate >= DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY)
     GROUP BY LTRIM(profile, '@')
   ) pw ON LTRIM(a.profile, '@') = pw.profile
@@ -68,15 +69,15 @@ const STATS_SQL = `
   LIMIT 20
 `;
 
-const TOP_POSTS_SQL = `
+const TOP_POSTS_SQL = (dashboardId: number) => `
   SELECT
     a.name, a.party,
     p.views, p.caption,
     COALESCE(p.style,           '')  AS style,
     COALESCE(a.totalFollowers,   0)  AS totalFollowers,
     SAFE_DIVIDE(p.views, NULLIF(a.totalFollowers, 0)) AS viralityScore
-  FROM ${tableRef('post')} p
-  LEFT JOIN ${tableRef('account')} a
+  FROM ${postWeb(dashboardId)} p
+  LEFT JOIN ${accountWeb(dashboardId)} a
     ON LTRIM(p.profile, '@') = LTRIM(a.profile, '@')
   WHERE p.postDate >= DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY)
     AND a.totalFollowers > 0
@@ -138,11 +139,15 @@ ${snapshot}
 Return ONLY valid JSON. No markdown fences, no commentary.`;
 }
 
-export async function GET(_request: Request): Promise<Response> {
+export async function GET(request: Request): Promise<Response> {
+  const { tenant, denied } = await guardTenant(request);
+  if (denied) return denied;
+  const dashboardId = tenant.dashboardId;
+
   try {
     const [politicianRows, postRows] = await Promise.all([
-      query<TopPolitician>(STATS_SQL),
-      query<TopPost>(TOP_POSTS_SQL),
+      query<TopPolitician>(STATS_SQL(dashboardId)),
+      query<TopPost>(TOP_POSTS_SQL(dashboardId)),
     ]);
 
     const prompt = buildPrompt(politicianRows, postRows);

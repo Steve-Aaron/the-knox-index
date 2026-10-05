@@ -74,6 +74,47 @@ export const party = {
 export type PartyKey = keyof typeof party;
 
 /**
+ * Region colour tokens — the World Leaders tenant's equivalent of the party
+ * tokens above. Same { base, glow } shape so every component that colours a
+ * row, dot or halo works unchanged whichever tenant it is rendering.
+ *
+ * Bases are taken from the Knox 2.0 data-visualisation palette (see `dataVis`)
+ * so regions never collide with the interactive accent tokens; glows are the
+ * matching lighter tint used for shadows, radial fills and halos.
+ */
+export const region = {
+  europe:       { base: '#5B8DEF', glow: '#9CBCF7' },
+  northamerica: { base: '#FF9363', glow: '#FFBFA4' },
+  southamerica: { base: '#12B6CF', glow: '#5DE3F4' },
+  africa:       { base: '#FFD700', glow: '#FFE98A' },
+  asia:         { base: '#E83C91', glow: '#F58FBF' },
+  middleeast:   { base: '#9D02D7', glow: '#C86BEC' },
+  oceania:      { base: '#CAC1E4', glow: '#E3DDF2' },
+  unknown:      { base: '#8A8AA5', glow: '#B6B6CC' },
+} as const;
+
+export type RegionColourKey = keyof typeof region;
+
+/**
+ * Every grouping token in one map. `party` keys and `region` keys never
+ * collide, so a single lookup serves both tenants.
+ */
+export const groupColours = { ...party, ...region } as const;
+
+/** The colour/grouping key carried on a Politician for the ACTIVE tenant:
+ *  a party key on The Knox Index, a region key on World Leaders. */
+export type GroupKey = PartyKey | RegionColourKey;
+
+/**
+ * Colour for a grouping key. Unknown keys fall back to the neutral grey pair
+ * rather than throwing — a new party or region in the data must never be able
+ * to blank a component.
+ */
+export function colourFor(key: string | null | undefined): { base: string; glow: string } {
+  return (groupColours as Record<string, { base: string; glow: string }>)[key ?? ''] ?? region.unknown;
+}
+
+/**
  * Accent tokens map *semantic* roles onto Knox brand colours. The token names
  * are kept (indigo / pink / mint / amber) so existing components don't churn;
  * the underlying hex values are now strictly from the Knox palette.

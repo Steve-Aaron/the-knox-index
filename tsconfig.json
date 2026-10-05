@@ -6,7 +6,9 @@
     "moduleResolution": "bundler",
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./*"]
+      "@/*": [
+        "./*"
+      ]
     }
   },
   "include": [
@@ -17,6 +19,7 @@
   ],
   "exclude": [
     "node_modules",
-    "api"
-   ]
+    "api",
+    "_to_delete"
+  ]
 }

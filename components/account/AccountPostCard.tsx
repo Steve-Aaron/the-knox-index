@@ -3,8 +3,8 @@ import { View, Text, Pressable, StyleSheet, Platform, useWindowDimensions } from
 import { MotiView } from 'moti';
 import { ShimmerImage } from '@/components/primitives/ShimmerImage';
 import { VideoModal } from '@/components/dashboard/VideoModal';
-import { neutral, glass, party } from '@/theme/colors';
-import type { PartyKey } from '@/theme/colors';
+import { neutral, glass, colourFor } from '@/theme/colors';
+import type { GroupKey } from '@/theme/colors';
 import { spacing, radius } from '@/theme/spacing';
 import { breakpoints } from '@/theme/breakpoints';
 import { type, font } from '@/theme/typography';
@@ -26,7 +26,7 @@ import { DevLabel } from '@/components/primitives/DevLabel';
 
 interface Props {
   post:     RecentPost;
-  partyKey: PartyKey;
+  groupKey: GroupKey;
   name?:    string;
   delay?:   number;
 }
@@ -46,10 +46,10 @@ const statStyles = StyleSheet.create({
   label: { fontFamily: font.ui, fontSize: 11, color: neutral.textDim, letterSpacing: 1.0 } as any,
 });
 
-export function AccountPostCard({ post, partyKey, name, delay = 0 }: Props) {
+export function AccountPostCard({ post, groupKey, name, delay = 0 }: Props) {
   const { width }  = useWindowDimensions();
   const isDesktop  = width >= breakpoints.desktop;
-  const colour     = party[partyKey];
+  const colour     = colourFor(groupKey);
   const [open, setOpen] = useState(false);
 
   const engRate = post.views > 0
@@ -159,7 +159,7 @@ export function AccountPostCard({ post, partyKey, name, delay = 0 }: Props) {
         postUrl={post.postUrl}
         postId={post.postId}
         politicianName={name}
-        partyKey={partyKey}
+        groupKey={groupKey}
         views={post.views}
         styles={post.styles}
         onClose={() => setOpen(false)}

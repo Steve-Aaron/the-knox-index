@@ -6,10 +6,11 @@ import { InfoTip } from '@/components/primitives/InfoTip';
 import { SkeletonBlock } from '@/components/primitives/SkeletonBlock';
 import { CountUp, formatters } from '@/components/primitives/CountUp';
 import { Kicker } from '@/components/ui/Kicker';
-import { neutral, accent, party, dataVis } from '@/theme/colors';
+import { neutral, accent, dataVis, colourFor } from '@/theme/colors';
 import { type, font } from '@/theme/typography';
 import { spacing, radius } from '@/theme/spacing';
 import { breakpoints } from '@/theme/breakpoints';
+import { useTenant } from '@/hooks/useTenant';
 import type { Politician, LifetimeTopPost } from '@/data/types';
 import type { TimeRange } from '@/components/dashboard/TimeRangePicker';
 import { computeKeyFindings } from '@/lib/keyFindings';
@@ -49,7 +50,10 @@ interface Props {
 }
 
 interface StatTile {
-  kicker:        string;
+  /** Stable key for the tile. */
+  id:            string;
+  /** Label under the number. A node, so parts of it can be addressable. */
+  kicker:        React.ReactNode;
   tip:           string;
   numericValue?: number;
   textValue?:    string;
@@ -60,6 +64,8 @@ interface StatTile {
 }
 
 export function KeyFindingsBar({ politicians, totalPostsInDb, totalViewsInDb, topPost: lifetimeTopPost }: Props) {
+  // 'Politicians' on The Knox Index, 'World leaders' on the world dashboard.
+  const subjectNoun = useTenant().brand.subjectPlural;
   const [hovered, setHovered] = useState<number | null>(null);
 
   const { width: windowWidth } = useWindowDimensions();
@@ -90,33 +96,48 @@ export function KeyFindingsBar({ politicians, totalPostsInDb, totalViewsInDb, to
       ? {
           views:    lifetimeTopPost.views,
           label:    `by ${lifetimeTopPost.accountName}`,
-          partyKey: lifetimeTopPost.partyKey,
+          groupKey: lifetimeTopPost.groupKey,
           link:     lifetimeTopPost.postUrl || undefined,
         }
       : topPost
         ? {
             views:    topPost.views,
             label:    `by ${topPost.politician.name}`,
-            partyKey: topPost.politician.partyKey,
+            groupKey: topPost.politician.groupKey,
             link:     topPost.postUrl || undefined,
           }
         : null;
 
     return [
       {
-        kicker:       'Politicians tracked',
+        id:           'accounts-tracked',
+        // The noun is tenant-driven and lives in its own span so it can be
+        // targeted as [data-component="subjectNoun"] — 'Politicians' on The
+        // Knox Index, 'World leaders' on the world dashboard.
+        kicker:       (
+          <>
+            <Text
+              {...(Platform.OS === 'web' ? { dataSet: { component: 'subjectNoun' } } as any : {})}
+            >
+              {subjectNoun}
+            </Text>
+            {' tracked'}
+          </>
+        ),
         tip:          'The number of political accounts we are actively monitoring on TikTok right now.',
         numericValue: politicianCount,
         suffix:       'active accounts',
         accentColor:  accent.indigo,
       },
       {
+        id:           'total-views',
         kicker:       'Total views',
         tip:          'Total views summed across every tracked post, all time.',
         numericValue: viewsHeadline,
         accentColor:  accent.mint,
       },
       {
+        id:           'avg-views',
         kicker:       'Avg views / post',
         tip:          'Total views divided by total tracked posts, all time.',
         numericValue: avgHeadline,
@@ -124,6 +145,7 @@ export function KeyFindingsBar({ politicians, totalPostsInDb, totalViewsInDb, to
         accentColor:  accent.amber,
       },
       {
+        id:           'total-posts',
         kicker:       'Total posts',
         tip:          'The total number of posts we have tracked across every monitored politician, all time.',
         numericValue: postsHeadline,
@@ -131,22 +153,23 @@ export function KeyFindingsBar({ politicians, totalPostsInDb, totalViewsInDb, to
         accentColor:  dataVis[4],
       },
       {
+        id:           'top-post',
         kicker:       'Top performing post',
         tip:          'The single most-viewed post across the accounts we track, all time.',
         ...(topView
           ? { numericValue: topView.views, suffix: topView.label, link: topView.link }
           : { textValue: 'None yet', suffix: 'No posts recorded yet' }
         ),
-        accentColor:  topView ? party[topView.partyKey].base : accent.amber,
+        accentColor:  topView ? colourFor(topView.groupKey).base : accent.amber,
       },
     ];
-  }, [politicians, totalPostsInDb, totalViewsInDb, lifetimeTopPost]);
+  }, [politicians, totalPostsInDb, totalViewsInDb, lifetimeTopPost, subjectNoun]);
 
   // ── Tile nodes — 'Who Won Davos' style: big number on top, small label below.
   // No card, no dividers. Each tile owns its own breathing room.
   const tileNodes = tiles.map((tile, i) => (
     <MotiView
-      key={tile.kicker}
+      key={tile.id}
       from={{ opacity: 0, translateY: -5 }}
       animate={{ opacity: 1, translateY: 0 }}
       transition={{ type: 'timing', duration: 280, delay: i * 55 }}

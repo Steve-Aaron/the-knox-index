@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { View, StyleSheet, Platform } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import { MotiView } from 'moti';
-import { party } from '@/theme/colors';
+import { party, colourFor } from '@/theme/colors';
 import type { Politician } from '@/data/types';
 
 /**
@@ -63,7 +63,7 @@ export function HeroBackground({ politicians }: Props) {
       const viewRatio = counts[i] / maxV;
       const size      = MIN_R + Math.sqrt(viewRatio) * (MAX_R - MIN_R);
 
-      const colour = party[p.partyKey];
+      const colour = colourFor(p.groupKey);
       return {
         x,
         y,

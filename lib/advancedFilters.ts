@@ -19,7 +19,7 @@ export type FieldId =
   | 'caption'
   | 'politicianName'
   | 'profile'
-  | 'partyKey'
+  | 'groupKey'
   | 'views'
   | 'likes'
   | 'comments'
@@ -39,7 +39,7 @@ export const FIELD_META: Record<FieldId, FieldMeta> = {
   caption:        { label: 'Caption',         type: 'string' },
   politicianName: { label: 'Politician name', type: 'string' },
   profile:        { label: 'Handle',          type: 'string' },
-  partyKey:       { label: 'Party',           type: 'string' },
+  groupKey:       { label: 'Party',           type: 'string' },
   views:          { label: 'Views',           type: 'number' },
   likes:          { label: 'Likes',           type: 'number' },
   comments:       { label: 'Comments',        type: 'number' },

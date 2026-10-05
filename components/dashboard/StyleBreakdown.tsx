@@ -4,6 +4,7 @@ import { DashCard } from '@/components/primitives/DashCard';
 import { DevLabel } from '@/components/primitives/DevLabel';
 import { Kicker } from '@/components/ui/Kicker';
 import { Title } from '@/components/ui/Title';
+import { useTenant } from '@/hooks/useTenant';
 import { neutral, glass, accent, dataVis } from '@/theme/colors';
 import { spacing, radius } from '@/theme/spacing';
 import { type, font } from '@/theme/typography';
@@ -35,6 +36,7 @@ interface Props {
 const PALETTE = [...dataVis];
 
 export function StyleBreakdown({ posts, counts, rangeLabel, topN = 8, activeStyle, onStyleSelect }: Props) {
+  const subjectNoun = useTenant().brand.subjectShort;
   // Each row carries both the display label and the raw key — the raw key is
   // what we hand back to the parent so filters compare against post.styles
   // exactly as stored.
@@ -91,7 +93,7 @@ export function StyleBreakdown({ posts, counts, rangeLabel, topN = 8, activeStyl
       <View style={styles.header}>
         <View style={{ flex: 1 }}>
           <Kicker tone='dim'>STYLE LEAGUE{rangeLabel ? ` · ${rangeLabel.toUpperCase()}` : ''}</Kicker>
-          <Title style={{ fontSize: 16, marginTop: 2 }}>What style of TikToks are MPs making?</Title>
+          <Title style={{ fontSize: 16, marginTop: 2 }}>What style of TikToks are {subjectNoun} making?</Title>
           {onStyleSelect ? (
             <Text style={styles.hint}>Tap any style to filter the post feed.</Text>
           ) : null}

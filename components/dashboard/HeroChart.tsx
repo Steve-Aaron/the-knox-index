@@ -2,8 +2,8 @@ import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, Platform } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { MotiView } from 'moti';
-import { party, neutral, knox } from '@/theme/colors';
-import type { PartyKey } from '@/theme/colors';
+import { party, neutral, knox, colourFor } from '@/theme/colors';
+import type { GroupKey } from '@/theme/colors';
 import { spacing } from '@/theme/spacing';
 import { font } from '@/theme/typography';
 import { DevLabel } from '@/components/primitives/DevLabel';
@@ -69,7 +69,7 @@ interface NationDef {
   label:   string;
   cx:      number;
   cy:      number;
-  parties: PartyKey[];
+  parties: GroupKey[];
 }
 
 const NATIONS: NationDef[] = [
@@ -82,13 +82,13 @@ const NATIONS: NationDef[] = [
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 /** Return the party with the highest aggregate Knox factor among a slice. */
-function dominantPartyFor(politicians: Politician[], allowed: PartyKey[]): PartyKey | null {
-  const totals = new Map<PartyKey, number>();
+function dominantPartyFor(politicians: Politician[], allowed: GroupKey[]): GroupKey | null {
+  const totals = new Map<GroupKey, number>();
   for (const p of politicians) {
-    if (!allowed.includes(p.partyKey)) continue;
-    totals.set(p.partyKey, (totals.get(p.partyKey) ?? 0) + p.scores.knoxFactor);
+    if (!allowed.includes(p.groupKey)) continue;
+    totals.set(p.groupKey, (totals.get(p.groupKey) ?? 0) + p.scores.knoxFactor);
   }
-  let bestParty: PartyKey | null = null;
+  let bestParty: GroupKey | null = null;
   let bestScore = -1;
   for (const [k, v] of totals) {
     if (v > bestScore) { bestScore = v; bestParty = k; }
@@ -97,10 +97,10 @@ function dominantPartyFor(politicians: Politician[], allowed: PartyKey[]): Party
 }
 
 /** Sum of Knox factor across politicians from a given set of parties. */
-function aggregateKnox(politicians: Politician[], allowed: PartyKey[]): number {
+function aggregateKnox(politicians: Politician[], allowed: GroupKey[]): number {
   let s = 0;
   for (const p of politicians) {
-    if (allowed.includes(p.partyKey)) s += p.scores.knoxFactor;
+    if (allowed.includes(p.groupKey)) s += p.scores.knoxFactor;
   }
   return s;
 }
@@ -117,7 +117,7 @@ export function HeroChart({ politicians }: Props) {
     return NATIONS.map((n, i) => {
       const dom    = dominantPartyFor(politicians, n.parties);
       // Fall back to Knox brand pink when a nation has no tracked politicians
-      const colour = dom ? party[dom] : { base: knox.primaryPink, glow: knox.primaryPink };
+      const colour = dom ? colourFor(dom) : { base: knox.primaryPink, glow: knox.primaryPink };
       // Normalised intensity 0–1 → max ring scale 1.4 – 3.4
       const intensity = aggregates[i] / maxAgg;
       return {

@@ -23,8 +23,10 @@ import { SkeletonBlock } from '@/components/primitives/SkeletonBlock';
 import { VideoModal } from './VideoModal';
 import { Kicker } from '@/components/ui/Kicker';
 import { Title } from '@/components/ui/Title';
-import { neutral, party, glass, accent, secondary } from '@/theme/colors';
-import type { PartyKey } from '@/theme/colors';
+import { neutral, party, glass, accent, secondary, colourFor } from '@/theme/colors';
+import type { GroupKey } from '@/theme/colors';
+import { useTenant } from '@/hooks/useTenant';
+import { labelForGroupKey } from '@/data/grouping';
 import { type, font } from '@/theme/typography';
 import { spacing, radius } from '@/theme/spacing';
 import { formatters } from '@/components/primitives/CountUp';
@@ -51,7 +53,9 @@ import { applyAdvancedFilter, type Rule } from '@/lib/advancedFilters';
 
 type Wing = 'left' | 'right' | 'independent';
 
-const WING_MAP: Record<PartyKey, Wing> = {
+// Party keys only — the wing filter is a UK-tenant concept. A region key (or
+// any unmapped party) has no wing, so wingOf() falls back to 'independent'.
+const WING_MAP: Partial<Record<GroupKey, Wing>> = {
   labour:       'left',
   libdem:       'left',
   snp:          'left',
@@ -124,10 +128,12 @@ const LIKE_THRESHOLDS: { value: number; label: string }[] = [
   { value: 100_000, label: '100k+' },
 ];
 
-// ── Party label helper ─────────────────────────────────────────────────────────
+// ── Group label helper ─────────────────────────────────────────────────────────
 
-function partyLabel(key: PartyKey): string {
-  const labels: Partial<Record<PartyKey, string>> = {
+/** Hand-written short labels for UK parties; other modes defer to the adapter. */
+function groupLabel(key: GroupKey, mode: 'party' | 'region' = 'party'): string {
+  if (mode !== 'party') return labelForGroupKey(mode, key);
+  const labels: Partial<Record<GroupKey, string>> = {
     labour: 'Labour', conservative: 'Conservative', libdem: 'Lib Dems',
     snp: 'SNP', green: 'Greens', reform: 'Reform', plaid: 'Plaid',
     dup: 'DUP', sinnfein: 'Sinn Féin',
@@ -144,7 +150,7 @@ function partyLabel(key: PartyKey): string {
  * current scope match. Useful for big-name parties the user expects to see
  * (Lib Dems specifically — small post volume, was being silently hidden).
  */
-const ALWAYS_VISIBLE_PARTIES: PartyKey[] = [
+const ALWAYS_VISIBLE_PARTIES: GroupKey[] = [
   'labour', 'conservative', 'libdem', 'reform', 'green', 'snp',
   'plaid', 'dup', 'sinnfein', 'alliance', 'sdlp', 'uup', 'tuv',
   'workers', 'advance', 'restore', 'yourparty',
@@ -164,8 +170,8 @@ interface Props {
   /** When false, the post feed is hidden behind a registration gate. */
   isRegistered?:          boolean;
   /** Controlled party filter — set externally (e.g. from PartyLeaderboard). */
-  externalPartyFilter?:   PartyKey | null;
-  onPartyFilterChange?:   (pk: PartyKey | null) => void;
+  externalPartyFilter?:   GroupKey | null;
+  onPartyFilterChange?:   (pk: GroupKey | null) => void;
   /** Controlled style filter — set externally (e.g. from StyleBreakdown). */
   externalStyleFilter?:   string | null;
   onStyleFilterChange?:   (style: string | null) => void;
@@ -212,6 +218,13 @@ export function PostsTable({
   const { width: windowWidth } = useWindowDimensions();
   const isMobile = windowWidth < breakpoints.tablet;
 
+  // What this tenant groups by: parties (The Knox Index) or regions (World
+  // Leaders). Drives the chip labels and hides the UK-only alignment filter.
+  const tenant      = useTenant();
+  const mode        = tenant.grouping.mode;
+  const isPartyMode = mode === 'party';
+  const groupNoun   = tenant.grouping.label;
+
   // Sort key is controlled when externalSortKey is supplied (parent owns it so
   // it can drive the API's ORDER BY). Otherwise we keep an internal fallback
   // for back-compatibility with callers that don't lift the sort state.
@@ -223,11 +236,11 @@ export function PostsTable({
   }, [onSortKeyChange]);
 
   const [wingFilter, setWingFilter]   = useState<Wing | null>(null);
-  const [internalPartyFilter, setInternalPartyFilter] = useState<PartyKey | null>(null);
+  const [internalPartyFilter, setInternalPartyFilter] = useState<GroupKey | null>(null);
 
   // Use external party filter if provided (controlled), otherwise internal
   const partyFilter = externalPartyFilter !== undefined ? externalPartyFilter : internalPartyFilter;
-  const setPartyFilter = useCallback((pk: PartyKey | null) => {
+  const setPartyFilter = useCallback((pk: GroupKey | null) => {
     setInternalPartyFilter(pk);
     onPartyFilterChange?.(pk);
   }, [onPartyFilterChange]);
@@ -285,33 +298,37 @@ export function PostsTable({
   //   1. Every party that has posts in the current wing-filtered scope
   //   2. Plus the ALWAYS_VISIBLE_PARTIES list (filtered by wing if active),
   //      so big-name parties like Lib Dems are visible even with zero posts.
-  const parties = useMemo<PartyKey[]>(() => {
-    const base = wingFilter ? posts.filter(p => WING_MAP[p.partyKey] === wingFilter) : posts;
+  const parties = useMemo<GroupKey[]>(() => {
+    const base = wingFilter ? posts.filter(p => WING_MAP[p.groupKey] === wingFilter) : posts;
 
     // Count distinct accounts per party so we can order by party size.
-    const accountsByParty = new Map<PartyKey, Set<string>>();
+    const accountsByParty = new Map<GroupKey, Set<string>>();
     base.forEach(p => {
-      if (!accountsByParty.has(p.partyKey)) accountsByParty.set(p.partyKey, new Set());
-      accountsByParty.get(p.partyKey)!.add(p.politicianName);
+      if (!accountsByParty.has(p.groupKey)) accountsByParty.set(p.groupKey, new Set());
+      accountsByParty.get(p.groupKey)!.add(p.politicianName);
     });
 
-    const seen = new Set<PartyKey>(accountsByParty.keys());
+    const seen = new Set<GroupKey>(accountsByParty.keys());
 
-    // Add the always-visible parties, respecting the current wing filter.
-    for (const pk of ALWAYS_VISIBLE_PARTIES) {
-      if (!wingFilter || WING_MAP[pk] === wingFilter) {
-        seen.add(pk);
+    // Add the always-visible UK parties, respecting the current wing filter.
+    // Party-mode only: pinning 'Labour' onto a region dashboard would show a
+    // chip that can never match a post.
+    if (isPartyMode) {
+      for (const pk of ALWAYS_VISIBLE_PARTIES) {
+        if (!wingFilter || WING_MAP[pk] === wingFilter) {
+          seen.add(pk);
+        }
       }
     }
 
     // Order by account count descending (biggest party first); empty
     // always-visible parties fall to the end. Alphabetical tie-break.
-    const countFor = (pk: PartyKey) => accountsByParty.get(pk)?.size ?? 0;
+    const countFor = (pk: GroupKey) => accountsByParty.get(pk)?.size ?? 0;
     return Array.from(seen).sort((a, b) => {
       const diff = countFor(b) - countFor(a);
       return diff !== 0 ? diff : a.localeCompare(b);
     });
-  }, [posts, wingFilter]);
+  }, [posts, wingFilter, isPartyMode]);
 
   const filtered = useMemo(() => {
     let base = posts;
@@ -322,10 +339,10 @@ export function PostsTable({
         : base.filter(p => p.politicianName === activePoliticianName);
     }
     if (wingFilter) {
-      base = base.filter(p => WING_MAP[p.partyKey] === wingFilter);
+      base = base.filter(p => WING_MAP[p.groupKey] === wingFilter);
     }
     if (partyFilter) {
-      base = base.filter(p => p.partyKey === partyFilter);
+      base = base.filter(p => p.groupKey === partyFilter);
     }
     if (minViews > 0) {
       base = base.filter(p => p.views >= minViews);
@@ -357,7 +374,7 @@ export function PostsTable({
   // client-side and are handled in `filtered` above.
   useEffect(() => {
     onFiltersChange?.({
-      party:      partyFilter ?? null,
+      group:      partyFilter ?? null,
       profile:    (activePoliticianHandle ?? '').replace(/^@+/, '').trim().toLowerCase() || null,
       minViews,
       minLikes,
@@ -420,7 +437,7 @@ export function PostsTable({
     track('post_card_opened', {
       post_id:         post.postId,
       politician_name: post.politicianName,
-      party:           post.partyKey,
+      party:           post.groupKey,
       views:           post.views,
       likes:           post.likes,
       has_video:       Boolean(post.videoMp4),
@@ -442,7 +459,7 @@ export function PostsTable({
     setPartyFilter(null);
   }, []);
 
-  const handlePartyFilter = useCallback((pk: PartyKey | null) => {
+  const handlePartyFilter = useCallback((pk: GroupKey | null) => {
     track('party_filter_changed', {
       party:        pk ?? 'all',
       result_count: filteredCountRef.current,
@@ -562,7 +579,8 @@ export function PostsTable({
           </ScrollView>
         </View>
 
-        {/* ── Alignment filter ───────────────────────── */}
+        {/* ── Alignment filter (party-grouped tenants only) ───────── */}
+        {isPartyMode && (
         <View style={styles.filterSection}>
           <View style={styles.filterLabelRow}>
             <Text style={styles.filterLabel}>ALIGNMENT</Text>
@@ -602,13 +620,14 @@ export function PostsTable({
             })}
           </View>
         </View>
+        )}
 
-        {/* ── Party filter ───────────────────────────── */}
+        {/* ── Group filter ───────────────────────────── */}
         {parties.length > 1 && (
           <View style={styles.filterSection}>
             <View style={styles.filterLabelRow}>
-              <Text style={styles.filterLabel}>PARTY</Text>
-              <InfoTip text="Narrow the feed to posts from a specific political party. Only parties present in the current time period are shown." />
+              <Text style={styles.filterLabel}>{groupNoun.toUpperCase()}</Text>
+              <InfoTip text={`Narrow the feed to posts from a single ${groupNoun.toLowerCase()}. Only ${groupNoun.toLowerCase()}s present in the current time period are shown.`} />
             </View>
             <ScrollView
               horizontal
@@ -616,7 +635,7 @@ export function PostsTable({
               contentContainerStyle={styles.chipRow}
             >
               {parties.map(pk => {
-                const colour = party[pk];
+                const colour = colourFor(pk);
                 const active = partyFilter === pk;
                 return (
                   <Pressable
@@ -630,7 +649,7 @@ export function PostsTable({
                   >
                     <View style={[styles.partyDot, { backgroundColor: colour.base }]} />
                     <Text style={[styles.partyChipText, active && { color: colour.glow }]}>
-                      {partyLabel(pk)}
+                      {groupLabel(pk, mode)}
                     </Text>
                   </Pressable>
                 );
@@ -827,7 +846,7 @@ export function PostsTable({
           postUrl={selected.post.postUrl}
           postId={selected.post.postId}
           politicianName={selected.post.politicianName}
-          partyKey={selected.post.partyKey}
+          groupKey={selected.post.groupKey}
           views={selected.post.views}
           styles={selected.post.styles}
           positionInFeed={selected.positionInFeed}
@@ -866,7 +885,7 @@ interface CardProps {
 const POST_DWELL_MIN_MS = 500;
 
 function PostCard({ post, index, benchmarks, onPress, drag, isActive, compact, activeStyleFilter, activeTopicFilter, onStylePress, onTopicPress, sortKey, isAdmin }: CardProps) {
-  const colour = party[post.partyKey];
+  const colour = colourFor(post.groupKey);
   const engRate = post.views > 0
     ? +((post.likes + post.comments + post.saves + post.shares) / post.views * 100).toFixed(2)
     : 0;
@@ -882,7 +901,7 @@ function PostCard({ post, index, benchmarks, onPress, drag, isActive, compact, a
     const startTs       = dwellStartRef.current;
     const postId        = post.postId;
     const politicianName = post.politicianName;
-    const partyKey      = post.partyKey;
+    const groupKey      = post.groupKey;
     const positionInFeed = index;
     const sortKeySnap   = sortKey;
 
@@ -892,7 +911,7 @@ function PostCard({ post, index, benchmarks, onPress, drag, isActive, compact, a
       track('post_dwell', {
         post_id:          postId,
         politician_name:  politicianName,
-        party:            partyKey,
+        party:            groupKey,
         dwell_ms:         dwellMs,
         position_in_feed: positionInFeed,
         sort_key:         sortKeySnap ?? null,
@@ -1064,7 +1083,7 @@ function PostCard({ post, index, benchmarks, onPress, drag, isActive, compact, a
                   {post.politicianName}
                 </Text>
                 <Text style={styles.metaLine} numberOfLines={1}>
-                  {partyLabel(post.partyKey)}
+                  {groupLabel(post.groupKey)}
                   {post.postDate ? ` · ${fmtDate(post.postDate)}` : ''}
                 </Text>
               </View>

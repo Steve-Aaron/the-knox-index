@@ -20,6 +20,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { TenantAccessPanel } from '@/components/admin/TenantAccessPanel';
 import { neutral, knox } from '@/theme/colors';
 import { spacing } from '@/theme/spacing';
 
@@ -472,6 +473,9 @@ export default function AdminPanel() {
         </Pressable>
         <Text style={s.heading}>Admin Panel</Text>
         <Text style={s.subheading}>Manage tracked profiles</Text>
+        <Pressable onPress={() => router.push('/admin/links')} style={s.backBtn}>
+          <Text style={s.backBtnText}>Account tie-ins →</Text>
+        </Pressable>
       </View>
 
       {/* Global success banner */}
@@ -481,6 +485,9 @@ export default function AdminPanel() {
           <Pressable onPress={() => setAddSuccess(null)}><Text style={s.successText}>✕</Text></Pressable>
         </View>
       )}
+
+      {/* ── Dashboard access (gated tenants) ── */}
+      <TenantAccessPanel />
 
       {/* ── Profiles section ── */}
       <View style={s.section}>

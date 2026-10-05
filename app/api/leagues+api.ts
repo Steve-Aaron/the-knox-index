@@ -14,15 +14,16 @@
  * NULL); it intentionally ignores transient feed filters like party/min-views.
  */
 
-import { query, tableRef, POST_WEB } from '@/lib/bigquery';
+import { query, tableRef, postWeb } from '@/lib/bigquery';
+import { guardTenant } from '@/lib/tenantGuard';
 import { parseRange, rangeDateFilter } from '@/lib/bqQueries';
 import { safeErrorDetail } from '@/lib/errors';
 
 interface TagRow { label: string; count: number }
 
-const STYLES_SQL = (dateFilter: string) => `
+const STYLES_SQL = (dashboardId: number, dateFilter: string) => `
   SELECT s.name AS label, COUNT(DISTINCT p.postId) AS count
-  FROM ${POST_WEB} p
+  FROM ${postWeb(dashboardId)} p
   JOIN ${tableRef('post_x_style')} pxs ON p.postId = pxs.postId
   JOIN ${tableRef('style')} s ON pxs.styleId = s.id
   WHERE p.videoSummary IS NOT NULL
@@ -32,9 +33,9 @@ const STYLES_SQL = (dateFilter: string) => `
   ORDER BY count DESC
 `;
 
-const TOPICS_SQL = (dateFilter: string) => `
+const TOPICS_SQL = (dashboardId: number, dateFilter: string) => `
   SELECT t.name AS label, COUNT(DISTINCT p.postId) AS count
-  FROM ${POST_WEB} p
+  FROM ${postWeb(dashboardId)} p
   JOIN ${tableRef('post_x_topic')} pt ON p.postId = pt.postId
   JOIN ${tableRef('topic')} t ON pt.topicId = t.id
   WHERE p.videoSummary IS NOT NULL
@@ -45,6 +46,10 @@ const TOPICS_SQL = (dateFilter: string) => `
 `;
 
 export async function GET(request: Request): Promise<Response> {
+  const { tenant, denied } = await guardTenant(request);
+  if (denied) return denied;
+  const dashboardId = tenant.dashboardId;
+
   const range = parseRange(new URL(request.url).searchParams.get('range'), 'week');
   // rangeDateFilter returns an unqualified `postDate` predicate; only the post
   // table carries that column, so it resolves to p.postDate unambiguously.
@@ -52,8 +57,8 @@ export async function GET(request: Request): Promise<Response> {
 
   try {
     const [styleRows, topicRows] = await Promise.all([
-      query<TagRow>(STYLES_SQL(dateFilter)),
-      query<TagRow>(TOPICS_SQL(dateFilter)),
+      query<TagRow>(STYLES_SQL(dashboardId, dateFilter)),
+      query<TagRow>(TOPICS_SQL(dashboardId, dateFilter)),
     ]);
 
     const clean = (rows: TagRow[]) =>

@@ -38,8 +38,8 @@ interface Props {
 
 const OPTIONS: { key: TimeRange; label: string }[] = [
   { key: 'yesterday', label: 'Yesterday' },
-  { key: 'week',      label: 'This week' },
-  { key: 'month',     label: 'This month' },
+  { key: 'week',      label: 'Last 7 days' },
+  { key: 'month',     label: 'Last 30 days' },
   { key: 'year',      label: 'This year' },
   { key: 'lifetime',  label: 'Lifetime' },
 ];

@@ -6,10 +6,12 @@
  */
 
 import type { Politician, TopTrumpScores, RecentPost, AccountType } from './types';
-import type { PartyKey } from '@/theme/colors';
+import type { GroupKey } from '@/theme/colors';
 import { toPartyKeyPublic } from './partyUtils';
 import { computeKnoxFactor, applyKnoxNameBonus, NORMALISATION_LIMITS } from './knoxFactor.server';
 import { fmtLabel } from '@/lib/format';
+import { groupKeyFor, groupLabelFor } from './grouping';
+import type { GroupingMode } from '@/lib/tenants';
 
 // ── Raw BQ row shapes ─────────────────────────────────────────────────────────
 
@@ -26,6 +28,18 @@ export interface BQAccountRow {
   totalFollowing:   number;
   totalFollowers:   number;
   accountTypeNames?: string;   // comma-separated — all types for this account (STRING_AGG)
+  // From metadata.person, joined on in accountWeb(). Null when an account has
+  // been ingested but not yet linked to a person.
+  person_slug?:         string | null;
+  person_name?:         string | null;
+  person_job_title?:    string | null;
+  person_party?:        string | null;
+  person_wing?:         string | null;
+  person_country?:      string | null;
+  person_region?:       string | null;
+  person_constituency?: string | null;
+  person_latitude?:     number | null;
+  person_longitude?:    number | null;
   // accountMetrics (latest row)
   totalPosts:      number;
   totalLikes:      number;
@@ -78,7 +92,7 @@ export interface BQPostRow {
 }
 
 // Re-export for backward compat; use toPartyKeyPublic from partyUtils for new code.
-const toPartyKey = toPartyKeyPublic;
+const toGroupKey = toPartyKeyPublic;
 
 /**
  * Normalise a profile handle: strip a leading '@' and tolerate null / undefined.
@@ -353,7 +367,13 @@ function transformPost(row: BQPostRow): RecentPost {
 
 export function transformToPoliticians(
   accountRows: BQAccountRow[],
-  postRows:    BQPostRow[]
+  postRows:    BQPostRow[],
+  /**
+   * How this tenant buckets accounts. 'party' keeps The Knox Index behaviour
+   * (colour and group by UK party); 'region' colours and groups World Leaders
+   * by continent, with the party name still shown as the label beneath.
+   */
+  grouping: GroupingMode = 'party',
 ): Politician[] {
   // Group posts by normalised profile handle.
   // account.profile = '@uklabour', post.profile = 'uklabour' — strip the
@@ -379,10 +399,18 @@ export function transformToPoliticians(
       name:           acc.name ?? '',
       handle:         acc.profile ?? '',
       role:           acc.affiliation ?? '',
-      displayJobTitle: acc.displayJobTitle || acc.affiliation || '',
-      partyKey:       toPartyKey(acc.party),
+      displayJobTitle: acc.person_job_title || acc.displayJobTitle || acc.affiliation || '',
+      groupKey:       groupKeyFor(grouping, { party: acc.party, region: acc.person_region }),
+      groupLabel:     groupLabelFor(grouping, { party: acc.party, region: acc.person_region }),
+      // The party name is still worth showing on a region-grouped dashboard —
+      // it just isn't what the row is coloured or bucketed by.
       partyLabel:     fmtLabel(acc.party) || 'Unknown',
-      country:        'UK',
+      country:        acc.person_country || (grouping === 'region' ? 'Unknown' : 'UK'),
+      // Country centroid from metadata.person. The globe plots these; a row
+      // without them simply never gets a pin.
+      coordinates:    (acc.person_latitude != null && acc.person_longitude != null)
+        ? { lat: Number(acc.person_latitude), lng: Number(acc.person_longitude) }
+        : undefined,
       avatarInitials: toInitials(acc.name ?? ''),
       avatarUrl:      acc.avatar || undefined,
       accountTypes:   inferAccountTypes(acc.name ?? '', acc.affiliation ?? '', acc.accountTypeNames),

@@ -40,7 +40,7 @@ grep -oE '^  /api[^:]*' docs/api/openapi.yaml | sort
 
 ## Deployment
 
-Deployed as its own Vercel project (`knox-index-api-docs`) at
+Deployed as its own Vercel project (`index-api-documentation`) at
 `docs.index.knox.digital`, entirely separate from the `theknoxindex` app project.
 The app's build output is `dist/client` and never includes this folder.
 

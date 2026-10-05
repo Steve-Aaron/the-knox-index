@@ -13,6 +13,7 @@
  */
 
 import { query, tableRef } from '@/lib/bigquery';
+import { guardTenant } from '@/lib/tenantGuard';
 import { safeErrorDetail } from '@/lib/errors';
 import type { StoredBrief, BriefsApiResponse } from '@/data/types';
 
@@ -34,7 +35,22 @@ const LATEST_BRIEF_SQL = `
   LIMIT 1
 `;
 
-export async function GET(_request: Request): Promise<Response> {
+export async function GET(request: Request): Promise<Response> {
+  const { tenant, denied } = await guardTenant(request);
+  if (denied) return denied;
+
+  // The `brief` table is written by the n8n pipeline and carries no dashboard
+  // column, so every stored briefing is a UK one. Returning it on another
+  // tenant would put UK narrative text on a world-leaders page, so answer 404
+  // until n8n produces per-dashboard briefs. The panel degrades to its
+  // computed insight chips, which ARE tenant-correct.
+  if (tenant.dashboardId !== 1) {
+    return Response.json(
+      { error: 'No briefings for this dashboard yet', detail: `Briefings are not yet generated for ${tenant.brand.name}.` },
+      { status: 404, headers: { 'Cache-Control': 'no-store' } },
+    );
+  }
+
   try {
     const rows = await query<BriefRow>(LATEST_BRIEF_SQL);
 

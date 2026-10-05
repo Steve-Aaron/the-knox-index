@@ -9,18 +9,25 @@
  * GET  /api/ariadne?debug=1       → returns raw field names + sample rows for schema verification
  */
 
-import { query, tableRef, POST_WEB } from '@/lib/bigquery';
+import { query, tableRef, postWeb } from '@/lib/bigquery';
+import { guardTenant } from '@/lib/tenantGuard';
 import { signMediaFields, signGcsUrl } from '@/lib/gcs';
 import { safeErrorDetail } from '@/lib/errors';
 import { transformToPoliticians } from '@/data/transformers';
 import { parseRange, buildAccountsSQL, buildPostsSQL, buildTopPostSQL } from '@/lib/bqQueries';
-import { toPartyKeyPublic } from '@/data/partyUtils';
+import { groupKeyFor } from '@/data/grouping';
 import type { BQAccountRow, BQPostRow } from '@/data/transformers';
 import type { LifetimeTopPost } from '@/data/types';
 
 // ── Handler ───────────────────────────────────────────────────────────────────
 
 export async function GET(request: Request): Promise<Response> {
+  // Tenant gate FIRST: resolves the dashboard from the request host and
+  // refuses the request outright when the caller may not read it.
+  const { tenant, denied } = await guardTenant(request);
+  if (denied) return denied;
+  const dashboardId = tenant.dashboardId;
+
   const params  = new URL(request.url).searchParams;
   const isDebug = params.get('debug') === '1';
   const isDiag  = params.get('diag')  === '1';
@@ -57,14 +64,14 @@ export async function GET(request: Request): Promise<Response> {
     const steps: Record<string, unknown> = {};
 
     try {
-      const rows = await query<Record<string, unknown>>(buildAccountsSQL(range));
+      const rows = await query<Record<string, unknown>>(buildAccountsSQL(dashboardId, range));
       steps['accounts_sql'] = { ok: true, row_count: rows.length, sample: rows[0] };
     } catch (err: unknown) {
       steps['accounts_sql'] = { ok: false, error: String(err) };
     }
 
     try {
-      const rows = await query<Record<string, unknown>>(buildPostsSQL(range));
+      const rows = await query<Record<string, unknown>>(buildPostsSQL(dashboardId, range));
       steps['posts_sql'] = { ok: true, row_count: rows.length, sample: rows[0] };
     } catch (err: unknown) {
       steps['posts_sql'] = { ok: false, error: String(err) };
@@ -105,17 +112,17 @@ export async function GET(request: Request): Promise<Response> {
       SELECT
         COUNT(*)                AS totalPostsInDb,
         SUM(COALESCE(views, 0)) AS totalViewsInDb
-      FROM ${POST_WEB}
+      FROM ${postWeb(dashboardId)}
       WHERE videoSummary IS NOT NULL
     `;
 
     const [accountRows, postRows, countRows] = await Promise.all([
-      query<BQAccountRow>(buildAccountsSQL(range)),
-      query<BQPostRow>(buildPostsSQL(range)),
+      query<BQAccountRow>(buildAccountsSQL(dashboardId, range)),
+      query<BQPostRow>(buildPostsSQL(dashboardId, range)),
       query<{ totalPostsInDb: number | string; totalViewsInDb: number | string }>(totalsSql),
     ]);
 
-    const politicians = transformToPoliticians(accountRows, postRows);
+    const politicians = transformToPoliticians(accountRows, postRows, tenant.grouping.mode);
 
     // BigQuery sometimes returns COUNT/SUM as a string for very large numbers.
     // Coerce defensively so the client always sees a Number.
@@ -130,8 +137,9 @@ export async function GET(request: Request): Promise<Response> {
     try {
       const topPostRows = await query<{
         postId: string; caption: string | null; views: number | string;
-        postUrl: string | null; accountName: string | null; party: string | null;
-      }>(buildTopPostSQL());
+        postUrl: string | null; accountName: string | null; profile: string | null;
+        region: string | null; party: string | null;
+      }>(buildTopPostSQL(dashboardId));
       const topRow = topPostRows[0];
       if (topRow) {
         topPost = {
@@ -140,7 +148,7 @@ export async function GET(request: Request): Promise<Response> {
           views:       Number(topRow.views ?? 0) || 0,
           postUrl:     topRow.postUrl ?? '',
           accountName: topRow.accountName ?? '',
-          partyKey:    toPartyKeyPublic(topRow.party),
+          groupKey:    groupKeyFor(tenant.grouping.mode, { party: topRow.party, region: topRow.region }),
         };
       }
     } catch (err: unknown) {
@@ -162,7 +170,7 @@ export async function GET(request: Request): Promise<Response> {
     ]);
 
     return Response.json(
-      { politicians, totalPostsInDb, totalViewsInDb, topPost },
+      { politicians, totalPostsInDb, totalViewsInDb, topPost, tenant: tenant.id },
       { headers: { 'Cache-Control': 'private, max-age=1800, stale-while-revalidate=120' } }
     );
 

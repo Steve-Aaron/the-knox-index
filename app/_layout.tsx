@@ -14,6 +14,8 @@ import {
   Figtree_900Black,
 } from '@expo-google-fonts/figtree';
 import { neutral } from '@/theme/colors';
+import { TenantHead } from '@/components/web/TenantHead';
+import { DevTenantBadge } from '@/components/web/DevTenantBadge';
 // Side-effect import: ensures analytics.web.ts module-level code runs on web
 // (sets window.mixpanel) before GTM's Window Loaded trigger fires.
 import '@/lib/analytics';
@@ -38,6 +40,8 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={styles.root}>
       <View style={styles.root}>
+        {/* Title + meta description for the domain being served. */}
+        <TenantHead />
         <StatusBar style="light" />
         <Stack
           screenOptions={{
@@ -46,6 +50,9 @@ export default function RootLayout() {
             animation: 'fade',
           }}
         />
+        {/* Development only: says when this tab is pinned to a tenant by
+            ?tenant=, and clears it. Renders nothing in production. */}
+        <DevTenantBadge />
       </View>
     </GestureHandlerRootView>
   );

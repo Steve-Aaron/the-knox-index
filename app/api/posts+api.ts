@@ -13,10 +13,12 @@
  * top-engaged posts always appear.
  */
 
-import { getBigQuery, tableRef, ACCOUNT_WEB, POST_WEB } from '@/lib/bigquery';
+import { getBigQuery, tableRef, accountWeb, postWeb } from '@/lib/bigquery';
+import { guardTenant } from '@/lib/tenantGuard';
+import { groupKeyFor, isWarehouseGroup } from '@/data/grouping';
 import { signMediaFields } from '@/lib/gcs';
 import { safeErrorDetail } from '@/lib/errors';
-import { toPartyKeyPublic, partyKeyToRawNames } from '@/data/partyUtils';
+import { partyKeyToRawNames } from '@/data/partyUtils';
 import type { PostRecord } from '@/data/types';
 
 interface BQPostRecordRow {
@@ -24,6 +26,7 @@ interface BQPostRecordRow {
   profile:          string;
   politicianName:   string;
   party:            string;
+  region:           string | null;
   caption:          string;
   videoSummary:     string;
   coverJpeg:        string;
@@ -57,12 +60,13 @@ const ORDER_BY_FOR_SORT_KEY: Record<string, string> = {
   postDate:   'p.postDate DESC, p.views DESC',
 };
 
-const POSTS_SQL = (whereClause: string, orderBy: string, limit: number, offset: number) => `
+const POSTS_SQL = (dashboardId: number, whereClause: string, orderBy: string, limit: number, offset: number) => `
   SELECT
     CAST(p.postId AS STRING) AS postId,
     p.profile,
     a.name        AS politicianName,
     a.party,
+    a.person_region AS region,
     p.caption,
     p.videoSummary,
     COALESCE(p.coverJpeg,   '')  AS coverJpeg,
@@ -77,8 +81,8 @@ const POSTS_SQL = (whereClause: string, orderBy: string, limit: number, offset: 
     COALESCE(a.totalFollowers, 0) AS accountFollowers,
     ARRAY_AGG(DISTINCT t.name IGNORE NULLS) AS topics,
     ARRAY_AGG(DISTINCT s.name IGNORE NULLS) AS styles
-  FROM ${POST_WEB} p
-  LEFT JOIN ${ACCOUNT_WEB} a ON LTRIM(p.profile, '@') = LTRIM(a.profile, '@')
+  FROM ${postWeb(dashboardId)} p
+  LEFT JOIN ${accountWeb(dashboardId)} a ON LTRIM(p.profile, '@') = LTRIM(a.profile, '@')
   LEFT JOIN ${tableRef('post_x_topic')} pt ON p.postId = pt.postId
   LEFT JOIN ${tableRef('topic')} t ON pt.topicId = t.id
   LEFT JOIN ${tableRef('post_x_style')} pxs ON p.postId = pxs.postId
@@ -89,23 +93,28 @@ const POSTS_SQL = (whereClause: string, orderBy: string, limit: number, offset: 
     p.caption, p.videoSummary, p.coverJpeg, p.videoMp4,
     p.postUrl, p.postDate,
     p.views, p.likes, p.comments, p.shares, p.saves,
-    a.totalFollowers
+    a.totalFollowers, a.person_region
   ORDER BY ${orderBy}
   LIMIT ${limit} OFFSET ${offset}
 `;
 
 // Total matching rows for the same filters (no LIMIT) — drives the real feed
 // count instead of the misleading 'first page' size.
-const COUNT_SQL = (whereClause: string) => `
+const COUNT_SQL = (dashboardId: number, whereClause: string) => `
   SELECT COUNT(DISTINCT p.postId) AS total
-  FROM ${POST_WEB} p
-  LEFT JOIN ${ACCOUNT_WEB} a ON LTRIM(p.profile, '@') = LTRIM(a.profile, '@')
+  FROM ${postWeb(dashboardId)} p
+  LEFT JOIN ${accountWeb(dashboardId)} a ON LTRIM(p.profile, '@') = LTRIM(a.profile, '@')
   WHERE ${whereClause}
 `;
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 export async function GET(request: Request): Promise<Response> {
+  // Tenant gate FIRST — resolves the dashboard and refuses unauthorised reads.
+  const { tenant, denied } = await guardTenant(request);
+  if (denied) return denied;
+  const dashboardId = tenant.dashboardId;
+
   const params = new URL(request.url).searchParams;
   // Server-side pagination: the query is ordered server-side by the selected
   // sort key, then a single page (LIMIT/OFFSET) is returned and signed. The
@@ -155,14 +164,24 @@ export async function GET(request: Request): Promise<Response> {
     queryParams.topic = topic;
   }
 
-  // party arrives as a public partyKey; map it back to the raw spellings stored
-  // in a.party and match on the same normalisation toPartyKeyPublic uses.
-  const partyKey = (params.get('party') ?? '').trim();
-  if (partyKey) {
-    const partyNames = partyKeyToRawNames(partyKey);
-    if (partyNames.length) {
-      where.push(`REGEXP_REPLACE(REGEXP_REPLACE(LOWER(TRIM(a.party)), r'[_-]+', ' '), r' +', ' ') IN UNNEST(@partyNames)`);
-      queryParams.partyNames = partyNames;
+  // Group filter. The client sends ?group=<key>; ?party=<key> is still accepted
+  // so older clients keep working. What the key MEANS depends on the tenant:
+  //   party mode  → map back to the raw a.party spellings and match the column
+  //   region mode → membership lives in data/leaderRegions.ts, so the key
+  //                 becomes the handle list for that region
+  const groupKey = (params.get('group') ?? params.get('party') ?? '').trim();
+  if (groupKey) {
+    if (isWarehouseGroup(tenant.grouping.mode)) {
+      // Region lives on metadata.person, joined in by accountWeb(), so this is
+      // a column predicate rather than an expanded list of handles.
+      where.push('a.person_region = @groupRegion');
+      queryParams.groupRegion = groupKey;
+    } else {
+      const partyNames = partyKeyToRawNames(groupKey);
+      if (partyNames.length) {
+        where.push(`REGEXP_REPLACE(REGEXP_REPLACE(LOWER(TRIM(a.party)), r'[_-]+', ' '), r' +', ' ') IN UNNEST(@partyNames)`);
+        queryParams.partyNames = partyNames;
+      }
     }
   }
 
@@ -173,9 +192,9 @@ export async function GET(request: Request): Promise<Response> {
     // Only count on the first page; later pages reuse the client's cached total.
     const wantTotal = offset === 0;
     const [pageResult, countResult]: any[] = await Promise.all([
-      bq.query({ query: POSTS_SQL(whereClause, orderBy, limit, offset), params: queryParams, location: 'EU' }),
+      bq.query({ query: POSTS_SQL(dashboardId, whereClause, orderBy, limit, offset), params: queryParams, location: 'EU' }),
       wantTotal
-        ? bq.query({ query: COUNT_SQL(whereClause), params: queryParams, location: 'EU' })
+        ? bq.query({ query: COUNT_SQL(dashboardId, whereClause), params: queryParams, location: 'EU' })
         : Promise.resolve([[{ total: null }]]),
     ]);
     const rows  = pageResult[0] as BQPostRecordRow[];
@@ -188,7 +207,7 @@ export async function GET(request: Request): Promise<Response> {
       postId:         String(r.postId),
       profile:        r.profile,
       politicianName: r.politicianName ?? r.profile,
-      partyKey:       toPartyKeyPublic(r.party),
+      groupKey:       groupKeyFor(tenant.grouping.mode, { party: r.party, region: r.region }),
       caption:        r.caption      ?? '',
       videoSummary:   r.videoSummary ?? '',
       coverJpeg:      r.coverJpeg    ?? '',

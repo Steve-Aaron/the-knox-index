@@ -10,6 +10,7 @@
  */
 
 import { query } from '@/lib/bigquery';
+import { guardTenant } from '@/lib/tenantGuard';
 import { signMediaFields, signGcsUrl } from '@/lib/gcs';
 import { safeErrorDetail } from '@/lib/errors';
 import { transformToPoliticians } from '@/data/transformers';
@@ -40,7 +41,7 @@ function toRankEntry(p: Politician, key: ScoreKey): AccountRankEntry {
     id:             p.id,
     name:           p.name,
     handle:         p.handle,
-    partyKey:       p.partyKey,
+    groupKey:       p.groupKey,
     avatarUrl:      p.avatarUrl,
     avatarInitials: p.avatarInitials,
     score:          p.scores[key],
@@ -115,6 +116,10 @@ function transformPost(row: BQPostRow): RecentPost {
 // ── Handler ───────────────────────────────────────────────────────────────────
 
 export async function GET(request: Request): Promise<Response> {
+  const { tenant, denied } = await guardTenant(request);
+  if (denied) return denied;
+  const dashboardId = tenant.dashboardId;
+
   const params    = new URL(request.url).searchParams;
   const rawHandle = params.get('handle') ?? '';
   const handle    = sanitiseHandle(rawHandle);
@@ -130,13 +135,13 @@ export async function GET(request: Request): Promise<Response> {
     // 2. Range posts — feeds the scoring transformer (5 per account max)
     // 3. All posts for this account — full history, no date filter, for the post feed
     const [accountRows, rangePostRows, allPostRows] = await Promise.all([
-      query<BQAccountRow>(buildAccountsSQL(range)),
-      query<BQPostRow>(buildAccountPostsSQL(handle, range, 5)),
-      query<BQPostRow>(buildAllAccountPostsSQL(handle, 200)),
+      query<BQAccountRow>(buildAccountsSQL(dashboardId, range)),
+      query<BQPostRow>(buildAccountPostsSQL(dashboardId, handle, range, 5)),
+      query<BQPostRow>(buildAllAccountPostsSQL(dashboardId, handle, 200)),
     ]);
 
     // Transform full dataset for scores + rankings.
-    const allPoliticians = transformToPoliticians(accountRows, rangePostRows);
+    const allPoliticians = transformToPoliticians(accountRows, rangePostRows, tenant.grouping.mode);
 
     // Find target by normalised handle.
     const normalised = handle.replace(/^@/, '').toLowerCase();

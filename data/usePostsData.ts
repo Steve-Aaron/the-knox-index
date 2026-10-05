@@ -55,7 +55,8 @@ function rangeToSince(range: TimeRange): string | null {
 }
 
 export interface FeedFilters {
-  party?:    string | null;
+  /** Grouping key for the active tenant: a party key, or a region key. */
+  group?:    string | null;
   /** Account handle (without @), the stable identity for a politician. */
   profile?:  string | null;
   minViews?: number;
@@ -84,7 +85,7 @@ export function usePostsData(
   // Stable key for the filter set — used as the fetch dependency so a filter
   // change refetches (an object would churn identity every render).
   const filterKey = JSON.stringify({
-    party:      filters.party   ?? null,
+    group:      filters.group   ?? null,
     profile:    filters.profile ?? null,
     minViews:   filters.minViews   ?? 0,
     minLikes:   filters.minLikes   ?? 0,
@@ -114,7 +115,7 @@ export function usePostsData(
       params.set('sortKey', sortKey);
       params.set('limit',  String(PAGE_SIZE));
       params.set('offset', String(offset));
-      if (filters.party)      params.set('party',      filters.party);
+      if (filters.group)      params.set('group',      filters.group);
       if (filters.profile)    params.set('profile',    filters.profile);
       if (filters.minViews)   params.set('minViews',   String(filters.minViews));
       if (filters.minLikes)   params.set('minLikes',   String(filters.minLikes));

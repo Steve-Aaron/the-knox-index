@@ -10,13 +10,14 @@ import { RadialScoreChart } from '@/components/card/RadialScoreChart';
 import type { RawScoreValues } from '@/components/card/RadialScoreChart';
 import { DashCard } from '@/components/primitives/DashCard';
 import { DevLabel } from '@/components/primitives/DevLabel';
-import { neutral, party, glass, accent } from '@/theme/colors';
+import { neutral, glass, accent, colourFor } from '@/theme/colors';
 import { spacing, radius } from '@/theme/spacing';
 import { layout } from '@/theme/layoutTokens';
 import { type, font } from '@/theme/typography';
 import { breakpoints } from '@/theme/breakpoints';
 import { fmtLabel } from '@/lib/format';
 import type { Politician, AccountType } from '@/data/types';
+import { fmtCount } from '@/lib/format';
 
 /**
  * AccountHero
@@ -44,15 +45,12 @@ function fmtDelta(delta: number | null): { text: string; color: string } {
   const sign  = delta > 0 ? '+' : '';
   const color = delta > 0 ? accent.mint : '#FF6B6B';
   const abs   = Math.abs(delta);
-  const text  = sign + (abs >= 1000 ? `${(abs / 1000).toFixed(1)}k` : String(abs));
+  const text  = sign + fmtCount(abs);
   return { text, color };
 }
 
-function fmtFollowers(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000)     return `${(n / 1_000).toFixed(1)}k`;
-  return String(n);
-}
+/** Compact counts come from the one implementation in lib/format.ts. */
+const fmtFollowers = fmtCount;
 
 /** Only show the role string if it looks like a proper title (not a single word like 'left'). */
 function isValidRole(role: string): boolean {
@@ -100,7 +98,7 @@ const chipStyles = StyleSheet.create({
 export function AccountHero({ politician, overallRank, totalCount, rangeLabel }: Props) {
   const { width } = useWindowDimensions();
   const isDesktop = width >= breakpoints.desktop;
-  const colour    = party[politician.partyKey];
+  const colour    = colourFor(politician.groupKey);
   const delta     = fmtDelta(politician.totals.followerChange);
 
   const recentPosts = politician.recentPosts ?? [];
@@ -151,7 +149,7 @@ export function AccountHero({ politician, overallRank, totalCount, rangeLabel }:
           {/* Identity row */}
           <View style={styles.identity}>
             <CardAvatar
-              partyKey={politician.partyKey}
+              groupKey={politician.groupKey}
               initials={politician.avatarInitials}
               avatarUrl={politician.avatarUrl}
               size={84}
@@ -159,7 +157,7 @@ export function AccountHero({ politician, overallRank, totalCount, rangeLabel }:
             <View style={styles.idText}>
               <Text style={styles.name}>{politician.name}</Text>
               <Text style={styles.partyLine}>
-                {politician.partyLabel}
+                {politician.groupLabel}
                 {validRole ? ` · ${politician.role}` : ''}
               </Text>
               <View style={styles.handleRow}>
@@ -251,7 +249,7 @@ export function AccountHero({ politician, overallRank, totalCount, rangeLabel }:
           <View style={styles.radarChartWrap}>
             <RadialScoreChart
               scores={politician.scores}
-              partyKey={politician.partyKey}
+              groupKey={politician.groupKey}
               rawValues={rawValues}
               size={isDesktop ? 360 : 300}
             />

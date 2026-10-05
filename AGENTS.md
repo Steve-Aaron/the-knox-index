@@ -82,6 +82,29 @@ Set on every event via `setSuperProperties`:
 - **Error tracking:** Sentry (`lib/sentry.ts`, reads `EXPO_PUBLIC_SENTRY_DSN`)
 - **Data:** BigQuery via `/api` routes; GCS bucket for post data
 
+## Multi-tenant dashboards
+
+One deployment serves several dashboards, one per subdomain:
+
+| Host | Tenant | `dashboard.id` | Grouping | Access |
+|---|---|---|---|---|
+| `index.knox.digital` | The Knox Index | 1 | Party | Public |
+| `worldleaders.index.knox.digital` | World Leaders | 2 | Region | Sign-in, `@knoxdigi.com` / `@knox.digital` auto, others approved |
+
+- The registry is `lib/tenants.ts`. Adding a subdomain = one entry there + a
+  Vercel domain. Full guide: `docs/tenants.md`
+- The DASHBOARD ID identifies a tenant (`?tenant=2`, `x-knox-tenant: 2`,
+  `tenant_access.tenantId`). `tenantById()` also accepts the slug
+- Server routes MUST call `guardTenant(request)` before querying, and pass
+  `tenant.dashboardId` into the SQL builders — `accountWeb()` / `postWeb()`
+  take it explicitly and have no default
+- `Politician.groupKey` is the colour + grouping key for the ACTIVE tenant
+  (party key or region key); `partyLabel` is always the real party
+- Client copy, grouping and map come from `useTenant()`; never trust the client
+  for data scope
+- `npm run check:tenants` guards host routing, access rules, gate leaks and
+  region coverage. Run it with the other checks
+
 ## Key Conventions
 
 - One job per component/hook; compose upward for complexity

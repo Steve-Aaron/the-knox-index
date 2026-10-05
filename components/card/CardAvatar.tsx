@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, Image, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { party, PartyKey, neutral } from '@/theme/colors';
+import { party, GroupKey, neutral, colourFor } from '@/theme/colors';
 import { font } from '@/theme/typography';
 import { DevLabel } from '@/components/primitives/DevLabel';
 
@@ -13,14 +13,14 @@ import { DevLabel } from '@/components/primitives/DevLabel';
  * One job.
  */
 interface Props {
-  partyKey:   PartyKey;
+  groupKey:   GroupKey;
   initials:   string;
   size?:      number;
   avatarUrl?: string;
 }
 
-export function CardAvatar({ partyKey, initials, size = 56, avatarUrl }: Props) {
-  const colour  = party[partyKey];
+export function CardAvatar({ groupKey, initials, size = 56, avatarUrl }: Props) {
+  const colour  = colourFor(groupKey);
   const ring    = size;
   const inner   = size - 6;
   const [imgErr, setImgErr] = useState(false);

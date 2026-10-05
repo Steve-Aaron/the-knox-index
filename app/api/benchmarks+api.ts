@@ -13,7 +13,8 @@
  * Statistics per metric: min, p25, median, mean, p75, max
  */
 
-import { query, POST_WEB } from '@/lib/bigquery';
+import { query, postWeb } from '@/lib/bigquery';
+import { guardTenant } from '@/lib/tenantGuard';
 import { safeErrorDetail } from '@/lib/errors';
 import type { PostBenchmarks } from '@/data/types';
 
@@ -32,7 +33,7 @@ interface BQBenchmarkRow {
   eng_max:      number;
 }
 
-const BENCHMARKS_SQL = `
+const BENCHMARKS_SQL = (dashboardId: number) => `
   SELECT
     APPROX_QUANTILES(views, 4)[OFFSET(0)]  AS views_min,
     APPROX_QUANTILES(views, 4)[OFFSET(1)]  AS views_p25,
@@ -65,13 +66,16 @@ const BENCHMARKS_SQL = `
       4
     )[OFFSET(4)]  AS eng_max
 
-  FROM ${POST_WEB}
+  FROM ${postWeb(dashboardId)}
   WHERE views > 0
 `;
 
-export async function GET(_request: Request): Promise<Response> {
+export async function GET(request: Request): Promise<Response> {
+  const { tenant, denied } = await guardTenant(request);
+  if (denied) return denied;
+
   try {
-    const rows = await query<BQBenchmarkRow>(BENCHMARKS_SQL);
+    const rows = await query<BQBenchmarkRow>(BENCHMARKS_SQL(tenant.dashboardId));
     const r = rows[0];
 
     if (!r) {
@@ -99,7 +103,7 @@ export async function GET(_request: Request): Promise<Response> {
 
     return Response.json(
       { benchmarks },
-      { headers: { 'Cache-Control': 'public, max-age=3600, stale-while-revalidate=300' } }
+      { headers: { 'Cache-Control': 'private, max-age=3600, stale-while-revalidate=300' } }
     );
 
   } catch (err: unknown) {

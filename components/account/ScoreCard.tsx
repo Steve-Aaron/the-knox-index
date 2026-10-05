@@ -6,7 +6,7 @@ import { DashCard } from '@/components/primitives/DashCard';
 import { CountUp } from '@/components/primitives/CountUp';
 import { DevLabel } from '@/components/primitives/DevLabel';
 import { Kicker } from '@/components/ui/Kicker';
-import { neutral, glass, party } from '@/theme/colors';
+import { neutral, glass, colourFor } from '@/theme/colors';
 import { spacing, radius } from '@/theme/spacing';
 import { type, font } from '@/theme/typography';
 import type { ScoreKey, AccountRanking, AccountRankEntry } from '@/data/types';
@@ -60,7 +60,7 @@ function LeaderboardRow({
   isTarget:    boolean;
   accentColor: string;
 }) {
-  const colour = party[entry.partyKey];
+  const colour = colourFor(entry.groupKey);
   return (
     <View style={[styles.row, isTarget && { backgroundColor: accentColor + '14', borderColor: accentColor + '55' }]}>
       <Text
@@ -70,7 +70,7 @@ function LeaderboardRow({
         #{rank}
       </Text>
       <CardAvatar
-        partyKey={entry.partyKey}
+        groupKey={entry.groupKey}
         initials={entry.avatarInitials}
         avatarUrl={entry.avatarUrl}
         size={28}

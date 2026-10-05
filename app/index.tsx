@@ -18,13 +18,14 @@ import { PostsTable } from '@/components/dashboard/PostsTable';
 import { MobileSection } from '@/components/primitives/MobileSection';
 import { LoadingScreen } from '@/components/dashboard/LoadingScreen';
 import { TimeRangePicker, TimeRange } from '@/components/dashboard/TimeRangePicker';
-import { PartyLeaderboard } from '@/components/dashboard/PartyLeaderboard';
+import { GroupLeaderboard } from '@/components/dashboard/GroupLeaderboard';
 import { AccountsInterstitial } from '@/components/dashboard/AccountsInterstitial';
 import { StyleBreakdown } from '@/components/dashboard/StyleBreakdown';
 import { TopicCloud } from '@/components/dashboard/TopicCloud';
 import { ContactFooter } from '@/components/dashboard/ContactFooter';
 import { AppFooter } from '@/components/dashboard/AppFooter';
 import { StickyUnlock } from '@/components/auth/StickyUnlock';
+import { TenantGate } from '@/components/auth/TenantGate';
 import { HeaderNav } from '@/components/primitives/HeaderNav';
 import { SquareButton } from '@/components/primitives/SquareButton';
 import { HomeHero } from '@/components/dashboard/HomeHero';
@@ -50,7 +51,7 @@ import { type } from '@/theme/typography';
 import { breakpoints } from '@/theme/breakpoints';
 import type { LeaderboardSortKey } from '@/data/types';
 import { leaderboardScore, viralityRatioFor, engagementRate } from '@/data/leaderboard';
-import type { PartyKey } from '@/theme/colors';
+import type { GroupKey } from '@/theme/colors';
 
 /**
  * Home screen — three-zone layout:
@@ -73,8 +74,8 @@ const SORTS: { key: LeaderboardSortKey; label: string }[] = [
 
 const RANGE_LABELS: Record<TimeRange, string> = {
   yesterday: 'Yesterday',
-  week:      'This week',
-  month:     'This month',
+  week:      'Last 7 days',
+  month:     'Last 30 days',
   year:      'This year',
   lifetime:  'Lifetime',
 };
@@ -96,11 +97,12 @@ function DashboardScreenInner() {
   const sectionRef = useSectionTracking();
 
   // Default to 'Yesterday' for everyone (logged-in or not).
-  const [range, setRange]           = useState<TimeRange>('yesterday');
+  const [range, setRange]           = useState<TimeRange>('week');
   const [sortKey, setSortKey]       = useState<LeaderboardSortKey>('knoxFactor');
   const [activeId, setActiveId]     = useState<string>('');
   const [showAccounts, setShowAccounts] = useState(false);
-  const [partyFilter, setPartyFilter] = useState<PartyKey | null>(null);
+  // Party key on The Knox Index, region key on World Leaders — see data/grouping.ts.
+  const [groupFilter, setGroupFilter] = useState<GroupKey | null>(null);
   const [styleFilter, setStyleFilter] = useState<string | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
   const postsSectionRef = useRef<View>(null);
@@ -141,24 +143,24 @@ function DashboardScreenInner() {
     }
   }, []);
 
-  // Tapping a row in the PartyLeaderboard widget also changes the post feed's
-  // party filter via shared parent state. Fire `party_filter_changed` here so
+  // Tapping a row in the GroupLeaderboard widget also changes the post feed's
+  // group filter via shared parent state. Fire `party_filter_changed` here so
   // the analytics event tracks every filter state change regardless of which
   // UI surface triggered it. The leaderboard-specific event
   // `party_leaderboard_row_tapped` is still fired separately from inside
-  // PartyLeaderboard itself — the two events measure different intents and
+  // GroupLeaderboard itself — the two events measure different intents and
   // both are useful.
-  const handlePartyLeaderboardSelect = useCallback((pk: PartyKey | null) => {
+  const handleGroupLeaderboardSelect = useCallback((pk: GroupKey | null) => {
     track('party_filter_changed', {
       party:  pk ?? 'all',
       source: 'leaderboard',
     });
-    setPartyFilter(pk);
+    setGroupFilter(pk);
   }, []);
 
   // Area 4: enhanced sort/range handlers that carry previous values
   const prevSortRef  = useRef<LeaderboardSortKey>('knoxFactor');
-  const prevRangeRef = useRef<TimeRange>('yesterday');
+  const prevRangeRef = useRef<TimeRange>('week');
 
   const handleSetRange = useCallback((r: TimeRange) => {
     track('time_range_changed', {
@@ -194,7 +196,7 @@ function DashboardScreenInner() {
       track('politician_dwell', {
         politician_id:   previousId,
         politician_name: prev?.name      ?? null,
-        party_key:       prev?.partyKey  ?? null,
+        party_key:       prev?.groupKey  ?? null,
         dwell_ms:        stopTimer(politicianTimerKey),
       });
     }
@@ -210,8 +212,8 @@ function DashboardScreenInner() {
       track('politician_selected', {
         politician_id:   id,
         politician_name: p?.name      ?? null,
-        party_key:       p?.partyKey  ?? null,
-        party_label:     p?.partyLabel ?? null,
+        party_key:       p?.groupKey  ?? null,
+        party_label:     p?.groupLabel ?? null,
         rank,
         sort_key:        sortKeyRef.current,
       });
@@ -586,18 +588,18 @@ function DashboardScreenInner() {
           )}
           </MobileSection>
 
-          {/* ── 5. Party league ───────────────────────── */}
+          {/* ── 5. Group league (party or region) ───────── */}
           <MobileSection index={3}>
           <View
             ref={sectionRef('party_leaderboard') as any}
             style={[styles.partySection, { paddingHorizontal: hPad }]}
             {...(Platform.OS === 'web' ? { 'data-container_name': 'row_party_leaderboard' } as any : {})}
           >
-            <PartyLeaderboard
+            <GroupLeaderboard
               politicians={politicians}
               range={range}
-              activeParty={partyFilter}
-              onPartySelect={handlePartyLeaderboardSelect}
+              activeGroup={groupFilter}
+              onGroupSelect={handleGroupLeaderboardSelect}
             />
           </View>
           </MobileSection>
@@ -626,8 +628,8 @@ function DashboardScreenInner() {
                 isAdmin={isAdmin}
                 onFiltersChange={setFeedFilters}
                 total={postsTotal}
-                externalPartyFilter={partyFilter}
-                onPartyFilterChange={setPartyFilter}
+                externalPartyFilter={groupFilter}
+                onPartyFilterChange={setGroupFilter}
                 externalStyleFilter={styleFilter}
                 onStyleFilterChange={setStyleFilter}
                 externalSortKey={postsSortKey}
@@ -730,9 +732,13 @@ function DashboardScreenInner() {
 }
 
 export default function DashboardScreen() {
+  // TenantGate is a pass-through on public tenants (The Knox Index) and the
+  // sign-in / approval door on gated ones (World Leaders).
   return (
     <ErrorBoundary>
-      <DashboardScreenInner />
+      <TenantGate>
+        <DashboardScreenInner />
+      </TenantGate>
     </ErrorBoundary>
   );
 }

@@ -4,8 +4,10 @@ import { MotiView } from 'moti';
 import { LinearGradient } from 'expo-linear-gradient';
 import { KeyFindingsBar } from '@/components/dashboard/KeyFindingsBar';
 import { UkMap } from '@/components/dashboard/UkMap';
+import { WorldGlobe } from '@/components/dashboard/WorldGlobe';
+import { useTenant } from '@/hooks/useTenant';
 import { DevLabel } from '@/components/primitives/DevLabel';
-import { neutral, glass, brand } from '@/theme/colors';
+import { neutral, glass, brand, knox } from '@/theme/colors';
 import { spacing } from '@/theme/spacing';
 import { font } from '@/theme/typography';
 import { breakpoints } from '@/theme/breakpoints';
@@ -60,10 +62,8 @@ interface Props {
   ready?:      boolean;
 }
 
-const COPY = {
-  tagline:     'Learn how UK politicians use TikTok, in real time. Get insights live on our dashboard below, and bespoke email insights every day.',
-  placeholder: 'IMAGE PLACEHOLDER',
-};
+// Headline words, tagline and which map renders all come from the tenant
+// (lib/tenants.ts) — the layout and animation are identical for every one.
 
 const STACK_BREAKPOINT = breakpoints.tablet;
 
@@ -73,6 +73,8 @@ const TAGLINE_DELAY       = 290;
 const IMAGE_DELAY         = 240;
 
 export function HomeHero({ politicians, range, totalPostsInDb, totalViewsInDb, topPost, ready = true }: Props) {
+  const tenant = useTenant();
+  const headlineWords = tenant.brand.headlineWords;
   const { width, height } = useWindowDimensions();
   const isStacked = width < STACK_BREAKPOINT;
   const isWeb     = Platform.OS === 'web';
@@ -112,8 +114,9 @@ export function HomeHero({ politicians, range, totalPostsInDb, totalViewsInDb, t
             transforms render with depth (the 'fold' feel). */}
         <View style={[styles.leftCol, isWeb && webFoldPerspective, isStacked && styles.leftColStacked]}>
           {/* Stacked headline — one word per line, staggered fold-in */}
-          {(['THE', 'KNOX', 'INDEX'] as const).map((word, i) => {
-            const isIndex = word === 'INDEX';
+          {headlineWords.map((word, i) => {
+            // The final word carries the Knox gradient highlight.
+            const isIndex = i === headlineWords.length - 1;
             const textNode = (
               <Text
                 style={[styles.headline, isWeb && webNoWrap, isStacked && styles.headlineStacked, isIndex && styles.headlineIndex]}
@@ -150,6 +153,25 @@ export function HomeHero({ politicians, range, totalPostsInDb, totalViewsInDb, t
             );
           })}
 
+          {/* Subtitle — what this dashboard covers. The product name above it
+              stays the same on every tenant; this is the line that changes. */}
+          {tenant.brand.subtitle ? (
+            <MotiView
+              from={FROM_TAGLINE}
+              animate={ready ? TO_TAGLINE : FROM_TAGLINE}
+              transition={{ type: 'spring', damping: 18, stiffness: 140, mass: 0.9, delay: TAGLINE_DELAY - 60 }}
+              style={isWeb ? webFoldOriginBottom : undefined}
+            >
+              <Text
+                style={[styles.subtitle, isStacked && styles.subtitleStacked]}
+                numberOfLines={1}
+                {...(isWeb ? { dataSet: { component: 'tenantSubtitle' } } as any : {})}
+              >
+                {tenant.brand.subtitle}
+              </Text>
+            </MotiView>
+          ) : null}
+
           {/* Tagline folds in from below — pivots from the bottom edge
               from +60° (folded forward, tilted down) to 0° (upright). A
               gentler angle so it doesn't compete with the headline. */}
@@ -166,12 +188,12 @@ export function HomeHero({ politicians, range, totalPostsInDb, totalViewsInDb, t
             style={[styles.taglineWrap, isStacked && styles.taglineWrapStacked, isWeb && webFoldOriginBottom]}
           >
             <Text style={[styles.tagline, isStacked && styles.taglineStacked]}>
-              {COPY.tagline}
+              {tenant.brand.tagline}
             </Text>
           </MotiView>
         </View>
 
-        {/* RIGHT — animated UK map with looping marker reveals */}
+        {/* RIGHT — animated map with looping marker reveals, per tenant */}
         <View style={[styles.rightCol, isStacked && styles.rightColStacked]}>
           <MotiView
             from={FROM_IMAGE}
@@ -179,7 +201,11 @@ export function HomeHero({ politicians, range, totalPostsInDb, totalViewsInDb, t
             transition={{ type: 'timing', duration: 600, delay: IMAGE_DELAY }}
             style={styles.mapWrap}
           >
-            <UkMap politicians={politicians} />
+            {tenant.map === 'world'
+              ? <WorldGlobe politicians={politicians} />
+              : tenant.map === 'uk'
+                ? <UkMap politicians={politicians} />
+                : null}
           </MotiView>
         </View>
       </View>
@@ -223,6 +249,20 @@ const styles = StyleSheet.create({
     paddingTop:        spacing.lg,
     paddingBottom:     spacing.lg,
     overflow:          'hidden',
+  },
+
+  // Subtitle — sits between the headline and the tagline, in the brand accent.
+  subtitle: {
+    fontFamily:    font.bold,
+    fontSize:      26,
+    letterSpacing: 4,
+    textTransform: 'uppercase',
+    color:         knox.primaryOrange,
+    marginTop:     spacing.sm,
+  },
+  subtitleStacked: {
+    fontSize:      18,
+    letterSpacing: 2.5,
   },
 
   // ── Top row — headline+tagline (left) | image (right) ─────────────────────

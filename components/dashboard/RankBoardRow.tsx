@@ -3,7 +3,7 @@ import { View, Text, Pressable, StyleSheet, Platform } from 'react-native';
 import { CardAvatar } from '@/components/card/CardAvatar';
 import { CountUp } from '@/components/primitives/CountUp';
 import { DevLabel } from '@/components/primitives/DevLabel';
-import { neutral, party, glass, accent } from '@/theme/colors';
+import { neutral, party, glass, accent, colourFor } from '@/theme/colors';
 import { spacing, radius } from '@/theme/spacing';
 import { type } from '@/theme/typography';
 import type { Politician, LeaderboardSortKey } from '@/data/types';
@@ -31,7 +31,7 @@ interface Props {
 }
 
 export function RankBoardRow({ politician, rank, headlineKey, active, onPress, isLifetime = true, viewsMax = 0, engReference = 15 }: Props) {
-  const colour  = party[politician.partyKey];
+  const colour  = colourFor(politician.groupKey);
   // An account is silent if it has no posts this week AND no views yesterday.
   // knoxFactor === 0 is a reliable proxy once the @ join bug is fixed.
   const silent  = politician.scores.knoxFactor === 0
@@ -66,12 +66,12 @@ export function RankBoardRow({ politician, rank, headlineKey, active, onPress, i
       >
         #{rank}
       </Text>
-      <CardAvatar partyKey={politician.partyKey} initials={politician.avatarInitials} size={36} avatarUrl={politician.avatarUrl} />
+      <CardAvatar groupKey={politician.groupKey} initials={politician.avatarInitials} size={36} avatarUrl={politician.avatarUrl} />
       <View style={styles.id}>
         <Text style={[styles.name, silent && styles.textSilent]} numberOfLines={1}>
           {politician.name}
         </Text>
-        <Text style={styles.meta} numberOfLines={1}>{politician.partyLabel}</Text>
+        <Text style={styles.meta} numberOfLines={1}>{politician.groupLabel}</Text>
       </View>
 
       {silent ? (

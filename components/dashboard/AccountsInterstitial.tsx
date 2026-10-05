@@ -11,8 +11,8 @@ import {
 import { MotiView } from 'moti';
 import { Kicker } from '@/components/ui/Kicker';
 import { Title } from '@/components/ui/Title';
-import { neutral, glass, accent, party } from '@/theme/colors';
-import type { PartyKey } from '@/theme/colors';
+import { neutral, glass, accent, party, colourFor } from '@/theme/colors';
+import type { GroupKey } from '@/theme/colors';
 import { font } from '@/theme/typography';
 import { type } from '@/theme/typography';
 import { spacing, radius } from '@/theme/spacing';
@@ -129,7 +129,7 @@ export function AccountsInterstitial({ politicians, onClose, onRefresh }: Props)
           contentContainerStyle={styles.listContent}
         >
           {sorted.map((p, i) => {
-            const colour = party[p.partyKey as PartyKey];
+            const colour = colourFor(p.groupKey as GroupKey);
             const eng    = engagementRate(p);
             return (
               <MotiView

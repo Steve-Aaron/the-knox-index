@@ -4,17 +4,21 @@
  * Shared BigQuery SQL builders used by /api/ariadne and /api/account.
  * Server-side only — never import from client components.
  *
+ * Every builder takes `dashboardId` FIRST. It comes from the request host via
+ * lib/tenantRequest.ts, and is what scopes the query to one tenant's accounts
+ * (1 = The Knox Index, 2 = World Leaders). There is no default on purpose.
+ *
  * One job: produce correct, safe SQL strings for each query pattern.
  */
 
-import { tableRef, ACCOUNT_WEB, POST_WEB } from '@/lib/bigquery';
+import { tableRef, accountWeb, postWeb } from '@/lib/bigquery';
 
 // ── Range helpers ─────────────────────────────────────────────────────────────
 
 export type Range = 'yesterday' | 'week' | 'month' | 'year' | 'lifetime';
 export const VALID_RANGES: Range[] = ['yesterday', 'week', 'month', 'year', 'lifetime'];
 
-export function parseRange(raw: string | null, defaultRange: Range = 'yesterday'): Range {
+export function parseRange(raw: string | null, defaultRange: Range = 'week'): Range {
   return VALID_RANGES.includes(raw as Range) ? (raw as Range) : defaultRange;
 }
 
@@ -30,8 +34,8 @@ export function rangeDateFilter(range: Range): string {
 
 export const RANGE_LABELS: Record<Range, string> = {
   yesterday: 'Yesterday',
-  week:      'This week',
-  month:     'This month',
+  week:      'Last 7 days',
+  month:     'Last 30 days',
   year:      'This year',
   lifetime:  'Lifetime',
 };
@@ -65,8 +69,10 @@ function excludeHidden(profileExpr: string): string {
  * All accounts joined with their latest accountMetrics row and range
  * aggregates from the post table. Returns one row per account.
  */
-export function buildAccountsSQL(range: Range): string {
+export function buildAccountsSQL(dashboardId: number, range: Range): string {
   const dateFilter = rangeDateFilter(range);
+  const ACCOUNT_WEB = accountWeb(dashboardId);
+  const POST_WEB    = postWeb(dashboardId);
   return `
   SELECT
     a.id,
@@ -76,6 +82,17 @@ export function buildAccountsSQL(range: Range): string {
     a.affiliation,
     a.displayJobTitle,
     a.avatar,
+    -- from metadata.person, via accountWeb()
+    a.person_slug,
+    a.person_name,
+    a.person_job_title,
+    a.person_party,
+    a.person_wing,
+    a.person_country,
+    a.person_region,
+    a.person_constituency,
+    a.person_latitude,
+    a.person_longitude,
     COALESCE(a.totalFollowers, 0)  AS totalFollowers,
     COALESCE(a.totalFollowing, 0)  AS totalFollowing,
     COALESCE(m.totalPosts,     0)  AS totalPosts,
@@ -167,7 +184,9 @@ export function buildAccountsSQL(range: Range): string {
  * tile so it reports a true lifetime maximum rather than the top post within
  * the currently selected range. Joined to the account for display name + party.
  */
-export function buildTopPostSQL(): string {
+export function buildTopPostSQL(dashboardId: number): string {
+  const ACCOUNT_WEB = accountWeb(dashboardId);
+  const POST_WEB    = postWeb(dashboardId);
   return `
   SELECT
     CAST(p.postId AS STRING) AS postId,
@@ -175,6 +194,8 @@ export function buildTopPostSQL(): string {
     COALESCE(p.views, 0)     AS views,
     p.postUrl                AS postUrl,
     COALESCE(a.displayName, a.name) AS accountName,   -- prefer human display name over username
+    LTRIM(LOWER(a.profile), '@')    AS profile,
+    a.person_region          AS region,               -- from metadata.person, for region-grouped tenants
     a.party                  AS party
   FROM ${POST_WEB} p
   JOIN ${ACCOUNT_WEB} a
@@ -191,8 +212,9 @@ export function buildTopPostSQL(): string {
  * Most recent 5 processed posts per account within the selected range.
  * Used by /api/ariadne for the main dashboard feed.
  */
-export function buildPostsSQL(range: Range): string {
+export function buildPostsSQL(dashboardId: number, range: Range): string {
   const dateFilter = rangeDateFilter(range);
+  const POST_WEB   = postWeb(dashboardId);
   return `
   SELECT
     CAST(p.postId AS STRING) AS postId,
@@ -235,9 +257,10 @@ export function buildPostsSQL(range: Range): string {
  * Used by /api/account for the full post feed on account pages.
  * Handle must be pre-sanitised with sanitiseHandle().
  */
-export function buildAccountPostsSQL(handle: string, range: Range, limit = 20): string {
+export function buildAccountPostsSQL(dashboardId: number, handle: string, range: Range, limit = 20): string {
   const dateFilter = rangeDateFilter(range);
-  const safe = sanitiseHandle(handle);
+  const safe       = sanitiseHandle(handle);
+  const POST_WEB   = postWeb(dashboardId);
   return `
   SELECT
     CAST(p.postId AS STRING) AS postId,
@@ -275,8 +298,9 @@ export function buildAccountPostsSQL(handle: string, range: Range, limit = 20): 
  * No date filter — used by the account page post feed which shows
  * the full history regardless of the selected range.
  */
-export function buildAllAccountPostsSQL(handle: string, limit = 200): string {
-  const safe = sanitiseHandle(handle);
+export function buildAllAccountPostsSQL(dashboardId: number, handle: string, limit = 200): string {
+  const safe     = sanitiseHandle(handle);
+  const POST_WEB = postWeb(dashboardId);
   return `
   SELECT
     CAST(p.postId AS STRING) AS postId,

@@ -4,14 +4,16 @@ import { DashCard } from '@/components/primitives/DashCard';
 import { DevLabel } from '@/components/primitives/DevLabel';
 import { Kicker } from '@/components/ui/Kicker';
 import { Title } from '@/components/ui/Title';
-import { neutral, glass, party, brand } from '@/theme/colors';
-import type { PartyKey } from '@/theme/colors';
+import { neutral, glass, party, brand, colourFor } from '@/theme/colors';
+import type { GroupKey } from '@/theme/colors';
 import { spacing, radius } from '@/theme/spacing';
 import { type, font } from '@/theme/typography';
 import { formatters } from '@/components/primitives/CountUp';
 import { track } from '@/lib/analytics';
 import type { Politician } from '@/data/types';
 import type { TimeRange } from '@/components/dashboard/TimeRangePicker';
+import { useTenant } from '@/hooks/useTenant';
+import { labelForGroupKey } from '@/data/grouping';
 
 /** Short label for the activity meta line on each row. */
 const POSTS_PERIOD: Record<TimeRange, string> = {
@@ -25,18 +27,23 @@ const POSTS_PERIOD: Record<TimeRange, string> = {
 /** Kicker suffix per range. */
 const RANGE_KICKER: Record<TimeRange, string> = {
   yesterday: 'YESTERDAY',
-  week:      'THIS WEEK',
-  month:     'THIS MONTH',
+  week:      'LAST 7 DAYS',
+  month:     'LAST 30 DAYS',
   year:      'THIS YEAR',
   lifetime:  'ALL TIME',
 };
 
 /**
- * PartyLeaderboard
+ * GroupLeaderboard
  * -----------------
- * Aggregates politician-level numbers up to the party level so the user can
- * see at a glance which party is doing best or is most active on TikTok.
- * One job: party-level ranking, sortable by views / posts / engagement.
+ * Aggregates account-level numbers up to the tenant's grouping level — party
+ * on The Knox Index, region on World Leaders — so the reader can see at a
+ * glance which group is doing best or is most active on TikTok.
+ *
+ * The maths, sorting and bar rendering are identical for both; only the labels
+ * and the copy come from the tenant (lib/tenants.ts).
+ *
+ * One job: group-level ranking, sortable by views / posts / engagement.
  */
 
 type SortKey = 'views' | 'postsThisWeek' | 'engagement' | 'accounts';
@@ -44,12 +51,12 @@ type SortKey = 'views' | 'postsThisWeek' | 'engagement' | 'accounts';
 interface Props {
   politicians:    Politician[];
   range?:         TimeRange;
-  onPartySelect?: (partyKey: PartyKey | null) => void;
-  activeParty?:   PartyKey | null;
+  onGroupSelect?: (groupKey: GroupKey | null) => void;
+  activeGroup?:   GroupKey | null;
 }
 
-interface PartyRow {
-  key:            PartyKey;
+interface GroupRow {
+  key:            GroupKey;
   label:          string;
   accounts:       number;
   totalViews:     number;   // views in selected range (from post table)
@@ -58,13 +65,13 @@ interface PartyRow {
 }
 
 const SORT_OPTIONS: { key: SortKey; label: string; tip: string }[] = [
-  { key: 'views',         label: 'Views',      tip: 'Total views for this period, summed across every tracked account in the party.' },
-  { key: 'postsThisWeek', label: 'Activity',   tip: 'Total posts published in this period from every tracked account in the party.' },
+  { key: 'views',         label: 'Views',      tip: 'Total views for this period, summed across every tracked account in the group.' },
+  { key: 'postsThisWeek', label: 'Activity',   tip: 'Total posts published in this period from every tracked account in the group.' },
   { key: 'engagement',    label: 'Engagement', tip: 'Average engagement rate (likes + comments + saves + shares ÷ views) across all posts in this period.' },
-  { key: 'accounts',      label: 'Accounts',   tip: 'Number of distinct tracked accounts in the party.' },
+  { key: 'accounts',      label: 'Accounts',   tip: 'Number of distinct tracked accounts in the group.' },
 ];
 
-const PARTY_LABELS: Partial<Record<PartyKey, string>> = {
+const PARTY_LABELS: Partial<Record<GroupKey, string>> = {
   labour:       'Labour',
   conservative: 'Conservative',
   libdem:       'Lib Dem',
@@ -86,20 +93,22 @@ const PARTY_LABELS: Partial<Record<PartyKey, string>> = {
   unknown:      'Unknown',
 };
 
-export function PartyLeaderboard({ politicians, range = 'week', onPartySelect, activeParty }: Props) {
+export function GroupLeaderboard({ politicians, range = 'week', onGroupSelect, activeGroup }: Props) {
+  const tenant = useTenant();
+  const mode   = tenant.grouping.mode;
   const [sortKey, setSortKey] = useState<SortKey>('engagement');
   const postsPeriodLabel = POSTS_PERIOD[range];
   const rangeKicker = RANGE_KICKER[range];
 
-  const rows = useMemo<PartyRow[]>(() => {
-    const buckets = new Map<PartyKey, Politician[]>();
+  const rows = useMemo<GroupRow[]>(() => {
+    const buckets = new Map<GroupKey, Politician[]>();
     for (const p of politicians) {
-      const bucket = buckets.get(p.partyKey) ?? [];
+      const bucket = buckets.get(p.groupKey) ?? [];
       bucket.push(p);
-      buckets.set(p.partyKey, bucket);
+      buckets.set(p.groupKey, bucket);
     }
 
-    const out: PartyRow[] = [];
+    const out: GroupRow[] = [];
     for (const [key, members] of buckets) {
       // Use range-specific aggregates from the post table — these are always
       // populated (coalesced to 0 in SQL) and reflect the selected time window.
@@ -118,7 +127,9 @@ export function PartyLeaderboard({ politicians, range = 'week', onPartySelect, a
 
       out.push({
         key,
-        label:          PARTY_LABELS[key] ?? key,
+        // Party mode keeps the hand-written short labels ('Lib Dem', 'Sinn Féin');
+        // every other mode resolves its label from the grouping adapter.
+        label:          (mode === 'party' ? PARTY_LABELS[key] : undefined) ?? labelForGroupKey(mode, key),
         accounts:       members.length,
         totalViews,
         totalPosts,
@@ -134,23 +145,23 @@ export function PartyLeaderboard({ politicians, range = 'week', onPartySelect, a
         case 'accounts':      return b.accounts       - a.accounts;
       }
     });
-  }, [politicians, sortKey]);
+  }, [politicians, sortKey, mode]);
 
   const max = rows[0];
 
   return (
     <DashCard
       style={styles.wrap}
-      infoText="Politicians grouped by party and totalled. Use this to answer 'which party is dominating TikTok this week' and 'which party is most active'. Tap a party row to filter the post feed below."
-      infoTitle="Party League"
+      infoText={tenant.grouping.boardInfo}
+      infoTitle={`${tenant.grouping.label} League`}
     >
-      <DevLabel name="PartyLeaderboard" />
+      <DevLabel name="GroupLeaderboard" />
 
       <View style={styles.header}>
         <View style={styles.titleRow}>
           <View style={styles.titleBlock}>
-            <Kicker tone='dim'>PARTY LEAGUE · {rangeKicker}</Kicker>
-            <Title style={{ fontSize: 20, marginTop: 2 }}>Who's winning the party engagement war?</Title>
+            <Kicker tone='dim'>{tenant.grouping.boardKicker} · {rangeKicker}</Kicker>
+            <Title style={{ fontSize: 20, marginTop: 2 }}>{tenant.grouping.boardQuestion}</Title>
           </View>
         </View>
 
@@ -178,9 +189,9 @@ export function PartyLeaderboard({ politicians, range = 'week', onPartySelect, a
 
       <View style={styles.list}>
         {rows.length === 0 ? (
-          <Text style={styles.emptyText}>No party data available yet.</Text>
+          <Text style={styles.emptyText}>No {tenant.grouping.label.toLowerCase()} data available yet.</Text>
         ) : rows.map((row, i) => {
-          const colour = party[row.key];
+          const colour = colourFor(row.key);
           const denom = sortKey === 'views' ? max.totalViews
                       : sortKey === 'postsThisWeek' ? max.totalPosts
                       : sortKey === 'engagement' ? Math.max(max.engagementRate, 0.0001)
@@ -194,13 +205,16 @@ export function PartyLeaderboard({ politicians, range = 'week', onPartySelect, a
             ? `${row.engagementRate.toFixed(2)}%`
             : formatters.compact(headlineValue);
 
-          const isActive = activeParty === row.key;
+          const isActive = activeGroup === row.key;
 
           return (
             <Pressable
               key={row.key}
               onPress={() => {
+                // Event name kept for continuity of the existing Mixpanel
+                // reports; `group_mode` says whether it was a party or a region.
                 track('party_leaderboard_row_tapped', {
+                  group_mode:      mode,
                   party_key:       row.key,
                   party_label:     row.label,
                   rank:            i + 1,
@@ -209,8 +223,8 @@ export function PartyLeaderboard({ politicians, range = 'week', onPartySelect, a
                   total_posts:     row.totalPosts,
                   engagement_rate: +row.engagementRate.toFixed(2),
                 });
-                // Toggle: tap the same party again to clear the filter
-                onPartySelect?.(isActive ? null : row.key);
+                // Toggle: tap the same row again to clear the filter
+                onGroupSelect?.(isActive ? null : row.key);
               }}
               style={({ pressed, hovered }: any) => [
                 styles.row,

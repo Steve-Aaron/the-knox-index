@@ -11,13 +11,13 @@ import { ShimmerImage } from '@/components/primitives/ShimmerImage';
 import { MotiView } from 'moti';
 import { VideoModal } from './VideoModal';
 import { DevLabel } from '@/components/primitives/DevLabel';
-import { neutral, glass, party, accent } from '@/theme/colors';
+import { neutral, glass, accent, colourFor } from '@/theme/colors';
 import { type, font } from '@/theme/typography';
 import { spacing, radius } from '@/theme/spacing';
 import { formatters } from '@/components/primitives/CountUp';
 import { StyleChip } from '@/components/primitives/StyleChip';
 import type { RecentPost } from '@/data/types';
-import type { PartyKey } from '@/theme/colors';
+import type { GroupKey } from '@/theme/colors';
 
 /**
  * PostBangerCard
@@ -30,13 +30,13 @@ import type { PartyKey } from '@/theme/colors';
 interface Props {
   post: RecentPost;
   politicianName: string;
-  partyKey: PartyKey;
+  groupKey: GroupKey;
   delay?: number;
 }
 
-export function PostBangerCard({ post, politicianName, partyKey, delay = 0 }: Props) {
+export function PostBangerCard({ post, politicianName, groupKey, delay = 0 }: Props) {
   const [modalOpen, setModalOpen] = useState(false);
-  const colour = party[partyKey];
+  const colour = colourFor(groupKey);
 
   const handlePress = () => {
     if (post.videoMp4) {
@@ -123,7 +123,7 @@ export function PostBangerCard({ post, politicianName, partyKey, delay = 0 }: Pr
         postUrl={post.postUrl}
         postId={post.postId}
         politicianName={politicianName}
-        partyKey={partyKey}
+        groupKey={groupKey}
         views={post.views}
         styles={post.styles}
         onClose={() => setModalOpen(false)}

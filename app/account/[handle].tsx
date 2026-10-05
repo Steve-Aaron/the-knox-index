@@ -8,6 +8,7 @@ import {
   Pressable,
   useWindowDimensions,
 } from 'react-native';
+import { TenantGate } from '@/components/auth/TenantGate';
 import { useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -93,7 +94,7 @@ const notFoundStyles = StyleSheet.create({
   sub:   { ...type.body, color: neutral.textDim, fontSize: 14 },
 });
 
-export default function AccountPage() {
+function AccountPageInner() {
   const { handle } = useLocalSearchParams<{ handle: string }>();
   const { width }  = useWindowDimensions();
   const isDesktop  = width >= breakpoints.desktop;
@@ -200,7 +201,7 @@ export default function AccountPage() {
                         <AccountPostCard
                           key={post.postId}
                           post={post}
-                          partyKey={data.politician.partyKey}
+                          groupKey={data.politician.groupKey}
                           name={data.politician.name}
                           delay={i * 40}
                         />
@@ -290,3 +291,12 @@ const styles = StyleSheet.create({
     letterSpacing: 1.4,
   },
 });
+
+/** Gated tenants show the sign-in / approval door instead of the account. */
+export default function AccountPage() {
+  return (
+    <TenantGate>
+      <AccountPageInner />
+    </TenantGate>
+  );
+}

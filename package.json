@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "main": "expo-router/entry",
   "scripts": {
+    "dev": "EXPO_OFFLINE=1 expo start --web",
     "start": "EXPO_OFFLINE=1 expo start",
     "web": "EXPO_OFFLINE=1 expo start --web",
     "web:full": "EXPO_OFFLINE=1 EXPO_PUBLIC_DEV_AUTH=full expo start --web",
@@ -13,7 +14,21 @@
     "typecheck": "tsc --noEmit",
     "check:knox": "node scripts/check-knox-isolation.mjs",
     "docs:build": "node scripts/build-api-docs.mjs",
-    "migrate:weekly": "node scripts/migrate-daily-to-weekly.mjs"
+    "migrate:weekly": "node scripts/migrate-daily-to-weekly.mjs",
+    "check:tenants": "node --experimental-strip-types scripts/check-tenants.mjs",
+    "gen:globe": "node scripts/generate-world-geometry.mjs",
+    "meta:create": "node scripts/metadata/001-create.mjs",
+    "meta:backfill": "node scripts/metadata/002-backfill-person.mjs",
+    "check:metadata": "node scripts/metadata/check-metadata.mjs",
+    "meta:move": "node scripts/metadata/000-move-dataset.mjs",
+    "snapshot": "node scripts/snapshot.mjs",
+    "verify": "npm run typecheck && npm run check:knox && npm run check:tenants && npm run check:metadata",
+    "meta:links:create": "node scripts/metadata/003-create-links.mjs",
+    "meta:links": "node scripts/metadata/004-link-accounts.mjs",
+    "meta:writeback": "node scripts/metadata/005-writeback-links.mjs",
+    "check:render": "node scripts/render-check.mjs",
+    "meta:origin": "node scripts/metadata/006-person-origin.mjs",
+    "gen:countries": "node scripts/metadata/generate-countries.mjs"
   },
   "dependencies": {
     "@expo-google-fonts/figtree": "^0.4.1",
@@ -57,6 +72,9 @@
     "@types/react": "~18.3.12",
     "@types/react-dom": "^18.3.7",
     "@vercel/node": "^5.8.8",
+    "d3-geo": "^3.1.1",
+    "playwright": "^1.63.0",
+    "topojson-client": "^3.1.0",
     "typescript": "~5.3.3"
   },
   "engines": {

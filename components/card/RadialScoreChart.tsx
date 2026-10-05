@@ -3,7 +3,7 @@ import { View, Text, Pressable, StyleSheet, Platform } from 'react-native';
 import { track } from '@/lib/analytics';
 import Svg, { Polygon, Circle, Line, Text as SvgText, Rect, Defs, RadialGradient, Stop, G } from 'react-native-svg';
 import Animated, { useAnimatedProps, useAnimatedStyle, useSharedValue, withTiming, withDelay, Easing } from 'react-native-reanimated';
-import { party, PartyKey, neutral } from '@/theme/colors';
+import { GroupKey, neutral, colourFor } from '@/theme/colors';
 import { font } from '@/theme/typography';
 import type { TopTrumpScores, ScoreKey } from '@/data/types';
 import { engagementScore, viralityScoreDisplay } from '@/data/leaderboard';
@@ -18,6 +18,7 @@ const SVG_FONT_LABEL  = Platform.select({ web: 'Figtree, sans-serif', default: '
 const SVG_WEIGHT_LABEL: string = '600';
 import { timing } from '@/theme/motion';
 import { DevLabel } from '@/components/primitives/DevLabel';
+import { fmtCount } from '@/lib/format';
 
 const AnimatedPolygon = Animated.createAnimatedComponent(Polygon);
 const AnimatedG       = Animated.createAnimatedComponent(G);
@@ -44,7 +45,7 @@ export interface RawScoreValues {
 
 interface Props {
   scores: TopTrumpScores;
-  partyKey: PartyKey;
+  groupKey: GroupKey;
   size?: number;
   highlightKey?: ScoreKey | null;
   rawValues?: RawScoreValues;
@@ -92,11 +93,8 @@ function buildAxes(range: TimeRange): { key: ScoreKey; label: string; desc: stri
   ];
 }
 
-function compact(n: number): string {
-  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M';
-  if (n >= 1_000) return (n / 1_000).toFixed(1) + 'K';
-  return String(Math.round(n));
-}
+/** Compact counts come from the one implementation in lib/format.ts. */
+const compact = fmtCount;
 
 function polar(cx: number, cy: number, radius: number, angleDeg: number) {
   const a = (angleDeg - 90) * (Math.PI / 180);
@@ -108,8 +106,8 @@ function polar(cx: number, cy: number, radius: number, angleDeg: number) {
 // leaderboard agree. These shape the dots only — they DO NOT touch the Knox
 // Factor or its `scores`.
 
-export function RadialScoreChart({ scores, partyKey, size = 440, highlightKey, rawValues, range = 'week', engReference = 15 }: Props) {
-  const colour   = party[partyKey];
+export function RadialScoreChart({ scores, groupKey, size = 440, highlightKey, rawValues, range = 'week', engReference = 15 }: Props) {
+  const colour   = colourFor(groupKey);
   const cx       = size / 2;
   const cy       = size / 2;
   const maxR     = size / 2 - 30;
@@ -148,10 +146,10 @@ export function RadialScoreChart({ scores, partyKey, size = 440, highlightKey, r
       const idx = activeDotIdx ?? dotHoverIdx;
       track('radial_chart_hovered', {
         axis_key:  idx !== null ? AXES[idx]?.key ?? null : null,
-        party_key: partyKey,
+        party_key: groupKey,
       });
     }
-  }, [dotHoverIdx, activeDotIdx, partyKey]);
+  }, [dotHoverIdx, activeDotIdx, groupKey]);
 
   const openDot = (idx: number) => {
     setActiveDotIdx(idx);
@@ -227,7 +225,7 @@ export function RadialScoreChart({ scores, partyKey, size = 440, highlightKey, r
       <DevLabel name="RadialScoreChart" />
       <Svg width={size} height={size}>
         <Defs>
-          <RadialGradient id={`spiderFill-${partyKey}`} cx="50%" cy="50%" r="50%">
+          <RadialGradient id={`spiderFill-${groupKey}`} cx="50%" cy="50%" r="50%">
             <Stop offset="0%" stopColor={colour.glow} stopOpacity={0.55} />
             <Stop offset="100%" stopColor={colour.base} stopOpacity={0.15} />
           </RadialGradient>
@@ -259,7 +257,7 @@ export function RadialScoreChart({ scores, partyKey, size = 440, highlightKey, r
         {/* Score polygon */}
         <AnimatedPolygon
           animatedProps={animatedPolygonProps}
-          fill={`url(#spiderFill-${partyKey})`}
+          fill={`url(#spiderFill-${groupKey})`}
           stroke={colour.base}
           strokeWidth={2}
           strokeLinejoin="round"

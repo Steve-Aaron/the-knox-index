@@ -1,4 +1,4 @@
-import type { PartyKey } from '@/theme/colors';
+import type { GroupKey } from '@/theme/colors';
 
 /**
  * Top-Trump score axis. All normalised 0..100 relative to dataset maximum.
@@ -29,7 +29,7 @@ export interface AccountRankEntry {
   id:             string;
   name:           string;
   handle:         string;
-  partyKey:       PartyKey;
+  groupKey:       GroupKey;
   avatarUrl?:     string;
   avatarInitials: string;
   score:          number;
@@ -79,7 +79,7 @@ export interface RecentPost {
 /**
  * The single most-viewed post across the whole dataset, all time. Surfaced by
  * /api/ariadne (range-independent) for the KeyFindingsBar "Top performing post"
- * tile. partyKey is resolved server-side so the client can colour it directly.
+ * tile. groupKey is resolved server-side so the client can colour it directly.
  */
 export interface LifetimeTopPost {
   postId:      string;
@@ -88,7 +88,7 @@ export interface LifetimeTopPost {
   /** Direct TikTok URL for the post — used to make the headline tile clickable. */
   postUrl:     string;
   accountName: string;
-  partyKey:    PartyKey;
+  groupKey:    GroupKey;
 }
 
 /** Full post record used by the PostsTable section. */
@@ -96,7 +96,7 @@ export interface PostRecord {
   postId:          string;
   profile:         string;
   politicianName:  string;
-  partyKey:        import('@/theme/colors').PartyKey;
+  groupKey:        import('@/theme/colors').GroupKey;
   caption:         string;
   videoSummary:    string;
   coverJpeg:       string;
@@ -173,9 +173,17 @@ export interface Politician {
   handle: string;           // e.g. "@rishisunak"
   role: string;             // e.g. "MP, Richmond"
   displayJobTitle: string;  // curated job title, e.g. "MP for Ipswich"
-  partyKey: PartyKey;
-  partyLabel: string;       // human-readable party name
-  country: string;          // ISO-style short e.g. "UK"
+  /** Colour + grouping key for the ACTIVE tenant: a party key on The Knox
+   *  Index, a region key on World Leaders. See data/grouping.ts. */
+  groupKey: GroupKey;
+  /** Human-readable name of that group, e.g. 'Labour' or 'Europe'. */
+  groupLabel: string;
+  /** Always the political party, whatever the tenant groups by. */
+  partyLabel: string;
+  /** Country name on a region-grouped tenant, 'UK' on The Knox Index. */
+  country: string;
+  /** Country centroid from metadata.person, in degrees. Plotted by the globe. */
+  coordinates?: { lat: number; lng: number };
   avatarInitials: string;   // two-letter fallback
   avatarUrl?: string;       // signed GCS photo URL from account.avatar
   accountTypes?: AccountType[];  // all types — a politician may have several (e.g. party_leader + member_of_parliament)

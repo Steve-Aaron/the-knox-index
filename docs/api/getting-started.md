@@ -208,8 +208,10 @@ Three caveats:
 ## 7. Data gating
 
 Public reads of accounts and posts go through the derived tables `ACCOUNT_WEB`
-and `POST_WEB`, which restrict rows to accounts joined to `account_x_dashboard`
-with `dashboardId = 1`. The handle `ukgov` is additionally hidden from all
+and `postWeb(dashboardId)`, which restrict rows to accounts joined to
+`account_x_dashboard` for the dashboard that the request's host maps to
+(`index.knox.digital` → 1, `worldleaders.index.knox.digital` → 2). The handle
+`ukgov` is additionally hidden from all
 public reads. Admin routes bypass this and see everything, so figures from
 admin endpoints will not match public ones.
 

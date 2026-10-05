@@ -19,7 +19,7 @@ import { CountUp, formatters } from '@/components/primitives/CountUp';
 import { StyleChip } from '@/components/primitives/StyleChip';
 import { fmtDate, fmtSingular } from '@/lib/format';
 import { FollowerQualityFlag } from './FollowerQualityFlag';
-import { neutral, party, glass } from '@/theme/colors';
+import { neutral, party, glass, colourFor } from '@/theme/colors';
 import { font } from '@/theme/typography';
 import { spacing, radius } from '@/theme/spacing';
 import { type } from '@/theme/typography';
@@ -75,14 +75,14 @@ function roleLabel(p: Politician): string {
  */
 const RANGE_TOTALS_LABEL: Record<TimeRange, string> = {
   yesterday: 'Yesterday',
-  week:      'Past 7 days',
-  month:     'This month',
+  week:      'Last 7 days',
+  month:     'Last 30 days',
   year:      'This year',
   lifetime:  'All time',
 };
 
 export function PoliticianDetailPanel({ politician, headlineKey, range, panelHeight, engReference = 15 }: Props) {
-  const colour = party[politician.partyKey];
+  const colour = colourFor(politician.groupKey);
 
   const recentPosts = politician.recentPosts ?? [];
 
@@ -172,8 +172,8 @@ export function PoliticianDetailPanel({ politician, headlineKey, range, panelHei
             <CardHeader
               name={politician.name}
               role={roleLabel(politician)}
-              partyLabel={fmtSingular(politician.partyLabel)}
-              partyKey={politician.partyKey}
+              groupLabel={fmtSingular(politician.groupLabel)}
+              groupKey={politician.groupKey}
               initials={politician.avatarInitials}
               avatarUrl={politician.avatarUrl}
             />
@@ -203,7 +203,7 @@ export function PoliticianDetailPanel({ politician, headlineKey, range, panelHei
             </View>
             <RadialScoreChart
               scores={politician.scores}
-              partyKey={politician.partyKey}
+              groupKey={politician.groupKey}
               highlightKey={headlineKey === 'views' ? null : headlineKey}
               rawValues={rawValues}
               range={range}

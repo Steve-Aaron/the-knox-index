@@ -1,0 +1,906 @@
+{
+ "abdelmadjid_tebboune_": {
+  "country_iso2": "DZ",
+  "country": "Algeria",
+  "continent": "Africa",
+  "region": "africa",
+  "latitude": 28,
+  "longitude": 3
+ },
+ "abiyahmedali": {
+  "country_iso2": "ET",
+  "country": "Ethiopia",
+  "continent": "Africa",
+  "region": "africa",
+  "latitude": 8,
+  "longitude": 38
+ },
+ "advocateduma_boko": {
+  "country_iso2": "BW",
+  "country": "Botswana",
+  "continent": "Africa",
+  "region": "africa",
+  "latitude": -22,
+  "longitude": 24
+ },
+ "ajseguro": {
+  "country_iso2": "PT",
+  "country": "Portugal",
+  "continent": "Europe",
+  "region": "europe",
+  "latitude": 39.5,
+  "longitude": -8
+ },
+ "albomp": {
+  "country_iso2": "AU",
+  "country": "Australia",
+  "continent": "Oceania",
+  "region": "oceania",
+  "latitude": -27,
+  "longitude": 133
+ },
+ "alexandru.munteanu.pm": {
+  "country_iso2": "MD",
+  "country": "Moldova",
+  "continent": "Europe",
+  "region": "europe",
+  "latitude": 47,
+  "longitude": 29
+ },
+ "alexstubb": {
+  "country_iso2": "FI",
+  "country": "Finland",
+  "continent": "Europe",
+  "region": "europe",
+  "latitude": 64,
+  "longitude": 26
+ },
+ "andrejbabis": {
+  "country_iso2": "CZ",
+  "country": "Czechia",
+  "continent": "Europe",
+  "region": "europe",
+  "latitude": 49.75,
+  "longitude": 15.5
+ },
+ "andrewmholness": {
+  "country_iso2": "JM",
+  "country": "Jamaica",
+  "continent": "North America",
+  "region": "northamerica",
+  "latitude": 18.25,
+  "longitude": -77.5
+ },
+ "anurakumaraofficial": {
+  "country_iso2": "LK",
+  "country": "Sri Lanka",
+  "continent": "Asia",
+  "region": "asia",
+  "latitude": 7,
+  "longitude": 81
+ },
+ "anwaribrahimofficial": {
+  "country_iso2": "MY",
+  "country": "Malaysia",
+  "continent": "Asia",
+  "region": "asia",
+  "latitude": 2.5,
+  "longitude": 112.5
+ },
+ "aziz_akhannouch": {
+  "country_iso2": "MA",
+  "country": "Morocco",
+  "continent": "Africa",
+  "region": "africa",
+  "latitude": 32,
+  "longitude": -5
+ },
+ "balenshah": {
+  "country_iso2": "NP",
+  "country": "Nepal",
+  "continent": "Asia",
+  "region": "asia",
+  "latitude": 28,
+  "longitude": 84
+ },
+ "bernardoarevalogt": {
+  "country_iso2": "GT",
+  "country": "Guatemala",
+  "continent": "North America",
+  "region": "northamerica",
+  "latitude": 15.5,
+  "longitude": -90.25
+ },
+ "bnetanyahu": {
+  "country_iso2": "IL",
+  "country": "Israel",
+  "continent": "Asia",
+  "region": "middleeast",
+  "latitude": 31.47,
+  "longitude": 35.13
+ },
+ "bongbong.marcos": {
+  "country_iso2": "PH",
+  "country": "Philippines",
+  "continent": "Asia",
+  "region": "asia",
+  "latitude": 13,
+  "longitude": 122
+ },
+ "bravedavisofficial": {
+  "country_iso2": "BS",
+  "country": "Bahamas",
+  "continent": "North America",
+  "region": "northamerica",
+  "latitude": 24.25,
+  "longitude": -76
+ },
+ "christopherluxonmp": {
+  "country_iso2": "NZ",
+  "country": "New Zealand",
+  "continent": "Oceania",
+  "region": "oceania",
+  "latitude": -41,
+  "longitude": 174
+ },
+ "claudiasheinbaum": {
+  "country_iso2": "MX",
+  "country": "Mexico",
+  "continent": "North America",
+  "region": "northamerica",
+  "latitude": 23,
+  "longitude": -102
+ },
+ "coolbergs": {
+  "country_iso2": "LV",
+  "country": "Latvia",
+  "continent": "Europe",
+  "region": "europe",
+  "latitude": 57,
+  "longitude": 25
+ },
+ "daniel_chapo24": {
+  "country_iso2": "MZ",
+  "country": "Mozambique",
+  "continent": "Africa",
+  "region": "africa",
+  "latitude": -18.25,
+  "longitude": 35
+ },
+ "danielnoboaok": {
+  "country_iso2": "EC",
+  "country": "Ecuador",
+  "continent": "South America",
+  "region": "southamerica",
+  "latitude": -2,
+  "longitude": -77.5
+ },
+ "delaespriella_style": {
+  "country_iso2": "CO",
+  "country": "Colombia",
+  "continent": "South America",
+  "region": "southamerica",
+  "latitude": 4,
+  "longitude": -72
+ },
+ "dickonmitchell": {
+  "country_iso2": "GD",
+  "country": "Grenada",
+  "continent": "North America",
+  "region": "northamerica",
+  "latitude": 12.11666666,
+  "longitude": -61.66666666
+ },
+ "donald_tusk": {
+  "country_iso2": "PL",
+  "country": "Poland",
+  "continent": "Europe",
+  "region": "europe",
+  "latitude": 52,
+  "longitude": 20
+ },
+ "dr_godwinfriday": {
+  "country_iso2": "VC",
+  "country": "Saint Vincent and the Grenadines",
+  "continent": "North America",
+  "region": "northamerica",
+  "latitude": 13.25,
+  "longitude": -61.2
+ },
+ "dr.denisbecirovic": {
+  "country_iso2": "BA",
+  "country": "Bosnia and Herzegovina",
+  "continent": "Europe",
+  "region": "europe",
+  "latitude": 44,
+  "longitude": 18
+ },
+ "ediramatiktok": {
+  "country_iso2": "AL",
+  "country": "Albania",
+  "continent": "Europe",
+  "region": "europe",
+  "latitude": 41,
+  "longitude": 20
+ },
+ "emmanuelmacron": {
+  "country_iso2": "FR",
+  "country": "France",
+  "continent": "Europe",
+  "region": "europe",
+  "latitude": 46,
+  "longitude": 2
+ },
+ "fegnassingbe": {
+  "country_iso2": "TG",
+  "country": "Togo",
+  "continent": "Africa",
+  "region": "africa",
+  "latitude": 8,
+  "longitude": 1.16666666
+ },
+ "giorgiameloni_ufficiale": {
+  "country_iso2": "IT",
+  "country": "Italy",
+  "continent": "Europe",
+  "region": "europe",
+  "latitude": 42.83333333,
+  "longitude": 12.83333333
+ },
+ "gustavopetrooficial": {
+  "country_iso2": "CO",
+  "country": "Colombia",
+  "continent": "South America",
+  "region": "southamerica",
+  "latitude": 4,
+  "longitude": -72
+ },
+ "guyparmelin": {
+  "country_iso2": "CH",
+  "country": "Switzerland",
+  "continent": "Europe",
+  "region": "europe",
+  "latitude": 47,
+  "longitude": 8
+ },
+ "hakainde.hichilema": {
+  "country_iso2": "ZM",
+  "country": "Zambia",
+  "continent": "Africa",
+  "region": "africa",
+  "latitude": -15,
+  "longitude": 30
+ },
+ "hamza_barre": {
+  "country_iso2": "SO",
+  "country": "Somalia",
+  "continent": "Africa",
+  "region": "africa",
+  "latitude": 10,
+  "longitude": 49
+ },
+ "hassansheikhmohamud1960": {
+  "country_iso2": "SO",
+  "country": "Somalia",
+  "continent": "Africa",
+  "region": "africa",
+  "latitude": 10,
+  "longitude": 49
+ },
+ "hhshkmohd": {
+  "country_iso2": "AE",
+  "country": "United Arab Emirates",
+  "continent": "Asia",
+  "region": "middleeast",
+  "latitude": 24,
+  "longitude": 54
+ },
+ "ignazio_cassis": {
+  "country_iso2": "CH",
+  "country": "Switzerland",
+  "continent": "Europe",
+  "region": "europe",
+  "latitude": 47,
+  "longitude": 8
+ },
+ "ilie.bolojan": {
+  "country_iso2": "RO",
+  "country": "Romania",
+  "continent": "Europe",
+  "region": "europe",
+  "latitude": 46,
+  "longitude": 25
+ },
+ "ismail.omar.guelleh": {
+  "country_iso2": "DJ",
+  "country": "Djibouti",
+  "continent": "Africa",
+  "region": "africa",
+  "latitude": 11.5,
+  "longitude": 43
+ },
+ "jaemyung_lee": {
+  "country_iso2": "KR",
+  "country": "South Korea",
+  "continent": "Asia",
+  "region": "asia",
+  "latitude": 37,
+  "longitude": 127.5
+ },
+ "jasamaleksandar": {
+  "country_iso2": "RS",
+  "country": "Serbia",
+  "continent": "Europe",
+  "region": "europe",
+  "latitude": 44,
+  "longitude": 21
+ },
+ "javiermileii": {
+  "country_iso2": "AR",
+  "country": "Argentina",
+  "continent": "South America",
+  "region": "southamerica",
+  "latitude": -34,
+  "longitude": -64
+ },
+ "jdmahama": {
+  "country_iso2": "GH",
+  "country": "Ghana",
+  "continent": "Africa",
+  "region": "africa",
+  "latitude": 8,
+  "longitude": -2
+ },
+ "jennifergsimons": {
+  "country_iso2": "SR",
+  "country": "Suriname",
+  "continent": "South America",
+  "region": "southamerica",
+  "latitude": 4,
+  "longitude": -56
+ },
+ "jjansa_sds": {
+  "country_iso2": "SI",
+  "country": "Slovenia",
+  "continent": "Europe",
+  "region": "europe",
+  "latitude": 46.11666666,
+  "longitude": 14.81666666
+ },
+ "johnbricenobze": {
+  "country_iso2": "BZ",
+  "country": "Belize",
+  "continent": "North America",
+  "region": "northamerica",
+  "latitude": 17.25,
+  "longitude": -88.75
+ },
+ "jonasgahrstore": {
+  "country_iso2": "NO",
+  "country": "Norway",
+  "continent": "Europe",
+  "region": "europe",
+  "latitude": 62,
+  "longitude": 10
+ },
+ "joseantoniokast": {
+  "country_iso2": "CL",
+  "country": "Chile",
+  "continent": "South America",
+  "region": "southamerica",
+  "latitude": -30,
+  "longitude": -71
+ },
+ "joseraulmulino": {
+  "country_iso2": "PA",
+  "country": "Panama",
+  "continent": "North America",
+  "region": "northamerica",
+  "latitude": 9,
+  "longitude": -80
+ },
+ "julius_maadabio": {
+  "country_iso2": "SL",
+  "country": "Sierra Leone",
+  "continent": "Africa",
+  "region": "africa",
+  "latitude": 8.5,
+  "longitude": -11.5
+ },
+ "keikofujimorih": {
+  "country_iso2": "PE",
+  "country": "Peru",
+  "continent": "South America",
+  "region": "southamerica",
+  "latitude": -10,
+  "longitude": -76
+ },
+ "keirstarmer": {
+  "country_iso2": "GB",
+  "country": "United Kingdom",
+  "continent": "Europe",
+  "region": "europe",
+  "latitude": 54,
+  "longitude": -2
+ },
+ "kristen.michal": {
+  "country_iso2": "EE",
+  "country": "Estonia",
+  "continent": "Europe",
+  "region": "europe",
+  "latitude": 59,
+  "longitude": 26
+ },
+ "kristrunfrostadottir": {
+  "country_iso2": "IS",
+  "country": "Iceland",
+  "continent": "Europe",
+  "region": "europe",
+  "latitude": 65,
+  "longitude": -18
+ },
+ "kyriakosmitsotakis_": {
+  "country_iso2": "GR",
+  "country": "Greece",
+  "continent": "Europe",
+  "region": "europe",
+  "latitude": 39,
+  "longitude": 22
+ },
+ "lawrencewongst": {
+  "country_iso2": "SG",
+  "country": "Singapore",
+  "continent": "Asia",
+  "region": "asia",
+  "latitude": 1.36666666,
+  "longitude": 103.8
+ },
+ "lmontenegro_pt": {
+  "country_iso2": "PT",
+  "country": "Portugal",
+  "continent": "Europe",
+  "region": "europe",
+  "latitude": 39.5,
+  "longitude": -8
+ },
+ "luisabinadercorona": {
+  "country_iso2": "DO",
+  "country": "Dominican Republic",
+  "continent": "North America",
+  "region": "northamerica",
+  "latitude": 19,
+  "longitude": -70.66666666
+ },
+ "lulaoficial": {
+  "country_iso2": "BR",
+  "country": "Brazil",
+  "continent": "South America",
+  "region": "southamerica",
+  "latitude": -10,
+  "longitude": -55
+ },
+ "magyarpeterofficial": {
+  "country_iso2": "HU",
+  "country": "Hungary",
+  "continent": "Europe",
+  "region": "europe",
+  "latitude": 47,
+  "longitude": 20
+ },
+ "mahmoudridaabbas": {
+  "country_iso2": "PS",
+  "country": "Palestine",
+  "continent": "Asia",
+  "region": "middleeast",
+  "latitude": 31.9,
+  "longitude": 35.2
+ },
+ "mamottley": {
+  "country_iso2": "BB",
+  "country": "Barbados",
+  "continent": "North America",
+  "region": "northamerica",
+  "latitude": 13.16666666,
+  "longitude": -59.53333333
+ },
+ "manethuncambodia": {
+  "country_iso2": "KH",
+  "country": "Cambodia",
+  "continent": "Asia",
+  "region": "asia",
+  "latitude": 13,
+  "longitude": 105
+ },
+ "merzcdu": {
+  "country_iso2": "DE",
+  "country": "Germany",
+  "continent": "Europe",
+  "region": "europe",
+  "latitude": 51,
+  "longitude": 9
+ },
+ "mette_insider_official": {
+  "country_iso2": "DK",
+  "country": "Denmark",
+  "continent": "Europe",
+  "region": "europe",
+  "latitude": 56,
+  "longitude": 10
+ },
+ "michealmartintd": {
+  "country_iso2": "IE",
+  "country": "Ireland",
+  "continent": "Europe",
+  "region": "europe",
+  "latitude": 53,
+  "longitude": -8
+ },
+ "mickeyspajic": {
+  "country_iso2": "ME",
+  "country": "Montenegro",
+  "continent": "Europe",
+  "region": "europe",
+  "latitude": 42.5,
+  "longitude": 19.3
+ },
+ "mickoski_hristijan": {
+  "country_iso2": "MK",
+  "country": "North Macedonia",
+  "continent": "Europe",
+  "region": "europe",
+  "latitude": 41.83333333,
+  "longitude": 22
+ },
+ "mmuizzu": {
+  "country_iso2": "MV",
+  "country": "Maldives",
+  "continent": "Asia",
+  "region": "asia",
+  "latitude": 3.25,
+  "longitude": 73
+ },
+ "mr.luc.frieden": {
+  "country_iso2": "LU",
+  "country": "Luxembourg",
+  "continent": "Europe",
+  "region": "europe",
+  "latitude": 49.75,
+  "longitude": 6.16666666
+ },
+ "natasa.pirc.musar": {
+  "country_iso2": "SI",
+  "country": "Slovenia",
+  "continent": "Europe",
+  "region": "europe",
+  "latitude": 46.11666666,
+  "longitude": 14.81666666
+ },
+ "nawafasalam": {
+  "country_iso2": "LB",
+  "country": "Lebanon",
+  "continent": "Asia",
+  "region": "middleeast",
+  "latitude": 33.83333333,
+  "longitude": 35.83333333
+ },
+ "nawrocki25": {
+  "country_iso2": "PL",
+  "country": "Poland",
+  "continent": "Europe",
+  "region": "europe",
+  "latitude": 52,
+  "longitude": 20
+ },
+ "nayibbukele": {
+  "country_iso2": "SV",
+  "country": "El Salvador",
+  "continent": "North America",
+  "region": "northamerica",
+  "latitude": 13.83333333,
+  "longitude": -88.91666666
+ },
+ "ncrmru": {
+  "country_iso2": "MU",
+  "country": "Mauritius",
+  "continent": "Africa",
+  "region": "africa",
+  "latitude": -20.28333333,
+  "longitude": 57.55
+ },
+ "nicusordanro": {
+  "country_iso2": "RO",
+  "country": "Romania",
+  "continent": "Europe",
+  "region": "europe",
+  "latitude": 46,
+  "longitude": 25
+ },
+ "nikol.pashinyan_pm": {
+  "country_iso2": "AM",
+  "country": "Armenia",
+  "continent": "Asia",
+  "region": "europe",
+  "latitude": 40,
+  "longitude": 45
+ },
+ "nikoschristodoulides": {
+  "country_iso2": "CY",
+  "country": "Cyprus",
+  "continent": "Europe",
+  "region": "europe",
+  "latitude": 35,
+  "longitude": 33
+ },
+ "orsiyamandu": {
+  "country_iso2": "UY",
+  "country": "Uruguay",
+  "continent": "South America",
+  "region": "southamerica",
+  "latitude": -33,
+  "longitude": -56
+ },
+ "patrick.herminie": {
+  "country_iso2": "SC",
+  "country": "Seychelles",
+  "continent": "Africa",
+  "region": "africa",
+  "latitude": -4.58333333,
+  "longitude": 55.66666666
+ },
+ "paulkagameofficial": {
+  "country_iso2": "RW",
+  "country": "Rwanda",
+  "continent": "Africa",
+  "region": "africa",
+  "latitude": -2,
+  "longitude": 30
+ },
+ "peter_pellegrini": {
+  "country_iso2": "SK",
+  "country": "Slovakia",
+  "continent": "Europe",
+  "region": "europe",
+  "latitude": 48.66666666,
+  "longitude": 19.5
+ },
+ "petteriorpo": {
+  "country_iso2": "FI",
+  "country": "Finland",
+  "continent": "Europe",
+  "region": "europe",
+  "latitude": 64,
+  "longitude": 26
+ },
+ "philipj.pierre": {
+  "country_iso2": "LC",
+  "country": "Saint Lucia",
+  "continent": "North America",
+  "region": "northamerica",
+  "latitude": 13.88333333,
+  "longitude": -60.96666666
+ },
+ "plenkovic_andrej": {
+  "country_iso2": "HR",
+  "country": "Croatia",
+  "continent": "Europe",
+  "region": "europe",
+  "latitude": 45.16666666,
+  "longitude": 15.5
+ },
+ "pmkamlapersadbissessar": {
+  "country_iso2": "TT",
+  "country": "Trinidad and Tobago",
+  "continent": "North America",
+  "region": "northamerica",
+  "latitude": 11,
+  "longitude": -61
+ },
+ "prabowosubianto08": {
+  "country_iso2": "ID",
+  "country": "Indonesia",
+  "continent": "Asia",
+  "region": "asia",
+  "latitude": -5,
+  "longitude": 120
+ },
+ "prdiomaye": {
+  "country_iso2": "SN",
+  "country": "Senegal",
+  "continent": "Africa",
+  "region": "africa",
+  "latitude": 14,
+  "longitude": -14
+ },
+ "presedinta.maiasandu": {
+  "country_iso2": "MD",
+  "country": "Moldova",
+  "continent": "Europe",
+  "region": "europe",
+  "latitude": 47,
+  "longitude": 29
+ },
+ "president.adama.barrow": {
+  "country_iso2": "GM",
+  "country": "Gambia",
+  "continent": "Africa",
+  "region": "africa",
+  "latitude": 13.46666666,
+  "longitude": -16.56666666
+ },
+ "president.az": {
+  "country_iso2": "AZ",
+  "country": "Azerbaijan",
+  "continent": "Asia",
+  "region": "europe",
+  "latitude": 40.5,
+  "longitude": 47.5
+ },
+ "presidentofzimbab": {
+  "country_iso2": "ZW",
+  "country": "Zimbabwe",
+  "continent": "Africa",
+  "region": "africa",
+  "latitude": -20,
+  "longitude": 30
+ },
+ "prpaulbiya": {
+  "country_iso2": "CM",
+  "country": "Cameroon",
+  "continent": "Africa",
+  "region": "africa",
+  "latitude": 6,
+  "longitude": 12
+ },
+ "r.nabbanja": {
+  "country_iso2": "UG",
+  "country": "Uganda",
+  "continent": "Africa",
+  "region": "africa",
+  "latitude": 1,
+  "longitude": 32
+ },
+ "realdonaldtrump": {
+  "country_iso2": "US",
+  "country": "United States",
+  "continent": "North America",
+  "region": "northamerica",
+  "latitude": 38,
+  "longitude": -97
+ },
+ "robertabela.mt": {
+  "country_iso2": "MT",
+  "country": "Malta",
+  "continent": "Europe",
+  "region": "europe",
+  "latitude": 35.83333333,
+  "longitude": 14.58333333
+ },
+ "robjettend66": {
+  "country_iso2": "NL",
+  "country": "Netherlands",
+  "continent": "Europe",
+  "region": "europe",
+  "latitude": 52.5,
+  "longitude": 5.75
+ },
+ "rodrigopazpereira": {
+  "country_iso2": "BO",
+  "country": "Bolivia",
+  "continent": "South America",
+  "region": "southamerica",
+  "latitude": -17,
+  "longitude": -65
+ },
+ "sadyrnurgozhoevich": {
+  "country_iso2": "KG",
+  "country": "Kyrgyzstan",
+  "continent": "Asia",
+  "region": "asia",
+  "latitude": 41,
+  "longitude": 75
+ },
+ "sanchezcastejon": {
+  "country_iso2": "ES",
+  "country": "Spain",
+  "continent": "Europe",
+  "region": "europe",
+  "latitude": 40,
+  "longitude": -4
+ },
+ "santipenap": {
+  "country_iso2": "PY",
+  "country": "Paraguay",
+  "continent": "South America",
+  "region": "southamerica",
+  "latitude": -23,
+  "longitude": -58
+ },
+ "shehbazism": {
+  "country_iso2": "PK",
+  "country": "Pakistan",
+  "continent": "Asia",
+  "region": "asia",
+  "latitude": 30,
+  "longitude": 70
+ },
+ "siljanovskadavkova": {
+  "country_iso2": "MK",
+  "country": "North Macedonia",
+  "continent": "Europe",
+  "region": "europe",
+  "latitude": 41.83333333,
+  "longitude": 22
+ },
+ "sitivenirabukaofficial": {
+  "country_iso2": "FJ",
+  "country": "Fiji",
+  "continent": "Oceania",
+  "region": "oceania",
+  "latitude": -18,
+  "longitude": 175
+ },
+ "skerritr": {
+  "country_iso2": "DM",
+  "country": "Dominica",
+  "continent": "North America",
+  "region": "northamerica",
+  "latitude": 15.41666666,
+  "longitude": -61.33333333
+ },
+ "sonkoofficiel": {
+  "country_iso2": "SN",
+  "country": "Senegal",
+  "continent": "Africa",
+  "region": "africa",
+  "latitude": 14,
+  "longitude": -14
+ },
+ "tharman.sg": {
+  "country_iso2": "SG",
+  "country": "Singapore",
+  "continent": "Asia",
+  "region": "asia",
+  "latitude": 1.36666666,
+  "longitude": 103.8
+ },
+ "ttobgay": {
+  "country_iso2": "BT",
+  "country": "Bhutan",
+  "continent": "Asia",
+  "region": "asia",
+  "latitude": 27.5,
+  "longitude": 90.5
+ },
+ "ulfkristersson": {
+  "country_iso2": "SE",
+  "country": "Sweden",
+  "continent": "Europe",
+  "region": "europe",
+  "latitude": 62,
+  "longitude": 15
+ },
+ "vanderbellen": {
+  "country_iso2": "AT",
+  "country": "Austria",
+  "continent": "Europe",
+  "region": "europe",
+  "latitude": 47.33333333,
+  "longitude": 13.33333333
+ },
+ "wadagniromuald": {
+  "country_iso2": "BJ",
+  "country": "Benin",
+  "continent": "Africa",
+  "region": "africa",
+  "latitude": 9.5,
+  "longitude": 2.25
+ },
+ "yoweri_kagutamuseveni": {
+  "country_iso2": "UG",
+  "country": "Uganda",
+  "continent": "Africa",
+  "region": "africa",
+  "latitude": 1,
+  "longitude": 32
+ }
+}

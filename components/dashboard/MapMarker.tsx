@@ -1,18 +1,18 @@
-import React, { useEffect, useCallback } from 'react';
+import React, { useEffect, useCallback, useRef } from 'react';
 import { View, Text, StyleSheet, Platform, Pressable, Linking, useWindowDimensions } from 'react-native';
 import { MotiView } from 'moti';
 import { Easing } from 'react-native-reanimated';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { DevLabel } from '@/components/primitives/DevLabel';
-import { knox, neutral, glass, accent, party } from '@/theme/colors';
+import { knox, neutral, glass, accent, party, colourFor } from '@/theme/colors';
 import { font } from '@/theme/typography';
 import { radius } from '@/theme/spacing';
 import { breakpoints } from '@/theme/breakpoints';
 import { formatters } from '@/components/primitives/CountUp';
 import { track } from '@/lib/analytics';
 import type { RecentPost } from '@/data/types';
-import type { PartyKey } from '@/theme/colors';
-import type { UkLocation } from '@/lib/uk-locations';
+import type { GroupKey } from '@/theme/colors';
+import type { MarkerAnchor } from '@/hooks/useMarkerRotation';
 
 
 // Slowed entrance to match the longer overall cadence — dot lands, stem grows,
@@ -28,11 +28,35 @@ const CARD_WIDTH     = 165;
 const CARD_HEIGHT    = 225;
 const CAPTION_HEIGHT = 18;   // 'Picked up in …' italic label above the dot
 const DOT_SIZE       = 10;
+/** A press that travels further than this is a drag, not a click (px). */
+const CLICK_SLOP     = 6;
+/** Mobile shrinks the whole marker. */
+const MOBILE_SCALE   = 0.78;
+
+/**
+ * The marker's footprint, so a parent can work out whether a card will fall
+ * off its container and nudge it back before it does. Same numbers the
+ * component lays itself out with.
+ */
+export const MARKER_METRICS = {
+  cardWidth:     CARD_WIDTH,
+  cardHeight:    CARD_HEIGHT,
+  captionHeight: CAPTION_HEIGHT,
+  dotSize:       DOT_SIZE,
+  mobileScale:   MOBILE_SCALE,
+} as const;
+
+/** Total vertical space a marker needs above (or below) its dot. */
+export function markerExtent(stemHeight: number, mobile: boolean): number {
+  const scale = mobile ? MOBILE_SCALE : 1;
+  return stemHeight + CARD_HEIGHT * scale + CAPTION_HEIGHT + DOT_SIZE / 2;
+}
 
 interface Props {
-  location: UkLocation;
+  /** Where the pin sits, in the host map's viewBox units. */
+  location: MarkerAnchor;
   post:     RecentPost;
-  partyKey: PartyKey;
+  groupKey: GroupKey;
   /** TikTok handle of the account that posted the video, e.g. 'uklabour'.
    *  The leading '@' is added at render time so the input can be either form. */
   handle:   string;
@@ -44,24 +68,55 @@ interface Props {
    *  flying off the top of the viewBox. Anything outside (0, 2] gets clamped
    *  so a bad value can't break the layout. */
   stemMultiplier?: number;
+  /** Absolute stem length in px, overriding stemMultiplier. The globe passes
+   *  20 — the house connector length used across the dashboards — so the pin
+   *  stays tight to the country under it. Clamped to 0–200. */
+  stemHeight?: number;
+  /**
+   * Horizontal nudge, in px, applied to the CARD and its caption only — the
+   * dot and stem stay on the anchor. The globe uses it to keep a card that is
+   * drifting towards the edge fully on screen while its pin carries on to the
+   * limb. Positive moves the card right.
+   */
+  cardOffsetX?: number;
+  /**
+   * Which side of the dot the card sits on. 'above' is the default; a parent
+   * flips it to 'below' when there is not enough room overhead, which is what
+   * stops a card being cropped by the top of the container.
+   */
+  placement?: 'above' | 'below';
   /** Called once when the card has fully entered — parent uses this for cleanup timing if it wants. */
   onReady?: () => void;
 }
 
-export function MapMarker({ location, post, partyKey, handle, showTrendingPill = false, stemMultiplier = 1, onReady }: Props) {
+export function MapMarker({
+  location, post, groupKey, handle,
+  showTrendingPill = false, stemMultiplier = 1, stemHeight: stemHeightOverride,
+  cardOffsetX = 0, placement = 'above', onReady,
+}: Props) {
   // Per-instance stem height. The wrap translateY and the stem's animated
   // `height` both derive from this so the dot, stem and card stay in sync.
   // Mobile: shrink the marker — shorter connector line + smaller video preview.
   const { width: viewportWidth } = useWindowDimensions();
   const mobile = viewportWidth < breakpoints.tablet;
-  const scale  = mobile ? 0.78 : 1;
+  const scale  = mobile ? MOBILE_SCALE : 1;
 
   const safeMultiplier = Math.max(0.1, Math.min(2, stemMultiplier));
-  const stemHeight     = Math.round(STEM_HEIGHT * safeMultiplier * scale);
+  // An explicit height wins over the multiplier, and is NOT scaled down on
+  // mobile: 20px is 20px, which is the point of the house style.
+  const stemHeight     = stemHeightOverride !== undefined
+    ? Math.round(Math.max(0, Math.min(200, stemHeightOverride)))
+    : Math.round(STEM_HEIGHT * safeMultiplier * scale);
   const cardW          = Math.round(CARD_WIDTH * scale);
   const cardH          = Math.round(CARD_HEIGHT * scale);
-  const wrapOffsetY    = -(stemHeight + cardH + CAPTION_HEIGHT + DOT_SIZE / 2);
-  const colour = party[partyKey];
+  // Above: the column grows upward from the dot, so the wrap is pulled up by
+  // its whole height. Below: the dot is the first thing rendered (the column
+  // is reversed), so only the dot's own half-height is offset.
+  const isBelow     = placement === 'below';
+  const wrapOffsetY = isBelow
+    ? -(DOT_SIZE / 2)
+    : -(stemHeight + cardH + CAPTION_HEIGHT + DOT_SIZE / 2);
+  const colour = colourFor(groupKey);
 
   // Normalise the handle so the label is always exactly one '@' followed by
   // the handle text — defensive against upstream values that already include it.
@@ -75,8 +130,17 @@ export function MapMarker({ location, post, partyKey, handle, showTrendingPill =
 
   // Open TikTok in a new tab / app on press. We track the event so the loop's
   // discovery value is measurable (which posts pull the eye, which don't).
-  const handleOpenTiktok = useCallback(() => {
+  const handleOpenTiktok = useCallback((event?: any) => {
     if (!post.postUrl) return;
+
+    // A press that moved is a drag, not a click. Without this, letting go of a
+    // spin over a card opens TikTok.
+    const start = pressStartRef.current;
+    const end   = event?.nativeEvent;
+    if (start && end && typeof end.pageX === 'number' && typeof end.pageY === 'number') {
+      const travelled = Math.hypot(end.pageX - start.x, end.pageY - start.y);
+      if (travelled > CLICK_SLOP) return;
+    }
     track('hero_map_marker_clicked', {
       location:  location.id,
       post_id:   post.postId,
@@ -84,6 +148,13 @@ export function MapMarker({ location, post, partyKey, handle, showTrendingPill =
     });
     Linking.openURL(post.postUrl);
   }, [post.postUrl, post.postId, post.views, location.id]);
+
+  /** Where the press began, so onPress can tell a click from a drag. */
+  const pressStartRef = useRef<{ x: number; y: number } | null>(null);
+  const handlePressIn = useCallback((event: any) => {
+    const e = event?.nativeEvent;
+    pressStartRef.current = typeof e?.pageX === 'number' ? { x: e.pageX, y: e.pageY } : null;
+  }, []);
 
   useEffect(() => {
     const t = setTimeout(() => onReady?.(), CARD_DELAY + 250);
@@ -99,7 +170,11 @@ export function MapMarker({ location, post, partyKey, handle, showTrendingPill =
       // width must match cardW (the scaled width) so the centred dot lands
       // exactly on the anchor. Using the unscaled styles.wrap width while
       // offsetting by the scaled cardW/2 pushed the pin right on mobile.
-      style={[styles.wrap, { width: cardW, transform: [{ translateX: -cardW / 2 }, { translateY: wrapOffsetY }] }]}
+      style={[
+        styles.wrap,
+        isBelow && styles.wrapBelow,
+        { width: cardW, transform: [{ translateX: -cardW / 2 }, { translateY: wrapOffsetY }] },
+      ]}
       accessibilityLabel={`Marker for ${displayHandle} pinned near ${location.name}`}
     >
       <DevLabel name="MapMarker" />
@@ -115,10 +190,14 @@ export function MapMarker({ location, post, partyKey, handle, showTrendingPill =
           stiffness: 180,
           delay: CARD_DELAY,
         }}
-        style={[styles.card, { width: cardW, height: cardH, borderColor: colour.base }]}
+        style={[
+          styles.card,
+          { width: cardW, height: cardH, borderColor: colour.base, transform: [{ translateX: cardOffsetX }] },
+        ]}
       >
         <Pressable
           onPress={handleOpenTiktok}
+          onPressIn={handlePressIn}
           accessibilityRole="link"
           accessibilityLabel={`Open TikTok video from ${displayHandle}`}
           style={({ pressed, hovered }: any) => [
@@ -190,7 +269,7 @@ export function MapMarker({ location, post, partyKey, handle, showTrendingPill =
         animate={{ opacity: 1, translateY: 0 }}
         exit={{ opacity: 0, translateY: 4 }}
         transition={{ type: 'timing', duration: 320, delay: LINE_DELAY + 120 }}
-        style={styles.captionWrap}
+        style={[styles.captionWrap, { transform: [{ translateX: cardOffsetX }] }]}
       >
         <Text style={styles.caption} numberOfLines={1}>
           Watched in <Text style={[styles.captionLoc, { color: colour.glow }]}>{location.name}</Text>
@@ -248,13 +327,21 @@ function VideoCard({ post, accentColor }: VideoCardProps) {
         muted
         loop
         playsInline
+        // The browser's own drag-and-drop on a media element is what produces
+        // the ghost image and the ::highlight artefacts while spinning.
+        draggable={false}
+        onDragStart={(e) => e.preventDefault()}
         style={{
           width: '100%',
           height: '100%',
           objectFit: 'cover',
           display: 'block',
           background: '#0a0a14',
-        }}
+          userSelect: 'none',
+          WebkitUserSelect: 'none',
+          WebkitUserDrag: 'none',
+          pointerEvents: 'none',
+        } as any}
       />
     );
   }
@@ -276,7 +363,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     width:      CARD_WIDTH,
   },
+  // Reversed column: the same children render dot-first, so the card hangs
+  // below the anchor instead of above it.
+  wrapBelow: {
+    flexDirection: 'column-reverse',
+  },
   card: {
+    ...Platform.select({
+      web: {
+        userSelect:       'none',
+        WebkitUserSelect: 'none',
+        WebkitUserDrag:   'none',
+      } as any,
+      default: {},
+    }),
     width:        CARD_WIDTH,
     height:       CARD_HEIGHT,
     borderWidth:  1.5,

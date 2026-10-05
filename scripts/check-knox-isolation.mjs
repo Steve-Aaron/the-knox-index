@@ -37,7 +37,7 @@ const ALLOWLIST = new Set([
   'app/api/account+api.ts',      // server route
 ]);
 
-const SKIP_DIRS = new Set(['node_modules', '.git', '.expo', 'dist', 'ios', 'android', '.vercel']);
+const SKIP_DIRS = new Set(['node_modules', '.git', '.expo', 'dist', 'ios', 'android', '.vercel', '_to_delete']);
 const SKIP_TOP_LEVEL = new Set(['scripts']);
 
 function collect(dir, out = []) {

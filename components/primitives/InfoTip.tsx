@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,7 @@ import { font } from '@/theme/typography';
 import { spacing, radius } from '@/theme/spacing';
 import { DevLabel } from '@/components/primitives/DevLabel';
 import { Interstitial } from '@/components/primitives/Interstitial';
+import { Popover, type AnchorRect } from '@/components/primitives/Popover';
 
 /**
  * InfoTip + InfoTipModal
@@ -20,8 +21,10 @@ import { Interstitial } from '@/components/primitives/Interstitial';
  * Two related exports:
  *
  *   <InfoTip text="..." />
- *     A small ? badge that opens a centred modal card on click. The badge is
- *     the trigger. This is the canonical helper pattern used across the app
+ *     A small ? badge that opens a POPOVER anchored to itself. On web the
+ *     panel renders in the browser's top layer, so no card, sticky header or
+ *     overflow:hidden ancestor can clip it; on native it falls back to a
+ *     takeover sheet. This is the canonical helper pattern used across the app
  *     ('Performance radar', 'Reach looks healthy for size', and every DashCard
  *     helper).
  *
@@ -51,23 +54,38 @@ interface Props {
 }
 
 export function InfoTip({ text, topic, width = 280 }: Props) {
-  const [visible, setVisible] = useState(false);
+  const [visible,    setVisible]    = useState(false);
+  const [anchorRect, setAnchorRect] = useState<AnchorRect | null>(null);
+  const badgeRef = useRef<View | null>(null);
 
-  const open = useCallback(() => {
-    setVisible(true);
-    track('helper_clicked', {
-      topic: topic ?? text.slice(0, 40),
+  /** Measure the badge so the popover can anchor to it. Web only — the native
+   *  fallback is a takeover and needs no coordinates. */
+  const measureBadge = useCallback((): AnchorRect | null => {
+    if (Platform.OS !== 'web') return null;
+    const node = badgeRef.current as unknown as HTMLElement | null;
+    if (!node || typeof node.getBoundingClientRect !== 'function') return null;
+    const r = node.getBoundingClientRect();
+    return { x: r.left, y: r.top, width: r.width, height: r.height };
+  }, []);
+
+  const toggle = useCallback(() => {
+    setVisible(prev => {
+      if (prev) return false;
+      setAnchorRect(measureBadge());
+      track('helper_clicked', { topic: topic ?? text.slice(0, 40) });
+      return true;
     });
-  }, [text, topic]);
+  }, [text, topic, measureBadge]);
 
   const close = useCallback(() => setVisible(false), []);
 
   return (
     <View style={styles.wrap}>
       <DevLabel name="InfoTip" />
-      {/* Badge */}
+      {/* Badge — the popover's anchor as well as its trigger. */}
       <Pressable
-        onPress={open}
+        ref={badgeRef}
+        onPress={toggle}
         accessibilityRole="button"
         accessibilityLabel={`More information: ${text}`}
         style={({ pressed }) => [
@@ -79,9 +97,10 @@ export function InfoTip({ text, topic, width = 280 }: Props) {
         <Text style={[styles.icon, visible && styles.iconActive]}>?</Text>
       </Pressable>
 
-      <InfoTipModal
+      <Popover
         visible={visible}
         onClose={close}
+        anchorRect={anchorRect}
         text={text}
         width={width}
       />

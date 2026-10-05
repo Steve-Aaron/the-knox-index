@@ -26,11 +26,22 @@ All table references are built by `tableRef(t)` in `lib/bigquery.ts` as `` `proj
 
 The schema itself is managed externally by the n8n ingest pipeline; no DDL lives in this repo. No partitioning or clustering configuration is visible from the code. The natural partition candidates are `post.postDate` (every range filter keys on it) and `accountMetrics.dateUpdated` (the snapshot key).
 
-## 3. The dashboard gate (`ACCOUNT_WEB` / `POST_WEB`)
+## 3. The dashboard gate (`accountWeb()` / `postWeb()`)
 
-Every public website read goes through two derived-table SQL fragments defined once in `lib/bigquery.ts`, so the visibility rule lives in exactly one place. Admin routes and the ingest pipeline use the base tables directly.
+Every public website read goes through two derived-table SQL fragments built in
+`lib/bigquery.ts`, so the visibility rule lives in exactly one place. Admin
+routes and the ingest pipeline use the base tables directly.
 
-`ACCOUNT_WEB` — accounts joined to dashboard 1:
+The gate is **per tenant**. `lib/tenantRequest.ts` resolves the request host to a
+tenant (`lib/tenants.ts`), and the tenant's `dashboardId` is passed into every
+SQL builder:
+
+| Host | Tenant | `dashboardId` |
+|---|---|---|
+| `index.knox.digital` | The Knox Index | 1 |
+| `worldleaders.index.knox.digital` | World Leaders | 2 |
+
+`accountWeb(dashboardId)` — accounts joined to that dashboard:
 
 ```sql
 (
@@ -38,11 +49,12 @@ Every public website read goes through two derived-table SQL fragments defined o
   FROM `…account` a
   JOIN `…account_x_dashboard` d
     ON CAST(d.accountId AS STRING) = CAST(a.id AS STRING)
-  WHERE d.dashboardId = 1
+  WHERE d.dashboardId = <dashboardId>
 )
 ```
 
-`POST_WEB` — posts whose authoring account is on dashboard 1 (matched by handle, not id):
+`postWeb(dashboardId)` — posts whose authoring account is on that dashboard
+(matched by handle, not id):
 
 ```sql
 (
@@ -53,14 +65,42 @@ Every public website read goes through two derived-table SQL fragments defined o
     FROM `…account` a
     JOIN `…account_x_dashboard` d
       ON CAST(d.accountId AS STRING) = CAST(a.id AS STRING)
-    WHERE d.dashboardId = 1
+    WHERE d.dashboardId = <dashboardId>
   )
 )
 ```
 
-An additional application-level filter hides specific handles from all public reads: `HIDDEN_HANDLES = ['ukgov']` in `lib/bqQueries.ts`, applied as `LOWER(LTRIM(profile, '@')) NOT IN ('ukgov')`.
+There is no default `dashboardId`: a builder called without one is a type
+error, so a new route cannot silently serve dashboard 1 to every domain.
+`npm run check:tenants` fails the build if a public route reads a base table or
+skips `guardTenant()`.
 
-A post is considered processed and displayable only when `videoSummary IS NOT NULL`. This filter appears in the feed, top-post, benchmarks and leagues queries.
+An additional application-level filter hides specific handles from all public
+reads: `HIDDEN_HANDLES = ['ukgov']` in `lib/bqQueries.ts`, applied as
+`LOWER(LTRIM(profile, '@')) NOT IN ('ukgov')`.
+
+A post is considered processed and displayable only when `videoSummary IS NOT
+NULL`. This filter appears in the feed, top-post, benchmarks and leagues
+queries.
+
+## 3a. `tenant_access`
+
+Gates the tenants whose `access.mode` is `authenticated` (currently World
+Leaders). Created by `scripts/create-tenant-access-table.mjs`.
+
+| Column | Type | Meaning |
+|---|---|---|
+| `email` | STRING | Sign-in address, lower-cased |
+| `tenantId` | STRING | Tenant id from `lib/tenants.ts`, e.g. `world` |
+| `status` | STRING | `pending` / `approved` / `denied` |
+| `requestedAt` | TIMESTAMP | When the user asked for access |
+| `decidedAt` | TIMESTAMP | When an admin decided |
+| `decidedBy` | STRING | Admin email that decided |
+| `note` | STRING | Free-text admin note |
+
+Users whose email domain is on the tenant's `allowedDomains`
+(`@knoxdigi.com`, `@knox.digital`) are admitted without a row. Reads are cached
+in-process for 60 seconds; an approval takes effect on the user's next request.
 
 ## 4. Tables
 

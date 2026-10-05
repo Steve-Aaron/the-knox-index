@@ -13,8 +13,8 @@ import {
 } from 'react-native';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import { MotiView } from 'moti';
-import { neutral, glass, accent, party as partyColours } from '@/theme/colors';
-import type { PartyKey } from '@/theme/colors';
+import { neutral, glass, accent, colourFor } from '@/theme/colors';
+import type { GroupKey } from '@/theme/colors';
 import { spacing, radius } from '@/theme/spacing';
 import { type } from '@/theme/typography';
 import { track } from '@/lib/analytics';
@@ -43,7 +43,7 @@ interface Props {
   /** Post metadata — used to enrich analytics events. */
   postId?:         string;
   politicianName?: string;
-  partyKey?:       string;
+  groupKey?:       string;
   views?:          number;
   /** Content-style tags ingested with the post (e.g. FIELD_VISIT, PIECE_TO_CAMERA). */
   styles?:         string[];
@@ -125,12 +125,10 @@ function VideoPlayer({ uri, onPlayStarted }: { uri: string; onPlayStarted: () =>
 
 export function VideoModal({
   visible, videoMp4, coverJpeg, caption, postUrl,
-  postId, politicianName, partyKey, views, styles: postStyles, positionInFeed, onClose,
+  postId, politicianName, groupKey, views, styles: postStyles, positionInFeed, onClose,
 }: Props) {
   // Tint the style chips with the politician's party colour when known.
-  const partyColour = partyKey && (partyKey in partyColours)
-    ? partyColours[partyKey as PartyKey].glow
-    : undefined;
+  const partyColour = groupKey ? colourFor(groupKey).glow : undefined;
   // Track when the modal first becomes visible (video opened) and when it closes.
   const prevVisibleRef  = useRef(false);
   const openedAtRef     = useRef<number | null>(null);
@@ -145,7 +143,7 @@ export function VideoModal({
         has_cover:        Boolean(coverJpeg),
         post_id:          postId          ?? null,
         politician_name:  politicianName  ?? null,
-        party:            partyKey        ?? null,
+        party:            groupKey        ?? null,
         views:            views           ?? null,
         position_in_feed: positionInFeed  ?? null,
       });
@@ -154,7 +152,7 @@ export function VideoModal({
         track('video_cover_fallback', {
           post_id:         postId          ?? null,
           politician_name: politicianName  ?? null,
-          party:           partyKey        ?? null,
+          party:           groupKey        ?? null,
           position_in_feed: positionInFeed ?? null,
         });
       }
@@ -167,24 +165,24 @@ export function VideoModal({
       track('video_closed', {
         post_id:          postId         ?? null,
         politician_name:  politicianName ?? null,
-        party:            partyKey       ?? null,
+        party:            groupKey       ?? null,
         had_video:        Boolean(videoMp4),
         watch_duration_s: watchDurationS,
         position_in_feed: positionInFeed ?? null,
       });
     }
     prevVisibleRef.current = visible;
-  }, [visible, videoMp4, coverJpeg, postId, politicianName, partyKey, views, positionInFeed]);
+  }, [visible, videoMp4, coverJpeg, postId, politicianName, groupKey, views, positionInFeed]);
 
   // Fired once when the video actually begins playing (not just when the modal opens).
   const handlePlayStarted = useCallback(() => {
     track('video_play_started', {
       post_id:         postId         ?? null,
       politician_name: politicianName ?? null,
-      party:           partyKey       ?? null,
+      party:           groupKey       ?? null,
       position_in_feed: positionInFeed ?? null,
     });
-  }, [postId, politicianName, partyKey, positionInFeed]);
+  }, [postId, politicianName, groupKey, positionInFeed]);
 
   return (
     <Modal
@@ -243,7 +241,7 @@ export function VideoModal({
                     track('tiktok_link_tapped', {
                       post_id:         postId         ?? null,
                       politician_name: politicianName ?? null,
-                      party:           partyKey       ?? null,
+                      party:           groupKey       ?? null,
                       position_in_feed: positionInFeed ?? null,
                     });
                     Linking.openURL(postUrl);
