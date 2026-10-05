@@ -16,6 +16,7 @@
 
 import { query, tableRef, postWeb } from '@/lib/bigquery';
 import { guardTenant } from '@/lib/tenantGuard';
+import { dataCacheHeaders } from '@/lib/cacheHeaders';
 import { parseRange, rangeDateFilter } from '@/lib/bqQueries';
 import { safeErrorDetail } from '@/lib/errors';
 
@@ -68,7 +69,7 @@ export async function GET(request: Request): Promise<Response> {
 
     return Response.json(
       { styles: clean(styleRows), topics: clean(topicRows) },
-      { headers: { 'Cache-Control': 'private, max-age=1800, stale-while-revalidate=120' } },
+      { headers: dataCacheHeaders(tenant) },
     );
   } catch (err: unknown) {
     const { clientDetail, logMessage } = safeErrorDetail(err);
