@@ -48,6 +48,9 @@
       ]
     }
   ],
+  "redirects": [
+    { "source": "/privacy", "destination": "/privacy-policy", "permanent": true }
+  ],
   "rewrites": [
     { "source": "/((?!api/cover/|robots.txt).*)", "destination": "/api/[...all]" }
   ]
