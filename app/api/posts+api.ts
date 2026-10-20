@@ -15,6 +15,7 @@
 
 import { getBigQuery, tableRef, accountWeb, postWeb } from '@/lib/bigquery';
 import { guardTenant } from '@/lib/tenantGuard';
+import { dataCacheHeaders } from '@/lib/cacheHeaders';
 import { groupKeyFor, isWarehouseGroup } from '@/data/grouping';
 import { signMediaFields } from '@/lib/gcs';
 import { safeErrorDetail } from '@/lib/errors';
@@ -227,10 +228,10 @@ export async function GET(request: Request): Promise<Response> {
     // hasMore: a full page back implies there is likely another page.
     const hasMore = rows.length === limit;
 
-    // Cache shorter than TTL so clients never hold an expired signed URL.
+    // Cache well inside the signed-URL TTL so clients never hold an expired one.
     return Response.json(
       { posts, hasMore, total },
-      { headers: { 'Cache-Control': 'private, max-age=1800, stale-while-revalidate=120' } }
+      { headers: dataCacheHeaders(tenant) }
     );
 
   } catch (err: unknown) {

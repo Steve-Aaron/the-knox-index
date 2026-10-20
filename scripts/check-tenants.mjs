@@ -6,7 +6,8 @@
  *
  *   1. HOST ROUTING     — every production host resolves to the right dashboard
  *   2. ACCESS RULES     — allowed domains admit, everything else does not
- *   3. GATE LEAKS       — no public data route reads the ungated base tables
+ *   3. GATE LEAKS       — no public data route reads the ungated base tables,
+ *                         and no gated tenant's response gets a shared CDN copy
  *   4. REGION COVERAGE  — every account on a region-grouped dashboard has a
  *                         country mapping (needs BigQuery; skipped without creds)
  *
@@ -20,6 +21,7 @@ import { join } from 'node:path';
 import { resolveTenant, isAllowedDomain, tenantById, isKnownTenant, TENANTS } from '../lib/tenants.ts';
 import { projectGlobe, buildLandPath, placeMarkerCard, clampPhi, wrapLambda } from '../lib/globe.ts';
 import { fmtCount } from '../lib/format.ts';
+import { dataCacheHeaders } from '../lib/cacheHeaders.ts';
 import { WORLD_RINGS } from '../data/../lib/world-geometry.ts';
 
 let failures = 0;
@@ -96,6 +98,21 @@ for (const file of PUBLIC_ROUTES) {
   const src = readFileSync(join('app/api', file), 'utf8');
   if (src.includes('guardTenant(request)')) ok(`${file} calls the tenant guard`);
   else fail(`${file} does not call guardTenant()`);
+}
+
+// A CDN hit skips the function and so the guard: gated tenants must never get
+// a shared copy, and routes must not hand-write shared cache headers.
+const uk = TENANTS.find(t => t.id === 'uk');
+expect(dataCacheHeaders(world)['Cache-Control'],                 'private, max-age=1800', 'world responses are private');
+expect('Vercel-CDN-Cache-Control' in dataCacheHeaders(world),     false, 'world responses get no CDN copy');
+expect('Vercel-CDN-Cache-Control' in dataCacheHeaders(uk),        true,  'uk responses are CDN-cached');
+const SHARED_CACHE_RE = /'(public|s-maxage)[^']*'|Vercel-CDN-Cache-Control|CDN-Cache-Control/;
+for (const file of PUBLIC_ROUTES) {
+  const src = readFileSync(join('app/api', file), 'utf8');
+  const hits = src.split('\n').map((line, i) => ({ line, n: i + 1 }))
+    .filter(({ line }) => SHARED_CACHE_RE.test(line) && !line.includes('dataCacheHeaders(') && !line.trim().startsWith('//'));
+  if (hits.length === 0) ok(`${file} takes shared caching only from dataCacheHeaders()`);
+  else hits.forEach(({ line, n }) => fail(`${file}:${n} sets shared cache headers directly → ${line.trim()}`));
 }
 
 // ── 4. Region coverage ────────────────────────────────────────────────────────
