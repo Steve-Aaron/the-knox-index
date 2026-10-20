@@ -26,14 +26,14 @@ const SIGNED_OUT_LINKS: FooterLink[] = [
   { label: 'Sign up',        to:  '/signup' },
   { label: 'Log in',         to:  '/login' },
   { label: 'Contact',        to:  '/contact' },
-  { label: 'Privacy',        url: 'https://knoxdigi.com/privacy-policy' },
+  { label: 'Privacy',        to:  '/privacy-policy' },
   { label: 'LinkedIn',       url: 'https://www.linkedin.com/company/knoxdigital' },
 ];
 
 const SIGNED_IN_LINKS: FooterLink[] = [
   { label: 'Preferences',    to:  '/preferences' },
   { label: 'Contact',        to:  '/contact' },
-  { label: 'Privacy',        url: 'https://knoxdigi.com/privacy-policy' },
+  { label: 'Privacy',        to:  '/privacy-policy' },
   { label: 'LinkedIn',       url: 'https://www.linkedin.com/company/knoxdigital' },
 ];
 
