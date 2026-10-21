@@ -1,296 +1,39 @@
-import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  StyleSheet,
-  Platform,
-  Pressable,
-  useWindowDimensions,
-} from 'react-native';
-import { TenantGate } from '@/components/auth/TenantGate';
+import React from 'react';
+import { StyleSheet, View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { AccountHero } from '@/components/account/AccountHero';
-import { ScoreCard } from '@/components/account/ScoreCard';
-import { AccountPostCard } from '@/components/account/AccountPostCard';
-import { SkeletonBlock } from '@/components/primitives/SkeletonBlock';
+import { TenantGate } from '@/components/auth/TenantGate';
+import { AccountScreen } from '@/components/account/AccountScreen';
 import { DevPanel } from '@/components/primitives/DevPanel';
 import { HeaderNav } from '@/components/primitives/HeaderNav';
-import { SectionDivider } from '@/components/primitives/SectionDivider';
-import { neutral, accent } from '@/theme/colors';
-import { spacing } from '@/theme/spacing';
-import { type, font } from '@/theme/typography';
-import { breakpoints } from '@/theme/breakpoints';
-import type { AccountPageResponse, ScoreKey } from '@/data/types';
+import { brand } from '@/theme/colors';
 
 /**
  * Account page — /account/[handle]
  * ----------------------------------
- * Dynamically rendered per TikTok handle.
- * Three sections: hero + radar, per-metric scorecards, post feed.
- * One job: surface the full profile for one account.
+ * Route shell only: page background, header, tenant gate. The page itself
+ * lives in components/account/AccountScreen. Data is mocked for now
+ * (data/account/mockAccount.ts).
  */
-
-// One accent colour per metric — consistent across cards.
-const METRIC_COLORS: Record<ScoreKey, string> = {
-  knoxFactor:  accent.indigo,
-  virality:    accent.amber,
-  engagement:  accent.pink,
-  frequency:   accent.mint,
-  followers:   '#A78BFA',   // soft purple
-};
-
-const SCORE_ORDER: ScoreKey[] = ['knoxFactor', 'virality', 'engagement', 'frequency', 'followers'];
-
-/**
- * Convert a range label ('This week', 'Lifetime', etc.) into the lowercase
- * phrase used in the Knox Factor description. 'Lifetime' becomes 'overall'
- * so the sentence reads naturally.
- */
-function timePeriodPhrase(rangeLabel: string): string {
-  const lower = rangeLabel.toLowerCase();
-  return lower === 'lifetime' ? 'overall' : lower;
-}
-
-/**
- * Build the dynamic Knox Factor blurb for the score card.
- * Strips any leading '@' from the handle to avoid '@@'.
- */
-function knoxDescription(handle: string, rangeLabel: string): string {
-  const cleanHandle = handle.replace(/^@/, '');
-  return `Our custom evaluation on how successful @${cleanHandle}'s TikTok account is doing ${timePeriodPhrase(rangeLabel)}`;
-}
-
-// SectionHeader has been extracted to the <SectionDivider> primitive.
-
-function LoadingSkeleton() {
-  return (
-    <View style={{ gap: spacing.lg, padding: spacing.xl }}>
-      <SkeletonBlock height={320} borderRadius={16} />
-      <View style={{ flexDirection: 'row', gap: spacing.md }}>
-        {[0, 1, 2].map(i => <SkeletonBlock key={i} height={260} borderRadius={16} style={{ flex: 1 }} />)}
-      </View>
-      {[0, 1, 2].map(i => <SkeletonBlock key={i} height={160} borderRadius={16} />)}
-    </View>
-  );
-}
-
-function NotFound({ handle }: { handle: string }) {
-  return (
-    <View style={notFoundStyles.wrap}>
-      <Text style={notFoundStyles.emoji}>404</Text>
-      <Text style={notFoundStyles.title}>Account not found</Text>
-      <Text style={notFoundStyles.sub}>No account exists for @{handle}</Text>
-    </View>
-  );
-}
-
-const notFoundStyles = StyleSheet.create({
-  wrap:  { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md, padding: spacing.xl },
-  emoji: { fontFamily: font.bold, fontSize: 48, color: neutral.textDim },
-  title: { fontFamily: font.bold, fontSize: 22, color: neutral.text },
-  sub:   { ...type.body, color: neutral.textDim, fontSize: 14 },
-});
-
 function AccountPageInner() {
   const { handle } = useLocalSearchParams<{ handle: string }>();
-  const { width }  = useWindowDimensions();
-  const isDesktop  = width >= breakpoints.desktop;
-  const isTablet   = width >= breakpoints.tablet;
-
-  const [data,    setData]    = useState<AccountPageResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error,   setError]   = useState<string | null>(null);
-  const [page,    setPage]    = useState(1);
-
-  useEffect(() => {
-    if (!handle) return;
-    setLoading(true);
-    setError(null);
-    setPage(1);
-
-    fetch(`/api/account?handle=${encodeURIComponent(handle)}&range=week`)
-      .then(async r => {
-        if (!r.ok) {
-          const body = await r.json().catch(() => ({}));
-          throw new Error(body.error ?? `HTTP ${r.status}`);
-        }
-        return r.json() as Promise<AccountPageResponse>;
-      })
-      .then(setData)
-      .catch(e => setError(e.message ?? 'Failed to load account'))
-      .finally(() => setLoading(false));
-  }, [handle]);
-
-  const hPad = isTablet ? spacing.xl : spacing.md;
 
   return (
     <View style={styles.root}>
-      {/* Knox product gradient — dark for the top 75%, horizon glow at the foot */}
       <LinearGradient
-        colors={['#1F1D1D', '#1F1D1D', '#35393B']}
-        locations={[0, 0.75, 1]}
+        colors={brand.productGradient as unknown as [string, string, string]}
+        locations={brand.productGradientLocations as unknown as [number, number, number]}
         style={StyleSheet.absoluteFill}
       />
-
       <SafeAreaView style={styles.safeArea}>
         <HeaderNav />
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={[styles.scroll, { paddingHorizontal: hPad }]}
-        >
-          {loading ? (
-            <LoadingSkeleton />
-          ) : error ? (
-            <NotFound handle={handle ?? ''} />
-          ) : data ? (
-            <>
-              {/* ── SECTION 1: Hero + Radar ─────────────── */}
-              <View style={styles.section}>
-                <AccountHero
-                  politician={data.politician}
-                  overallRank={data.overallRank}
-                  totalCount={data.rankings.knoxFactor.total}
-                  rangeLabel={data.rangeLabel}
-                />
-              </View>
-
-              {/* ── SECTION 2: Scorecards ───────────────── */}
-              <View style={styles.section}>
-                <SectionDivider title="PERFORMANCE SCORECARDS" />
-                <ScrollView
-                  horizontal={!isDesktop}
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={[
-                    styles.scoreCardRow,
-                    isDesktop && styles.scoreCardGrid,
-                  ]}
-                >
-                  {SCORE_ORDER.map((key, i) => (
-                    <ScoreCard
-                      key={key}
-                      metricKey={key}
-                      score={data.politician.scores[key]}
-                      ranking={data.rankings[key]}
-                      accentColor={METRIC_COLORS[key]}
-                      targetId={data.politician.id}
-                      description={
-                        key === 'knoxFactor'
-                          ? knoxDescription(data.politician.handle, data.rangeLabel)
-                          : undefined
-                      }
-                      delay={i * 60}
-                    />
-                  ))}
-                </ScrollView>
-              </View>
-
-              {/* ── SECTION 3: Posts ────────────────────── */}
-              <View style={styles.section}>
-                <SectionDivider title={`ALL POSTS · ${data.allPosts.length} TOTAL`} />
-                {data.allPosts.length === 0 ? (
-                  <Text style={styles.emptyPosts}>
-                    No posts found for this account.
-                  </Text>
-                ) : (
-                  <>
-                    <View style={styles.postFeed}>
-                      {data.allPosts.slice(0, page * 10).map((post, i) => (
-                        <AccountPostCard
-                          key={post.postId}
-                          post={post}
-                          groupKey={data.politician.groupKey}
-                          name={data.politician.name}
-                          delay={i * 40}
-                        />
-                      ))}
-                    </View>
-                    {page * 10 < data.allPosts.length && (
-                      <Pressable
-                        style={({ pressed }) => [
-                          styles.loadMore,
-                          pressed && styles.loadMorePressed,
-                        ]}
-                        onPress={() => setPage(p => p + 1)}
-                      >
-                        <Text style={styles.loadMoreText}>
-                          LOAD MORE · {data.allPosts.length - page * 10} REMAINING
-                        </Text>
-                      </Pressable>
-                    )}
-                  </>
-                )}
-              </View>
-
-              <View style={styles.bottomPad} />
-            </>
-          ) : null}
-        </ScrollView>
+        <AccountScreen handle={handle} />
       </SafeAreaView>
-
       <DevPanel />
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: '#0D1117',
-  },
-  safeArea: {
-    flex: 1,
-  },
-  scroll: {
-    paddingTop: spacing.xl,
-    gap: spacing.xl,
-  },
-  section: {
-    gap: spacing.md,
-  },
-  scoreCardRow: {
-    flexDirection: 'row',
-    gap: spacing.md,
-    paddingBottom: spacing.sm,
-  },
-  scoreCardGrid: {
-    flexWrap: 'wrap',
-  },
-  postFeed: {
-    gap: spacing.md,
-  },
-  emptyPosts: {
-    ...type.body,
-    color: neutral.textDim,
-    fontSize: 14,
-    textAlign: 'center',
-    paddingVertical: spacing.xl,
-  },
-  bottomPad: {
-    height: spacing.xxxl,
-  },
-  loadMore: {
-    alignSelf:       'center',
-    borderWidth:     1,
-    borderColor:     'rgba(255,255,255,0.12)',
-    borderRadius:    20,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.xl,
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    marginTop:       spacing.sm,
-  },
-  loadMorePressed: {
-    backgroundColor: 'rgba(255,255,255,0.09)',
-  },
-  loadMoreText: {
-    fontFamily:    font.bold,
-    fontSize:      11,
-    color:         neutral.textDim,
-    letterSpacing: 1.4,
-  },
-});
 
 /** Gated tenants show the sign-in / approval door instead of the account. */
 export default function AccountPage() {
@@ -300,3 +43,13 @@ export default function AccountPage() {
     </TenantGate>
   );
 }
+
+const styles = StyleSheet.create({
+  root: {
+    flex:            1,
+    backgroundColor: brand.black,
+  },
+  safeArea: {
+    flex: 1,
+  },
+});

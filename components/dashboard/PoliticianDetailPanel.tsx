@@ -16,8 +16,8 @@ import { RadialScoreChart, RawScoreValues } from '@/components/card/RadialScoreC
 import { LinkPill } from '@/components/primitives/LinkPill';
 import { InfoTip } from '@/components/primitives/InfoTip';
 import { CountUp, formatters } from '@/components/primitives/CountUp';
-import { StyleChip } from '@/components/primitives/StyleChip';
-import { fmtDate, fmtSingular } from '@/lib/format';
+import { PostSummaryCard } from '@/components/post/card/PostSummaryCard';
+import { fmtSingular } from '@/lib/format';
 import { FollowerQualityFlag } from './FollowerQualityFlag';
 import { neutral, party, glass, colourFor } from '@/theme/colors';
 import { font } from '@/theme/typography';
@@ -256,74 +256,16 @@ export function PoliticianDetailPanel({ politician, headlineKey, range, panelHei
             style={styles.posts}
             {...(Platform.OS === 'web' ? { 'data-container_name': 'card_recent_posts_list' } as any : {})}
           >
-            {recentPosts.map(post => {
-              const engRate = post.views > 0
-                ? +(((post.likes + post.comments + (post.saves ?? 0) + post.shares) / post.views) * 100).toFixed(2)
-                : 0;
-              return (
-                <Pressable
-                  key={post.postId}
-                  onPress={post.postUrl ? () => Linking.openURL(post.postUrl!) : undefined}
-                  style={({ pressed, hovered }: any) => [
-                    styles.postCard,
-                    post.postUrl && hovered && { borderColor: colour.base, backgroundColor: 'rgba(255,255,255,0.04)' },
-                    post.postUrl && pressed && { opacity: 0.8 },
-                  ]}
-                  accessibilityRole={post.postUrl ? 'link' : undefined}
-                >
-                  {/* Caption + TikTok icon */}
-                  <View style={styles.postCaptionRow}>
-                    <Text style={styles.postCaption} numberOfLines={3}>{post.caption}</Text>
-                    {post.postUrl
-                      ? Platform.OS === 'web'
-                        ? React.createElement('i', {
-                            className: 'fa-brands fa-tiktok',
-                            style: { color: '#FFFFFF', fontSize: 16, flexShrink: 0, marginTop: 2 },
-                          })
-                        : <Text style={[styles.postLinkIcon, { color: '#FFFFFF' }]}>↗</Text>
-                      : null}
-                  </View>
-
-                  {/* AI summary — falls back to nothing when missing so the layout stays tight */}
-                  {post.summary ? (
-                    <Text style={styles.postSummary} numberOfLines={3}>{post.summary}</Text>
-                  ) : null}
-
-                  {/* Content styles — surface what kind of post this is */}
-                  {(post.styles ?? []).length > 0 ? (
-                    <View style={styles.postStyles}>
-                      {(post.styles ?? []).slice(0, 4).map(s => (
-                        <StyleChip key={s} label={s} tint={colour.glow} compact />
-                      ))}
-                    </View>
-                  ) : null}
-
-                  {/* Date + 4 stats: Views, Likes, Comments, Shares */}
-                  <View style={styles.postMeta}>
-                    {post.postDate ? (
-                      <Text style={styles.postDate}>{fmtDate(post.postDate)}</Text>
-                    ) : null}
-                    <View style={styles.postStats}>
-                      <PostStat label="Views"    value={post.views}    accentColor={colour.glow} />
-                      <View style={styles.postStatDivider} />
-                      <PostStat label="Likes"    value={post.likes}    accentColor={colour.glow} />
-                      <View style={styles.postStatDivider} />
-                      <PostStat label="Comments" value={post.comments} accentColor={colour.glow} />
-                      <View style={styles.postStatDivider} />
-                      <PostStat label="Shares"   value={post.shares}   accentColor={colour.glow} />
-                    </View>
-                  </View>
-
-                  {/* Engagement rate strip */}
-                  <View style={styles.engRow}>
-                    <Text style={styles.engLabel}>ENGAGEMENT RATE</Text>
-                    <Text style={[styles.engValue, { color: colour.glow }]}>
-                      {post.views > 0 ? `${engRate}%` : '—'}
-                    </Text>
-                  </View>
-                </Pressable>
-              );
-            })}
+            {recentPosts.map(post => (
+              <PostSummaryCard
+                key={post.postId}
+                post={post}
+                colour={colour}
+                platformIcon={post.postUrl ? 'tiktok' : undefined}
+                onPress={post.postUrl ? () => Linking.openURL(post.postUrl!) : undefined}
+                accessibilityRole="link"
+              />
+            ))}
           </View>
           )}
 
@@ -385,25 +327,6 @@ function TotalTile({
         ]}
       />
       <Text style={styles.totalLabel}>{label.toUpperCase()}</Text>
-    </View>
-  );
-}
-
-function PostStat({
-  label,
-  value,
-  accentColor,
-}: {
-  label: string;
-  value: number;
-  accentColor: string;
-}) {
-  return (
-    <View style={styles.postStat}>
-      <Text style={[styles.postStatValue, { color: accentColor }]}>
-        {formatters.compact(value)}
-      </Text>
-      <Text style={styles.postStatLabel}>{label.toUpperCase()}</Text>
     </View>
   );
 }
@@ -493,113 +416,6 @@ const styles = StyleSheet.create({
   // Posts
   posts: {
     gap: spacing.sm,
-  },
-  postCard: {
-    backgroundColor: glass.card,
-    borderWidth: 1,
-    borderColor: glass.border,
-    borderRadius: radius.md,
-    padding: spacing.md,
-    gap: spacing.sm,
-    ...Platform.select({
-      web: {
-        transitionProperty: 'border-color, background-color',
-        transitionDuration: '160ms',
-        cursor: 'pointer',
-        overflowX: 'hidden',
-      } as any,
-      default: {},
-    }),
-  },
-  postCaptionRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: spacing.sm,
-  },
-  postLink: {
-    paddingTop: 2,
-    flexShrink: 0,
-    ...Platform.select({ web: { cursor: 'pointer' } as any, default: {} }),
-  },
-  postLinkIcon: {
-    fontSize: 16,
-  },
-  postCaption: {
-    flex: 1,
-    ...type.body,
-    color: neutral.text,
-    fontSize: 16,
-    lineHeight: 18,
-  },
-  postSummary: {
-    ...type.body,
-    color: neutral.textMid,
-    fontSize: 12,
-    lineHeight: 16,
-    fontStyle: 'italic',
-  },
-  postStyles: {
-    flexDirection: 'row',
-    flexWrap:      'wrap',
-    gap:           4,
-  },
-  engRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingTop: spacing.xs,
-    borderTopWidth: 1,
-    borderTopColor: glass.border,
-  },
-  engLabel: {
-    ...type.caption,
-    color: neutral.textDim,
-    fontSize: 12,
-  },
-  engValue: {
-    fontFamily: font.mono,
-    fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: -0.2,
-  },
-  postMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.sm,
-  },
-  postDate: {
-    ...type.caption,
-    color: neutral.textDim,
-    fontSize: 12,
-    textTransform: 'none' as const,
-    flexShrink: 0,
-  },
-  postStats: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: spacing.md,
-  },
-  postStat: {
-    gap: 2,
-  },
-  postStatValue: {
-    fontFamily: font.mono,
-    fontSize: 16,
-    fontWeight: '700',
-    letterSpacing: -0.3,
-  },
-  postStatLabel: {
-    ...type.caption,
-    color: neutral.textDim,
-    fontSize: 12,
-  },
-  postStatDivider: {
-    width: 1,
-    height: 24,
-    backgroundColor: glass.border,
-    alignSelf: 'flex-end',
-    marginBottom: 2,
   },
 
   // Empty posts state
