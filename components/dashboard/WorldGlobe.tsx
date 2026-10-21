@@ -194,8 +194,9 @@ export function WorldGlobe({ politicians }: Props) {
           dragTimeRef.current = now;
 
           const sensitivity = DRAG_SENSITIVITY / zoomRef.current;
-          const dLambda     = dx * sensitivity;
-          const dPhi        = -dy * sensitivity;
+          // Inverted: the globe turns against the drag on both axes.
+          const dLambda     = -dx * sensitivity;
+          const dPhi        = dy * sensitivity;
 
           rotationRef.current = {
             lambda: wrapLambda(rotationRef.current.lambda + dLambda),
