@@ -32,7 +32,7 @@
 
 /* eslint-disable @typescript-eslint/no-var-requires */
 const { BigQuery } = require('@google-cloud/bigquery');
-const { Storage } = require('@google-cloud/storage');
+const { Storage: GcsStorage } = require('@google-cloud/storage');
 const path = require('node:path');
 
 // ── Config (mirrors lib/bigquery.ts + lib/gcs.ts; kept inline by design) ──────
@@ -90,7 +90,7 @@ function getBigQuery(): any {
 
 let _storage: any = null;
 function getStorage(): any {
-  if (!_storage) _storage = new Storage(gcpCredentialOpts());
+  if (!_storage) _storage = new GcsStorage(gcpCredentialOpts());
   return _storage;
 }
 
