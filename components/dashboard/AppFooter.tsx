@@ -166,6 +166,9 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: spacing.xs,
     alignItems: 'center',
+    // Cap at the row width so the buttons wrap on narrow screens instead of
+    // running off the edge.
+    maxWidth: '100%',
   },
   linkBtn: {
     paddingHorizontal: spacing.md,

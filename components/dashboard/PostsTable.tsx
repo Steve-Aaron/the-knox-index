@@ -13,29 +13,28 @@ import DraggableFlatList, {
   ScaleDecorator,
   type RenderItemParams,
 } from 'react-native-draggable-flatlist';
-import { ShimmerImage } from '@/components/primitives/ShimmerImage';
 import { MotiView } from 'moti';
 import { DashCard } from '@/components/primitives/DashCard';
 import { DevLabel } from '@/components/primitives/DevLabel';
-import { BoxWhisker } from '@/components/primitives/BoxWhisker';
 import { InfoTip } from '@/components/primitives/InfoTip';
 import { SkeletonBlock } from '@/components/primitives/SkeletonBlock';
+import { PagerControls, pagerText } from '@/components/primitives/PagerControls';
 import { VideoModal } from './VideoModal';
+import { PostDetail } from '@/components/post/detail/PostDetail';
+import { POST_DETAIL_HEIGHT } from '@/components/post/detail/postDetailLayout';
 import { Kicker } from '@/components/ui/Kicker';
 import { Title } from '@/components/ui/Title';
-import { neutral, party, glass, accent, secondary, colourFor } from '@/theme/colors';
+import { neutral, party, glass, accent, colourFor } from '@/theme/colors';
 import type { GroupKey } from '@/theme/colors';
 import { useTenant } from '@/hooks/useTenant';
 import { labelForGroupKey } from '@/data/grouping';
 import { type, font } from '@/theme/typography';
 import { spacing, radius } from '@/theme/spacing';
-import { formatters } from '@/components/primitives/CountUp';
 import type { PostRecord, PostBenchmarks } from '@/data/types';
 import { track } from '@/lib/analytics';
-import { fmtLabel, fmtDate } from '@/lib/format';
+import { fmtLabel } from '@/lib/format';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { AdvancedFilterPanel } from './AdvancedFilterPanel';
-import { AdminSummaryEditor } from './AdminSummaryEditor';
 import type { FeedFilters } from '@/data/usePostsData';
 import { applyAdvancedFilter, type Rule } from '@/lib/advancedFilters';
 
@@ -791,47 +790,25 @@ export function PostsTable({
               />
 
               {/* ── Pagination controls ──────────────────── */}
-              <View style={styles.pagination}>
-                <Pressable
-                  onPress={goToPrevPage}
-                  disabled={safePageIndex === 0}
-                  style={({ pressed }) => [
-                    styles.pageBtn,
-                    safePageIndex === 0 && styles.pageBtnDisabled,
-                    pressed && safePageIndex > 0 && { opacity: 0.75 },
-                  ]}
-                >
-                  <Text style={[styles.pageBtnText, safePageIndex === 0 && styles.pageBtnTextDisabled]}>
-                    ← Previous
-                  </Text>
-                </Pressable>
-
-                <Text style={styles.pageInfo}>
-                  Page <Text style={styles.pageInfoNum}>{safePageIndex + 1}</Text> of {totalPages}{hasMore ? '+' : ''}
-                  <Text style={styles.pageInfoCount}>  ·  {feedTotal}{feedTotalApprox ? '+' : ''} post{feedTotal === 1 ? '' : 's'}</Text>
-                </Text>
-
-                {(() => {
-                  const atEnd        = safePageIndex >= totalPages - 1;
-                  const nextDisabled = (atEnd && !hasMore) || loadingMore;
-                  const label        = loadingMore ? 'Loading…' : atEnd && hasMore ? 'Load more →' : 'Next →';
-                  return (
-                    <Pressable
-                      onPress={goToNextPage}
-                      disabled={nextDisabled}
-                      style={({ pressed }) => [
-                        styles.pageBtn,
-                        nextDisabled && styles.pageBtnDisabled,
-                        pressed && !nextDisabled && { opacity: 0.75 },
-                      ]}
-                    >
-                      <Text style={[styles.pageBtnText, nextDisabled && styles.pageBtnTextDisabled]}>
-                        {label}
-                      </Text>
-                    </Pressable>
-                  );
-                })()}
-              </View>
+              {(() => {
+                const atEnd        = safePageIndex >= totalPages - 1;
+                const nextDisabled = (atEnd && !hasMore) || loadingMore;
+                const label        = loadingMore ? 'Loading…' : atEnd && hasMore ? 'Load more →' : 'Next →';
+                return (
+                  <PagerControls
+                    onPrev={goToPrevPage}
+                    onNext={goToNextPage}
+                    prevDisabled={safePageIndex === 0}
+                    nextDisabled={nextDisabled}
+                    nextLabel={label}
+                  >
+                    <Text style={pagerText.info}>
+                      Page <Text style={pagerText.strong}>{safePageIndex + 1}</Text> of {totalPages}{hasMore ? '+' : ''}
+                      <Text style={pagerText.muted}>  ·  {feedTotal}{feedTotalApprox ? '+' : ''} post{feedTotal === 1 ? '' : 's'}</Text>
+                    </Text>
+                  </PagerControls>
+                );
+              })()}
             </>
           )
         )}
@@ -886,9 +863,6 @@ const POST_DWELL_MIN_MS = 500;
 
 function PostCard({ post, index, benchmarks, onPress, drag, isActive, compact, activeStyleFilter, activeTopicFilter, onStylePress, onTopicPress, sortKey, isAdmin }: CardProps) {
   const colour = colourFor(post.groupKey);
-  const engRate = post.views > 0
-    ? +((post.likes + post.comments + post.saves + post.shares) / post.views * 100).toFixed(2)
-    : 0;
 
   // Dwell tracking: mount → unmount measures how long this card was on screen
   // during the user's session. Fires on unmount (scroll-past, filter change,
@@ -923,32 +897,6 @@ function PostCard({ post, index, benchmarks, onPress, drag, isActive, compact, a
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Generated summary — starts from the BQ value, can be updated live
-  const [summary, setSummary]       = useState<string>(post.videoSummary ?? '');
-  const [generating, setGenerating] = useState(false);
-  const [genSource, setGenSource]   = useState<'video' | 'text' | null>(null);
-
-  const generateSummary = async () => {
-    setGenerating(true);
-    try {
-      const res  = await fetch('/api/summarise', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ postId: post.postId }),
-      });
-      const data = await res.json() as { summary?: string; source?: 'video' | 'text'; error?: string };
-      if (data.summary) {
-        setSummary(data.summary);
-        setGenSource(data.source ?? null);
-      }
-    } catch {
-      // Failure is surfaced by the button returning to its idle state —
-      // no console output, no error detail leaked to the client.
-    } finally {
-      setGenerating(false);
-    }
-  };
-
   return (
     <MotiView
       from={{ opacity: 0, translateY: 8 }}
@@ -964,194 +912,26 @@ function PostCard({ post, index, benchmarks, onPress, drag, isActive, compact, a
           pressed && { opacity: 0.84 },
         ]}
       >
-        {/* ── Cover thumbnail ─────────────────────── */}
-        <View style={compact ? styles.coverWrapCompact : styles.coverWrap}>
-          <ShimmerImage
-            uri={post.coverJpeg || undefined}
-            wrapStyle={compact ? styles.coverCompact : styles.cover}
-            resizeMode="cover"
-            accentColour={colour.base}
-            fallback={
-              <View style={[compact ? styles.coverCompact : styles.cover, styles.coverFallback]}>
-                <Text style={styles.coverPlayIcon}>▶</Text>
-              </View>
-            }
-          />
-          <View style={styles.viewsBadge}>
-            <Text style={styles.viewsNum}>{formatters.compact(post.views)}</Text>
-            <Text style={styles.viewsLbl}> views</Text>
-          </View>
-        </View>
-
-        {/* ── Content column: summary → metrics → info ── */}
-        <View style={compact ? styles.rightColCompact : styles.rightCol}>
-
-          {/* 1. AI SUMMARY — most prominent, next to video */}
-          <View style={styles.summarySection}>
-            <View style={styles.summaryHeader}>
-              <Text style={styles.summaryKicker}>AI SUMMARY</Text>
-              {genSource ? (
-                <View style={styles.sourceTag}>
-                  <Text style={styles.sourceTagText}>
-                    {genSource === 'video' ? 'from video' : 'from caption'}
-                  </Text>
-                </View>
-              ) : null}
-            </View>
-
-            {summary ? (
-              <Text style={styles.summaryText}>{summary}</Text>
-            ) : generating ? (
-              <Text style={styles.summaryEmpty}>Generating summary…</Text>
-            ) : (
-              <>
-                <Text style={styles.summaryEmpty}>
-                  No summary yet for this post.
-                </Text>
-                <Pressable
-                  onPress={generateSummary}
-                  style={({ pressed }) => [
-                    styles.genBtn,
-                    pressed && { opacity: 0.7 },
-                  ]}
-                >
-                  <Text style={styles.genBtnText}>✦  Generated by Knox</Text>
-                </Pressable>
-              </>
-            )}
-
-            {isAdmin ? (
-              <AdminSummaryEditor
-                postId={String(post.postId)}
-                value={summary}
-                onSaved={setSummary}
-              />
-            ) : null}
-          </View>
-
-          <View style={styles.divider} />
-
-          {/* 2. METRICS — large and readable */}
-          <View style={styles.metricsRow}>
-            <MetricPill value={post.views}    label="Views"    colour={colour.glow} />
-            <MetricPill value={post.likes}    label="Likes"    colour={colour.glow} />
-            <MetricPill value={post.comments} label="Comments" colour={colour.glow} />
-            <MetricPill value={post.shares}   label="Shares"   colour={colour.glow} />
-          </View>
-
-          <View style={styles.divider} />
-
-          {/* 3. BOX-AND-WHISKER DISTRIBUTIONS — side by side to save vertical space */}
-          {benchmarks ? (
-            <View style={styles.distributionSection}>
-              <View style={styles.distHeader}>
-                <Text style={styles.distKicker}>HOW THIS POST COMPARES</Text>
-                <InfoTip
-                  text="These charts show where this post sits against all other posts we track. The coloured box covers the middle 50% of posts. The vertical line is the median. The dot is this post. Hover each part to learn more."
-                  width={280}
-                />
-              </View>
-              <View style={[styles.distRow, compact && styles.distRowStacked]}>
-                <BoxWhisker
-                  label="Views vs dataset"
-                  value={post.views}
-                  benchmark={benchmarks.views}
-                  colour={colour.glow}
-                  format={formatters.compact}
-                  scaleType="log"
-                />
-                <View style={[styles.distDivider, compact && styles.distDividerStacked]} />
-                <BoxWhisker
-                  label="Engagement rate"
-                  value={engRate}
-                  benchmark={benchmarks.engagement}
-                  colour={colour.glow}
-                  format={v => `${v.toFixed(1)}%`}
-                />
-              </View>
-            </View>
-          ) : null}
-
-          <View style={styles.divider} />
-
-          {/* 4. IDENTITY + CAPTION + TAGS — contextual, below the fold */}
-          <View style={styles.infoSection}>
-            <View style={styles.identityRow}>
-              <View style={[styles.partyDotLg, { backgroundColor: colour.base }]} />
-              <View style={{ flex: 1, minWidth: 0 }}>
-                <Text style={[styles.politicianName, { color: colour.glow }]} numberOfLines={1}>
-                  {post.politicianName}
-                </Text>
-                <Text style={styles.metaLine} numberOfLines={1}>
-                  {groupLabel(post.groupKey)}
-                  {post.postDate ? ` · ${fmtDate(post.postDate)}` : ''}
-                </Text>
-              </View>
-            </View>
-            <Text style={styles.caption} numberOfLines={2}>{post.caption}</Text>
-            <View style={styles.tags}>
-              {(post.styles ?? []).map(s => {
-                const isActive = activeStyleFilter?.toLowerCase() === s.toLowerCase();
-                return (
-                  <Pressable
-                    key={s}
-                    onPress={() => onStylePress?.(s)}
-                    style={({ pressed }) => [
-                      styles.styleTag,
-                      isActive && styles.tagActive,
-                      pressed && { opacity: 0.7 },
-                    ]}
-                  >
-                    <Text style={[styles.tagText, isActive && styles.tagTextActive]}>{fmtLabel(s)}</Text>
-                  </Pressable>
-                );
-              })}
-              {(post.topics ?? []).slice(0, 3).map(t => {
-                const isActive = activeTopicFilter?.toLowerCase() === t.toLowerCase();
-                return (
-                  <Pressable
-                    key={t}
-                    onPress={() => onTopicPress?.(t)}
-                    style={({ pressed }) => [
-                      styles.topicTag,
-                      isActive && styles.tagActive,
-                      pressed && { opacity: 0.7 },
-                    ]}
-                  >
-                    <Text style={[styles.tagText, isActive && styles.tagTextActive]}>{fmtLabel(t)}</Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          </View>
-        </View>
+        <PostDetail
+          post={post}
+          groupLabel={groupLabel(post.groupKey)}
+          benchmarks={benchmarks}
+          compact={compact}
+          height={CARD_H}
+          isAdmin={isAdmin}
+          activeStyle={activeStyleFilter}
+          activeTopic={activeTopicFilter}
+          onStylePress={onStylePress}
+          onTopicPress={onTopicPress}
+        />
       </Pressable>
     </MotiView>
   );
 }
 
-interface MetricPillProps {
-  value:  number;
-  label:  string;
-  colour: string;
-  large?: boolean;
-}
-
-function MetricPill({ value, label, colour, large }: MetricPillProps) {
-  return (
-    <View style={styles.metricPill}>
-      <Text style={[styles.metricValue, large && styles.metricValueLg, { color: colour }]}>
-        {formatters.compact(value)}
-      </Text>
-      <Text style={styles.metricLabel}>{label.toUpperCase()}</Text>
-    </View>
-  );
-}
-
 // ── Styles ────────────────────────────────────────────────────────────────────
 
-const CARD_H  = 480 ;                              // card height = viewport window
-const COVER_W = Math.round(CARD_H * (9 / 16));   // 405px — exact 9:16 width for CARD_H
+const CARD_H  = POST_DETAIL_HEIGHT;                // card height = viewport window
 const GAP = 40 ; // set the gap between the snapping elements
 
 const styles = StyleSheet.create({
@@ -1330,55 +1110,6 @@ const styles = StyleSheet.create({
   skeletonList: { gap: spacing.sm, paddingBottom: spacing.sm },
   emptyText: { ...type.body, color: neutral.textDim, fontSize: 16, textAlign: 'center', padding: spacing.xl },
 
-  // ── Pagination ──────────────────────────────────────────────────────────
-  pagination: {
-    flexDirection:     'row',
-    alignItems:        'center',
-    justifyContent:    'space-between',
-    paddingVertical:   spacing.md,
-    paddingHorizontal: spacing.sm,
-    borderTopWidth:    1,
-    borderTopColor:    glass.border,
-    marginTop:         spacing.sm,
-  },
-  pageBtn: {
-    paddingHorizontal: spacing.md,
-    paddingVertical:   spacing.sm,
-    borderRadius:      radius.pill,
-    borderWidth:       1,
-    borderColor:       glass.borderHi,
-    backgroundColor:   'rgba(255,255,255,0.04)',
-    ...Platform.select({ web: { cursor: 'pointer' } as any, default: {} }),
-  },
-  pageBtnDisabled: {
-    borderColor:     glass.border,
-    backgroundColor: 'rgba(255,255,255,0.015)',
-    ...Platform.select({ web: { cursor: 'not-allowed' } as any, default: {} }),
-  },
-  pageBtnText: {
-    fontFamily: font.bold,
-    fontSize:   12,
-    color:      neutral.textMid,
-    letterSpacing: 0.3,
-  },
-  pageBtnTextDisabled: {
-    color: neutral.textDim,
-  },
-  pageInfo: {
-    fontFamily: font.ui,
-    fontSize:   12,
-    color:      neutral.textDim,
-    flex:       1,
-    textAlign:  'center',
-  },
-  pageInfoNum: {
-    fontFamily: font.bold,
-    color:      neutral.text,
-  },
-  pageInfoCount: {
-    fontFamily: font.ui,
-    color:      neutral.textDim,
-  },
   lockedWrap: {
     paddingVertical: spacing.xl,
     paddingHorizontal: spacing.lg,
@@ -1398,6 +1129,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 20,
   },
+
 
   // Drag handle — vertical braille-dot grip icon on the left edge of the card
   dragHandle: {
@@ -1453,233 +1185,11 @@ const styles = StyleSheet.create({
     ...Platform.select({ web: { cursor: 'pointer' } as any, default: {} }),
   },
 
-  // Cover
-  coverWrap: {
-    width: COVER_W,
-    flexShrink: 0,
-    position: 'relative',
-    backgroundColor: '#111',
-    overflow: 'hidden',
-  },
-  // 9:16 exact — COVER_W = CARD_H * 9/16, so width:height = 9:16 ✓
-  cover: {
-    width: COVER_W,
-    height: CARD_H,
-  },
-  // Compact cover — 9:16 portrait at full width, matching the desktop ratio.
-  coverWrapCompact: {
-    width: '100%' as any,
-    aspectRatio: 9 / 16,
-    position: 'relative' as const,
-    backgroundColor: '#111',
-    overflow: 'hidden',
-  },
-  coverCompact: {
-    width: '100%' as any,
-    height: '100%' as any,
-  },
-  coverFallback: {
-    backgroundColor: '#1a1a2e',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  coverPlayIcon: { fontSize: 24, color: neutral.textDim },
-  // ── Cover halo — replaces the old left-edge party line ───────────────────
-  // Soft radial gradient from the top-left corner, party-coloured. Adds
-  // identity without the 'sidebar rule' feel of a 3px vertical stripe.
-  coverHalo: {
-    position: 'absolute' as any,
-    top: 0, left: 0, right: 0, bottom: 0,
-  },
-  viewsBadge: {
-    position: 'absolute',
-    bottom: spacing.xs,
-    left: spacing.xs,
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    backgroundColor: 'rgba(0,0,0,0.75)',
-    borderRadius: radius.pill,
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-  },
-  viewsNum: {
-    fontFamily: font.mono,
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#fff',
-  },
-  viewsLbl: { fontFamily: font.ui, fontSize: 12, color: neutral.textMid, textTransform: 'none' },
 
-  // Compact right column — full width below cover
-  rightColCompact: {
-    flex: 1,
-    minWidth: 0,
-    flexDirection: 'column',
-  },
 
-  // Right column — stacks summary → metrics → distribution → identity vertically
-  // Height budget at CARD_H=720px:
-  //   metricsRow          ≈  60px  (generous padding)
-  //   distributionSection ≈ 148px  (2 plots SIDE-BY-SIDE)
-  //   infoSection         ≈ 147px  (generous padding)
-  //   dividers × 3        ≈   3px
-  //   summarySection      ≈ 362px  (flex:1, ~16 lines)
-  rightCol: {
-    flex: 1,
-    minWidth: 0,
-    flexDirection: 'column',
-  },
 
-  // ── 1. Summary — most prominent, fills remaining height ───────────────────
-  summarySection: {
-    flex: 1,
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.lg,
-    gap: spacing.sm,
-    backgroundColor: 'rgba(255,255,255,0.025)',
-    overflow: 'hidden',
-  },
-  summaryHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  summaryKicker: {
-    ...type.caption,
-    color: neutral.textDim,
-    fontSize: 12,
-    letterSpacing: 0.8,
-  },
-  sourceTag: {
-    backgroundColor: 'rgba(202,193,228,0.10)',
-    borderWidth: 1,
-    borderColor: 'rgba(202,193,228,0.35)',
-    borderRadius: radius.pill,
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-  },
-  sourceTagText: {
-    fontFamily: font.ui,
-    fontSize: 12,
-    color: secondary.lilac,
-    textTransform: 'none' as const,
-  },
-  genBtn: {
-    marginTop: spacing.sm,
-    alignSelf: 'flex-start',
-    borderWidth: 1,
-    borderColor: 'rgba(95,100,189,0.45)',
-    backgroundColor: 'rgba(95,100,189,0.10)',
-    borderRadius: radius.pill,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    ...Platform.select({ web: { cursor: 'pointer' } as any, default: {} }),
-  },
-  genBtnText: {
-    fontFamily: font.bold,
-    fontSize: 12,
-    color: accent.indigo,
-    textTransform: 'none' as const,
-  },
-  summaryText: {
-    fontFamily: font.ui,
-    color: neutral.text,
-    fontSize: 16,
-    lineHeight: 24,
-    flex: 1,
-  },
-  summaryEmpty: {
-    fontFamily: font.ui,
-    color: neutral.textDim,
-    fontSize: 16,
-    lineHeight: 20,
-    fontStyle: 'italic',
-  },
 
-  // ── 2. Metrics — large scannable numbers ─────────────────────────────────
-  metricsRow: {
-    flexDirection: 'row',
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.md,
-    gap: spacing.xl,
-    alignItems: 'flex-start',
-  },
-  metricPill: { gap: 2, flex: 1 },
-  metricValue: {
-    fontFamily: font.mono,
-    fontSize: 20,
-    fontWeight: '700',
-  },
-  metricValueLg: {
-    fontSize: 24,           // views is the headline number
-  },
-  metricLabel: {
-    ...type.caption,
-    color: neutral.textDim,
-    fontSize: 12,
-  },
 
-  // ── 4. Identity + caption + tags — grounding context ────────────────────
-  infoSection: {
-    paddingHorizontal: spacing.xl,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.lg,
-    gap: spacing.sm,
-    borderTopWidth: 1,
-    borderTopColor: glass.border,
-  },
-  identityRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  partyDotLg: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    flexShrink: 0,
-  },
-  politicianName: {
-    fontFamily: font.bold,
-    color: neutral.text,
-    fontSize: 16,
-    letterSpacing: 0.1,
-  },
-  metaLine: {
-    fontFamily: font.ui,
-    color: neutral.textDim,
-    fontSize: 12,
-    textTransform: 'none',
-  },
-  caption: {
-    fontFamily: font.ui,
-    color: neutral.textMid,
-    fontSize: 12,
-    lineHeight: 18,
-  },
-  tags: { flexDirection: 'row', flexWrap: 'wrap', gap: 4 },
-  styleTag: {
-    backgroundColor: 'rgba(95,100,189,0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(95,100,189,0.3)',
-    borderRadius: radius.pill,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-  },
-  topicTag: {
-    backgroundColor: 'rgba(202,193,228,0.10)',
-    borderWidth: 1,
-    borderColor: 'rgba(202,193,228,0.35)',
-    borderRadius: radius.pill,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-  },
-  tagText: { fontFamily: font.bold, fontSize: 12, color: neutral.textMid },
-  tagActive: {
-    backgroundColor: 'rgba(95,100,189,0.35)',
-    borderColor: accent.indigo,
-  },
-  tagTextActive: { color: accent.indigo },
   tagFilterPill: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1693,48 +1203,6 @@ const styles = StyleSheet.create({
   },
   tagFilterPillText: { fontFamily: font.bold, fontSize: 12, color: accent.indigo },
 
-  // Box-and-whisker distribution section
-  distributionSection: {
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.md,
-    gap: spacing.sm,
-    backgroundColor: 'rgba(255,255,255,0.025)',
-  },
-  distHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  distKicker: {
-    ...type.caption,
-    color: neutral.textDim,
-    fontSize: 12,
-    letterSpacing: 0.8,
-  },
-  // Two plots rendered side-by-side to save vertical space
-  distRow: {
-    flexDirection: 'row',
-    gap: 0,
-  },
-  // Mobile: stack the two plots vertically.
-  distRowStacked: {
-    flexDirection: 'column',
-    gap: spacing.md,
-  },
-  distDivider: {
-    width: 1,
-    backgroundColor: glass.border,
-    marginHorizontal: spacing.md,
-    alignSelf: 'stretch',
-  },
-  // Mobile: the divider becomes a full-width hairline between the stacked plots.
-  distDividerStacked: {
-    width: '100%' as any,
-    height: 1,
-    marginHorizontal: 0,
-    marginVertical: spacing.sm,
-    alignSelf: 'auto',
-  },
   filterLabelRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1743,9 +1211,4 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
 
-  // Hairline divider between the sections
-  divider: {
-    height: 1,
-    backgroundColor: glass.border,
-  },
 });

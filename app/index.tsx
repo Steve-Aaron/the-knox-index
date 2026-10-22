@@ -27,6 +27,7 @@ import { AppFooter } from '@/components/dashboard/AppFooter';
 import { StickyUnlock } from '@/components/auth/StickyUnlock';
 import { TenantGate } from '@/components/auth/TenantGate';
 import { HeaderNav } from '@/components/primitives/HeaderNav';
+import { PageContainer } from '@/components/primitives/PageContainer';
 import { SquareButton } from '@/components/primitives/SquareButton';
 import { HomeHero } from '@/components/dashboard/HomeHero';
 import { Interstitial } from '@/components/primitives/Interstitial';
@@ -381,6 +382,10 @@ function DashboardScreenInner() {
           {/* ── 0. Hero — editorial 100vh layout, includes KeyFindings strip ──── */}
           <HomeHero politicians={politicians} range={range} totalPostsInDb={totalPostsInDb} totalViewsInDb={totalViewsInDb} topPost={topPost} ready={heroReady} />
 
+          {/* Sections below the hero share the standard page width (the hero
+              caps its own content at the same PAGE_MAX_WIDTH). */}
+          <PageContainer inset={hPad} style={styles.page}>
+
           {/* ── 1. Title bar ──────────────────────────── */}
           <MobileSection index={0}>
           <View
@@ -685,6 +690,8 @@ function DashboardScreenInner() {
           </View>
           </MobileSection>
 
+          </PageContainer>
+
         </ScrollView>
         {/* Sticky registration CTA — visible immediately for unregistered users */}
         <StickyUnlock showBar={pastHero && !isRegistered} isRegistered={isRegistered} email={authEmail} />
@@ -820,6 +827,10 @@ const styles = StyleSheet.create({
     paddingTop: spacing.lg,
     paddingBottom: spacing.xxxl,
     gap: spacing.md,        // 12px between sections — tight dashboard rhythm
+  },
+  // Same rhythm inside the page container as between the hero and it.
+  page: {
+    gap: spacing.md,
   },
 
   // Title bar
