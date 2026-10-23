@@ -2,7 +2,7 @@ import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { DevLabel } from '@/components/primitives/DevLabel';
 import { fmtCount } from '@/lib/format';
-import { accent, knox } from '@/theme/colors';
+import { accent, knox, party } from '@/theme/colors';
 import { spacing } from '@/theme/spacing';
 import type { AccountKpis } from '@/data/account/types';
 import { KpiStat } from './KpiStat';
@@ -49,7 +49,7 @@ const KPI_DEFS: KpiDef[] = [
     infoText: 'Likes received on posts published in the selected period.',
   },
   {
-    key: 'engagementRate', label: 'Engagement rate', color: knox.primaryPurple, format: n => `${n.toFixed(1)}%`, decimals: 1,
+    key: 'engagementRate', label: 'Engagement rate', color: party.labour.base, format: n => `${n.toFixed(1)}%`, decimals: 1,
     infoText: 'Likes, comments, saves and shares divided by views, across posts in the period.',
   },
 ];

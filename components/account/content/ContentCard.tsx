@@ -3,6 +3,7 @@ import type { ViewStyle } from 'react-native';
 import { AccountWidget } from '@/components/account/layout/AccountWidget';
 import { WidgetHeader } from '@/components/account/layout/WidgetHeader';
 import { SegmentedControl, type Segment } from '@/components/primitives/SegmentedControl';
+import { neutral } from '@/theme/colors';
 import { prevPeriodLabel } from '@/data/account/periodLabels';
 import type { AccountPeriodData, ContentDimension, TimeRange } from '@/data/account/types';
 import { ContentDonut } from './ContentDonut';
@@ -58,6 +59,7 @@ export function ContentCard({ content, range, height, style }: Props) {
     >
       <WidgetHeader
         kicker="Content types / subjects / styles"
+        kickerColor={neutral.textMid}
         title="Content"
         right={<SegmentedControl segments={segments} value={dimension} onChange={setDimension} />}
       />

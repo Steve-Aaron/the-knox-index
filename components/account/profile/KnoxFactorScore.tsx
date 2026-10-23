@@ -2,8 +2,9 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { CountUp } from '@/components/primitives/CountUp';
 import { InfoTip } from '@/components/primitives/InfoTip';
+import { TrendIcon } from '@/components/primitives/TrendIcon';
 import { Kicker } from '@/components/ui/Kicker';
-import { accent, neutral } from '@/theme/colors';
+import { neutral, trend } from '@/theme/colors';
 import { spacing } from '@/theme/spacing';
 import { font, type, weight } from '@/theme/typography';
 import type { KnoxFactorSnapshot } from '@/data/account/types';
@@ -49,13 +50,17 @@ export function KnoxFactorScore({ knoxFactor, color }: Props) {
 }
 
 function Trend({ delta }: { delta: number }) {
-  const trendColor = delta > 0 ? accent.mint : delta < 0 ? accent.amber : neutral.textMid;
-  const arrow = delta > 0 ? '↗' : delta < 0 ? '↘' : '→';
   return (
-    <Text style={styles.trend}>
-      <Text style={{ color: trendColor }}>{arrow} </Text>
-      {trendCopy(delta)}
-    </Text>
+    <View style={styles.trendRow}>
+      {delta > 0 ? (
+        <TrendIcon direction="up" color={trend.up} />
+      ) : delta < 0 ? (
+        <TrendIcon direction="down" color={trend.down} />
+      ) : (
+        <Text style={[styles.trend, styles.flat]}>→</Text>
+      )}
+      <Text style={styles.trend}>{trendCopy(delta)}</Text>
+    </View>
   );
 }
 
@@ -85,9 +90,17 @@ const styles = StyleSheet.create({
     alignItems:    'center',
     gap:           spacing.xs,
   },
+  trendRow: {
+    flexDirection: 'row',
+    alignItems:    'center',
+    gap:           spacing.xs,
+  },
   trend: {
     ...type.body,
     fontSize: 13,
     color:    neutral.textDim,
+  },
+  flat: {
+    color: neutral.textMid,
   },
 });

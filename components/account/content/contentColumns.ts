@@ -3,13 +3,13 @@ import { useAccountLayout } from '../layout/accountLayout';
 
 /**
  * Fixed numeric column widths, shared by the table header and rows so they
- * align. Phones get narrower columns (the 'vs prev.' heading wraps onto two
+ * align. Phones get narrower columns (the 'vs prev' heading wraps onto two
  * lines there) so the label column keeps room for the topic name.
  */
 const wide = StyleSheet.create({
   views: { width: 64 },
   share: { width: 56 },
-  delta: { width: 92 },
+  delta: { width: 112 },
 });
 
 const narrow = StyleSheet.create({

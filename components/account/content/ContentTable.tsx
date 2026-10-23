@@ -21,7 +21,7 @@ interface Props {
   slices:      ContentSlice[];
   /** First column heading, e.g. 'Topic'. */
   columnLabel: string;
-  /** 'vs prev. week' etc. Null hides the delta column. */
+  /** 'vs prev week' etc. Null hides the delta column. */
   prevLabel:   string | null;
   /** Scroll inside a fixed-height card instead of growing. */
   scrollable:  boolean;
