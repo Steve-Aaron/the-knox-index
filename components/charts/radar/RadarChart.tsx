@@ -88,6 +88,7 @@ export function RadarChart<K extends string>({
 
   const shapes = useMemo(() => series.map(s => ({
     ...s,
+    values: axes.map(a => s.values[a.key] ?? 0),
     points: axes.map((a, i) => {
       const ratio = Math.min(1, Math.max(0, (s.values[a.key] ?? 0) / maxValue));
       return polar(cx, cy, maxR * ratio, step * i);
@@ -100,18 +101,8 @@ export function RadarChart<K extends string>({
       <Svg width={size} height={size}>
         <RadarGrid cx={cx} cy={cy} rings={grid.rings} spokes={grid.spokes} />
 
-        {shapes.map((s, i) => (
-          <RadarShape
-            key={s.id}
-            id={s.id}
-            color={s.color}
-            cx={cx}
-            cy={cy}
-            points={s.points}
-            delay={i * 120}
-          />
-        ))}
-
+        {/* Labels before the shapes: a dot near 100 sits on its label, and the
+            dot (with its hover tip) must stay on top to be hoverable. */}
         {grid.labels.map((p, i) => (
           <SvgText
             key={`label-${axes[i].key}`}
@@ -123,9 +114,25 @@ export function RadarChart<K extends string>({
             fill={neutral.textDim}
             textAnchor="middle"
             alignmentBaseline="middle"
+            pointerEvents="none"
           >
             {axes[i].label.toUpperCase()}
           </SvgText>
+        ))}
+
+        {shapes.map((s, i) => (
+          <RadarShape
+            key={s.id}
+            id={s.id}
+            color={s.color}
+            cx={cx}
+            cy={cy}
+            points={s.points}
+            labels={axes.map(a => a.label)}
+            values={s.values}
+            fontFamily={SVG_FONT}
+            delay={i * 120}
+          />
         ))}
       </Svg>
     </View>
