@@ -1,11 +1,13 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Text, TextStyle, StyleProp } from 'react-native';
 import { fmtCount } from '@/lib/format';
 
 /**
  * CountUp
  * --------
- * Animate a number from 0 to `value` over `durationMs`. One job.
+ * Animate a number to `value` over `durationMs`: from 0 on mount, then from
+ * the number on screen when `value` changes, so a new value never drops back
+ * to 0 first. One job.
  * Uses requestAnimationFrame so it behaves on web and native without
  * reaching for Reanimated (kept simple for predictable number formatting).
  */
@@ -18,18 +20,20 @@ interface Props {
 
 export function CountUp({ value, durationMs = 700, format, style }: Props) {
   const [display, setDisplay] = useState(0);
+  const shown = useRef(0);
 
   useEffect(() => {
     let raf = 0;
     const start = performance.now();
-    const from = 0;
+    const from = shown.current;
     const to = value;
 
     const tick = (now: number) => {
       const t = Math.min(1, (now - start) / durationMs);
       // easeOutCubic — crisper arrival than linear, no overshoot.
       const eased = 1 - Math.pow(1 - t, 3);
-      setDisplay(from + (to - from) * eased);
+      shown.current = from + (to - from) * eased;
+      setDisplay(shown.current);
       if (t < 1) raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);

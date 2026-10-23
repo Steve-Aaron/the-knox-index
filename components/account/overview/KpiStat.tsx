@@ -42,10 +42,18 @@ export function KpiStat({ value, format, label, color, infoText, sublabel, compa
 }
 
 const styles = StyleSheet.create({
+  // Equal-width columns: a number that grows or shrinks while it counts must
+  // not push its neighbours sideways.
   wrap: {
-    gap: spacing.xs,
+    flexGrow:  1,
+    flexBasis: 0,
+    minWidth:  200,
+    gap:       spacing.xs,
   },
   wrapCompact: {
+    flexGrow:   0,
+    flexBasis:  'auto',
+    minWidth:   0,
     alignItems: 'center',
   },
   textCentre: {

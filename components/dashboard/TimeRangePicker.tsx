@@ -57,7 +57,9 @@ export function TimeRangePicker({ value, onChange, isRegistered = false, onLocke
   }, [index, xPct]);
 
   const highlightStyle = useAnimatedStyle(() => ({
-    left: `${(xPct.value / OPTIONS.length) * 100}%`,
+    // The spring overshoots; clamp so the pill never slides past the first
+    // or last option (out of the container) and still bounces in between.
+    left: `${(Math.min(Math.max(xPct.value, 0), OPTIONS.length - 1) / OPTIONS.length) * 100}%`,
     width: `${100 / OPTIONS.length}%`,
   } as any));
 
