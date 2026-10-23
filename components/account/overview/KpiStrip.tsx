@@ -25,6 +25,7 @@ interface KpiDef {
   label:     string;
   color:     string;
   format:    (n: number) => string;
+  decimals?: number;
   infoText:  string;
   sublabel?: string;
 }
@@ -48,7 +49,7 @@ const KPI_DEFS: KpiDef[] = [
     infoText: 'Likes received on posts published in the selected period.',
   },
   {
-    key: 'engagementRate', label: 'Engagement rate', color: knox.primaryPurple, format: n => `${n}%`,
+    key: 'engagementRate', label: 'Engagement rate', color: knox.primaryPurple, format: n => `${n.toFixed(1)}%`, decimals: 1,
     infoText: 'Likes, comments, saves and shares divided by views, across posts in the period.',
   },
 ];
@@ -62,6 +63,7 @@ export function KpiStrip({ kpis, compact = false }: Props) {
           key={def.key}
           value={kpis[def.key]}
           format={def.format}
+          decimals={def.decimals}
           label={def.label}
           color={def.color}
           infoText={def.infoText}

@@ -17,6 +17,8 @@ import { font, type, weight } from '@/theme/typography';
 interface Props {
   value:    number;
   format:   (n: number) => string;
+  /** Decimal places kept while counting. Default 0. */
+  decimals?: number;
   label:    string;
   color:    string;
   infoText: string;
@@ -24,11 +26,12 @@ interface Props {
   compact?:  boolean;
 }
 
-export function KpiStat({ value, format, label, color, infoText, sublabel, compact = false }: Props) {
+export function KpiStat({ value, format, decimals, label, color, infoText, sublabel, compact = false }: Props) {
   return (
     <View style={[styles.wrap, compact && styles.wrapCompact]}>
       <CountUp
         value={value}
+        decimals={decimals}
         format={format}
         style={[styles.value, compact && styles.valueCompact, { color }]}
       />

@@ -14,11 +14,13 @@ import { fmtCount } from '@/lib/format';
 interface Props {
   value: number;
   durationMs?: number;
+  /** Decimal places kept while counting, before `format` runs. Default 0. */
+  decimals?: number;
   format?: (n: number) => string;
   style?: StyleProp<TextStyle>;
 }
 
-export function CountUp({ value, durationMs = 700, format, style }: Props) {
+export function CountUp({ value, durationMs = 700, decimals = 0, format, style }: Props) {
   const [display, setDisplay] = useState(0);
   const shown = useRef(0);
 
@@ -40,7 +42,8 @@ export function CountUp({ value, durationMs = 700, format, style }: Props) {
     return () => cancelAnimationFrame(raf);
   }, [value, durationMs]);
 
-  const rounded = Math.round(display);
+  const factor = 10 ** decimals;
+  const rounded = Math.round(display * factor) / factor;
   const text = format ? format(rounded) : rounded.toLocaleString();
   return <Text style={style}>{text}</Text>;
 }
