@@ -76,7 +76,6 @@ export function BestPostsCard({ posts, politician, socials, benchmarks }: Props)
               post={post}
               colour={colour}
               layout={isMobile ? 'narrow' : 'split'}
-              rank={i + 1}
               platformIcon={PLATFORM_META[post.platform].icon}
               onPress={() => setOpenIndex(i)}
               accessibilityRole="button"

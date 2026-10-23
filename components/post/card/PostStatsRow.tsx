@@ -19,7 +19,7 @@ interface Props {
   comments:    number;
   shares:      number;
   accentColor: string;
-  /** Stretch across the available width (split card) instead of hugging content. */
+  /** Wider fixed spacing (split / narrow cards); the row still hugs the left edge. */
   spread?:     boolean;
 }
 
@@ -56,7 +56,7 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   rowSpread: {
-    justifyContent: 'space-between',
+    gap: spacing.xxl,
   },
   stat: {
     gap: 2,
