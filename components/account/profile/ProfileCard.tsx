@@ -36,7 +36,9 @@ export function ProfileCard({ profile, height }: Props) {
   const colour = colourFor(politician.groupKey);
 
   return (
-    <AccountWidget height={height}>
+    // minHeight, not height: the side column gets narrow below ~1200px and the
+    // wrapped text would otherwise be clipped.
+    <AccountWidget minHeight={height}>
       <View style={styles.identity}>
         <CardAvatar
           groupKey={politician.groupKey}
