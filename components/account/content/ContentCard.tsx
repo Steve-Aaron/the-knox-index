@@ -40,7 +40,11 @@ const COLUMN_LABEL: Record<ContentDimension, string> = {
 };
 
 export function ContentCard({ content, range, height, style }: Props) {
-  const [dimension, setDimension] = useState<ContentDimension>('subjects');
+  // A dimension with a single slice says nothing (every TikTok post is a
+  // video), so its tab is hidden until there is something to compare.
+  const segments = DIMENSIONS.filter(d => content[d.value].slices.length > 1);
+  const [picked, setDimension] = useState<ContentDimension>('subjects');
+  const dimension = segments.some(d => d.value === picked) ? picked : (segments[0]?.value ?? picked);
   const breakdown = content[dimension];
   const prevLabel = prevPeriodLabel(range);
   // New slices (dimension or data) → nothing highlighted.
@@ -55,7 +59,7 @@ export function ContentCard({ content, range, height, style }: Props) {
       <WidgetHeader
         kicker="Content types / subjects / styles"
         title="Content"
-        right={<SegmentedControl segments={DIMENSIONS} value={dimension} onChange={setDimension} />}
+        right={<SegmentedControl segments={segments} value={dimension} onChange={setDimension} />}
       />
       <ContentSummary breakdown={breakdown} />
       <ContentDonut

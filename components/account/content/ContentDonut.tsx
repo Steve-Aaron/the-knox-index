@@ -65,7 +65,7 @@ export function ContentDonut({ breakdown, prevLabel, activeKey, onSliceHover, on
               <Text style={styles.total}>{fmtCount(breakdown.totalViews)}</Text>
               {prevLabel ? (
                 <Text style={[styles.delta, { color: deltaColor }]}>
-                  {delta >= 0 ? '+' : ''}{delta}% {prevLabel}
+                  {delta >= 0 ? '+' : ''}{delta.toFixed(1)}% {prevLabel}
                 </Text>
               ) : null}
             </>

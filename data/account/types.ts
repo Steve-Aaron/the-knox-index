@@ -5,8 +5,8 @@ import type { TimeRange } from '@/components/dashboard/TimeRangePicker';
  * data/account/types.ts
  * ----------------------
  * View-model for the account page (/account/[handle]). This is the contract
- * the page renders from. It is filled by mocks today (./mockAccount.ts) and
- * is the shape the future /api/account response should be mapped into.
+ * the page renders from. GET /api/account-page returns everything except
+ * postBenchmarks, which comes from /api/benchmarks (see ./useAccountPage.ts).
  *
  * Split in two:
  *   - range-independent: profile + key stats (who the account is)
@@ -26,8 +26,9 @@ export type SocialPlatform = Exclude<AccountPlatform, 'all'>;
 export interface KnoxFactorSnapshot {
   /** 0..100 */
   score:        number;
-  /** Points vs the previous week. Positive = improved. */
-  deltaVsPrev:  number;
+  /** Points vs the previous week. Positive = improved. null = not tracked
+   *  yet (no score history), and the trend line is hidden. */
+  deltaVsPrev:  number | null;
 }
 
 export interface SocialProfile {
@@ -139,8 +140,15 @@ export interface AccountPeriodData {
 
 export interface AccountPageData {
   profile:  AccountProfile;
+  /** Platforms with data, in display order. The platform filter shows only
+   *  when there is more than one. */
+  platforms: SocialPlatform[];
   keyStats: KeyStatRank[];
   period:   AccountPeriodData;
-  /** Distribution of every tracked post — places one post in the dataset. */
-  postBenchmarks: PostBenchmarks;
+  /** Distribution of every tracked post — places one post in the dataset.
+   *  null while loading or when /api/benchmarks fails. */
+  postBenchmarks: PostBenchmarks | null;
 }
+
+/** GET /api/account-page response. */
+export type AccountPageApiResponse = Omit<AccountPageData, 'postBenchmarks'>;

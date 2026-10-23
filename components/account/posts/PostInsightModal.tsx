@@ -30,7 +30,7 @@ interface Props {
   onClose:    () => void;
   politician: Politician;
   socials:    SocialProfile[];
-  benchmarks: PostBenchmarks;
+  benchmarks?: PostBenchmarks;
 }
 
 /** Detail height on wide screens (matches the account widgets). */
