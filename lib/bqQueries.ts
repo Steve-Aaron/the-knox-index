@@ -331,3 +331,79 @@ export function buildAllAccountPostsSQL(dashboardId: number, handle: string, lim
   LIMIT ${limit}
 `;
 }
+
+// ── Account page SQL ──────────────────────────────────────────────────────────
+
+/**
+ * The window just before `range`, for "vs prev. period" deltas. 'year' compares
+ * this year-to-date with the same days last year. Lifetime has no previous
+ * period, so it matches nothing.
+ */
+export function prevRangeDateFilter(range: Range): string {
+  switch (range) {
+    case 'yesterday': return `postDate >= DATE_SUB(CURRENT_DATE(), INTERVAL 2 DAY) AND postDate < DATE_SUB(CURRENT_DATE(), INTERVAL 1 DAY)`;
+    case 'week':      return `postDate >= DATE_SUB(CURRENT_DATE(), INTERVAL 14 DAY) AND postDate < DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY)`;
+    case 'month':     return `postDate >= DATE_SUB(CURRENT_DATE(), INTERVAL 60 DAY) AND postDate < DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)`;
+    case 'year':      return `postDate >= DATE_TRUNC(DATE_SUB(CURRENT_DATE(), INTERVAL 1 YEAR), YEAR) AND postDate <= DATE_SUB(CURRENT_DATE(), INTERVAL 1 YEAR)`;
+    case 'lifetime':  return `FALSE`;
+  }
+}
+
+/**
+ * One profile's posts in `range` and in the period before it, with their style
+ * and topic names. `period` is 'current' or 'previous'. Unprocessed posts (no
+ * videoSummary) are included so the counts match the account's real output.
+ * Used by /api/account-page. Handle must be pre-sanitised with sanitiseHandle().
+ */
+export function buildAccountPagePostsSQL(dashboardId: number, handle: string, range: Range, limit = 3000): string {
+  const safe     = sanitiseHandle(handle);
+  const POST_WEB = postWeb(dashboardId);
+  const current  = rangeDateFilter(range);
+  return `
+  WITH p AS (
+    SELECT *
+    FROM ${POST_WEB}
+    WHERE LTRIM(profile, '@') = '${safe}'
+      AND ${excludeHidden('profile')}
+      AND ((${current}) OR (${prevRangeDateFilter(range)}))
+  )
+  SELECT
+    CAST(p.postId AS STRING) AS postId,
+    IF(${current}, 'current', 'previous') AS period,
+    p.caption,
+    p.videoSummary,
+    COALESCE(p.views,    0) AS views,
+    COALESCE(p.likes,    0) AS likes,
+    COALESCE(p.comments, 0) AS comments,
+    COALESCE(p.shares,   0) AS shares,
+    COALESCE(p.saves,    0) AS saves,
+    CAST(p.postDate AS STRING) AS postDate,
+    p.postUrl,
+    p.coverJpeg,
+    p.videoMp4,
+    ARRAY(
+      SELECT DISTINCT s.name FROM ${tableRef('post_x_style')} pxs
+      JOIN ${tableRef('style')} s ON pxs.styleId = s.id
+      WHERE pxs.postId = p.postId AND s.name IS NOT NULL
+    ) AS styles,
+    ARRAY(
+      SELECT DISTINCT t.name FROM ${tableRef('post_x_topic')} pxt
+      JOIN ${tableRef('topic')} t ON pxt.topicId = t.id
+      WHERE pxt.postId = p.postId AND t.name IS NOT NULL
+    ) AS topics
+  FROM p
+  ORDER BY p.postDate DESC
+  LIMIT ${limit}
+`;
+}
+
+/** Date of one profile's most recent post, any range. */
+export function buildLastPostDateSQL(dashboardId: number, handle: string): string {
+  const safe = sanitiseHandle(handle);
+  return `
+  SELECT CAST(MAX(postDate) AS STRING) AS lastPostDate
+  FROM ${postWeb(dashboardId)}
+  WHERE LTRIM(profile, '@') = '${safe}'
+    AND ${excludeHidden('profile')}
+`;
+}

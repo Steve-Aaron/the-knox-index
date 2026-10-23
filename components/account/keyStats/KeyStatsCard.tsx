@@ -11,7 +11,7 @@ import { RankStatRow } from './RankStatRow';
  * KeyStatsCard
  * -------------
  * Where the account ranks inside its peer groups (same type, similar
- * follower count, same region).
+ * follower count, same party — or same region on region-grouped dashboards).
  *
  * One job: list the peer-group ranks.
  */
@@ -24,7 +24,7 @@ const ROW_COLORS = [knox.primaryPink, knox.primaryOrange, knox.secondaryOrange] 
 
 export function KeyStatsCard({ stats }: Props) {
   return (
-    <AccountWidget infoText="How this account ranks by Knox Factor against comparable accounts: the same account type, a similar follower count, and the same region.">
+    <AccountWidget infoText="How this account ranks by Knox Factor against comparable accounts: the same account type, a similar follower count, and the same party or region.">
       <WidgetHeader title="Key stats" />
       <View style={styles.list}>
         {stats.map((stat, i) => (

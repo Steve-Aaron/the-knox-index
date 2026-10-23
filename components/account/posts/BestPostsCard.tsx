@@ -29,7 +29,7 @@ interface Props {
   /** Author of every post — colours the cards and fills the modal identity. */
   politician: Politician;
   socials:    SocialProfile[];
-  benchmarks: PostBenchmarks;
+  benchmarks?: PostBenchmarks;
 }
 
 const PAGE_SIZE = 10;

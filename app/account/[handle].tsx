@@ -13,8 +13,8 @@ import { brand } from '@/theme/colors';
  * Account page — /account/[handle]
  * ----------------------------------
  * Route shell only: page background, header, tenant gate. The page itself
- * lives in components/account/AccountScreen. Data is mocked for now
- * (data/account/mockAccount.ts).
+ * lives in components/account/AccountScreen; data comes from
+ * /api/account-page via data/account/useAccountPage.ts.
  */
 function AccountPageInner() {
   const { handle } = useLocalSearchParams<{ handle: string }>();
