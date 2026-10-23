@@ -1,8 +1,10 @@
-import React, { useMemo } from 'react';
-import { Platform, View } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Text as SvgText } from 'react-native-svg';
 import { DevLabel } from '@/components/primitives/DevLabel';
+import { track } from '@/lib/analytics';
 import { neutral } from '@/theme/colors';
+import { font } from '@/theme/typography';
 import { polar } from '../geometry';
 import { RadarGrid } from './RadarGrid';
 import { RadarShape } from './RadarShape';
@@ -13,20 +15,32 @@ import { RadarShape } from './RadarShape';
  * Generic multi-series radar. Knows nothing about politicians or platforms:
  * give it axes and series (values 0..maxValue) and it draws them.
  *
- * Unlike card/RadialScoreChart (single politician, click-to-inspect dots),
- * this one overlays several series for comparison, e.g. TikTok vs X.
+ * Unlike card/RadialScoreChart (single politician), this one overlays
+ * several series for comparison, e.g. TikTok vs X. Dots work the same way:
+ * hover enlarges one, press opens an overlay with that series' score on
+ * that axis, ✕ closes it.
  *
  * One job: draw N series on a shared set of axes.
  */
 export interface RadarAxis<K extends string> {
   key:   K;
   label: string;
+  /** One-line explanation shown under the value in the dot overlay. */
+  desc?: string;
 }
 
 export interface RadarSeries<K extends string> {
   id:     string;
   color:  string;
   values: Record<K, number>;
+  /** Series name in the dot overlay, e.g. 'TikTok'. */
+  label?: string;
+}
+
+/** One series' dot on one axis. */
+interface DotRef {
+  seriesId: string;
+  idx:      number;
 }
 
 interface Props<K extends string> {
@@ -94,6 +108,24 @@ export function RadarChart<K extends string>({
     }),
   })), [series, axes, maxValue, maxR, cx, cy, step]);
 
+  const [hoverDot,  setHoverDot]  = useState<DotRef | null>(null);
+  const [activeDot, setActiveDot] = useState<DotRef | null>(null);
+
+  const openDot = (seriesId: string, idx: number) => {
+    setActiveDot({ seriesId, idx });
+    // Same topic shape as RadialScoreChart so dot clicks count together.
+    track('helper_clicked', { topic: `radar_dot_${axes[idx]?.key ?? 'unknown'}`, series_id: seriesId });
+  };
+
+  const dotIdxFor = (seriesId: string): number | null => {
+    if (activeDot?.seriesId === seriesId) return activeDot.idx;
+    if (hoverDot?.seriesId === seriesId) return hoverDot.idx;
+    return null;
+  };
+
+  const activeSeries = activeDot ? series.find(s => s.id === activeDot.seriesId) : undefined;
+  const activeAxis   = activeDot ? axes[activeDot.idx] : undefined;
+
   return (
     <View style={{ width: size, height: size }}>
       <DevLabel name="RadarChart" />
@@ -109,6 +141,9 @@ export function RadarChart<K extends string>({
             cy={cy}
             points={s.points}
             delay={i * 120}
+            activeIdx={dotIdxFor(s.id)}
+            onDotPress={idx => openDot(s.id, idx)}
+            onDotHover={idx => setHoverDot(idx == null ? null : { seriesId: s.id, idx })}
           />
         ))}
 
@@ -128,6 +163,96 @@ export function RadarChart<K extends string>({
           </SvgText>
         ))}
       </Svg>
+
+      {activeSeries && activeAxis ? (
+        <View style={styles.overlay}>
+          <View style={styles.overlayHeader}>
+            <Text style={styles.overlayKicker}>
+              {activeAxis.label}{activeSeries.label ? ` · ${activeSeries.label}` : ''}
+            </Text>
+            <Pressable
+              onPress={() => setActiveDot(null)}
+              accessibilityRole="button"
+              accessibilityLabel="Close"
+              style={[styles.closeBtn, Platform.OS === 'web' && ({ cursor: 'pointer' } as any)]}
+            >
+              <Text style={styles.closeX}>{'✕'}</Text>
+            </Pressable>
+          </View>
+          <View style={styles.overlayBody}>
+            <Text style={[styles.value, { color: activeSeries.color }]}>
+              {Math.round(activeSeries.values[activeAxis.key] ?? 0)} / {maxValue}
+            </Text>
+            {activeAxis.desc ? <Text style={styles.desc}>{activeAxis.desc}</Text> : null}
+          </View>
+        </View>
+      ) : null}
     </View>
   );
 }
+
+// Overlay styles mirror card/RadialScoreChart's dot overlay.
+const styles = StyleSheet.create({
+  overlay: {
+    position:          'absolute',
+    top:               0,
+    left:              0,
+    right:             0,
+    bottom:            0,
+    backgroundColor:   neutral.felt,
+    borderRadius:      16,
+    paddingHorizontal: 16,
+    paddingTop:        8,
+    paddingBottom:     16,
+  },
+  overlayHeader: {
+    flexDirection:  'row',
+    alignItems:     'center',
+    justifyContent: 'space-between',
+    minHeight:      24,
+  },
+  overlayKicker: {
+    fontFamily:    font.ui,
+    fontSize:      11,
+    fontWeight:    '700',
+    letterSpacing: 1.5,
+    color:         neutral.textDim,
+    textTransform: 'uppercase',
+  },
+  closeBtn: {
+    width:           24,
+    height:          24,
+    borderRadius:    12,
+    alignItems:      'center',
+    justifyContent:  'center',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  closeX: {
+    fontFamily: font.ui,
+    fontSize:   12,
+    fontWeight: '700',
+    color:      neutral.text,
+    lineHeight: 12,
+  },
+  overlayBody: {
+    flex:              1,
+    alignItems:        'center',
+    justifyContent:    'center',
+    gap:               8,
+    paddingHorizontal: 12,
+  },
+  value: {
+    fontFamily:    font.mono,
+    fontSize:      24,
+    fontWeight:    '700',
+    lineHeight:    28,
+    letterSpacing: -0.3,
+  },
+  desc: {
+    fontFamily: font.ui,
+    fontSize:   14,
+    color:      neutral.textMid,
+    lineHeight: 18,
+    textAlign:  'center',
+  },
+});

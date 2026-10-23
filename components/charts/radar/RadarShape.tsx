@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
-import { Circle, Defs, G, Polygon, RadialGradient, Stop } from 'react-native-svg';
+import { Platform } from 'react-native';
+import { Circle, Defs, G, Polygon, RadialGradient, Rect, Stop } from 'react-native-svg';
 import Animated, {
   Easing,
   useAnimatedProps,
@@ -16,7 +17,8 @@ const AnimatedPolygon = Animated.createAnimatedComponent(Polygon);
  * -----------
  * One series on the radar: a filled polygon that grows out from the centre,
  * plus a dot on each vertex. Lives in its own component so every series gets
- * its own animation hooks.
+ * its own animation hooks. Dots are optional press targets: hover enlarges
+ * one to signal it's clickable, press hands its index to the parent.
  */
 interface Props {
   id:     string;
@@ -26,9 +28,20 @@ interface Props {
   points: Point[];
   /** Stagger between series, ms. */
   delay?: number;
+  /** Highlight colour for an enlarged dot. Defaults to `color`. */
+  glow?:  string;
+  /** Vertex index drawn enlarged (hovered or open), if any. */
+  activeIdx?:   number | null;
+  onDotPress?:  (idx: number) => void;
+  onDotHover?:  (idx: number | null) => void;
 }
 
-export function RadarShape({ id, color, cx, cy, points, delay = 0 }: Props) {
+/** Side of the invisible square press target centred on each dot. */
+const HIT_SIZE = 24;
+
+export function RadarShape({
+  id, color, cx, cy, points, delay = 0, glow = color, activeIdx = null, onDotPress, onDotHover,
+}: Props) {
   const progress = useSharedValue(0);
 
   useEffect(() => {
@@ -62,9 +75,36 @@ export function RadarShape({ id, color, cx, cy, points, delay = 0 }: Props) {
         strokeWidth={2}
         strokeLinejoin="round"
       />
-      {points.map((p, i) => (
-        <Circle key={`dot-${i}`} cx={p.x} cy={p.y} r={3} fill={color} />
-      ))}
+      {points.map((p, i) => {
+        const isActive = activeIdx === i;
+        return (
+          <G key={`dot-${i}`}>
+            <Circle
+              cx={p.x}
+              cy={p.y}
+              r={isActive ? 6 : 3}
+              fill={isActive ? glow : color}
+              stroke={isActive ? '#fff' : 'none'}
+              strokeWidth={isActive ? 1.5 : 0}
+            />
+            {onDotPress ? (
+              <Rect
+                x={p.x - HIT_SIZE / 2}
+                y={p.y - HIT_SIZE / 2}
+                width={HIT_SIZE}
+                height={HIT_SIZE}
+                fill="transparent"
+                onPress={() => onDotPress(i)}
+                {...(Platform.OS === 'web' ? {
+                  onMouseEnter: () => onDotHover?.(i),
+                  onMouseLeave: () => onDotHover?.(null),
+                  style: { cursor: 'pointer' },
+                } as any : {})}
+              />
+            ) : null}
+          </G>
+        );
+      })}
     </G>
   );
 }

@@ -20,7 +20,7 @@ import { sliceColor } from './contentPalette';
  */
 interface Props {
   breakdown:      ContentBreakdown;
-  /** 'vs prev. week' etc. Null hides the delta. */
+  /** 'vs prev week' etc. Null hides the delta. */
   prevLabel:      string | null;
   activeKey:      string | null;
   onSliceHover:   (key: string | null) => void;

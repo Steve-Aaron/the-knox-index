@@ -34,8 +34,8 @@ export function rangeDateFilter(range: Range): string {
 
 export const RANGE_LABELS: Record<Range, string> = {
   yesterday: 'Yesterday',
-  week:      'Last 7 days',
-  month:     'Last 30 days',
+  week:      'Last week',
+  month:     'This month',
   year:      'This year',
   lifetime:  'Lifetime',
 };

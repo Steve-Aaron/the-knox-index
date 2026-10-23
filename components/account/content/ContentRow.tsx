@@ -1,7 +1,7 @@
 import React from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { fmtCount } from '@/lib/format';
-import { accent, neutral } from '@/theme/colors';
+import { neutral, trend } from '@/theme/colors';
 import { spacing } from '@/theme/spacing';
 import { font, type } from '@/theme/typography';
 import type { ContentSlice } from '@/data/account/types';
@@ -36,7 +36,7 @@ function fmtDelta(pp: number): string {
 
 export function ContentRow({ slice, color, barRatio, showDelta, dimmed, pinned, onHover, onPress }: Props) {
   const contentColumns = useContentColumns();
-  const deltaColor = slice.deltaPp > 0 ? accent.mint : slice.deltaPp < 0 ? accent.amber : neutral.textMid;
+  const deltaColor = slice.deltaPp > 0 ? trend.up : slice.deltaPp < 0 ? trend.downPp : neutral.textMid;
 
   return (
     <Pressable

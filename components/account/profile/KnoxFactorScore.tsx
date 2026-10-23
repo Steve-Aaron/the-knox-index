@@ -2,8 +2,9 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { CountUp } from '@/components/primitives/CountUp';
 import { InfoTip } from '@/components/primitives/InfoTip';
+import { TrendIcon } from '@/components/primitives/TrendIcon';
 import { Kicker } from '@/components/ui/Kicker';
-import { accent, neutral } from '@/theme/colors';
+import { neutral, trend } from '@/theme/colors';
 import { spacing } from '@/theme/spacing';
 import { font, type, weight } from '@/theme/typography';
 import type { KnoxFactorSnapshot } from '@/data/account/types';
@@ -30,8 +31,6 @@ function trendCopy(delta: number): string {
 
 export function KnoxFactorScore({ knoxFactor, color }: Props) {
   const { score, deltaVsPrev } = knoxFactor;
-  const trendColor = deltaVsPrev > 0 ? accent.mint : deltaVsPrev < 0 ? accent.amber : neutral.textMid;
-  const arrow = deltaVsPrev > 0 ? '↗' : deltaVsPrev < 0 ? '↘' : '→';
 
   return (
     <View style={styles.wrap}>
@@ -45,10 +44,16 @@ export function KnoxFactorScore({ knoxFactor, color }: Props) {
         <InfoTip text="Our composite 0–100 rating of how well this account is performing across reach, engagement, activity and audience size." />
       </View>
 
-      <Text style={styles.trend}>
-        <Text style={{ color: trendColor }}>{arrow} </Text>
-        {trendCopy(deltaVsPrev)}
-      </Text>
+      <View style={styles.trendRow}>
+        {deltaVsPrev > 0 ? (
+          <TrendIcon direction="up" color={trend.up} />
+        ) : deltaVsPrev < 0 ? (
+          <TrendIcon direction="down" color={trend.down} />
+        ) : (
+          <Text style={[styles.trend, styles.flat]}>→</Text>
+        )}
+        <Text style={styles.trend}>{trendCopy(deltaVsPrev)}</Text>
+      </View>
     </View>
   );
 }
@@ -79,9 +84,17 @@ const styles = StyleSheet.create({
     alignItems:    'center',
     gap:           spacing.xs,
   },
+  trendRow: {
+    flexDirection: 'row',
+    alignItems:    'center',
+    gap:           spacing.xs,
+  },
   trend: {
     ...type.body,
     fontSize: 13,
     color:    neutral.textDim,
+  },
+  flat: {
+    color: neutral.textMid,
   },
 });
