@@ -22,7 +22,8 @@ import type { Politician } from '@/data/types';
  *   release — the spin CARRIES ON and decays under friction, rather than
  *             stopping dead under your finger
  *   scroll  — zoom, between roughly two thirds and double size
- *   idle    — a slow eastward drift resumes once the momentum has bled off
+ *   idle    — a slow drift, turning the way the Earth spins (surface moves
+ *             left to right), resumes once the momentum has bled off
  *
  * Cards stay VISIBLE and readable while all that happens: a card whose pin is
  * heading for the limb slides back towards the centre so it is never cropped,
@@ -46,8 +47,9 @@ import type { Politician } from '@/data/types';
 const POOL_SIZE = 40;
 /** House connector length — the short vertical line used across the dashboards. */
 const STEM_HEIGHT = 20;
-/** Degrees of eastward drift per second when idle. */
-const DRIFT_PER_SECOND = 4;
+/** Degrees of drift per second when idle. Negative moves the centre
+ *  longitude west, so the surface turns left to right like the Earth. */
+const DRIFT_PER_SECOND = -4;
 /** How long after the throw ends before the idle drift takes back over. */
 const RESUME_DELAY_MS = 1200;
 /** Degrees of rotation per pixel dragged. */
