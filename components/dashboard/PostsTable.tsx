@@ -166,6 +166,8 @@ interface Props {
   activePoliticianHandle?: string | null;
   onClearPolitician?:     () => void;
   benchmarks?:            PostBenchmarks;
+  /** Per-platform benchmarks; an X post is compared with X posts. */
+  benchmarksByPlatform?:  { tiktok: PostBenchmarks | null; x: PostBenchmarks | null };
   /** When false, the post feed is hidden behind a registration gate. */
   isRegistered?:          boolean;
   /** Controlled party filter — set externally (e.g. from PartyLeaderboard). */
@@ -200,6 +202,7 @@ export function PostsTable({
   activePoliticianHandle,
   onClearPolitician,
   benchmarks,
+  benchmarksByPlatform,
   isRegistered = false,
   externalPartyFilter,
   onPartyFilterChange,
@@ -487,7 +490,7 @@ export function PostsTable({
         <PostCard
           post={post}
           index={index}
-          benchmarks={benchmarks}
+          benchmarks={(post.platform === 'x' ? benchmarksByPlatform?.x : benchmarksByPlatform?.tiktok) ?? benchmarks}
           onPress={() => !isActive && handleCardPress(post, index)}
           drag={drag}
           isActive={isActive}
@@ -501,7 +504,7 @@ export function PostsTable({
         />
       </ScaleDecorator>
     );
-  }, [benchmarks, isMobile, handleCardPress, styleFilter, topicFilter, handleStyleFilter, handleTopicFilter, sortKey, isAdmin]);
+  }, [benchmarks, benchmarksByPlatform, isMobile, handleCardPress, styleFilter, topicFilter, handleStyleFilter, handleTopicFilter, sortKey, isAdmin]);
 
   return (
     <DashCard style={styles.wrap} topAccent={undefined}>
@@ -863,6 +866,7 @@ const POST_DWELL_MIN_MS = 500;
 
 function PostCard({ post, index, benchmarks, onPress, drag, isActive, compact, activeStyleFilter, activeTopicFilter, onStylePress, onTopicPress, sortKey, isAdmin }: CardProps) {
   const colour = colourFor(post.groupKey);
+  const groupingMode = useTenant().grouping.mode;
 
   // Dwell tracking: mount → unmount measures how long this card was on screen
   // during the user's session. Fires on unmount (scroll-past, filter change,
@@ -914,7 +918,7 @@ function PostCard({ post, index, benchmarks, onPress, drag, isActive, compact, a
       >
         <PostDetail
           post={post}
-          groupLabel={groupLabel(post.groupKey)}
+          groupLabel={groupLabel(post.groupKey, groupingMode)}
           benchmarks={benchmarks}
           compact={compact}
           height={CARD_H}

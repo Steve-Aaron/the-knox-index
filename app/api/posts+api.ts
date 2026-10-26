@@ -20,8 +20,13 @@ import { signMediaFields } from '@/lib/gcs';
 import { safeErrorDetail } from '@/lib/errors';
 import { partyKeyToRawNames } from '@/data/partyUtils';
 import type { PostRecord } from '@/data/types';
+import { buildXFeedSQL } from '@/lib/xQueries';
+import { toTweetData, signTweetMedia, type RawTweet } from '@/lib/xPosts';
+import { parsePlatformFilter } from '@/lib/platforms';
 
 interface BQPostRecordRow {
+  platform?:        'tiktok' | 'x';
+  tweetJson?:       string | null;
   postId:           string;
   profile:          string;
   politicianName:   string;
@@ -60,8 +65,10 @@ const ORDER_BY_FOR_SORT_KEY: Record<string, string> = {
   postDate:   'p.postDate DESC, p.views DESC',
 };
 
-const POSTS_SQL = (dashboardId: number, whereClause: string, orderBy: string, limit: number, offset: number) => `
+const TIKTOK_FEED_SELECT = (dashboardId: number, whereClause: string) => `
   SELECT
+    'tiktok'                     AS platform,
+    CAST(NULL AS STRING)         AS tweetJson,
     CAST(p.postId AS STRING) AS postId,
     p.profile,
     a.name        AS politicianName,
@@ -94,6 +101,38 @@ const POSTS_SQL = (dashboardId: number, whereClause: string, orderBy: string, li
     p.postUrl, p.postDate,
     p.views, p.likes, p.comments, p.shares, p.saves,
     a.totalFollowers, a.person_region
+`;
+
+const POSTS_SQL = (dashboardId: number, whereClause: string, orderBy: string, limit: number, offset: number) => `
+  ${TIKTOK_FEED_SELECT(dashboardId, whereClause)}
+  ORDER BY ${orderBy}
+  LIMIT ${limit} OFFSET ${offset}
+`;
+
+/** Columns both platforms' feed rows share, in UNION order. */
+const FEED_COLUMNS = `platform, postId, profile, politicianName, party, region, caption, videoSummary,
+  coverJpeg, videoMp4, postUrl, postDate, views, likes, comments, shares, saves,
+  accountFollowers, topics, styles, tweetJson`;
+
+/** ORDER BY over the unioned rows (column names, no table aliases). */
+const UNION_ORDER_BY: Record<string, string> = {
+  views:      'views DESC, postDate DESC',
+  likes:      'likes DESC, postDate DESC',
+  comments:   'comments DESC, postDate DESC',
+  shares:     'shares DESC, postDate DESC',
+  engagement: 'SAFE_DIVIDE(likes + comments + saves + shares, NULLIF(views, 0)) DESC, postDate DESC',
+  virality:   'SAFE_DIVIDE(views, NULLIF(accountFollowers, 0)) DESC, postDate DESC',
+  postDate:   'postDate DESC, views DESC',
+};
+
+/** TikTok and X feed rows as one ordered, paged list. */
+const UNION_POSTS_SQL = (tiktokSelect: string | null, xSelect: string, orderBy: string, limit: number, offset: number) => `
+  SELECT ${FEED_COLUMNS}
+  FROM (
+    ${tiktokSelect ? `SELECT ${FEED_COLUMNS} FROM (${tiktokSelect})
+    UNION ALL` : ''}
+    SELECT ${FEED_COLUMNS.replace('tweetJson', 'TO_JSON_STRING(tweet) AS tweetJson')} FROM (${xSelect})
+  )
   ORDER BY ${orderBy}
   LIMIT ${limit} OFFSET ${offset}
 `;
@@ -125,6 +164,10 @@ export async function GET(request: Request): Promise<Response> {
 
   // sortKey is whitelisted — unknown values fall back to postDate. This is what
   // protects against SQL injection via the sortKey parameter.
+  const platform = parsePlatformFilter(params.get('platform') ?? 'tiktok');
+  // person_id of a selected leader: matches them on whichever platform(s).
+  const personId = (params.get('person') ?? '').trim();
+
   const rawSortKey = params.get('sortKey') ?? 'postDate';
   const orderBy    = ORDER_BY_FOR_SORT_KEY[rawSortKey] ?? ORDER_BY_FOR_SORT_KEY.postDate;
 
@@ -150,7 +193,8 @@ export async function GET(request: Request): Promise<Response> {
   // Politician identity is the account handle (stable), not the display name —
   // matching on a.name misses posts when the leaderboard name and a.name differ.
   const profile = (params.get('profile') ?? '').trim().toLowerCase().replace(/^@+/, '');
-  if (profile) { where.push(`LTRIM(LOWER(p.profile), '@') = @profile`); queryParams.profile = profile; }
+  if (profile && !personId) { where.push(`LTRIM(LOWER(p.profile), '@') = @profile`); queryParams.profile = profile; }
+  if (personId) { where.push('a.person_id = @person'); queryParams.person = personId; }
 
   const style = (params.get('style') ?? '').trim().toLowerCase();
   if (style) {
@@ -191,19 +235,52 @@ export async function GET(request: Request): Promise<Response> {
     const bq = getBigQuery();
     // Only count on the first page; later pages reuse the client's cached total.
     const wantTotal = offset === 0;
-    const [pageResult, countResult]: any[] = await Promise.all([
-      bq.query({ query: POSTS_SQL(dashboardId, whereClause, orderBy, limit, offset), params: queryParams, location: 'EU' }),
-      wantTotal
-        ? bq.query({ query: COUNT_SQL(dashboardId, whereClause), params: queryParams, location: 'EU' })
-        : Promise.resolve([[{ total: null }]]),
-    ]);
-    const rows  = pageResult[0] as BQPostRecordRow[];
-    const total = wantTotal ? Number(countResult[0]?.[0]?.total ?? 0) : null;
+    let rows: BQPostRecordRow[];
+    let total: number | null;
+
+    if (platform === 'tiktok') {
+      const [pageResult, countResult]: any[] = await Promise.all([
+        bq.query({ query: POSTS_SQL(dashboardId, whereClause, orderBy, limit, offset), params: queryParams, location: 'EU' }),
+        wantTotal
+          ? bq.query({ query: COUNT_SQL(dashboardId, whereClause), params: queryParams, location: 'EU' })
+          : Promise.resolve([[{ total: null }]]),
+      ]);
+      rows  = pageResult[0] as BQPostRecordRow[];
+      total = wantTotal ? Number(countResult[0]?.[0]?.total ?? 0) : null;
+    } else {
+      // X has no styles, so a style filter leaves only TikTok posts in play.
+      const xFeed = style ? null : buildXFeedSQL(dashboardId, {
+        since, minViews, minLikes, topic: topic || undefined, personId: personId || undefined,
+        profile: personId ? undefined : profile || undefined,
+        region: groupKey && isWarehouseGroup(tenant.grouping.mode) ? groupKey : undefined,
+      });
+      const tiktokSelect = platform === 'all' ? TIKTOK_FEED_SELECT(dashboardId, whereClause) : null;
+      const unionOrder = UNION_ORDER_BY[rawSortKey] ?? UNION_ORDER_BY.postDate;
+      const params = { ...queryParams, ...(xFeed?.params ?? {}) };
+      const pageSql = xFeed
+        ? UNION_POSTS_SQL(tiktokSelect, xFeed.sql, unionOrder, limit, offset)
+        : tiktokSelect ? `${tiktokSelect} ORDER BY ${orderBy} LIMIT ${limit} OFFSET ${offset}` : null;
+      const [pageResult, tkCount, xCount]: any[] = await Promise.all([
+        pageSql ? bq.query({ query: pageSql, params, location: 'EU' }) : [[]],
+        wantTotal && tiktokSelect ? bq.query({ query: COUNT_SQL(dashboardId, whereClause), params: queryParams, location: 'EU' }) : [[{ total: 0 }]],
+        wantTotal && xFeed ? bq.query({ query: `SELECT COUNT(*) AS total FROM (${xFeed.sql})`, params: xFeed.params, location: 'EU' }) : [[{ total: 0 }]],
+      ]);
+      rows  = pageResult[0] as BQPostRecordRow[];
+      total = wantTotal ? Number(tkCount[0]?.[0]?.total ?? 0) + Number(xCount[0]?.[0]?.total ?? 0) : null;
+    }
 
     // Sign coverJpeg + videoMp4 for every row in parallel (1-hour TTL each).
     const signedRows = await Promise.all(rows.map(r => signMediaFields(r)));
+    const tweets = await Promise.all(signedRows.map(async r => {
+      if (!r.tweetJson) return undefined;
+      const tweet = toTweetData(JSON.parse(r.tweetJson) as RawTweet);
+      await signTweetMedia(tweet);
+      return tweet;
+    }));
 
-    const posts: PostRecord[] = signedRows.map(r => ({
+    const posts: PostRecord[] = signedRows.map((r, i) => ({
+      platform:       r.platform ?? 'tiktok',
+      tweet:          tweets[i],
       postId:         String(r.postId),
       profile:        r.profile,
       politicianName: r.politicianName ?? r.profile,

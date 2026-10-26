@@ -13,6 +13,8 @@ import { font, type } from '@/theme/typography';
  * One job: the four headline counts of the post detail.
  */
 interface Props {
+  /** X names its counts differently: comments are replies, shares reposts. */
+  platform?: 'tiktok' | 'x';
   views:    number;
   likes:    number;
   comments: number;
@@ -20,13 +22,14 @@ interface Props {
   colour:   string;
 }
 
-export function PostMetricsRow({ views, likes, comments, shares, colour }: Props) {
+export function PostMetricsRow({ platform = 'tiktok', views, likes, comments, shares, colour }: Props) {
+  const isX = platform === 'x';
   return (
     <View style={styles.row}>
       <MetricPill value={views}    label="Views"    colour={colour} />
       <MetricPill value={likes}    label="Likes"    colour={colour} />
-      <MetricPill value={comments} label="Comments" colour={colour} />
-      <MetricPill value={shares}   label="Shares"   colour={colour} />
+      <MetricPill value={comments} label={isX ? 'Replies' : 'Comments'} colour={colour} />
+      <MetricPill value={shares}   label={isX ? 'Reposts' : 'Shares'}   colour={colour} />
     </View>
   );
 }

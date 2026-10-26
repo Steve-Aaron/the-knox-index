@@ -69,8 +69,11 @@ export function RankBoard({ politicians, activeId, headlineKey, timeRangeLabel, 
   // Does this dataset use the account-type taxonomy at all? The Knox Index
   // classifies nearly every account; World Leaders classifies none.
   const hasAccountTypes = useMemo(
-    () => politicians.some(p => (p.accountTypes?.length ?? 0) > 0),
-    [politicians],
+    // The taxonomy is UK-only: region-grouped dashboards have no account types,
+    // and the name/affiliation regex fallback mis-tags the odd world leader.
+    // 'other' is the fallback every account gets, so it does not count as a type.
+    () => tenant.grouping.mode === 'party' && politicians.some(p => p.accountTypes?.some(t => t !== 'other')),
+    [politicians, tenant.grouping.mode],
   );
 
   // Counts per view type for the tab badges.
@@ -250,7 +253,7 @@ export function RankBoard({ politicians, activeId, headlineKey, timeRangeLabel, 
                 >
                   <View style={[styles.partyDot, { backgroundColor: colour.base }]} />
                   <Text style={[styles.partyChipText, active && { color: colour.glow }]}>
-                    {PARTY_LABELS[pk] ?? pk}
+                    {PARTY_LABELS[pk] ?? labelForGroupKey(tenant.grouping.mode, pk)}
                   </Text>
                 </Pressable>
               );

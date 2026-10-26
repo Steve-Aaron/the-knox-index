@@ -18,6 +18,10 @@ import { parseRange, buildAccountsSQL, buildPostsSQL, buildTopPostSQL } from '@/
 import { groupKeyFor } from '@/data/grouping';
 import type { BQAccountRow, BQPostRow } from '@/data/transformers';
 import type { LifetimeTopPost } from '@/data/types';
+import { buildXAccountsSQL, buildXPostsSQL, buildXTopPostSQL, buildXTotalsSQL } from '@/lib/xQueries';
+import { signTweetMedia } from '@/lib/xPosts';
+import { mergeByPerson } from '@/lib/platformMerge';
+import { parsePlatformFilter } from '@/lib/platforms';
 
 // ── Handler ───────────────────────────────────────────────────────────────────
 
@@ -32,6 +36,8 @@ export async function GET(request: Request): Promise<Response> {
   const isDebug = params.get('debug') === '1';
   const isDiag  = params.get('diag')  === '1';
   const range   = parseRange(params.get('range'));
+  // No param = TikTok only, exactly as before X existed (the UK site relies on it).
+  const platform = parsePlatformFilter(params.get('platform') ?? 'tiktok');
 
   // Debug mode: return raw schema info independently of the main query
   if (isDebug) {
@@ -116,18 +122,33 @@ export async function GET(request: Request): Promise<Response> {
       WHERE videoSummary IS NOT NULL
     `;
 
-    const [accountRows, postRows, countRows] = await Promise.all([
-      query<BQAccountRow>(buildAccountsSQL(dashboardId, range)),
-      query<BQPostRow>(buildPostsSQL(dashboardId, range)),
-      query<{ totalPostsInDb: number | string; totalViewsInDb: number | string }>(totalsSql),
+    // Each platform is read and scored on its own, then merged per person for
+    // 'all' (lib/platformMerge.ts). X reads only run when X is in the filter.
+    type Totals = { totalPostsInDb: number | string; totalViewsInDb: number | string };
+    const wantTikTok = platform !== 'x';
+    const wantX      = platform !== 'tiktok';
+
+    const [accountRows, postRows, countRows, xAccountRows, xPostRows, xCountRows] = await Promise.all([
+      wantTikTok ? query<BQAccountRow>(buildAccountsSQL(dashboardId, range)) : [],
+      wantTikTok ? query<BQPostRow>(buildPostsSQL(dashboardId, range))       : [],
+      wantTikTok ? query<Totals>(totalsSql)                                  : [],
+      wantX      ? query<BQAccountRow>(buildXAccountsSQL(dashboardId, range)) : [],
+      wantX      ? query<BQPostRow>(buildXPostsSQL(dashboardId, range))       : [],
+      wantX      ? query<Totals>(buildXTotalsSQL(dashboardId))               : [],
     ]);
 
-    const politicians = transformToPoliticians(accountRows, postRows, tenant.grouping.mode);
+    const tiktokPoliticians = transformToPoliticians(accountRows, postRows, tenant.grouping.mode, 'tiktok');
+    const xPoliticians      = transformToPoliticians(xAccountRows, xPostRows, tenant.grouping.mode, 'x');
+    const politicians = platform === 'all'
+      ? mergeByPerson(tiktokPoliticians, xPoliticians)
+      : platform === 'x' ? xPoliticians : tiktokPoliticians;
 
     // BigQuery sometimes returns COUNT/SUM as a string for very large numbers.
     // Coerce defensively so the client always sees a Number.
-    const totalPostsInDb = Number(countRows[0]?.totalPostsInDb ?? 0) || 0;
-    const totalViewsInDb = Number(countRows[0]?.totalViewsInDb ?? 0) || 0;
+    const sumOf = (k: keyof Totals) =>
+      [countRows[0], xCountRows[0]].reduce((t, r) => t + (Number(r?.[k] ?? 0) || 0), 0);
+    const totalPostsInDb = sumOf('totalPostsInDb');
+    const totalViewsInDb = sumOf('totalViewsInDb');
 
     // All-time most-viewed post — range-independent. Run in ITS OWN try/catch,
     // never in the core Promise.all: this tile is non-essential, so a failure
@@ -135,12 +156,16 @@ export async function GET(request: Request): Promise<Response> {
     // its videos) down with it. On any error we simply return topPost: null.
     let topPost: LifetimeTopPost | null = null;
     try {
-      const topPostRows = await query<{
+      type TopRow = {
         postId: string; caption: string | null; views: number | string;
-        postUrl: string | null; accountName: string | null; profile: string | null;
+        postUrl: string | null; accountName: string | null; profile?: string | null;
         region: string | null; party: string | null;
-      }>(buildTopPostSQL(dashboardId));
-      const topRow = topPostRows[0];
+      };
+      const [tkTop, xTop] = await Promise.all([
+        wantTikTok ? query<TopRow>(buildTopPostSQL(dashboardId))  : [],
+        wantX      ? query<TopRow>(buildXTopPostSQL(dashboardId)) : [],
+      ]);
+      const topRow = [...tkTop, ...xTop].sort((a, b) => Number(b.views) - Number(a.views))[0];
       if (topRow) {
         topPost = {
           postId:      String(topRow.postId ?? ''),
@@ -159,6 +184,7 @@ export async function GET(request: Request): Promise<Response> {
       ...politicians.flatMap(p =>
         (p.recentPosts ?? []).map(async (post, i) => {
           const signed = await signMediaFields(post);
+          await signTweetMedia(signed.tweet);
           p.recentPosts![i] = signed;
         })
       ),

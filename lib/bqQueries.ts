@@ -83,6 +83,7 @@ export function buildAccountsSQL(dashboardId: number, range: Range): string {
     a.displayJobTitle,
     a.avatar,
     -- from metadata.person, via accountWeb()
+    a.person_id,
     a.person_slug,
     a.person_name,
     a.person_job_title,

@@ -10,8 +10,8 @@ import type { AccountPageApiResponse, AccountPageData, AccountPlatform, TimeRang
  * account, /api/benchmarks for the post distributions. The last loaded data
  * stays on screen while a new range loads.
  *
- * `platform` is accepted for when X lands; today the API only has TikTok,
- * so it does not change the request.
+ * `platform` (all | tiktok | x) is sent to the API, which falls back to
+ * 'all' when the person is not on the requested platform.
  *
  * One job: give the page an AccountPageData for the current filters.
  */
@@ -26,10 +26,9 @@ export interface AccountPageState {
 export function useAccountPage(
   handle: string | undefined,
   range: TimeRange,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   platform: AccountPlatform,
 ): AccountPageState {
-  const { benchmarks } = useBenchmarks();
+  const { benchmarks, byPlatform } = useBenchmarks();
   const [account, setAccount] = useState<AccountPageApiResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -45,7 +44,7 @@ export function useAccountPage(
     setLoading(true);
     setError(null);
 
-    const params = new URLSearchParams({ handle: handle.replace(/^@/, ''), range });
+    const params = new URLSearchParams({ handle: handle.replace(/^@/, ''), range, platform });
     fetchWithRetry(`/api/account-page?${params.toString()}`)
       .then(res => res.json() as Promise<AccountPageApiResponse>)
       .then(body => {
@@ -66,10 +65,10 @@ export function useAccountPage(
       });
 
     return () => { cancelled = true; };
-  }, [handle, range]);
+  }, [handle, range, platform]);
 
   return {
-    data: account ? { ...account, postBenchmarks: benchmarks } : null,
+    data: account ? { ...account, postBenchmarks: benchmarks, postBenchmarksByPlatform: byPlatform } : null,
     loading,
     error,
     notFound,

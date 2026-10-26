@@ -107,6 +107,8 @@ export interface ContentBreakdown {
 export interface AccountPost {
   id:             string;
   platform:       SocialPlatform;
+  /** Set on X posts: the tweet as the card draws it. */
+  tweet?:         import('@/data/types').TweetData;
   caption:        string;
   /** ISO date. */
   postDate:       string;
@@ -148,7 +150,9 @@ export interface AccountPageData {
   /** Distribution of every tracked post — places one post in the dataset.
    *  null while loading or when /api/benchmarks fails. */
   postBenchmarks: PostBenchmarks | null;
+  /** Per platform, so an X post is compared with X posts. */
+  postBenchmarksByPlatform: Record<SocialPlatform, PostBenchmarks | null>;
 }
 
 /** GET /api/account-page response. */
-export type AccountPageApiResponse = Omit<AccountPageData, 'postBenchmarks'>;
+export type AccountPageApiResponse = Omit<AccountPageData, 'postBenchmarks' | 'postBenchmarksByPlatform'>;

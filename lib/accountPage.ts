@@ -4,8 +4,8 @@
  * Builds the account page view-model (data/account/types.ts) from rows the
  * /api/account-page route has already fetched. Server-side, no I/O.
  *
- * TikTok is the only platform with data today: X appears in the contract but
- * is never filled, so the page hides it.
+ * Platform-agnostic: the route passes rows from whichever platforms the
+ * filter selects (TikTok, X or both, see app/api/account-page+api.ts).
  *
  * One job: turn politicians + one account's posts into AccountPageApiResponse.
  */
@@ -23,6 +23,7 @@ import type {
   KeyStatRank,
 } from '@/data/account/types';
 import { postEngagementRate } from '@/lib/postMetrics';
+import { toTweetData, type RawTweet } from '@/lib/xPosts';
 
 /** One row of buildAccountPagePostsSQL. */
 export interface BQAccountPagePostRow {
@@ -41,6 +42,11 @@ export interface BQAccountPagePostRow {
   videoMp4:     string | null;
   styles:       string[] | null;
   topics:       string[] | null;
+  /** Set on X rows (lib/xQueries.ts buildXAccountPagePostsSQL). */
+  platform?:    'tiktok' | 'x';
+  tweetJson?:   string | null;
+  /** video, photo, poll, quote, link or text. TikTok rows are all video. */
+  contentType?: string | null;
 }
 
 // ── Profile ───────────────────────────────────────────────────────────────────
@@ -59,7 +65,10 @@ export function buildProfile(
       label:       politician.groupLabel,
       memberCount: all.filter(p => p.groupKey === politician.groupKey).length,
     },
-    socials:    [{ platform: 'tiktok', handle: `@${handle}`, url: `https://www.tiktok.com/@${handle}` }],
+    // One link per platform account behind the person.
+    socials:    politician.platforms?.length
+      ? politician.platforms.map(pr => ({ platform: pr.platform, handle: `@${pr.handle.replace(/^@/, '')}`, url: pr.url }))
+      : [{ platform: 'tiktok', handle: `@${handle}`, url: `https://www.tiktok.com/@${handle}` }],
     lastPostAt: lastPostDate ?? '',
   };
 }
@@ -100,7 +109,10 @@ export function buildKeyStats(target: Politician, all: Politician[], grouping: G
 
   const type = primaryType(target);
   if (type) {
-    stats.push(rankWithin('same_type', 'Among accounts of the same type', target, all.filter(p => primaryType(p) === type)));
+    // 'other' is the fallback type, so on a dashboard without a taxonomy
+    // (World Leaders) this group is everyone: say so rather than 'same type'.
+    const label = type === 'other' ? 'Among all tracked accounts' : 'Among accounts of the same type';
+    stats.push(rankWithin('same_type', label, target, all.filter(p => primaryType(p) === type)));
   }
 
   const f = target.totals.followers;
@@ -212,8 +224,8 @@ function buildBreakdown(
 }
 
 const CONTENT_TAGS: Record<ContentDimension, TagFn> = {
-  // Every TikTok post is a video. Other formats arrive with other platforms.
-  type:     () => ['video'],
+  // Every TikTok post is a video; X posts carry their own format.
+  type:     r => [r.contentType ?? 'video'],
   subjects: r => r.topics ?? [],
   styles:   r => r.styles ?? [],
 };
@@ -235,7 +247,8 @@ function buildKpis(current: BQAccountPagePostRow[], followers: number): AccountK
 function toAccountPost(row: BQAccountPagePostRow, followers: number): AccountPost {
   return {
     id:             row.postId,
-    platform:       'tiktok',
+    platform:       row.platform ?? 'tiktok',
+    tweet:          row.tweetJson ? toTweetData(JSON.parse(row.tweetJson) as RawTweet) : undefined,
     caption:        row.caption ?? '',
     postDate:       row.postDate ?? '',
     views:          row.views,
@@ -257,17 +270,26 @@ function toAccountPost(row: BQAccountPagePostRow, followers: number): AccountPos
 /** Best posts return at most this many (by views), to keep lifetime responses small. */
 const MAX_POSTS = 500;
 
-export function buildPeriod(politician: Politician, rows: BQAccountPagePostRow[]): AccountPeriodData {
+export function buildPeriod(
+  politician: Politician,
+  rows: BQAccountPagePostRow[],
+  /** One row per platform in the filter; each becomes a radar series. */
+  platformRows: Politician[] = [politician],
+): AccountPeriodData {
   const current  = rows.filter(r => r.period === 'current');
   const previous = rows.filter(r => r.period === 'previous');
   const followers = politician.totals.followers;
-  const s = politician.scores;
+
+  const radar: AccountPeriodData['radar'] = {};
+  for (const row of platformRows) {
+    const s = row.scores;
+    radar[row.platform === 'x' ? 'x' : 'tiktok'] =
+      { virality: s.virality, activity: s.frequency, engagement: s.engagement, followers: s.followers, knoxFactor: s.knoxFactor };
+  }
 
   return {
     kpis:  buildKpis(current, followers),
-    radar: {
-      tiktok: { virality: s.virality, activity: s.frequency, engagement: s.engagement, followers: s.followers, knoxFactor: s.knoxFactor },
-    },
+    radar,
     content: {
       type:     buildBreakdown(current, previous, CONTENT_TAGS.type),
       subjects: buildBreakdown(current, previous, CONTENT_TAGS.subjects),

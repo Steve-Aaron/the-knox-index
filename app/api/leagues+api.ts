@@ -18,6 +18,8 @@ import { query, tableRef, postWeb } from '@/lib/bigquery';
 import { guardTenant } from '@/lib/tenantGuard';
 import { parseRange, rangeDateFilter } from '@/lib/bqQueries';
 import { safeErrorDetail } from '@/lib/errors';
+import { buildXTopicsSQL } from '@/lib/xQueries';
+import { parsePlatformFilter } from '@/lib/platforms';
 
 interface TagRow { label: string; count: number }
 
@@ -50,16 +52,31 @@ export async function GET(request: Request): Promise<Response> {
   if (denied) return denied;
   const dashboardId = tenant.dashboardId;
 
-  const range = parseRange(new URL(request.url).searchParams.get('range'), 'week');
+  const params = new URL(request.url).searchParams;
+  const range = parseRange(params.get('range'), 'week');
+  // No param = TikTok only, as before X existed. X has topics but no styles.
+  const platform = parsePlatformFilter(params.get('platform') ?? 'tiktok');
+  const wantTikTok = platform !== 'x';
+  const wantX      = platform !== 'tiktok';
   // rangeDateFilter returns an unqualified `postDate` predicate; only the post
   // table carries that column, so it resolves to p.postDate unambiguously.
   const dateFilter = rangeDateFilter(range);
 
   try {
-    const [styleRows, topicRows] = await Promise.all([
-      query<TagRow>(STYLES_SQL(dashboardId, dateFilter)),
-      query<TagRow>(TOPICS_SQL(dashboardId, dateFilter)),
+    const [styleRows, tiktokTopicRows, xTopicRows] = await Promise.all([
+      wantTikTok ? query<TagRow>(STYLES_SQL(dashboardId, dateFilter)) : [],
+      wantTikTok ? query<TagRow>(TOPICS_SQL(dashboardId, dateFilter)) : [],
+      wantX      ? query<TagRow>(buildXTopicsSQL(dashboardId, range)) : [],
     ]);
+
+    // Same topic name on both platforms → one row, counts added.
+    const topicCounts = new Map<string, number>();
+    for (const r of [...tiktokTopicRows, ...xTopicRows]) {
+      topicCounts.set(r.label, (topicCounts.get(r.label) ?? 0) + Number(r.count ?? 0));
+    }
+    const topicRows: TagRow[] = [...topicCounts.entries()]
+      .map(([label, count]) => ({ label, count }))
+      .sort((a, b) => b.count - a.count);
 
     const clean = (rows: TagRow[]) =>
       rows

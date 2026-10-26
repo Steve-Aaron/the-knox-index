@@ -12,6 +12,8 @@ import { fetchWithRetry } from './fetchWithRetry';
 
 export interface BenchmarksState {
   benchmarks: PostBenchmarks | null;
+  /** Per platform, so an X post is compared with X posts. */
+  byPlatform: { tiktok: PostBenchmarks | null; x: PostBenchmarks | null };
   loading:    boolean;
   error:      string | null;
   isLive:     boolean;
@@ -20,6 +22,7 @@ export interface BenchmarksState {
 export function useBenchmarks(): BenchmarksState {
   const [state, setState] = useState<BenchmarksState>({
     benchmarks: null,
+    byPlatform: { tiktok: null, x: null },
     loading:    true,
     error:      null,
     isLive:     false,
@@ -31,10 +34,14 @@ export function useBenchmarks(): BenchmarksState {
     cancelledRef.current = false;
 
     fetchWithRetry('/api/benchmarks')
-      .then(r => r.json() as Promise<{ benchmarks: PostBenchmarks }>)
+      .then(r => r.json() as Promise<{ benchmarks: PostBenchmarks; byPlatform?: { tiktok: PostBenchmarks; x: PostBenchmarks | null } }>)
       .then(data => {
         if (!cancelledRef.current) {
-          setState({ benchmarks: data.benchmarks, loading: false, error: null, isLive: true });
+          setState({
+            benchmarks: data.benchmarks,
+            byPlatform: { tiktok: data.benchmarks, x: data.byPlatform?.x ?? null },
+            loading: false, error: null, isLive: true,
+          });
         }
       })
       .catch((err: unknown) => {
@@ -42,7 +49,7 @@ export function useBenchmarks(): BenchmarksState {
           const uiMessage = err instanceof Error && /^HTTP \d+$/.test(err.message)
             ? err.message
             : 'Benchmarks unavailable';
-          setState({ benchmarks: null, loading: false, error: uiMessage, isLive: false });
+          setState({ benchmarks: null, byPlatform: { tiktok: null, x: null }, loading: false, error: uiMessage, isLive: false });
         }
       });
 

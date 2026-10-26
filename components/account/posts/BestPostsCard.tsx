@@ -8,7 +8,7 @@ import { accent, colourFor, glass, neutral } from '@/theme/colors';
 import { radius, spacing } from '@/theme/spacing';
 import { type } from '@/theme/typography';
 import type { PostBenchmarks, Politician } from '@/data/types';
-import type { AccountPost, SocialProfile } from '@/data/account/types';
+import type { AccountPost, SocialPlatform, SocialProfile } from '@/data/account/types';
 import { PLATFORM_META } from '../platforms';
 import { SocialLinks } from '../profile/SocialLinks';
 import { BestPostsFilters } from './BestPostsFilters';
@@ -29,7 +29,8 @@ interface Props {
   /** Author of every post — colours the cards and fills the modal identity. */
   politician: Politician;
   socials:    SocialProfile[];
-  benchmarks?: PostBenchmarks;
+  /** Per platform; each post is compared with its own platform's posts. */
+  benchmarks?: Partial<Record<SocialPlatform, PostBenchmarks | null>>;
 }
 
 const PAGE_SIZE = 10;

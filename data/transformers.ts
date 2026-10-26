@@ -6,6 +6,8 @@
  */
 
 import type { Politician, TopTrumpScores, RecentPost, AccountType } from './types';
+import { toTweetData, type RawTweet } from '@/lib/xPosts';
+import { profileUrlFor } from '@/lib/platforms';
 import type { GroupKey } from '@/theme/colors';
 import { toPartyKeyPublic } from './partyUtils';
 import { computeKnoxFactor, applyKnoxNameBonus, NORMALISATION_LIMITS } from './knoxFactor.server';
@@ -30,6 +32,7 @@ export interface BQAccountRow {
   accountTypeNames?: string;   // comma-separated — all types for this account (STRING_AGG)
   // From metadata.person, joined on in accountWeb(). Null when an account has
   // been ingested but not yet linked to a person.
+  person_id?:           string | null;
   person_slug?:         string | null;
   person_name?:         string | null;
   person_job_title?:    string | null;
@@ -89,6 +92,9 @@ export interface BQPostRow {
   coverJpeg:     string;
   videoMp4:      string;
   styles:        string[] | null;
+  /** Set on X rows (lib/xQueries.ts); absent on TikTok rows. */
+  platform?:     'tiktok' | 'x';
+  tweet?:        RawTweet;
 }
 
 // Re-export for backward compat; use toPartyKeyPublic from partyUtils for new code.
@@ -343,6 +349,8 @@ function toDateStr(v: unknown): string | undefined {
 
 function transformPost(row: BQPostRow): RecentPost {
   return {
+    platform:  row.platform ?? 'tiktok',
+    tweet:     row.tweet ? toTweetData(row.tweet) : undefined,
     // postId is already a STRING from the SQL CAST — wrap in String() as a
     // belt-and-braces safeguard for any future codepath that hands us a
     // number again. TikTok IDs exceed Number.MAX_SAFE_INTEGER so we must
@@ -374,6 +382,8 @@ export function transformToPoliticians(
    * by continent, with the party name still shown as the label beneath.
    */
   grouping: GroupingMode = 'party',
+  /** Which platform the rows came from. X rows are scored within the X set. */
+  platform: 'tiktok' | 'x' = 'tiktok',
 ): Politician[] {
   // Group posts by normalised profile handle.
   // account.profile = '@uklabour', post.profile = 'uklabour' — strip the
@@ -396,6 +406,16 @@ export function transformToPoliticians(
 
     return {
       id:             String(acc.id),
+      personId:       acc.person_id ?? undefined,
+      slug:           acc.person_slug ?? undefined,
+      platform,
+      platforms:      [{
+        platform,
+        handle:     acc.profile ?? '',
+        url:        profileUrlFor(platform, acc.profile ?? ''),
+        followers:  acc.totalFollowers ?? 0,
+        knoxFactor: scores.knoxFactor,
+      }],
       name:           acc.name ?? '',
       handle:         acc.profile ?? '',
       role:           acc.affiliation ?? '',

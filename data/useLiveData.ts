@@ -14,6 +14,7 @@ import type { Politician, LifetimeTopPost } from './types';
 import { fetchWithRetry } from './fetchWithRetry';
 import { track, startTimer, stopTimer } from '@/lib/analytics';
 import type { TimeRange } from '@/components/dashboard/TimeRangePicker';
+import type { PlatformFilter } from '@/lib/platforms';
 
 export interface DataState {
   status:        'loading' | 'live' | 'error';
@@ -42,7 +43,11 @@ const API_PATH    = '/api/ariadne';
 const RETRY_TOTAL = 3;
 const TIMER_KEY   = 'data_load';
 
-export function useLiveData(range: TimeRange = 'week'): DataState & { refresh: () => void } {
+export function useLiveData(
+  range: TimeRange = 'week',
+  /** Omitted = TikTok only, as before X existed. */
+  platform: PlatformFilter = 'tiktok',
+): DataState & { refresh: () => void } {
   const [state, setState] = useState<DataState>({
     status:         'loading',
     politicians:    [],
@@ -85,7 +90,7 @@ export function useLiveData(range: TimeRange = 'week'): DataState & { refresh: (
 
     try {
       const res = await fetchWithRetry(
-        `${API_PATH}?range=${range}`,
+        `${API_PATH}?range=${range}&platform=${platform}`,
         undefined,
         undefined,
         ({ attempt, total }) => {
@@ -153,7 +158,7 @@ export function useLiveData(range: TimeRange = 'week'): DataState & { refresh: (
         isInitialLoad:  false,
       });
     }
-  }, [range]);
+  }, [range, platform]);
 
   useEffect(() => {
     fetch_();

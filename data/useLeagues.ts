@@ -12,6 +12,7 @@
 import { useState, useEffect } from 'react';
 import type { TimeRange } from '@/components/dashboard/TimeRangePicker';
 import { fetchWithRetry } from './fetchWithRetry';
+import type { PlatformFilter } from '@/lib/platforms';
 
 export interface TagCount { label: string; count: number }
 
@@ -21,14 +22,14 @@ interface LeaguesState {
   loading: boolean;
 }
 
-export function useLeagues(range: TimeRange = 'week'): LeaguesState {
+export function useLeagues(range: TimeRange = 'week', platform: PlatformFilter = 'tiktok'): LeaguesState {
   const [state, setState] = useState<LeaguesState>({ styles: [], topics: [], loading: true });
 
   useEffect(() => {
     let cancelled = false;
     setState(prev => ({ ...prev, loading: true }));
 
-    fetchWithRetry(`/api/leagues?range=${range}`)
+    fetchWithRetry(`/api/leagues?range=${range}&platform=${platform}`)
       .then(r => r.json() as Promise<{ styles?: TagCount[]; topics?: TagCount[] }>)
       .then(data => {
         if (cancelled) return;
@@ -41,7 +42,7 @@ export function useLeagues(range: TimeRange = 'week'): LeaguesState {
       .catch(() => { if (!cancelled) setState({ styles: [], topics: [], loading: false }); });
 
     return () => { cancelled = true; };
-  }, [range]);
+  }, [range, platform]);
 
   return state;
 }

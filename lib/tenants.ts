@@ -80,6 +80,17 @@ export interface TenantConfig {
   };
   map: MapMode;
   access: TenantAccess;
+  /**
+   * Social platforms this dashboard reads, in display order. More than one
+   * shows the All / TikTok / X filter. Omitted = TikTok only.
+   */
+  platforms?: readonly ('tiktok' | 'x')[];
+  /**
+   * Where the briefing panel's copy comes from. 'stored' reads /api/briefs
+   * (UK only today); 'placeholder' shows sample copy at full size until the
+   * briefing pipeline covers the dashboard. Omitted = 'stored'.
+   */
+  briefing?: 'stored' | 'placeholder';
 }
 
 /** Root domain the subdomains hang off. */
@@ -130,8 +141,8 @@ export const TENANTS: readonly TenantConfig[] = [
       kicker:        'THE KNOX INDEX',
       subtitle:      'World Leaders',
       headlineWords: ['THE', 'KNOX', 'INDEX'],
-      tagline:       'Learn how the world’s heads of state and government use TikTok, in real time. Live rankings, regional breakdowns and daily intelligence.',
-      description:   'Daily intelligence on how world leaders perform on TikTok — ranked, scored, and briefed.',
+      tagline:       'Learn how the world’s heads of state and government use TikTok and X, in real time. Live rankings, regional breakdowns and daily intelligence.',
+      description:   'Daily intelligence on how world leaders perform on TikTok and X: ranked, scored and briefed.',
       subjectPlural: 'World leaders',
       subjectShort:  'world leaders',
     },
@@ -139,10 +150,12 @@ export const TENANTS: readonly TenantConfig[] = [
       mode:          'region',
       label:         'Region',
       boardKicker:   'REGION LEAGUE',
-      boardQuestion: 'Which part of the world is winning on TikTok?',
-      boardInfo:     'Leaders grouped by region and totalled. Use this to answer which part of the world is dominating TikTok this week, and which is most active. Tap a region row to filter the post feed below.',
+      boardQuestion: 'Which part of the world is winning on social?',
+      boardInfo:     'Leaders grouped by region and totalled. Use this to answer which part of the world is dominating social media this week, and which is most active. Tap a region row to filter the post feed below.',
     },
     map: 'world',
+    platforms: ['tiktok', 'x'],
+    briefing:  'placeholder',
     access: {
       mode:            'authenticated',
       allowedDomains:  ['knoxdigi.com', 'knox.digital'],

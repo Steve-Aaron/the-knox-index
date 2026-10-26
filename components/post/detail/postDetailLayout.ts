@@ -15,6 +15,12 @@ export function postCoverWidth(height: number): number {
   return Math.round(height * (9 / 16));
 }
 
+/** Tweet card width beside the detail column: wider than a 9:16 cover,
+ *  because a tweet is read, not watched. */
+export function tweetCardWidth(height: number): number {
+  return Math.round(height * 0.8);
+}
+
 /**
  * Fields the detail view reads. A subset of PostRecord, so feed posts pass
  * straight through; other sources (account mocks) map into it.
@@ -35,4 +41,7 @@ export type PostDetailData = Pick<
   | 'comments'
   | 'shares'
   | 'saves'
+  | 'platform'
+  | 'tweet'
+  | 'postUrl'
 >;

@@ -59,7 +59,35 @@ export interface AccountPageResponse {
   rangeLabel: string;
 }
 
+/**
+ * An X post rebuilt from twitter.post + twitter.media, carried alongside the
+ * shared post fields so the UI can draw it in the shape of a tweet.
+ */
+export interface TweetData {
+  authorName:  string;
+  handle:      string;
+  avatarUrl?:  string;
+  verified:    boolean;
+  /** Full ISO timestamp (postDate on the shared shape is the day only). */
+  createdAt:   string;
+  replyTo?:    string;
+  likes:       number;
+  reposts:     number;
+  replies:     number;
+  quotes:      number;
+  bookmarks:   number;
+  views:       number;
+  /** Signed URLs. Types: photo, video, gif, *Thumbnail, linkPreview. */
+  media:       { url: string; type: string }[];
+  link?:       { url: string; title?: string; domain?: string };
+  poll?:       { question?: string; closed: boolean; options: { label: string; votes: number }[] };
+  quoted?:     { handle: string; name?: string; avatarUrl?: string; text: string; createdAt?: string };
+}
+
 export interface RecentPost {
+  /** Absent on TikTok-only reads, which predate multi-platform. */
+  platform?: 'tiktok' | 'x';
+  tweet?:    TweetData;
   postId:    string;
   caption:   string;
   views:     number;
@@ -93,6 +121,8 @@ export interface LifetimeTopPost {
 
 /** Full post record used by the PostsTable section. */
 export interface PostRecord {
+  platform?:       'tiktok' | 'x';
+  tweet?:          TweetData;
   postId:          string;
   profile:         string;
   politicianName:  string;
@@ -167,8 +197,25 @@ export type AccountType =
   | 'council'
   | 'other';
 
+/** One platform account behind a Politician row (see Politician.platforms). */
+export interface PlatformPresence {
+  platform:   'tiktok' | 'x';
+  handle:     string;
+  url:        string;
+  followers:  number;
+  knoxFactor: number;
+}
+
 export interface Politician {
   id: string;
+  /** metadata.person.person_id — the key that joins a person's platforms. */
+  personId?: string;
+  /** metadata.person.slug, e.g. 'lula-da-silva'. Addresses the person's account page. */
+  slug?: string;
+  /** Which platform this row was built from; 'all' when merged per person. */
+  platform?: 'tiktok' | 'x' | 'all';
+  /** Every platform account behind the row, in display order. */
+  platforms?: PlatformPresence[];
   name: string;
   handle: string;           // e.g. "@rishisunak"
   role: string;             // e.g. "MP, Richmond"

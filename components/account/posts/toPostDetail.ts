@@ -9,6 +9,9 @@ import type { PostDetailData } from '@/components/post/detail/postDetailLayout';
 export function toPostDetail(post: AccountPost, politician: Politician): PostDetailData {
   return {
     postId:         post.id,
+    platform:       post.platform,
+    tweet:          post.tweet,
+    postUrl:        post.postUrl ?? '',
     politicianName: politician.name,
     groupKey:       politician.groupKey,
     caption:        post.caption,

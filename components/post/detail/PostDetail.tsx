@@ -8,7 +8,8 @@ import { PostCompareSection } from './PostCompareSection';
 import { PostCover } from './PostCover';
 import { PostInfoSection } from './PostInfoSection';
 import { PostMetricsRow } from './PostMetricsRow';
-import { POST_DETAIL_HEIGHT, postCoverWidth, type PostDetailData } from './postDetailLayout';
+import { POST_DETAIL_HEIGHT, postCoverWidth, tweetCardWidth, type PostDetailData } from './postDetailLayout';
+import { TweetCard } from '@/components/post/tweet/TweetCard';
 
 /**
  * PostDetail
@@ -55,14 +56,26 @@ export function PostDetail({
 
   return (
     <>
-      <PostCover
-        uri={post.coverJpeg}
-        views={post.views}
-        accentColour={colour.base}
-        width={postCoverWidth(height)}
-        height={height}
-        compact={compact}
-      />
+      {post.tweet ? (
+        // X: the tweet itself stands where a TikTok's 9:16 cover would.
+        <TweetCard
+          tweet={post.tweet}
+          text={post.caption}
+          groupKey={post.groupKey}
+          postUrl={post.postUrl ?? ''}
+          width={compact ? '100%' : tweetCardWidth(height)}
+          height={compact ? undefined : height}
+        />
+      ) : (
+        <PostCover
+          uri={post.coverJpeg}
+          views={post.views}
+          accentColour={colour.base}
+          width={postCoverWidth(height)}
+          height={height}
+          compact={compact}
+        />
+      )}
 
       {/* Content column: summary → metrics → distributions → info */}
       <View style={styles.column}>
@@ -78,6 +91,7 @@ export function PostDetail({
 
         {/* 2. METRICS — large and readable */}
         <PostMetricsRow
+          platform={post.platform}
           views={post.views}
           likes={post.likes}
           comments={post.comments}
@@ -105,7 +119,8 @@ export function PostDetail({
           authorName={post.politicianName}
           groupLabel={groupLabel}
           postDate={post.postDate}
-          caption={post.caption}
+          // An X post's words are already in the tweet card beside this column.
+          caption={post.tweet ? '' : post.caption}
           styles={post.styles}
           topics={post.topics}
           colour={colour}

@@ -8,7 +8,7 @@ import { breakpoints } from '@/theme/breakpoints';
 import { glass } from '@/theme/colors';
 import { radius, spacing } from '@/theme/spacing';
 import type { PostBenchmarks, Politician } from '@/data/types';
-import type { AccountPost, SocialProfile } from '@/data/account/types';
+import type { AccountPost, SocialPlatform, SocialProfile } from '@/data/account/types';
 import { PostInsightHeader } from './PostInsightHeader';
 import { toPostDetail } from './toPostDetail';
 
@@ -30,7 +30,8 @@ interface Props {
   onClose:    () => void;
   politician: Politician;
   socials:    SocialProfile[];
-  benchmarks?: PostBenchmarks;
+  /** Per platform; each post is compared with its own platform's posts. */
+  benchmarks?: Partial<Record<SocialPlatform, PostBenchmarks | null>>;
 }
 
 /** Detail height on wide screens (matches the account widgets). */
@@ -88,7 +89,7 @@ export function PostInsightModal({
                 <PostDetail
                   post={toPostDetail(post, politician)}
                   groupLabel={politician.partyLabel}
-                  benchmarks={benchmarks}
+                  benchmarks={benchmarks?.[post.platform] ?? undefined}
                   compact={compact}
                   height={detailHeight}
                 />

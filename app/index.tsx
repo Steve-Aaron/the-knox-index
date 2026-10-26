@@ -38,6 +38,8 @@ import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { useLiveData } from '@/data/useLiveData';
 import { usePostsData, type PostsSortKey, type FeedFilters } from '@/data/usePostsData';
 import { useLeagues } from '@/data/useLeagues';
+import { useTenant } from '@/hooks/useTenant';
+import { PLATFORM_FILTER_LABELS, type PlatformFilter } from '@/lib/platforms';
 import { track, startTimer, stopTimer } from '@/lib/analytics';
 import { useSessionTracking } from '@/hooks/useSessionTracking';
 import { useSectionTracking } from '@/hooks/useSectionTracking';
@@ -251,11 +253,28 @@ function DashboardScreenInner() {
   // changes sort in the PostsTable, a new fetch fires and the feed refreshes.
   const [postsSortKey, setPostsSortKey] = useState<PostsSortKey>('views');
 
-  const { politicians, totalPostsInDb, totalViewsInDb, topPost, status, isLive, error, retryAttempt, retryTotal, isInitialLoad, refresh } = useLiveData(range);
+  // Platform filter: shown when the tenant reads more than one platform
+  // (World Leaders). Single-platform tenants stay on TikTok, as before.
+  const tenantPlatforms   = useTenant().platforms ?? ['tiktok'];
+  const hasPlatformFilter = tenantPlatforms.length > 1;
+  const [platform, setPlatform] = useState<PlatformFilter>(hasPlatformFilter ? 'all' : 'tiktok');
+  // Row ids differ per platform (TikTok id, X id, person id), so a platform
+  // switch drops the selection and the board falls back to its #1.
+  const handleSetPlatform = (p: PlatformFilter) => {
+    track('platform_changed', { platform: p, previous_platform: platform });
+    setPlatform(p);
+    setActiveId('');
+  };
+
+  const { politicians, totalPostsInDb, totalViewsInDb, topPost, status, isLive, error, retryAttempt, retryTotal, isInitialLoad, refresh } = useLiveData(range, platform);
   const [feedFilters, setFeedFilters] = useState<FeedFilters>({});
-  const { posts, loading: postsLoading, loadingMore: postsLoadingMore, hasMore: postsHasMore, error: postsError, loadMore: loadMorePosts, total: postsTotal } = usePostsData(range, postsSortKey, feedFilters);
-  const { styles: styleCounts, topics: topicCounts } = useLeagues(range);
-  const { benchmarks } = useBenchmarks();
+  // A selected leader is matched on every platform by person_id, not handle.
+  const selectedPersonId = feedFilters.profile
+    ? politicians.find(p => p.handle.replace(/^@+/, '').toLowerCase() === feedFilters.profile)?.personId ?? null
+    : null;
+  const { posts, loading: postsLoading, loadingMore: postsLoadingMore, hasMore: postsHasMore, error: postsError, loadMore: loadMorePosts, total: postsTotal } = usePostsData(range, postsSortKey, { ...feedFilters, platform, person: selectedPersonId });
+  const { styles: styleCounts, topics: topicCounts } = useLeagues(range, platform);
+  const { benchmarks, byPlatform: benchmarksByPlatform } = useBenchmarks();
 
   // Hero entrance animations are gated until the LoadingScreen has fully
   // faded out — otherwise the headline 'folds in' under the loading
@@ -408,7 +427,7 @@ function DashboardScreenInner() {
                       ? 'Loading…'
                       : status === 'error'
                       ? 'Error — tap to retry'
-                      : 'See all TikTok accounts'
+                      : hasPlatformFilter ? 'See all accounts' : 'See all TikTok accounts'
                   }
                   variant="live"
                   leading={<LiveDot status={status} isLive={isLive} />}
@@ -448,6 +467,29 @@ function DashboardScreenInner() {
                 setLockedRangeAttempt(r);
               }}
             />
+
+            {/* Platform chips — only on tenants that read more than one platform */}
+            {hasPlatformFilter && (
+              <View style={styles.sortWrap}>
+                <Text style={styles.sortLabel}>PLATFORM</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sortRow}>
+                  {(['all', ...tenantPlatforms] as PlatformFilter[]).map(p => {
+                    const isActive = p === platform;
+                    return (
+                      <Pressable
+                        key={p}
+                        onPress={() => handleSetPlatform(p)}
+                        style={({ pressed }) => [styles.chip, isActive && styles.chipActive, pressed && { opacity: 0.75 }]}
+                      >
+                        <Text style={[styles.chipText, isActive && styles.chipTextActive]} numberOfLines={1}>
+                          {PLATFORM_FILTER_LABELS[p]}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+            )}
 
             {/* Sort chips — full-width horizontal scroll */}
             <View style={styles.sortWrap}>
@@ -629,6 +671,7 @@ function DashboardScreenInner() {
                 activePoliticianHandle={selectedPolitician?.handle ?? null}
                 onClearPolitician={() => handleSetActiveId('')}
                 benchmarks={benchmarks ?? undefined}
+                benchmarksByPlatform={benchmarksByPlatform}
                 isRegistered={isRegistered}
                 isAdmin={isAdmin}
                 onFiltersChange={setFeedFilters}

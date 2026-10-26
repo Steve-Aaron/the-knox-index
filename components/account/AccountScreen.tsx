@@ -103,7 +103,7 @@ export function AccountScreen({ handle }: Props) {
               posts={period.posts}
               politician={profile.politician}
               socials={profile.socials}
-              benchmarks={data.postBenchmarks ?? undefined}
+              benchmarks={data.postBenchmarksByPlatform}
             />
           </View>
         </View>

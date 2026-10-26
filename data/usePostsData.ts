@@ -17,6 +17,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import type { PostRecord } from './types';
 import type { TimeRange } from '@/components/dashboard/TimeRangePicker';
 import { fetchWithRetry } from './fetchWithRetry';
+import type { PlatformFilter } from '@/lib/platforms';
 
 /** Sort keys supported by /api/posts — must match the API's whitelist. */
 export type PostsSortKey = 'views' | 'likes' | 'comments' | 'shares' | 'engagement' | 'virality' | 'postDate';
@@ -63,6 +64,10 @@ export interface FeedFilters {
   minLikes?: number;
   style?:    string | null;
   topic?:    string | null;
+  /** 'all' | 'tiktok' | 'x'. Omitted = TikTok only. */
+  platform?: PlatformFilter;
+  /** person_id of a selected leader: matches them on every platform. */
+  person?:   string | null;
 }
 
 export function usePostsData(
@@ -91,6 +96,8 @@ export function usePostsData(
     minLikes:   filters.minLikes   ?? 0,
     style:      filters.style      ?? null,
     topic:      filters.topic      ?? null,
+    platform:   filters.platform   ?? 'tiktok',
+    person:     filters.person     ?? null,
   });
 
   // Mirror the loaded count so loadMore() always requests the right offset
@@ -121,6 +128,8 @@ export function usePostsData(
       if (filters.minLikes)   params.set('minLikes',   String(filters.minLikes));
       if (filters.style)      params.set('style',      filters.style);
       if (filters.topic)      params.set('topic',      filters.topic);
+      params.set('platform', filters.platform ?? 'tiktok');
+      if (filters.person)     params.set('person',     filters.person);
 
       const res  = await fetchWithRetry(`/api/posts?${params.toString()}`);
       const data = await res.json() as { posts: PostRecord[]; hasMore?: boolean; total?: number | null };

@@ -15,6 +15,8 @@ import { type } from '@/theme/typography';
 import { formatters } from '@/components/primitives/CountUp';
 import type { Politician } from '@/data/types';
 import type { TimeRange } from '@/components/dashboard/TimeRangePicker';
+import { useTenant } from '@/hooks/useTenant';
+import { PLACEHOLDER_BRIEF } from '@/data/placeholderBrief';
 
 /**
  * SummaryPanel
@@ -62,8 +64,19 @@ export function SummaryPanel({ politicians, range = 'week', panelHeight }: Props
   }, []);
   useEffect(() => () => { if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current); }, []);
 
+  const tenant = useTenant();
+  const isPlaceholder = tenant.briefing === 'placeholder';
+  const platformNoun  = (tenant.platforms?.length ?? 1) > 1 ? 'social' : 'TikTok';
+
   useEffect(() => {
     let cancelled = false;
+
+    // No stored briefings for this dashboard yet: sample copy at full size.
+    if (isPlaceholder) {
+      setBrief(PLACEHOLDER_BRIEF);
+      setBriefLoading(false);
+      return;
+    }
 
     setBriefLoading(true);
     setBriefError(null);
@@ -88,7 +101,7 @@ export function SummaryPanel({ politicians, range = 'week', panelHeight }: Props
       });
 
     return () => { cancelled = true; };
-  }, []);
+  }, [isPlaceholder]);
 
   const insights = useMemo(() => {
     const sorted = [...politicians].sort(
@@ -177,9 +190,14 @@ export function SummaryPanel({ politicians, range = 'week', panelHeight }: Props
                 {isWeekly ? 'WEEKLY BRIEFING' : 'DAILY BRIEFING'}
               </Kicker>
               <Title style={{ fontFamily: font.ui, fontSize: 24, fontWeight: '800', letterSpacing: 0.72, lineHeight: 26 }}>
-                {isWeekly ? 'This week on TikTok' : 'Yesterday on TikTok'}
+                {isWeekly ? `This week on ${platformNoun}` : `Yesterday on ${platformNoun}`}
               </Title>
             </View>
+            {isPlaceholder && (
+              <View style={styles.staleBadge}>
+                <Text style={styles.staleBadgeText}>SAMPLE</Text>
+              </View>
+            )}
             {brief && !brief.isToday && (
               <View style={styles.staleBadge}>
                 <Text style={styles.staleBadgeText}>

@@ -247,7 +247,7 @@ export function VideoModal({
                     Linking.openURL(postUrl);
                   }}
                 >
-                  <Text style={styles.openBtnText}>View on TikTok ↗</Text>
+                  <Text style={styles.openBtnText}>{postUrl.includes('x.com/') ? 'View on X ↗' : 'View on TikTok ↗'}</Text>
                 </Pressable>
               ) : null}
               <Pressable style={styles.closeBtn} onPress={onClose}>

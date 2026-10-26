@@ -15,6 +15,7 @@
 
 import { query, postWeb } from '@/lib/bigquery';
 import { guardTenant } from '@/lib/tenantGuard';
+import { buildXBenchmarksSQL } from '@/lib/xQueries';
 import { safeErrorDetail } from '@/lib/errors';
 import type { PostBenchmarks } from '@/data/types';
 
@@ -75,14 +76,39 @@ export async function GET(request: Request): Promise<Response> {
   if (denied) return denied;
 
   try {
-    const rows = await query<BQBenchmarkRow>(BENCHMARKS_SQL(tenant.dashboardId));
+    const [rows, xRows] = await Promise.all([
+      query<BQBenchmarkRow>(BENCHMARKS_SQL(tenant.dashboardId)),
+      // Non-essential: a failed X read leaves byPlatform.x null, never a 500.
+      query<BQBenchmarkRow>(buildXBenchmarksSQL(tenant.dashboardId)).catch((err: unknown) => {
+        console.error('[/api/benchmarks] X benchmarks failed (non-fatal):', safeErrorDetail(err).logMessage);
+        return [] as BQBenchmarkRow[];
+      }),
+    ]);
     const r = rows[0];
 
     if (!r) {
       return Response.json({ error: 'No data' }, { status: 404 });
     }
 
-    const benchmarks: PostBenchmarks = {
+    const benchmarks: PostBenchmarks = toBenchmarks(r);
+    // Per platform, so an X post is compared with X posts. `benchmarks` stays
+    // TikTok for every existing reader.
+    const byPlatform = { tiktok: benchmarks, x: xRows[0] ? toBenchmarks(xRows[0]) : null };
+
+    return Response.json(
+      { benchmarks, byPlatform },
+      { headers: { 'Cache-Control': 'private, max-age=3600, stale-while-revalidate=300' } }
+    );
+
+  } catch (err: unknown) {
+    const { clientDetail, logMessage } = safeErrorDetail(err);
+    console.error('[/api/benchmarks] BigQuery error:', logMessage);
+    return Response.json({ error: 'Failed to fetch benchmarks', detail: clientDetail }, { status: 500 });
+  }
+}
+
+function toBenchmarks(r: BQBenchmarkRow): PostBenchmarks {
+    return {
       views: {
         min:    Math.round(r.views_min),
         p25:    Math.round(r.views_p25),
@@ -100,15 +126,4 @@ export async function GET(request: Request): Promise<Response> {
         max:    +r.eng_max.toFixed(2),
       },
     };
-
-    return Response.json(
-      { benchmarks },
-      { headers: { 'Cache-Control': 'private, max-age=3600, stale-while-revalidate=300' } }
-    );
-
-  } catch (err: unknown) {
-    const { clientDetail, logMessage } = safeErrorDetail(err);
-    console.error('[/api/benchmarks] BigQuery error:', logMessage);
-    return Response.json({ error: 'Failed to fetch benchmarks', detail: clientDetail }, { status: 500 });
-  }
 }
