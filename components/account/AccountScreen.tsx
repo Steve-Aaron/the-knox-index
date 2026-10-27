@@ -15,6 +15,7 @@ import { KeyStatsCard } from './keyStats/KeyStatsCard';
 import { OverviewPanel } from './overview/OverviewPanel';
 import { PerformanceCard } from './performance/PerformanceCard';
 import { ContentCard } from './content/ContentCard';
+import { HeroGlow } from './layout/HeroGlow';
 import { BestPostsCard } from './posts/BestPostsCard';
 
 /**
@@ -74,6 +75,7 @@ export function AccountScreen({ handle }: Props) {
 
           {/* ── Main column ─────────────────────────────── */}
           <View style={[styles.stack, isDesktop && styles.main]}>
+            <HeroGlow />
             <OverviewPanel
               range={range}
               onRangeChange={setRange}
