@@ -111,9 +111,9 @@ const styles = StyleSheet.create({
     color: neutral.textMid,
   },
   track: {
-    height:          3,
+    height:          4,
     borderRadius:    2,
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: 'rgba(255,255,255,0.08)',
     overflow:        'hidden',
   },
   fill: {

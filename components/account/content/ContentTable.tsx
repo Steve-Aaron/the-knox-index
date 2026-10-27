@@ -1,46 +1,51 @@
 import React from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { neutral } from '@/theme/colors';
 import { spacing } from '@/theme/spacing';
 import { type } from '@/theme/typography';
 import type { ContentSlice } from '@/data/account/types';
 import { useContentColumns } from './contentColumns';
-import { sliceColor } from './contentPalette';
+import { OTHER_KEY, type SliceGroups } from './contentGroups';
+import { OTHER_COLOR, sliceColor } from './contentPalette';
 import { ContentRow } from './ContentRow';
 import type { SliceHighlight } from './useSliceHighlight';
 
 /**
  * ContentTable
  * -------------
- * Column header + scrollable list of slices. Scrolls internally so the card
- * keeps its fixed height on desktop. Rows share the donut's highlight.
+ * Column header + every slice, including the ones the donut folds into
+ * "Other" (drawn grey). Never scrolls itself: the card scrolls its whole
+ * body instead. Rows share the donut's highlight.
  *
  * One job: tabulate the content slices.
  */
 interface Props {
   slices:      ContentSlice[];
+  groups:      SliceGroups;
   /** First column heading, e.g. 'Topic'. */
   columnLabel: string;
   /** 'vs prev week' etc. Null hides the delta column. */
   prevLabel:   string | null;
-  /** Scroll inside a fixed-height card instead of growing. */
-  scrollable:  boolean;
   highlight:   SliceHighlight;
 }
 
-export function ContentTable({ slices, columnLabel, prevLabel, scrollable, highlight }: Props) {
+export function ContentTable({ slices, groups, columnLabel, prevLabel, highlight }: Props) {
   const contentColumns = useContentColumns();
   const maxShare = slices[0]?.share ?? 0;
   const showDelta = prevLabel != null;
+
+  const active = highlight.activeKey;
+  // The "Other" segment lights up every row folded into it.
+  const lit = (key: string) => active === key || (active === OTHER_KEY && groups.otherKeys.has(key));
 
   const rows = slices.map((slice, i) => (
     <ContentRow
       key={slice.key}
       slice={slice}
-      color={sliceColor(i)}
+      color={groups.otherKeys.has(slice.key) ? OTHER_COLOR : sliceColor(i)}
       barRatio={maxShare > 0 ? slice.share / maxShare : 0}
       showDelta={showDelta}
-      dimmed={highlight.activeKey != null && highlight.activeKey !== slice.key}
+      dimmed={active != null && !lit(slice.key)}
       pinned={highlight.pinnedKey === slice.key}
       onHover={highlight.hover}
       onPress={highlight.toggle}
@@ -48,7 +53,7 @@ export function ContentTable({ slices, columnLabel, prevLabel, scrollable, highl
   ));
 
   return (
-    <View style={[styles.wrap, scrollable && styles.wrapFill]}>
+    <View style={styles.wrap}>
       <View style={styles.header}>
         <Text style={[styles.heading, styles.headingFirst]}>{columnLabel}</Text>
         <Text style={[styles.heading, styles.right, contentColumns.views]}>Views</Text>
@@ -58,13 +63,7 @@ export function ContentTable({ slices, columnLabel, prevLabel, scrollable, highl
         ) : null}
       </View>
 
-      {scrollable ? (
-        <ScrollView style={styles.scroll} contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
-          {rows}
-        </ScrollView>
-      ) : (
-        <View style={styles.list}>{rows}</View>
-      )}
+      <View style={styles.list}>{rows}</View>
     </View>
   );
 }
@@ -72,10 +71,6 @@ export function ContentTable({ slices, columnLabel, prevLabel, scrollable, highl
 const styles = StyleSheet.create({
   wrap: {
     gap: spacing.sm,
-  },
-  wrapFill: {
-    flex:      1,
-    minHeight: 0,
   },
   header: {
     flexDirection: 'row',
@@ -93,9 +88,6 @@ const styles = StyleSheet.create({
   },
   right: {
     textAlign: 'right',
-  },
-  scroll: {
-    flex: 1,
   },
   list: {
     gap:           spacing.base,

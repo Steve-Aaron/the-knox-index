@@ -123,9 +123,8 @@ export function buildKeyStats(target: Politician, all: Politician[], grouping: G
 
 // ── Period data ───────────────────────────────────────────────────────────────
 
-/** Slices shown before the rest are folded into 'Other'. */
-const MAX_SLICES = 7;
-const OTHER_KEY = 'other';
+/** Bucket for posts with no tag in the dimension. */
+const UNTAGGED_KEY = 'untagged';
 
 /** 'COST_OF_LIVING' → 'Cost of living'. Drops stray HTML entities and symbols. */
 function tagLabel(name: string): string {
@@ -137,14 +136,14 @@ type TagFn = (row: BQAccountPagePostRow) => string[];
 
 /**
  * Views per tag, with each post's views split evenly across its tags so the
- * shares add up to 100%. Untagged posts count towards 'Other'. Post counts
+ * shares add up to 100%. Untagged posts get their own bucket. Post counts
  * stay whole: a post with three topics counts once in each.
  */
 function tally(rows: BQAccountPagePostRow[], tags: TagFn) {
   const byTag = new Map<string, { posts: number; views: number }>();
   for (const row of rows) {
     const list = tags(row);
-    const keys = list.length ? list : [OTHER_KEY];
+    const keys = list.length ? list : [UNTAGGED_KEY];
     for (const key of keys) {
       const t = byTag.get(key) ?? { posts: 0, views: 0 };
       t.posts += 1;
@@ -155,6 +154,11 @@ function tally(rows: BQAccountPagePostRow[], tags: TagFn) {
   return byTag;
 }
 
+/**
+ * Every tag as a slice, largest first. Grouping the tail into "Other" for the
+ * donut is a display rule, so it happens client-side (contentGroups.ts) and
+ * the table can still list every tag.
+ */
 function buildBreakdown(
   current: BQAccountPagePostRow[],
   previous: BQAccountPagePostRow[],
@@ -168,39 +172,16 @@ function buildBreakdown(
   const share     = (v: number, total: number) => (total > 0 ? v / total : 0);
   const prevShare = (key: string) => share(prev.get(key)?.views ?? 0, prevViews);
 
-  const ranked = [...cur.entries()]
-    .filter(([key]) => key !== OTHER_KEY)
-    .sort((a, b) => b[1].views - a[1].views);
-  const shown  = ranked.slice(0, MAX_SLICES);
-  const folded = ranked.slice(MAX_SLICES).map(([key]) => key);
-
-  const slices: ContentSlice[] = shown.map(([key, t]) => ({
-    key,
-    label:   tagLabel(key),
-    posts:   t.posts,
-    views:   Math.round(t.views),
-    share:   share(t.views, totalViews),
-    deltaPp: prevViews > 0 ? (share(t.views, totalViews) - prevShare(key)) * 100 : 0,
-  }));
-
-  const otherKeys  = [OTHER_KEY, ...folded];
-  const otherViews = otherKeys.reduce((s, k) => s + (cur.get(k)?.views ?? 0), 0);
-  if (otherViews > 0) {
-    // Posts are not summed: a post can carry several folded tags.
-    const otherPosts = current.filter(r => {
-      const list = tags(r);
-      return list.length === 0 || list.some(t => folded.includes(t));
-    }).length;
-    const prevOther = otherKeys.reduce((s, k) => s + (prev.get(k)?.views ?? 0), 0);
-    slices.push({
-      key:     OTHER_KEY,
-      label:   'Other',
-      posts:   otherPosts,
-      views:   Math.round(otherViews),
-      share:   share(otherViews, totalViews),
-      deltaPp: prevViews > 0 ? (share(otherViews, totalViews) - share(prevOther, prevViews)) * 100 : 0,
-    });
-  }
+  const slices: ContentSlice[] = [...cur.entries()]
+    .sort((a, b) => b[1].views - a[1].views)
+    .map(([key, t]) => ({
+      key,
+      label:   key === UNTAGGED_KEY ? 'Untagged' : tagLabel(key),
+      posts:   t.posts,
+      views:   Math.round(t.views),
+      share:   share(t.views, totalViews),
+      deltaPp: prevViews > 0 ? (share(t.views, totalViews) - prevShare(key)) * 100 : 0,
+    }));
 
   return {
     totalPosts:         current.length,
