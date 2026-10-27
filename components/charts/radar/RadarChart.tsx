@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Text as SvgText } from 'react-native-svg';
 import { DevLabel } from '@/components/primitives/DevLabel';
+import { useInViewport } from '@/hooks/useInViewport';
 import { track } from '@/lib/analytics';
 import { neutral } from '@/theme/colors';
 import { font } from '@/theme/typography';
@@ -18,7 +19,7 @@ import { RadarShape } from './RadarShape';
  * Unlike card/RadialScoreChart (single politician), this one overlays
  * several series for comparison, e.g. TikTok vs X. Dots work the same way:
  * hover enlarges one, press opens an overlay with that series' score on
- * that axis, ✕ closes it.
+ * that axis, ✕ closes it. Shapes grow out once the chart scrolls into view.
  *
  * One job: draw N series on a shared set of axes.
  */
@@ -108,6 +109,7 @@ export function RadarChart<K extends string>({
     }),
   })), [series, axes, maxValue, maxR, cx, cy, step]);
 
+  const [viewRef, seen] = useInViewport();
   const [hoverDot,  setHoverDot]  = useState<DotRef | null>(null);
   const [activeDot, setActiveDot] = useState<DotRef | null>(null);
 
@@ -127,7 +129,7 @@ export function RadarChart<K extends string>({
   const activeAxis   = activeDot ? axes[activeDot.idx] : undefined;
 
   return (
-    <View style={{ width: size, height: size }}>
+    <View ref={viewRef} style={{ width: size, height: size }}>
       <DevLabel name="RadarChart" />
       <Svg width={size} height={size}>
         <RadarGrid cx={cx} cy={cy} rings={grid.rings} spokes={grid.spokes} />
@@ -159,7 +161,9 @@ export function RadarChart<K extends string>({
             cx={cx}
             cy={cy}
             points={s.points}
+            replayKey={axes.map(a => s.values[a.key]).join()}
             delay={i * 120}
+            play={seen}
             activeIdx={dotIdxFor(s.id)}
             onDotPress={idx => openDot(s.id, idx)}
             onDotHover={idx => setHoverDot(idx == null ? null : { seriesId: s.id, idx })}

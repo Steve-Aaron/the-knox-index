@@ -1,24 +1,21 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { Platform } from 'react-native';
 import { Circle, Defs, G, Polygon, RadialGradient, Rect, Stop } from 'react-native-svg';
-import Animated, {
-  Easing,
-  useAnimatedProps,
-  useSharedValue,
-  withDelay,
-  withTiming,
-} from 'react-native-reanimated';
+import Animated, { Easing, useAnimatedProps, type SharedValue } from 'react-native-reanimated';
 import type { Point } from '../geometry';
+import { useEntryProgress } from '../useEntryProgress';
 
 const AnimatedPolygon = Animated.createAnimatedComponent(Polygon);
+const AnimatedCircle  = Animated.createAnimatedComponent(Circle);
 
 /**
  * RadarShape
  * -----------
  * One series on the radar: a filled polygon that grows out from the centre,
- * plus a dot on each vertex. Lives in its own component so every series gets
- * its own animation hooks. Dots are optional press targets: hover enlarges
- * one to signal it's clickable, press hands its index to the parent.
+ * plus a dot on each vertex riding along with it. Lives in its own component
+ * so every series gets its own animation hooks. Dots are optional press
+ * targets: hover enlarges one to signal it's clickable, press hands its index
+ * to the parent.
  */
 interface Props {
   id:     string;
@@ -26,8 +23,12 @@ interface Props {
   cx:     number;
   cy:     number;
   points: Point[];
+  /** Changes when the data does; replays the grow-out. Resizing doesn't. */
+  replayKey: string;
   /** Stagger between series, ms. */
   delay?: number;
+  /** Grow out once true (the chart is in view); held at the centre before. */
+  play?:  boolean;
   /** Highlight colour for an enlarged dot. Defaults to `color`. */
   glow?:  string;
   /** Vertex index drawn enlarged (hovered or open), if any. */
@@ -39,18 +40,12 @@ interface Props {
 /** Side of the invisible square press target centred on each dot. */
 const HIT_SIZE = 24;
 
-export function RadarShape({
-  id, color, cx, cy, points, delay = 0, glow = color, activeIdx = null, onDotPress, onDotHover,
-}: Props) {
-  const progress = useSharedValue(0);
+const GROW = { duration: 900, easing: Easing.out(Easing.back(1.08)) };
 
-  useEffect(() => {
-    progress.value = 0;
-    progress.value = withDelay(
-      delay,
-      withTiming(1, { duration: 900, easing: Easing.out(Easing.back(1.08)) }),
-    );
-  }, [points, delay, progress]);
+export function RadarShape({
+  id, color, cx, cy, points, replayKey, delay = 0, play = true, glow = color, activeIdx = null, onDotPress, onDotHover,
+}: Props) {
+  const progress = useEntryProgress(play, replayKey, { ...GROW, delay });
 
   const animatedProps = useAnimatedProps(() => {
     const t = progress.value;
@@ -79,14 +74,17 @@ export function RadarShape({
         const isActive = activeIdx === i;
         return (
           <G key={`dot-${i}`}>
-            <Circle
-              cx={p.x}
-              cy={p.y}
+            <RadarDot
+              point={p}
+              cx={cx}
+              cy={cy}
+              progress={progress}
               r={isActive ? 6 : 3}
               fill={isActive ? glow : color}
               stroke={isActive ? '#fff' : 'none'}
               strokeWidth={isActive ? 1.5 : 0}
             />
+            {/* The press target stays put: it only matters once in view. */}
             {onDotPress ? (
               <Rect
                 x={p.x - HIT_SIZE / 2}
@@ -107,4 +105,22 @@ export function RadarShape({
       })}
     </G>
   );
+}
+
+/** A vertex dot that rides along with the polygon as it grows. */
+function RadarDot({ point, cx, cy, progress, ...circle }: {
+  point:       Point;
+  cx:          number;
+  cy:          number;
+  progress:    SharedValue<number>;
+  r:           number;
+  fill:        string;
+  stroke:      string;
+  strokeWidth: number;
+}) {
+  const animatedProps = useAnimatedProps(() => ({
+    cx: cx + (point.x - cx) * progress.value,
+    cy: cy + (point.y - cy) * progress.value,
+  }));
+  return <AnimatedCircle animatedProps={animatedProps} {...circle} />;
 }

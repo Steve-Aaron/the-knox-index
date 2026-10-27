@@ -1,8 +1,13 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useId, useMemo } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
-import Svg, { Circle, Defs, Path, RadialGradient, Stop } from 'react-native-svg';
+import Svg, { Circle, Defs, G, Mask, Path, RadialGradient, Stop } from 'react-native-svg';
+import Animated, { Easing, useAnimatedProps } from 'react-native-reanimated';
 import { DevLabel } from '@/components/primitives/DevLabel';
+import { useInViewport } from '@/hooks/useInViewport';
 import { ringSegmentPath } from './geometry';
+import { useEntryProgress } from './useEntryProgress';
+
+const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 /**
  * DonutChart
@@ -14,8 +19,9 @@ import { ringSegmentPath } from './geometry';
  * dim), and `onSegmentHover` / `onSegmentPress` to drive it. Hover only
  * reacts to a mouse, so a tap on touch doesn't leave a stuck preview.
  *
- * The ring draws itself clockwise from 12 o'clock on mount and again whenever
- * the segments change (new range, new tab).
+ * The ring draws itself clockwise from 12 o'clock once it scrolls into view,
+ * and again whenever the segments change (new range, new tab): the segments
+ * are static, a mask stroke sweeping round reveals them.
  *
  * One job: draw proportional ring segments with a centre slot.
  */
@@ -42,25 +48,7 @@ interface Props {
   children?:  React.ReactNode;
 }
 
-const SWEEP_MS = 900;
-
-/** 0 → 1 over SWEEP_MS, eased out, restarting whenever `trigger` changes. */
-function useSweep(trigger: string): number {
-  const [progress, setProgress] = useState(0);
-  useEffect(() => {
-    let frame = 0;
-    const start = Date.now();
-    const tick = () => {
-      const t = Math.min(1, (Date.now() - start) / SWEEP_MS);
-      setProgress(1 - (1 - t) ** 3);
-      if (t < 1) frame = requestAnimationFrame(tick);
-    };
-    setProgress(0);
-    frame = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(frame);
-  }, [trigger]);
-  return progress;
-}
+const SWEEP = { duration: 900, easing: Easing.out(Easing.cubic) };
 
 /** Opacity of the segments that aren't active. */
 const DIMMED_OPACITY = 0.25;
@@ -92,7 +80,7 @@ export function DonutChart({
   const outerR = size / 2;
   const innerR = Math.max(0, outerR - thickness);
 
-  const arcs = useMemo(() => {
+  const paths = useMemo(() => {
     const total = segments.reduce((s, seg) => s + Math.max(0, seg.value), 0);
     if (total <= 0) return [];
     // A gap only makes sense between two or more segments.
@@ -105,44 +93,61 @@ export function DonutChart({
       // Clamp just under 360 so a single full segment still draws as an arc.
       const end = Math.min(cursor + sweep - gap / 2, cursor + 359.99);
       cursor += sweep;
-      return { key: seg.key, color: seg.color, start, end };
+      return {
+        key:   seg.key,
+        color: seg.color,
+        d:     end > start ? ringSegmentPath(cx, cy, outerR, innerR, start, end) : null,
+      };
     });
-  }, [segments, gapDeg]);
+  }, [segments, gapDeg, cx, cy, outerR, innerR]);
 
-  const sweepKey = segments.map(s => `${s.key}:${s.value}`).join('|');
-  const progress = useSweep(sweepKey);
-  // Each segment is cut at the sweep's leading edge.
-  const edge = progress * 360;
-  const paths = arcs.map(a => {
-    const end = Math.min(a.end, edge);
-    return { ...a, d: end > a.start ? ringSegmentPath(cx, cy, outerR, innerR, a.start, end) : null };
-  });
+  const id = useId().replace(/[^a-zA-Z0-9]/g, '');
+  const [viewRef, seen] = useInViewport();
+  const progress = useEntryProgress(seen, segments.map(s => `${s.key}:${s.value}`).join('|'), SWEEP);
+  // A stroke down the middle of the ring, rotated to start at 12 o'clock;
+  // its dash grows from nothing to a full turn. +1 hides the seam.
+  const maskR = (outerR + innerR) / 2;
+  const dash = 2 * Math.PI * maskR + 1;
+  const maskProps = useAnimatedProps(() => ({ strokeDashoffset: dash * (1 - progress.value) }));
 
   return (
-    <View style={{ width: size, height: size }}>
+    <View ref={viewRef} style={{ width: size, height: size }}>
       <DevLabel name="DonutChart" />
       <Svg width={size} height={size} style={StyleSheet.absoluteFill}>
-        {centreGlow ? (
-          <>
-            <Defs>
-              <RadialGradient id="donut-centre-glow" cx="50%" cy="50%" r="50%">
-                <Stop offset="0%" stopColor={centreGlow} stopOpacity={0.2} />
-                <Stop offset="100%" stopColor={centreGlow} stopOpacity={0} />
-              </RadialGradient>
-            </Defs>
-            <Circle cx={cx} cy={cy} r={innerR} fill="url(#donut-centre-glow)" />
-          </>
-        ) : null}
-        {paths.map(p => (p.d ? (
-          <Path
-            key={p.key}
-            d={p.d}
-            fill={p.color}
-            opacity={activeKey != null && activeKey !== p.key ? DIMMED_OPACITY : 1}
-            onPress={onSegmentPress ? () => onSegmentPress(p.key) : undefined}
-            {...hoverProps(p.key, onSegmentHover)}
-          />
-        ) : null))}
+        <Defs>
+          <Mask id={`donut-sweep-${id}`}>
+            <AnimatedCircle
+              animatedProps={maskProps}
+              cx={cx}
+              cy={cy}
+              r={maskR}
+              fill="none"
+              stroke="#fff"
+              strokeWidth={thickness + 2}
+              strokeDasharray={`${dash} ${dash}`}
+              transform={`rotate(-90 ${cx} ${cy})`}
+            />
+          </Mask>
+          {centreGlow ? (
+            <RadialGradient id={`donut-glow-${id}`} cx="50%" cy="50%" r="50%">
+              <Stop offset="0%" stopColor={centreGlow} stopOpacity={0.2} />
+              <Stop offset="100%" stopColor={centreGlow} stopOpacity={0} />
+            </RadialGradient>
+          ) : null}
+        </Defs>
+        {centreGlow ? <Circle cx={cx} cy={cy} r={innerR} fill={`url(#donut-glow-${id})`} /> : null}
+        <G mask={`url(#donut-sweep-${id})`}>
+          {paths.map(p => (p.d ? (
+            <Path
+              key={p.key}
+              d={p.d}
+              fill={p.color}
+              opacity={activeKey != null && activeKey !== p.key ? DIMMED_OPACITY : 1}
+              onPress={onSegmentPress ? () => onSegmentPress(p.key) : undefined}
+              {...hoverProps(p.key, onSegmentHover)}
+            />
+          ) : null))}
+        </G>
       </Svg>
       <View style={styles.centre} pointerEvents="box-none">
         {children}
