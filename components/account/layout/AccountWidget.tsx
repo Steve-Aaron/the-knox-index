@@ -16,15 +16,17 @@ interface Props {
   children:  React.ReactNode;
   /** Fixed height (desktop). Omit to size to content. */
   height?:   number;
+  /** Minimum height — the card can still grow to fit its content. */
+  minHeight?: number;
   infoText?: string;
   style?:    ViewStyle;
 }
 
-export function AccountWidget({ children, height, infoText, style }: Props) {
+export function AccountWidget({ children, height, minHeight, infoText, style }: Props) {
   return (
     <DashCard
       infoText={infoText}
-      style={StyleSheet.flatten([styles.card, height != null && { height }, style])}
+      style={StyleSheet.flatten([styles.card, height != null && { height }, minHeight != null && { minHeight }, style])}
     >
       {children}
     </DashCard>

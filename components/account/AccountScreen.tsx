@@ -15,6 +15,7 @@ import { KeyStatsCard } from './keyStats/KeyStatsCard';
 import { OverviewPanel } from './overview/OverviewPanel';
 import { PerformanceCard } from './performance/PerformanceCard';
 import { ContentCard } from './content/ContentCard';
+import { HeroGlow } from './layout/HeroGlow';
 import { BestPostsCard } from './posts/BestPostsCard';
 
 /**
@@ -37,10 +38,18 @@ interface Props {
 export function AccountScreen({ handle }: Props) {
   const [range, setRange] = useState<TimeRange>('yesterday');
   const [platform, setPlatform] = useState<AccountPlatform>('all');
-  const { data } = useAccountPage(handle, range, platform);
+  const { data, loading, error, notFound } = useAccountPage(handle, range, platform);
   const { isDesktop, isTablet, isMobile, widgetHeight } = useAccountLayout();
 
-  if (!data) return <NotFound handle={handle ?? ''} />;
+  if (notFound) return <NotFound handle={handle ?? ''} />;
+  if (!data) {
+    return (
+      <Message
+        title={loading ? 'Loading account…' : 'Could not load this account'}
+        sub={loading ? undefined : error ?? undefined}
+      />
+    );
+  }
 
   const { profile, keyStats, period } = data;
 
@@ -66,11 +75,13 @@ export function AccountScreen({ handle }: Props) {
 
           {/* ── Main column ─────────────────────────────── */}
           <View style={[styles.stack, isDesktop && styles.main]}>
+            <HeroGlow />
             <OverviewPanel
               range={range}
               onRangeChange={setRange}
               platform={platform}
               onPlatformChange={setPlatform}
+              platforms={data.platforms}
               kpis={period.kpis}
               compact={isMobile}
             />
@@ -94,7 +105,7 @@ export function AccountScreen({ handle }: Props) {
               posts={period.posts}
               politician={profile.politician}
               socials={profile.socials}
-              benchmarks={data.postBenchmarks}
+              benchmarks={data.postBenchmarks ?? undefined}
             />
           </View>
         </View>
@@ -109,10 +120,14 @@ export function AccountScreen({ handle }: Props) {
 }
 
 function NotFound({ handle }: { handle: string }) {
+  return <Message title="Account not found" sub={`No account exists for @${handle.replace(/^@/, '')}`} />;
+}
+
+function Message({ title, sub }: { title: string; sub?: string }) {
   return (
     <View style={styles.notFound}>
-      <Text style={styles.notFoundTitle}>Account not found</Text>
-      <Text style={styles.notFoundSub}>No account exists for @{handle.replace(/^@/, '')}</Text>
+      <Text style={styles.notFoundTitle}>{title}</Text>
+      {sub ? <Text style={styles.notFoundSub}>{sub}</Text> : null}
     </View>
   );
 }

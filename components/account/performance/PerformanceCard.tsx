@@ -31,11 +31,11 @@ interface Props {
 }
 
 const AXES: RadarAxis<RadarAxisKey>[] = [
-  { key: 'virality',   label: 'Virality' },
-  { key: 'activity',   label: 'Activity' },
-  { key: 'engagement', label: 'Eng. %' },
-  { key: 'followers',  label: 'Followers' },
-  { key: 'knoxFactor', label: 'Knox' },
+  { key: 'virality',   label: 'Virality',    desc: 'Avg views per follower' },
+  { key: 'activity',   label: 'Activity',    desc: 'Posting frequency in the period' },
+  { key: 'engagement', label: 'Eng. %',      desc: 'Active engagements divided by views' },
+  { key: 'followers',  label: 'Followers',   desc: 'Total followers' },
+  { key: 'knoxFactor', label: 'Knox factor', desc: 'Our custom rating of this account\'s effectiveness' },
 ];
 
 /** Largest the radar gets, so it never dominates a wide card. */
@@ -51,7 +51,7 @@ export function PerformanceCard({ radar, politician, height, style }: Props) {
       return values ? [{ platform: p, values, ...PLATFORM_META[p] }] : [];
     });
     return {
-      series: shown.map<RadarSeries<RadarAxisKey>>(s => ({ id: s.platform, color: s.color, values: s.values })),
+      series: shown.map<RadarSeries<RadarAxisKey>>(s => ({ id: s.platform, label: s.label, color: s.color, values: s.values })),
       legend: shown.map<LegendItem>(s => ({ id: s.platform, label: s.label, color: s.color })),
     };
   }, [radar]);

@@ -35,6 +35,7 @@ const ALLOWLIST = new Set([
   'data/knoxFactor.server.ts',   // is the formula
   'app/api/ariadne+api.ts',      // server route
   'app/api/account+api.ts',      // server route
+  'app/api/account-page+api.ts', // server route
 ]);
 
 const SKIP_DIRS = new Set(['node_modules', '.git', '.expo', 'dist', 'ios', 'android', '.vercel', '_to_delete']);

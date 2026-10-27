@@ -30,7 +30,7 @@ interface Props {
   onClose:    () => void;
   politician: Politician;
   socials:    SocialProfile[];
-  benchmarks: PostBenchmarks;
+  benchmarks?: PostBenchmarks;
 }
 
 /** Detail height on wide screens (matches the account widgets). */
@@ -91,6 +91,7 @@ export function PostInsightModal({
                   benchmarks={benchmarks}
                   compact={compact}
                   height={detailHeight}
+                  playable
                 />
               </View>
             </ScrollView>

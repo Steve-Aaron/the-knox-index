@@ -1,9 +1,13 @@
-import React, { useMemo } from 'react';
+import React, { useId, useMemo } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
-import Svg, { Path } from 'react-native-svg';
-import { MotiView } from 'moti';
+import Svg, { Circle, Defs, G, Mask, Path, RadialGradient, Stop } from 'react-native-svg';
+import Animated, { Easing, useAnimatedProps } from 'react-native-reanimated';
 import { DevLabel } from '@/components/primitives/DevLabel';
+import { useInViewport } from '@/hooks/useInViewport';
 import { ringSegmentPath } from './geometry';
+import { useEntryProgress } from './useEntryProgress';
+
+const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 /**
  * DonutChart
@@ -14,6 +18,10 @@ import { ringSegmentPath } from './geometry';
  * Optionally interactive: pass `activeKey` to emphasise one segment (the rest
  * dim), and `onSegmentHover` / `onSegmentPress` to drive it. Hover only
  * reacts to a mouse, so a tap on touch doesn't leave a stuck preview.
+ *
+ * The ring draws itself clockwise from 12 o'clock once it scrolls into view,
+ * and again whenever the segments change (new range, new tab): the segments
+ * are static, a mask stroke sweeping round reveals them.
  *
  * One job: draw proportional ring segments with a centre slot.
  */
@@ -35,8 +43,12 @@ interface Props {
   /** Mouse entered (key) or left (null) a segment. */
   onSegmentHover?: (key: string | null) => void;
   onSegmentPress?: (key: string) => void;
+  /** Soft radial glow filling the hole, e.g. the leading segment's colour. */
+  centreGlow?: string;
   children?:  React.ReactNode;
 }
+
+const SWEEP = { duration: 900, easing: Easing.out(Easing.cubic) };
 
 /** Opacity of the segments that aren't active. */
 const DIMMED_OPACITY = 0.25;
@@ -60,6 +72,7 @@ export function DonutChart({
   activeKey,
   onSegmentHover,
   onSegmentPress,
+  centreGlow,
   children,
 }: Props) {
   const cx = size / 2;
@@ -88,16 +101,42 @@ export function DonutChart({
     });
   }, [segments, gapDeg, cx, cy, outerR, innerR]);
 
+  const id = useId().replace(/[^a-zA-Z0-9]/g, '');
+  const [viewRef, seen] = useInViewport();
+  const progress = useEntryProgress(seen, segments.map(s => `${s.key}:${s.value}`).join('|'), SWEEP);
+  // A stroke down the middle of the ring, rotated to start at 12 o'clock;
+  // its dash grows from nothing to a full turn. +1 hides the seam.
+  const maskR = (outerR + innerR) / 2;
+  const dash = 2 * Math.PI * maskR + 1;
+  const maskProps = useAnimatedProps(() => ({ strokeDashoffset: dash * (1 - progress.value) }));
+
   return (
-    <View style={{ width: size, height: size }}>
+    <View ref={viewRef} style={{ width: size, height: size }}>
       <DevLabel name="DonutChart" />
-      <MotiView
-        from={{ opacity: 0, rotate: '-30deg' }}
-        animate={{ opacity: 1, rotate: '0deg' }}
-        transition={{ type: 'timing', duration: 600 }}
-        style={StyleSheet.absoluteFill}
-      >
-        <Svg width={size} height={size}>
+      <Svg width={size} height={size} style={StyleSheet.absoluteFill}>
+        <Defs>
+          <Mask id={`donut-sweep-${id}`}>
+            <AnimatedCircle
+              animatedProps={maskProps}
+              cx={cx}
+              cy={cy}
+              r={maskR}
+              fill="none"
+              stroke="#fff"
+              strokeWidth={thickness + 2}
+              strokeDasharray={`${dash} ${dash}`}
+              transform={`rotate(-90 ${cx} ${cy})`}
+            />
+          </Mask>
+          {centreGlow ? (
+            <RadialGradient id={`donut-glow-${id}`} cx="50%" cy="50%" r="50%">
+              <Stop offset="0%" stopColor={centreGlow} stopOpacity={0.2} />
+              <Stop offset="100%" stopColor={centreGlow} stopOpacity={0} />
+            </RadialGradient>
+          ) : null}
+        </Defs>
+        {centreGlow ? <Circle cx={cx} cy={cy} r={innerR} fill={`url(#donut-glow-${id})`} /> : null}
+        <G mask={`url(#donut-sweep-${id})`}>
           {paths.map(p => (p.d ? (
             <Path
               key={p.key}
@@ -108,8 +147,8 @@ export function DonutChart({
               {...hoverProps(p.key, onSegmentHover)}
             />
           ) : null))}
-        </Svg>
-      </MotiView>
+        </G>
+      </Svg>
       <View style={styles.centre} pointerEvents="box-none">
         {children}
       </View>

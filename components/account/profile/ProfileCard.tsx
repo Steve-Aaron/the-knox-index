@@ -1,13 +1,13 @@
-import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
-import { CardAvatar } from '@/components/card/CardAvatar';
 import { AccountWidget } from '@/components/account/layout/AccountWidget';
+import { CardAvatar } from '@/components/card/CardAvatar';
+import type { AccountProfile } from '@/data/account/types';
 import { colourFor, neutral } from '@/theme/colors';
 import { spacing } from '@/theme/spacing';
 import { type } from '@/theme/typography';
-import type { AccountProfile } from '@/data/account/types';
-import { KnoxFactorScore } from './KnoxFactorScore';
+import React from 'react';
+import { StyleSheet, Text, View } from 'react-native';
 import { AffiliationPanel } from './AffiliationPanel';
+import { KnoxFactorScore } from './KnoxFactorScore';
 import { SocialLinks } from './SocialLinks';
 
 /**
@@ -36,7 +36,7 @@ export function ProfileCard({ profile, height }: Props) {
   const colour = colourFor(politician.groupKey);
 
   return (
-    <AccountWidget height={height}>
+    <AccountWidget minHeight={height}>
       <View style={styles.identity}>
         <CardAvatar
           groupKey={politician.groupKey}
