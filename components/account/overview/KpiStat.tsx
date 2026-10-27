@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View, type ViewStyle } from 'react-native';
 import { CountUp } from '@/components/primitives/CountUp';
 import { InfoTip } from '@/components/primitives/InfoTip';
 import { neutral } from '@/theme/colors';
@@ -24,16 +24,20 @@ interface Props {
   infoText: string;
   sublabel?: string;
   compact?:  boolean;
+  /** Smaller figure for a narrow grid cell. */
+  small?:    boolean;
+  /** Cell size from the parent grid. */
+  style?:    ViewStyle;
 }
 
-export function KpiStat({ value, format, decimals, label, color, infoText, sublabel, compact = false }: Props) {
+export function KpiStat({ value, format, decimals, label, color, infoText, sublabel, compact = false, small = false, style }: Props) {
   return (
-    <View style={[styles.wrap, compact && styles.wrapCompact]}>
+    <View style={[styles.wrap, compact && styles.wrapCompact, style]}>
       <CountUp
         value={value}
         decimals={decimals}
         format={format}
-        style={[styles.value, compact && styles.valueCompact, { color }]}
+        style={[styles.value, (compact || small) && styles.valueCompact, { color }]}
       />
       <View style={styles.labelRow}>
         <Text style={styles.label}>{label}</Text>
@@ -45,18 +49,12 @@ export function KpiStat({ value, format, decimals, label, color, infoText, subla
 }
 
 const styles = StyleSheet.create({
-  // Equal-width columns: a number that grows or shrinks while it counts must
-  // not push its neighbours sideways.
+  // The parent grid gives every stat the same fixed width, so a number that
+  // grows or shrinks while it counts never pushes its neighbours sideways.
   wrap: {
-    flexGrow:  1,
-    flexBasis: 0,
-    minWidth:  200,
-    gap:       spacing.xs,
+    gap: spacing.xs,
   },
   wrapCompact: {
-    flexGrow:   0,
-    flexBasis:  'auto',
-    minWidth:   0,
     alignItems: 'center',
   },
   textCentre: {
