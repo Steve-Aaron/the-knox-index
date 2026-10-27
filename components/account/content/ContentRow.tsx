@@ -3,7 +3,7 @@ import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { fmtCount } from '@/lib/format';
 import { neutral, trend } from '@/theme/colors';
 import { spacing } from '@/theme/spacing';
-import { font, type } from '@/theme/typography';
+import { font, type, weight } from '@/theme/typography';
 import type { ContentSlice } from '@/data/account/types';
 import { useContentColumns } from './contentColumns';
 
@@ -52,12 +52,12 @@ export function ContentRow({ slice, color, barRatio, showDelta, dimmed, pinned, 
         <View style={[styles.dot, { backgroundColor: color }]} />
         <Text style={[styles.posts, { color }]}>{slice.posts}</Text>
         <Text style={styles.label} numberOfLines={1}>{slice.label}</Text>
-        <Text style={[styles.num, contentColumns.views]}>{fmtCount(slice.views)}</Text>
+        <Text style={[styles.num, styles.bold, contentColumns.views]}>{fmtCount(slice.views)}</Text>
         <Text style={[styles.num, styles.dim, contentColumns.share]}>
           {(slice.share * 100).toFixed(1)}%
         </Text>
         {showDelta ? (
-          <Text style={[styles.num, contentColumns.delta, { color: deltaColor }]}>
+          <Text style={[styles.num, styles.bold, styles.delta, contentColumns.delta, { color: deltaColor }]}>
             {fmtDelta(slice.deltaPp)}
           </Text>
         ) : null}
@@ -91,21 +91,29 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   posts: {
-    fontFamily: font.mono,
-    fontSize:   14,
+    ...type.body,
+    fontWeight: weight.semiBold,
+    fontSize:   15,
     minWidth:   32,
   },
   label: {
     ...type.body,
-    fontSize: 14,
-    color:    neutral.text,
-    flex:     1,
+    fontWeight: weight.semiBold,
+    fontSize:   15,
+    color:      neutral.text,
+    flex:       1,
   },
   num: {
     fontFamily: font.mono,
-    fontSize:   13,
+    fontSize:   14,
     color:      neutral.text,
     textAlign:  'right',
+  },
+  bold: {
+    fontWeight: weight.bold,
+  },
+  delta: {
+    fontSize: 12,
   },
   dim: {
     color: neutral.textMid,

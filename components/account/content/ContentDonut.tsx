@@ -5,7 +5,7 @@ import { useLayoutWidth } from '@/hooks/useLayoutWidth';
 import { fmtCount } from '@/lib/format';
 import { neutral, trend } from '@/theme/colors';
 import { spacing } from '@/theme/spacing';
-import { font, type } from '@/theme/typography';
+import { font, type, weight } from '@/theme/typography';
 import type { ContentBreakdown } from '@/data/account/types';
 import { OTHER_KEY, type SliceGroups } from './contentGroups';
 import { OTHER_COLOR, sliceColor } from './contentPalette';
@@ -105,13 +105,16 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   total: {
-    fontFamily: font.mono,
-    fontSize:   28,
-    color:      neutral.text,
+    fontFamily:    font.mono,
+    fontWeight:    weight.bold,
+    fontSize:      30,
+    letterSpacing: -0.8,
+    color:         neutral.text,
   },
   delta: {
     ...type.body,
-    fontSize: 11,
+    fontWeight: weight.semiBold,
+    fontSize:   11,
   },
   share: {
     color: neutral.textMid,

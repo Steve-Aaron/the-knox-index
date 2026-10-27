@@ -7,7 +7,7 @@ import { useAccountLayout } from '../layout/accountLayout';
  * lines there) so the label column keeps room for the topic name.
  */
 const wide = StyleSheet.create({
-  views: { width: 64 },
+  views: { width: 72 },
   share: { width: 56 },
   delta: { width: 112 },
 });
