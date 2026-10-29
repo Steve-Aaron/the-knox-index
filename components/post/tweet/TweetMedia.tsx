@@ -1,17 +1,16 @@
 import React, { useState } from 'react';
 import { Image, Platform, Pressable, StyleSheet, View } from 'react-native';
 import type { TweetData } from '@/data/types';
-import { brand, glass, neutral } from '@/theme/colors';
+import { glass, neutral } from '@/theme/colors';
 import { radius } from '@/theme/spacing';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
-import { LinearGradient } from 'expo-linear-gradient';
 
 /**
  * TweetMedia
  * -----------
  * A tweet's photos and video stills in X's grid: one item full width, two
  * side by side, three as one tall plus two stacked, four as a square. A still
- * with a video behind it plays in place on web (tap the Knox play button).
+ * with a video behind it plays in place on web (tap the play button).
  *
  * One job: lay out a tweet's attached media.
  */
@@ -54,9 +53,9 @@ export function TweetMedia({ media, height = 220 }: { media: Media[]; height?: n
         <Image source={{ uri: m.url }} style={StyleSheet.absoluteFill} resizeMode="cover" />
         {playable && (
           <View style={styles.playWrap}>
-            <LinearGradient colors={brand.gradient as unknown as [string, string]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.play}>
-              <FontAwesome6 name="play" size={18} color={neutral.felt} solid />
-            </LinearGradient>
+            <View style={styles.play}>
+              <FontAwesome6 name="play" size={18} color="#FFFFFF" solid />
+            </View>
           </View>
         )}
       </Pressable>
@@ -106,5 +105,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingLeft: 3,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.85)',
   },
 });

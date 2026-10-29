@@ -11,7 +11,7 @@ import type { PlatformFilter, SocialPlatform } from '@/lib/platforms';
  * -------------------
  * The platform filter as a row of circular logos: 'All', then one circle per
  * platform. A platform that is in the current view is drawn in its brand
- * colours; one that is not is greyed out. 'All' lights every platform.
+ * white on black; one that is not is greyed out. 'All' lights every platform.
  * Used on the dashboard and the account page.
  *
  * One job: pick a platform filter value, showing which platforms are in view.
@@ -26,9 +26,10 @@ interface Props {
 
 const SIZE = 36;
 
-const BRAND: Record<SocialPlatform, { name: string; glyph: string; bg: string; fg: string; border: string }> = {
-  tiktok: { name: 'TikTok', glyph: 'tiktok',    bg: '#000000', fg: '#FFFFFF', border: '#FE2C55' },
-  x:      { name: 'X',      glyph: 'x-twitter', bg: '#FFFFFF', fg: '#000000', border: '#FFFFFF' },
+// Both marks sit white on black, as the platforms draw them
+const BRAND: Record<SocialPlatform, { name: string; glyph: string }> = {
+  tiktok: { name: 'TikTok', glyph: 'tiktok' },
+  x:      { name: 'X',      glyph: 'x-twitter' },
 };
 
 // TikTok's mark carries its cyan and pink offset; text-shadow draws it on web
@@ -37,13 +38,13 @@ const TIKTOK_SHADOW = '-1.5px -1px 0 #25F4EE, 1.5px 1px 0 #FE2C55';
 function Glyph({ platform, on }: { platform: SocialPlatform; on: boolean }) {
   const brand = BRAND[platform];
   if (Platform.OS !== 'web') {
-    return <Text style={[styles.fallback, { color: on ? brand.fg : neutral.textDim }]}>{platform === 'x' ? 'X' : '♪'}</Text>;
+    return <Text style={[styles.fallback, { color: on ? '#FFFFFF' : neutral.textDim }]}>{platform === 'x' ? 'X' : '♪'}</Text>;
   }
   return React.createElement('i', {
     className: `fa-brands fa-${brand.glyph}`,
     'aria-hidden': true,
     style: {
-      color:      on ? brand.fg : neutral.textDim,
+      color:      on ? '#FFFFFF' : neutral.textDim,
       fontSize:   16,
       textShadow: on && platform === 'tiktok' ? TIKTOK_SHADOW : 'none',
     },
@@ -71,21 +72,17 @@ export function PlatformLogoFilter({ platforms, value, onChange, label = 'PLATFO
       {platforms.map(p => {
         const brand = BRAND[p];
         const inView = allOn || value === p;
-        const picked = value === p;
         return (
           <Pressable
             key={p}
             onPress={() => onChange(p)}
             accessibilityRole="button"
             accessibilityLabel={brand.name}
-            accessibilityState={{ selected: picked }}
+            accessibilityState={{ selected: value === p }}
             {...(Platform.OS === 'web' ? { title: brand.name } as any : {})}
             style={({ pressed }) => [
               styles.circle,
-              inView
-                ? { backgroundColor: brand.bg, borderColor: picked ? accent.indigo : brand.border }
-                : styles.off,
-              picked && styles.picked,
+              inView ? styles.on : styles.off,
               pressed && styles.pressed,
             ]}
           >
@@ -131,17 +128,13 @@ const styles = StyleSheet.create({
     borderColor:     glass.border,
     opacity:         0.6,
   },
+  on: {
+    backgroundColor: '#000000',
+    borderColor:     'rgba(255,255,255,0.28)',
+  },
   allOn: {
     backgroundColor: 'rgba(95,100,189,0.18)',
     borderColor:     accent.indigo,
-  },
-  // The one platform picked on its own gets a second ring
-  picked: {
-    borderWidth: 2,
-    ...Platform.select({
-      web: { boxShadow: `0 0 0 2px rgba(95,100,189,0.35)` } as any,
-      default: {},
-    }),
   },
   pressed: {
     opacity: 0.75,
