@@ -191,6 +191,16 @@ export function PoliticianDetailPanel({ politician, headlineKey, range, panelHei
               initials={politician.avatarInitials}
               avatarUrl={politician.avatarUrl}
             />
+            {/* Account page — the person across every platform, ahead of the platform links */}
+            <Pressable
+              style={({ pressed }) => [
+                styles.cta,
+                { borderColor: colour.base, backgroundColor: `${colour.base}22`, opacity: pressed ? 0.7 : 1 },
+              ]}
+              onPress={() => router.push(`/account/${politician.slug ?? politician.handle.replace(/^@/, '')}`)}
+            >
+              <Text style={[styles.ctaText, { color: colour.glow }]}>VIEW FULL PROFILE →</Text>
+            </Pressable>
             <View style={styles.linkRow}>
               {/* One pill per platform account behind the row (TikTok, X). */}
               {profiles.map(pr => (
@@ -286,17 +296,6 @@ export function PoliticianDetailPanel({ politician, headlineKey, range, panelHei
             ))}
           </View>
           )}
-
-          {/* ── Account page — the person across every platform ── */}
-          <Pressable
-            style={({ pressed }) => [
-              styles.cta,
-              { borderColor: colour.base, backgroundColor: `${colour.base}22`, opacity: pressed ? 0.7 : 1 },
-            ]}
-            onPress={() => router.push(`/account/${politician.slug ?? politician.handle.replace(/^@/, '')}`)}
-          >
-            <Text style={[styles.ctaText, { color: colour.glow }]}>VIEW FULL PROFILE →</Text>
-          </Pressable>
 
           {/* ── CTA — one per platform account ───────── */}
           {profiles.map(pr => (
