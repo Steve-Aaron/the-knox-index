@@ -1,7 +1,7 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { TimeRangePicker } from '@/components/dashboard/TimeRangePicker';
-import { ChipGroup, type ChipOption } from '@/components/primitives/ChipGroup';
+import { PlatformLogoFilter } from '@/components/primitives/PlatformLogoFilter';
 import { DevLabel } from '@/components/primitives/DevLabel';
 import { spacing } from '@/theme/spacing';
 import type { AccountKpis, AccountPlatform, SocialPlatform, TimeRange } from '@/data/account/types';
@@ -27,12 +27,6 @@ interface Props {
   compact?:         boolean;
 }
 
-const PLATFORM_OPTIONS: ChipOption<AccountPlatform>[] = [
-  { value: 'all',    label: 'All' },
-  { value: 'tiktok', label: 'TikTok' },
-  { value: 'x',      label: 'X' },
-];
-
 export function OverviewPanel({
   range,
   onRangeChange,
@@ -49,9 +43,8 @@ export function OverviewPanel({
           (as on the dashboard) once real data is behind registration. */}
       <TimeRangePicker value={range} onChange={onRangeChange} isRegistered />
       {platforms.length > 1 ? (
-        <ChipGroup
-          label="Platform"
-          options={PLATFORM_OPTIONS.filter(o => o.value === 'all' || platforms.includes(o.value))}
+        <PlatformLogoFilter
+          platforms={(['tiktok', 'x'] as const).filter(p => platforms.includes(p))}
           value={platform}
           onChange={onPlatformChange}
         />

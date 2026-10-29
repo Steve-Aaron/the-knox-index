@@ -1,20 +1,25 @@
 /**
  * app/api/briefs+api.ts
  * ----------------------
- * Serves the most recent editorial briefing stored in the BigQuery
- * `ariadne_tiktok_demo.brief` table (written by the n8n workflow).
+ * Serves the most recent editorial briefing for the active dashboard and
+ * platform. Briefs are written by the n8n workflow 'Brief writer (all
+ * dashboards)' into `metadata.brief`, one row per date × dashboard × platform.
  *
- * GET /api/briefs
+ * GET /api/briefs?platform=all|tiktok|x   (no param = tiktok)
  *   Returns { brief: StoredBrief, isToday: boolean }
  *   isToday is false when no brief has been generated yet today — the
  *   caller can surface a staleness warning if desired.
  *
+ * The Knox Index on TikTok falls back to the legacy `ariadne_tiktok_demo.brief`
+ * table (UK-only, written by 'Create briefs') until the new workflow runs daily.
+ *
  * No writes happen here. n8n owns generation and persistence.
  */
 
-import { query, tableRef } from '@/lib/bigquery';
+import { query, queryParams, tableRef, metadataRef } from '@/lib/bigquery';
 import { guardTenant } from '@/lib/tenantGuard';
 import { safeErrorDetail } from '@/lib/errors';
+import { parsePlatformFilter } from '@/lib/platforms';
 import type { StoredBrief, BriefsApiResponse } from '@/data/types';
 
 interface BriefRow {
@@ -24,12 +29,24 @@ interface BriefRow {
   topNarrativesThisWeek: string | null;   // BigQuery JSON columns arrive as strings
 }
 
-const LATEST_BRIEF_SQL = `
-  SELECT
+const BRIEF_COLUMNS = `
     FORMAT_DATE('%Y-%m-%d', briefDate) AS briefDate,
     briefDailySummary,
     briefWeeklySummary,
-    TO_JSON_STRING(topNarrativesThisWeek) AS topNarrativesThisWeek
+    TO_JSON_STRING(topNarrativesThisWeek) AS topNarrativesThisWeek`;
+
+/** Latest brief for one dashboard and platform. */
+const LATEST_BRIEF_SQL = `
+  SELECT ${BRIEF_COLUMNS}
+  FROM ${metadataRef('brief')}
+  WHERE dashboardId = @dashboardId AND platform = @platform
+  ORDER BY briefDate DESC
+  LIMIT 1
+`;
+
+/** Legacy UK TikTok brief (no dashboard or platform column). */
+const LEGACY_BRIEF_SQL = `
+  SELECT ${BRIEF_COLUMNS}
   FROM ${tableRef('brief')}
   ORDER BY briefDate DESC
   LIMIT 1
@@ -39,25 +56,20 @@ export async function GET(request: Request): Promise<Response> {
   const { tenant, denied } = await guardTenant(request);
   if (denied) return denied;
 
-  // The `brief` table is written by the n8n pipeline and carries no dashboard
-  // column, so every stored briefing is a UK one. Returning it on another
-  // tenant would put UK narrative text on a world-leaders page, so answer 404
-  // until n8n produces per-dashboard briefs. The panel degrades to its
-  // computed insight chips, which ARE tenant-correct.
-  if (tenant.dashboardId !== 1) {
-    return Response.json(
-      { error: 'No briefings for this dashboard yet', detail: `Briefings are not yet generated for ${tenant.brand.name}.` },
-      { status: 404, headers: { 'Cache-Control': 'no-store' } },
-    );
-  }
+  // No param = TikTok, so the UK site's existing call is unchanged
+  const raw = new URL(request.url).searchParams.get('platform');
+  const platform = raw ? parsePlatformFilter(raw) : 'tiktok';
 
   try {
-    const rows = await query<BriefRow>(LATEST_BRIEF_SQL);
+    let rows = await queryParams<BriefRow>(LATEST_BRIEF_SQL, { dashboardId: tenant.dashboardId, platform });
+    if (rows.length === 0 && tenant.dashboardId === 1 && platform === 'tiktok') {
+      rows = await query<BriefRow>(LEGACY_BRIEF_SQL);
+    }
 
     if (rows.length === 0) {
       return Response.json(
-        { error: 'No briefings found', detail: 'The brief table is empty.' },
-        { status: 404 },
+        { error: 'No briefings found', detail: `No ${platform} briefing yet for ${tenant.brand.name}.` },
+        { status: 404, headers: { 'Cache-Control': 'no-store' } },
       );
     }
 
@@ -68,7 +80,9 @@ export async function GET(request: Request): Promise<Response> {
     let narratives: Array<{ headline: string; body: string }> = [];
     if (row.topNarrativesThisWeek) {
       try {
-        const parsed = JSON.parse(row.topNarrativesThisWeek);
+        let parsed = JSON.parse(row.topNarrativesThisWeek);
+        // The legacy table double-encodes: a JSON string holding the array
+        if (typeof parsed === 'string') parsed = JSON.parse(parsed);
         // Support both an array at root and { narratives: [...] }
         narratives = Array.isArray(parsed) ? parsed : (parsed.narratives ?? []);
       } catch {

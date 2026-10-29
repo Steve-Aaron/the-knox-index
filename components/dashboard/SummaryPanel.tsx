@@ -17,6 +17,7 @@ import type { Politician } from '@/data/types';
 import type { TimeRange } from '@/components/dashboard/TimeRangePicker';
 import { useTenant } from '@/hooks/useTenant';
 import { PLACEHOLDER_BRIEF } from '@/data/placeholderBrief';
+import type { PlatformFilter } from '@/lib/platforms';
 
 /**
  * SummaryPanel
@@ -32,12 +33,14 @@ interface Props {
   /** Drives the daily-vs-weekly swap. Defaults to 'week' so untouched call
    *  sites show the weekly briefing while the daily cadence is paused. */
   range?:       TimeRange;
+  /** Which platform's brief to show. Defaults to TikTok, the UK site's only one. */
+  platform?:    PlatformFilter;
   panelHeight?: number;
 }
 
 const INSIGHT_COLOURS = [dataVis[0], dataVis[4], dataVis[2]];
 
-export function SummaryPanel({ politicians, range = 'week', panelHeight }: Props) {
+export function SummaryPanel({ politicians, range = 'week', platform = 'tiktok', panelHeight }: Props) {
   // Daily summary by default; the weekly digest shows only when the leaderboard
   // is on the 'This week' range.
   const isWeekly = range === 'week';
@@ -66,7 +69,7 @@ export function SummaryPanel({ politicians, range = 'week', panelHeight }: Props
 
   const tenant = useTenant();
   const isPlaceholder = tenant.briefing === 'placeholder';
-  const platformNoun  = (tenant.platforms?.length ?? 1) > 1 ? 'social' : 'TikTok';
+  const platformNoun  = platform === 'x' ? 'X' : platform === 'tiktok' ? 'TikTok' : 'social';
 
   useEffect(() => {
     let cancelled = false;
@@ -81,7 +84,7 @@ export function SummaryPanel({ politicians, range = 'week', panelHeight }: Props
     setBriefLoading(true);
     setBriefError(null);
 
-    fetch('/api/briefs')
+    fetch(`/api/briefs?platform=${platform}`)
       .then(async r => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return await r.json() as BriefsApiResponse;
@@ -101,7 +104,7 @@ export function SummaryPanel({ politicians, range = 'week', panelHeight }: Props
       });
 
     return () => { cancelled = true; };
-  }, [isPlaceholder]);
+  }, [isPlaceholder, platform]);
 
   const insights = useMemo(() => {
     const sorted = [...politicians].sort(

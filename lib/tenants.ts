@@ -87,8 +87,9 @@ export interface TenantConfig {
   platforms?: readonly ('tiktok' | 'x')[];
   /**
    * Where the briefing panel's copy comes from. 'stored' reads /api/briefs
-   * (UK only today); 'placeholder' shows sample copy at full size until the
-   * briefing pipeline covers the dashboard. Omitted = 'stored'.
+   * (n8n 'Brief writer (all dashboards)'); 'placeholder' shows sample copy at
+   * full size for a dashboard the brief writer does not cover yet.
+   * Omitted = 'stored'.
    */
   briefing?: 'stored' | 'placeholder';
 }
@@ -155,7 +156,6 @@ export const TENANTS: readonly TenantConfig[] = [
     },
     map: 'world',
     platforms: ['tiktok', 'x'],
-    briefing:  'placeholder',
     access: {
       mode:            'authenticated',
       allowedDomains:  ['knoxdigi.com', 'knox.digital'],

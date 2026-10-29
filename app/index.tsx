@@ -39,7 +39,8 @@ import { useLiveData } from '@/data/useLiveData';
 import { usePostsData, type PostsSortKey, type FeedFilters } from '@/data/usePostsData';
 import { useLeagues } from '@/data/useLeagues';
 import { useTenant } from '@/hooks/useTenant';
-import { PLATFORM_FILTER_LABELS, type PlatformFilter } from '@/lib/platforms';
+import { type PlatformFilter } from '@/lib/platforms';
+import { PlatformLogoFilter } from '@/components/primitives/PlatformLogoFilter';
 import { track, startTimer, stopTimer } from '@/lib/analytics';
 import { useSessionTracking } from '@/hooks/useSessionTracking';
 import { useSectionTracking } from '@/hooks/useSectionTracking';
@@ -470,25 +471,7 @@ function DashboardScreenInner() {
 
             {/* Platform chips — only on tenants that read more than one platform */}
             {hasPlatformFilter && (
-              <View style={styles.sortWrap}>
-                <Text style={styles.sortLabel}>PLATFORM</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sortRow}>
-                  {(['all', ...tenantPlatforms] as PlatformFilter[]).map(p => {
-                    const isActive = p === platform;
-                    return (
-                      <Pressable
-                        key={p}
-                        onPress={() => handleSetPlatform(p)}
-                        style={({ pressed }) => [styles.chip, isActive && styles.chipActive, pressed && { opacity: 0.75 }]}
-                      >
-                        <Text style={[styles.chipText, isActive && styles.chipTextActive]} numberOfLines={1}>
-                          {PLATFORM_FILTER_LABELS[p]}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </ScrollView>
-              </View>
+              <PlatformLogoFilter platforms={tenantPlatforms} value={platform} onChange={handleSetPlatform} />
             )}
 
             {/* Sort chips — full-width horizontal scroll */}
@@ -573,7 +556,7 @@ function DashboardScreenInner() {
                 style={styles.col}
                 {...(Platform.OS === 'web' ? { 'data-container_name': 'card_summary_panel_col' } as any : {})}
               >
-                <SummaryPanel politicians={politicians} range={range} panelHeight={PANEL_HEIGHT} />
+                <SummaryPanel politicians={politicians} range={range} platform={platform} panelHeight={PANEL_HEIGHT} />
               </View>
             </View>
           ) : isTablet ? (
@@ -610,7 +593,7 @@ function DashboardScreenInner() {
                     : <SkeletonBlock height={PANEL_HEIGHT} style={{ borderRadius: 22 }} />}
                 </View>
               </View>
-              <SummaryPanel politicians={politicians} range={range} />
+              <SummaryPanel politicians={politicians} range={range} platform={platform} />
             </View>
           ) : (
             <View
@@ -630,7 +613,7 @@ function DashboardScreenInner() {
               {active
                 ? <PoliticianDetailPanel politician={active} headlineKey={sortKey} range={range} engReference={engReference} />
                 : <SkeletonBlock height={400} style={{ borderRadius: 22 }} />}
-              <SummaryPanel politicians={politicians} range={range} />
+              <SummaryPanel politicians={politicians} range={range} platform={platform} />
             </View>
           )}
           </MobileSection>
