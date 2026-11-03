@@ -105,6 +105,23 @@ One deployment serves several dashboards, one per subdomain:
 - `npm run check:tenants` guards host routing, access rules, gate leaks and
   region coverage. Run it with the other checks
 
+### Adding and removing people
+
+- Membership is one row per person per dashboard in
+  `metadata.person_x_dashboard`. TikTok also needs the account in
+  `ariadne_tiktok_demo.account_x_dashboard`; X needs a confirmed
+  `metadata.account_link` row
+- When someone leaves (a leader leaves office, an MP loses their seat), do not
+  delete their rows. Set `ended_at` (the date they left) and `end_reason` on
+  their `person_x_dashboard` row for that dashboard. If the date is not
+  confirmed, use the day you marked it and say so in `end_reason`
+- A row with `ended_at` set drops that person from that dashboard on every
+  platform: the site gates (`accountWeb()`, `postWeb()`, `xBaseCtes()`) and the
+  n8n 'Brief writer (all dashboards)' all skip it. Their other dashboards are
+  unaffected
+- When a new leader takes over, add their `person_x_dashboard` row (and the
+  TikTok `account_x_dashboard` row) and update `metadata.person.display_job_title`
+
 ## Key Conventions
 
 - One job per component/hook; compose upward for complexity

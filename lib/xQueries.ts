@@ -7,8 +7,9 @@
  * Factor and the post feed handle X without a second code path.
  *
  * Membership is person-level: metadata.person_x_dashboard says who is on the
- * dashboard, metadata.account_link (confirmed rows only) says which X account
- * is theirs. X has no dashboard table of its own.
+ * dashboard (rows with ended_at set have left it), metadata.account_link
+ * (confirmed rows only) says which X account is theirs. X has no dashboard
+ * table of its own.
  *
  * Field mapping onto the TikTok vocabulary:
  *   comments ← replies   shares ← reposts + quotes   saves ← bookmarks
@@ -50,7 +51,7 @@ function xBaseCtes(dashboardId: number): string {
   links AS (
     SELECT l.person_id, l.platform_account_id AS author_id
     FROM ${META('account_link')} l
-    JOIN ${META('person_x_dashboard')} d ON d.person_id = l.person_id AND d.dashboard_id = ${id}
+    JOIN ${META('person_x_dashboard')} d ON d.person_id = l.person_id AND d.dashboard_id = ${id} AND d.ended_at IS NULL
     WHERE l.status = 'confirmed' AND l.platform = 'x'
       AND LOWER(IFNULL(l.platform_handle, '')) NOT IN (${hidden})
     QUALIFY ROW_NUMBER() OVER (PARTITION BY l.person_id ORDER BY l.reviewed_at DESC) = 1

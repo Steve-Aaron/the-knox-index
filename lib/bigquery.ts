@@ -69,6 +69,10 @@ export function metadataRef(table: string): string {
 // dashboard, and only posts whose parent account is. Membership lives in the
 // external `account_x_dashboard` table (managed manually at source — a Sheet).
 //
+// Leaving a dashboard (a leader leaves office, an MP loses a seat) is recorded
+// as `ended_at` on that person's `metadata.person_x_dashboard` row, never by
+// deleting it. `endedOnDashboard()` drops those people here, on every platform.
+//
 // These two gated sources are the SINGLE chokepoint: every website read of
 // accounts/posts selects FROM them instead of the base `account`/`post` tables,
 // so the dashboardId filter is defined in exactly one place and can't be
@@ -86,6 +90,17 @@ function assertDashboardId(dashboardId: number): number {
     throw new Error(`Invalid dashboardId: ${String(dashboardId)}`);
   }
   return dashboardId;
+}
+
+/**
+ * People whose membership of this dashboard has ended. Used as
+ * `AND a.person_id NOT IN (...)`, so an account with no person stays in.
+ */
+function endedOnDashboard(id: number): string {
+  return `(
+    SELECT e.person_id FROM ${metadataRef('person_x_dashboard')} e
+    WHERE e.dashboard_id = ${id} AND e.ended_at IS NOT NULL AND e.person_id IS NOT NULL
+  )`;
 }
 
 /**
@@ -118,6 +133,7 @@ export function accountWeb(dashboardId: number): string {
   LEFT JOIN ${metadataRef('person')} p
     ON p.person_id = a.person_id
   WHERE d.dashboardId = ${id}
+    AND IFNULL(a.person_id, '') NOT IN ${endedOnDashboard(id)}
 )`;
 }
 
@@ -135,6 +151,7 @@ export function postWeb(dashboardId: number): string {
     JOIN ${tableRef('account_x_dashboard')} d
       ON CAST(d.accountId AS STRING) = CAST(a.id AS STRING)
     WHERE d.dashboardId = ${id}
+      AND IFNULL(a.person_id, '') NOT IN ${endedOnDashboard(id)}
   )
 )`;
 }
