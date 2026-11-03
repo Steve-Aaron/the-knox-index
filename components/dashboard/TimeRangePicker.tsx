@@ -22,8 +22,8 @@ import { breakpoints } from '@/theme/breakpoints';
  * month / year / lifetime are locked behind registration.
  * One job: pick a time range.
  *
- * Note: 'yesterday' is the shortest selectable window (postDate >= today - 1
- * day) and maps to the matching server-side range in lib/bqQueries.ts.
+ * Note: 'yesterday' is the shortest selectable window (yesterday's posts only,
+ * not today's) and maps to the matching server-side range in lib/bqQueries.ts.
  */
 export type TimeRange = 'yesterday' | 'week' | 'month' | 'year' | 'lifetime';
 

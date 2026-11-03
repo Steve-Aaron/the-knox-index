@@ -6,6 +6,7 @@
  *
  * GET /api/posts                 → every processed post, all time, ordered by sortKey
  * GET /api/posts?since=YYYY-MM-DD → posts on or after that date
+ * GET /api/posts?until=YYYY-MM-DD → posts before that date (exclusive)
  * GET /api/posts?sortKey=views    → server-side ORDER BY (views|likes|comments|
  *                                   shares|engagement|virality|postDate)
  *
@@ -161,6 +162,8 @@ export async function GET(request: Request): Promise<Response> {
   // top-engaged posts are reachable without ever capping the dataset.
   const rawSince = params.get('since') ?? null;
   const since = rawSince && ISO_DATE.test(rawSince) ? rawSince : null;
+  const rawUntil = params.get('until') ?? null;
+  const until = rawUntil && ISO_DATE.test(rawUntil) ? rawUntil : null;
 
   // sortKey is whitelisted — unknown values fall back to postDate. This is what
   // protects against SQL injection via the sortKey parameter.
@@ -183,6 +186,7 @@ export async function GET(request: Request): Promise<Response> {
   const queryParams: Record<string, unknown> = {};
   const where: string[] = ['p.videoSummary IS NOT NULL'];
   if (since) where.push(`p.postDate >= DATE '${since}'`);
+  if (until) where.push(`p.postDate < DATE '${until}'`);
 
   const minViews = Math.max(parseInt(params.get('minViews') ?? '0', 10) || 0, 0);
   if (minViews > 0) { where.push('p.views >= @minViews'); queryParams.minViews = minViews; }
@@ -250,7 +254,7 @@ export async function GET(request: Request): Promise<Response> {
     } else {
       // X has no styles, so a style filter leaves only TikTok posts in play.
       const xFeed = style ? null : buildXFeedSQL(dashboardId, {
-        since, minViews, minLikes, topic: topic || undefined, personId: personId || undefined,
+        since, until, minViews, minLikes, topic: topic || undefined, personId: personId || undefined,
         profile: personId ? undefined : profile || undefined,
         region: groupKey && isWarehouseGroup(tenant.grouping.mode) ? groupKey : undefined,
       });

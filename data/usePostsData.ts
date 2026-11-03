@@ -55,6 +55,12 @@ function rangeToSince(range: TimeRange): string | null {
   return d.toISOString().slice(0, 10);  // 'YYYY-MM-DD'
 }
 
+/** First day after the range (exclusive), or null when it runs to today. */
+function rangeToUntil(range: TimeRange): string | null {
+  // 'yesterday' stops before today, so today's posts so far are left out
+  return range === 'yesterday' ? new Date().toISOString().slice(0, 10) : null;
+}
+
 export interface FeedFilters {
   /** Grouping key for the active tenant: a party key, or a region key. */
   group?:    string | null;
@@ -86,6 +92,7 @@ export function usePostsData(
   });
 
   const since = rangeToSince(range);
+  const until = rangeToUntil(range);
 
   // Stable key for the filter set — used as the fetch dependency so a filter
   // change refetches (an object would churn identity every render).
@@ -119,6 +126,7 @@ export function usePostsData(
     try {
       const params = new URLSearchParams();
       if (since) params.set('since', since);
+      if (until) params.set('until', until);
       params.set('sortKey', sortKey);
       params.set('limit',  String(PAGE_SIZE));
       params.set('offset', String(offset));
@@ -159,7 +167,7 @@ export function usePostsData(
     } finally {
       inFlightRef.current = false;
     }
-  }, [since, sortKey, filterKey]);
+  }, [since, until, sortKey, filterKey]);
 
   // Reset to page 0 whenever the range or sort changes.
   useEffect(() => { fetchPage(0, true); }, [fetchPage]);

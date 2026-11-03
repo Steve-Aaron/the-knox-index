@@ -24,7 +24,7 @@ export function parseRange(raw: string | null, defaultRange: Range = 'week'): Ra
 
 export function rangeDateFilter(range: Range): string {
   switch (range) {
-    case 'yesterday': return `postDate >= DATE_SUB(CURRENT_DATE(), INTERVAL 1 DAY)`;
+    case 'yesterday': return `postDate = DATE_SUB(CURRENT_DATE(), INTERVAL 1 DAY)`;
     case 'week':      return `postDate >= DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY)`;
     case 'month':     return `postDate >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)`;
     case 'year':      return `EXTRACT(YEAR FROM postDate) = EXTRACT(YEAR FROM CURRENT_DATE())`;
