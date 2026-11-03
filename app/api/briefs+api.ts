@@ -62,8 +62,10 @@ export async function GET(request: Request): Promise<Response> {
 
   try {
     let rows = await queryParams<BriefRow>(LATEST_BRIEF_SQL, { dashboardId: tenant.dashboardId, platform });
-    if (rows.length === 0 && tenant.dashboardId === 1 && platform === 'tiktok') {
-      rows = await query<BriefRow>(LEGACY_BRIEF_SQL);
+    // The legacy table is still written daily, so take it whenever it is newer
+    if (tenant.dashboardId === 1 && platform === 'tiktok') {
+      const legacy = await query<BriefRow>(LEGACY_BRIEF_SQL);
+      if (legacy.length && (rows.length === 0 || legacy[0].briefDate > rows[0].briefDate)) rows = legacy;
     }
 
     if (rows.length === 0) {
