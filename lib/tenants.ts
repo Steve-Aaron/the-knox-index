@@ -66,6 +66,8 @@ export interface TenantConfig {
     subjectPlural: string;
     /** Shorter form for running copy, e.g. 'MPs'. */
     subjectShort: string;
+    /** One line under the logo in the footer. */
+    footerLine:   string;
   };
   grouping: {
     mode: GroupingMode;
@@ -117,6 +119,7 @@ export const TENANTS: readonly TenantConfig[] = [
       description:   'Daily intelligence on how UK politicians perform on TikTok — ranked, scored, and briefed.',
       subjectPlural: 'Politicians',
       subjectShort:  'MPs',
+      footerLine:    'UK political TikTok intelligence, daily.',
     },
     grouping: {
       mode:          'party',
@@ -146,6 +149,7 @@ export const TENANTS: readonly TenantConfig[] = [
       description:   'Daily intelligence on how world leaders perform on TikTok and X: ranked, scored and briefed.',
       subjectPlural: 'World leaders',
       subjectShort:  'world leaders',
+      footerLine:    'World leaders’ TikTok and X intelligence, daily.',
     },
     grouping: {
       mode:          'region',

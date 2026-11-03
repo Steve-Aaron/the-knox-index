@@ -687,6 +687,7 @@ function DashboardScreenInner() {
                 rangeLabel={RANGE_LABELS[range]}
                 activeStyle={styleFilter}
                 onStyleSelect={handleStyleSelect}
+                platform={platform}
               />
             </View>
             <View style={styles.insightsCol}>

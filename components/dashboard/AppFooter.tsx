@@ -3,6 +3,7 @@ import { View, Text, Pressable, StyleSheet, Platform, Linking } from 'react-nati
 import { router } from 'expo-router';
 import { DevLabel } from '@/components/primitives/DevLabel';
 import { useRegisteredFlag } from '@/hooks/useRegisteredFlag';
+import { useTenant } from '@/hooks/useTenant';
 import { KnoxLogo } from '@/components/primitives/KnoxLogo';
 import { neutral, glass, accent } from '@/theme/colors';
 import { spacing, radius } from '@/theme/spacing';
@@ -39,6 +40,7 @@ const SIGNED_IN_LINKS: FooterLink[] = [
 
 export function AppFooter() {
   const isRegistered = useRegisteredFlag();
+  const tenant = useTenant();
   const LINKS = isRegistered ? SIGNED_IN_LINKS : SIGNED_OUT_LINKS;
   // Logo = home. Full refresh to '/' on web, route push on native.
   const goHome = () => {
@@ -65,7 +67,7 @@ export function AppFooter() {
             <KnoxLogo width={120} color={neutral.strokeHi} />
           </Pressable>
           <Text style={styles.brandTagline}>
-            UK political TikTok intelligence, daily.
+            {tenant.brand.footerLine}
           </Text>
           <Text style={styles.brandSub}>
             Built by Knox Digital.

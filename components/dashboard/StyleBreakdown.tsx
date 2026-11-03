@@ -9,6 +9,7 @@ import { neutral, glass, accent, dataVis } from '@/theme/colors';
 import { spacing, radius } from '@/theme/spacing';
 import { type, font } from '@/theme/typography';
 import type { PostRecord } from '@/data/types';
+import type { PlatformFilter } from '@/lib/platforms';
 import { fmtLabel } from '@/lib/format';
 import { track } from '@/lib/analytics';
 
@@ -31,11 +32,13 @@ interface Props {
   activeStyle?:    string | null;
   /** Fired when the user taps a row. Toggles off if the same row is tapped again. */
   onStyleSelect?:  (style: string | null) => void;
+  /** Styles are tagged on TikTok videos only, so X on its own has none. */
+  platform?:       PlatformFilter;
 }
 
 const PALETTE = [...dataVis];
 
-export function StyleBreakdown({ posts, counts, rangeLabel, topN = 8, activeStyle, onStyleSelect }: Props) {
+export function StyleBreakdown({ posts, counts, rangeLabel, topN = 8, activeStyle, onStyleSelect, platform }: Props) {
   const subjectNoun = useTenant().brand.subjectShort;
   // Each row carries both the display label and the raw key — the raw key is
   // what we hand back to the parent so filters compare against post.styles
@@ -106,7 +109,11 @@ export function StyleBreakdown({ posts, counts, rangeLabel, topN = 8, activeStyl
       </View>
 
       {rows.length === 0 ? (
-        <Text style={styles.emptyText}>No styles tagged in the current period yet.</Text>
+        <Text style={styles.emptyText}>
+          {platform === 'x'
+            ? 'Styles are tagged on TikTok videos only. Choose All or TikTok to see them.'
+            : 'No styles tagged in the current period yet.'}
+        </Text>
       ) : (
         <View style={styles.list}>
           {rows.map((row, i) => {
