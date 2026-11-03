@@ -25,6 +25,8 @@ interface Props {
   platforms:        SocialPlatform[];
   kpis:             AccountKpis;
   compact?:         boolean;
+  /** A new range or platform is loading; the numbers shown are the old ones. */
+  updating?:        boolean;
 }
 
 export function OverviewPanel({
@@ -35,6 +37,7 @@ export function OverviewPanel({
   platforms,
   kpis,
   compact = false,
+  updating = false,
 }: Props) {
   return (
     <View style={styles.wrap}>
@@ -49,7 +52,7 @@ export function OverviewPanel({
           onChange={onPlatformChange}
         />
       ) : null}
-      <View style={styles.kpis}>
+      <View style={[styles.kpis, updating && styles.updating]}>
         <KpiStrip kpis={kpis} compact={compact} />
       </View>
     </View>
@@ -63,5 +66,8 @@ const styles = StyleSheet.create({
   kpis: {
     paddingVertical:   spacing.xl,
     paddingHorizontal: spacing.sm,
+  },
+  updating: {
+    opacity: 0.4,
   },
 });

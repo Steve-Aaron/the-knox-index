@@ -23,12 +23,14 @@ import { computeFollowerQuality, FOLLOWER_QUALITY } from '@/data/knoxConfig';
 
 interface Props {
   politician: Politician;
+  /** Posts to judge reach on, when the caller has them (the account page). */
+  posts?:     readonly { views: number }[];
 }
 
-export function FollowerQualityFlag({ politician }: Props) {
+export function FollowerQualityFlag({ politician, posts }: Props) {
   const verdict = useMemo(() => {
     const followers   = politician.totals.followers;
-    const recentPosts = politician.recentPosts ?? [];
+    const recentPosts = posts ?? politician.recentPosts ?? [];
     const postCount   = recentPosts.length;
     const avgViews    = postCount > 0
       ? recentPosts.reduce((s, p) => s + p.views, 0) / postCount
@@ -71,7 +73,7 @@ export function FollowerQualityFlag({ politician }: Props) {
       label: 'Reach looks healthy for size',
       hint:  'Followers are seeing posts at a normal rate for an account this size.',
     };
-  }, [politician]);
+  }, [politician, posts]);
 
   const tint = verdict.tone === 'red' ? '#ff7a7a'
              : verdict.tone === 'amber' ? accent.amber

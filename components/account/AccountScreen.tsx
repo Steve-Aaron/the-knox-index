@@ -82,29 +82,34 @@ export function AccountScreen({ handle }: Props) {
               platforms={data.platforms}
               kpis={period.kpis}
               compact={isMobile}
+              updating={loading}
             />
 
-            <View style={[styles.stack, isDesktop && styles.row]}>
-              <PerformanceCard
-                radar={period.radar}
+            {/* Dimmed while a new range loads; the old numbers stay up */}
+            <View style={[styles.stack, loading && styles.updating]}>
+              <View style={[styles.stack, isDesktop && styles.row]}>
+                <PerformanceCard
+                  radar={period.radar}
+                  politician={profile.politician}
+                  posts={period.posts}
+                  height={widgetHeight}
+                  style={isDesktop ? styles.half : undefined}
+                />
+                <ContentCard
+                  content={period.content}
+                  range={range}
+                  height={widgetHeight}
+                  style={isDesktop ? styles.half : undefined}
+                />
+              </View>
+
+              <BestPostsCard
+                posts={period.posts}
                 politician={profile.politician}
-                height={widgetHeight}
-                style={isDesktop ? styles.half : undefined}
-              />
-              <ContentCard
-                content={period.content}
-                range={range}
-                height={widgetHeight}
-                style={isDesktop ? styles.half : undefined}
+                socials={profile.socials}
+                benchmarks={data.postBenchmarksByPlatform}
               />
             </View>
-
-            <BestPostsCard
-              posts={period.posts}
-              politician={profile.politician}
-              socials={profile.socials}
-              benchmarks={data.postBenchmarksByPlatform}
-            />
           </View>
         </View>
 
@@ -131,6 +136,9 @@ function Message({ title, sub }: { title: string; sub?: string }) {
 }
 
 const styles = StyleSheet.create({
+  updating: {
+    opacity: 0.4,
+  },
   scroll: {
     paddingTop:        spacing.xl,
     paddingBottom:     spacing.xxxl,

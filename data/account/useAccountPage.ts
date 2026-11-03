@@ -23,6 +23,9 @@ export interface AccountPageState {
   notFound: boolean;
 }
 
+// Ranges already loaded this session, so switching back is instant
+const cache = new Map<string, AccountPageApiResponse>();
+
 export function useAccountPage(
   handle: string | undefined,
   range: TimeRange,
@@ -40,14 +43,23 @@ export function useAccountPage(
       setNotFound(true);
       return;
     }
+    const params = new URLSearchParams({ handle: handle.replace(/^@/, ''), range, platform });
+    const cached = cache.get(params.toString());
+    if (cached) {
+      setNotFound(false);
+      setAccount(cached);
+      setLoading(false);
+      return;
+    }
+
     let cancelled = false;
     setLoading(true);
     setError(null);
 
-    const params = new URLSearchParams({ handle: handle.replace(/^@/, ''), range, platform });
     fetchWithRetry(`/api/account-page?${params.toString()}`)
       .then(res => res.json() as Promise<AccountPageApiResponse>)
       .then(body => {
+        cache.set(params.toString(), body);
         if (!cancelled) { setNotFound(false); setAccount(body); }
       })
       .catch((err: unknown) => {

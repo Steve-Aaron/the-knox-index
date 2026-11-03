@@ -25,6 +25,8 @@ interface Props {
   radar:      AccountPeriodData['radar'];
   /** Feeds the shared FollowerQualityFlag. */
   politician: Politician;
+  /** The period's posts, for the reach check. */
+  posts:      AccountPeriodData['posts'];
   height?:    number;
   /** Layout from the parent, e.g. flex share in a row. */
   style?:     ViewStyle;
@@ -41,7 +43,7 @@ const AXES: RadarAxis<RadarAxisKey>[] = [
 /** Largest the radar gets, so it never dominates a wide card. */
 const MAX_CHART_SIZE = 400;
 
-export function PerformanceCard({ radar, politician, height, style }: Props) {
+export function PerformanceCard({ radar, politician, posts, height, style }: Props) {
   const [chartWidth, onChartLayout] = useLayoutWidth();
   const chartSize = Math.min(chartWidth, MAX_CHART_SIZE);
 
@@ -76,7 +78,7 @@ export function PerformanceCard({ radar, politician, height, style }: Props) {
         {chartSize > 0 ? <RadarChart axes={AXES} series={series} size={chartSize} /> : null}
       </View>
 
-      <FollowerQualityFlag politician={politician} />
+      <FollowerQualityFlag politician={politician} posts={posts} />
     </AccountWidget>
   );
 }
