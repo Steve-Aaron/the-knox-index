@@ -351,6 +351,58 @@ export function buildXTopicsSQL(dashboardId: number, range: Range): string {
 }
 
 /**
+ * Followers at the start and end of a period for each X account on the
+ * dashboard, from the account snapshots (taken every few days). `startFilter`
+ * picks the snapshots that count as the start; the latest of them is used,
+ * or the earliest overall when `fromEarliest`. { platform, accountId,
+ * personId, startFollowers, endFollowers, startDate, endDate }.
+ */
+export function buildXFollowerGrowthSQL(dashboardId: number, startFilter: string, fromEarliest: boolean): string {
+  return `
+  WITH ${xBaseCtes(dashboardId)},
+  m AS (
+    SELECT pageId, dateUpdated, totalFollowers FROM ${X('accountMetrics')}
+    WHERE totalFollowers IS NOT NULL AND pageId IN (SELECT author_id FROM links)
+  ),
+  ends AS (
+    SELECT pageId, ARRAY_AGG(STRUCT(dateUpdated AS d, totalFollowers AS f) ORDER BY dateUpdated DESC LIMIT 1)[OFFSET(0)] AS e
+    FROM m GROUP BY pageId
+  ),
+  starts AS (
+    SELECT pageId, ARRAY_AGG(STRUCT(dateUpdated AS d, totalFollowers AS f) ORDER BY dateUpdated ${fromEarliest ? 'ASC' : 'DESC'} LIMIT 1)[OFFSET(0)] AS s
+    FROM m WHERE ${startFilter} GROUP BY pageId
+  )
+  SELECT 'x' AS platform, l.author_id AS accountId, l.person_id AS personId,
+    s.s.f AS startFollowers, e.e.f AS endFollowers,
+    CAST(s.s.d AS STRING) AS startDate, CAST(e.e.d AS STRING) AS endDate
+  FROM links l
+  JOIN ends e ON e.pageId = l.author_id
+  JOIN starts s ON s.pageId = l.author_id
+`;
+}
+
+/**
+ * Posts per topic over X posts in range and in the period before it, at the
+ * most specific tag (a subtopic, or the parent when only that is tagged), for
+ * rising topics: { label, cur, prev }.
+ */
+export function buildXRisingTopicsSQL(dashboardId: number, range: Range): string {
+  const cur = rangeDateFilter(range);
+  const prev = prevRangeDateFilter(range);
+  return `
+  WITH ${xBaseCtes(dashboardId)}
+  SELECT tn.name AS label,
+    COUNT(DISTINCT IF(${cur}, p.postId, NULL))  AS cur,
+    COUNT(DISTINCT IF(${prev}, p.postId, NULL)) AS prev
+  FROM own p
+  JOIN ${X('post_x_topic')} t ON t.postId = p.postId
+  JOIN ${META('topic')} tn ON tn.id = t.topic_id
+  WHERE (${cur}) OR (${prev})
+  GROUP BY label
+`;
+}
+
+/**
  * Views and engagement-rate distribution over X posts, in the column shape of
  * the TikTok BENCHMARKS_SQL so the same mapper reads both.
  */

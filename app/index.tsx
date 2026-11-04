@@ -20,8 +20,9 @@ import { LoadingScreen } from '@/components/dashboard/LoadingScreen';
 import { TimeRangePicker, TimeRange } from '@/components/dashboard/TimeRangePicker';
 import { GroupLeaderboard } from '@/components/dashboard/GroupLeaderboard';
 import { AccountsInterstitial } from '@/components/dashboard/AccountsInterstitial';
-import { StyleBreakdown } from '@/components/dashboard/StyleBreakdown';
 import { TopicCloud } from '@/components/dashboard/TopicCloud';
+import { RisingTopics } from '@/components/dashboard/RisingTopics';
+import { FastestGrowing } from '@/components/dashboard/FastestGrowing';
 import { ContactFooter } from '@/components/dashboard/ContactFooter';
 import { AppFooter } from '@/components/dashboard/AppFooter';
 import { StickyUnlock } from '@/components/auth/StickyUnlock';
@@ -38,6 +39,7 @@ import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { useLiveData } from '@/data/useLiveData';
 import { usePostsData, type PostsSortKey, type FeedFilters } from '@/data/usePostsData';
 import { useLeagues } from '@/data/useLeagues';
+import { useGrowth } from '@/data/useGrowth';
 import { useTenant } from '@/hooks/useTenant';
 import { type PlatformFilter } from '@/lib/platforms';
 import { PlatformLogoFilter } from '@/components/primitives/PlatformLogoFilter';
@@ -82,6 +84,15 @@ const RANGE_LABELS: Record<TimeRange, string> = {
   month:     'Past 30 days',
   year:      'This year',
   lifetime:  'Lifetime',
+};
+
+/** What the Rising topics card compares against (prevRangeDateFilter). */
+const PREV_LABELS: Record<TimeRange, string> = {
+  yesterday: 'Against the day before',
+  week:      'Against the 7 days before',
+  month:     'Against the 30 days before',
+  year:      'Against the same stretch last year',
+  lifetime:  '',
 };
 
 /** Fixed height for the three panels when side-by-side. */
@@ -274,7 +285,8 @@ function DashboardScreenInner() {
     ? politicians.find(p => p.handle.replace(/^@+/, '').toLowerCase() === feedFilters.profile)?.personId ?? null
     : null;
   const { posts, loading: postsLoading, loadingMore: postsLoadingMore, hasMore: postsHasMore, error: postsError, loadMore: loadMorePosts, total: postsTotal } = usePostsData(range, postsSortKey, { ...feedFilters, platform, person: selectedPersonId });
-  const { styles: styleCounts, topics: topicCounts } = useLeagues(range, platform);
+  const { topics: topicCounts, rising: risingTopics } = useLeagues(range, platform);
+  const { growth, loading: growthLoading } = useGrowth(range, platform);
   const { benchmarks, byPlatform: benchmarksByPlatform } = useBenchmarks();
 
   // Hero entrance animations are gated until the LoadingScreen has fully
@@ -673,7 +685,7 @@ function DashboardScreenInner() {
           </View>
           </MobileSection>
 
-          {/* ── 7. Style + topics row ─────────────────── */}
+          {/* ── 7. Growth + rising topics row ─────────── */}
           <MobileSection index={5}>
           <View
             ref={sectionRef('style_breakdown') as any}
@@ -681,17 +693,21 @@ function DashboardScreenInner() {
             {...(Platform.OS === 'web' ? { 'data-container_name': 'row_style_topics_insights' } as any : {})}
           >
             <View style={styles.insightsCol}>
-              <StyleBreakdown
-                posts={posts}
-                counts={styleCounts}
+              <FastestGrowing
+                growth={growth}
+                politicians={politicians}
                 rangeLabel={RANGE_LABELS[range]}
-                activeStyle={styleFilter}
-                onStyleSelect={handleStyleSelect}
-                platform={platform}
+                showSince={range === 'year' || range === 'lifetime'}
+                loading={growthLoading}
               />
             </View>
             <View style={styles.insightsCol}>
-              <TopicCloud posts={posts} counts={topicCounts} rangeLabel={RANGE_LABELS[range]} />
+              {/* Lifetime has no period before it, so it keeps the subject counts */}
+              {risingTopics ? (
+                <RisingTopics rising={risingTopics} rangeLabel={RANGE_LABELS[range]} prevLabel={PREV_LABELS[range]} />
+              ) : (
+                <TopicCloud posts={posts} counts={topicCounts} rangeLabel={RANGE_LABELS[range]} />
+              )}
             </View>
           </View>
           </MobileSection>

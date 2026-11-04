@@ -4,7 +4,11 @@
  * Whole-range aggregates for the Style League and Topic Cloud.
  *
  * GET /api/leagues?range=yesterday|week|month|year|lifetime
- *   → { styles: { label, count }[], topics: { label, count }[] }
+ *   → { styles: { label, count }[], topics: { label, count }[],
+ *       rising: { label, cur, prev, gain, ratio }[] | null }
+ *
+ * `rising` compares each topic (most specific tag) with the period before;
+ * null on lifetime, which has no period before it.
  *
  * Counts every matching post in the selected range via GROUP BY in BigQuery —
  * NOT the paginated feed. This is what lets the Style League / Topic Cloud
@@ -16,9 +20,10 @@
 
 import { query, tableRef, metadataRef, postWeb } from '@/lib/bigquery';
 import { guardTenant } from '@/lib/tenantGuard';
-import { parseRange, rangeDateFilter } from '@/lib/bqQueries';
+import { parseRange, prevRangeDateFilter, rangeDateFilter } from '@/lib/bqQueries';
 import { safeErrorDetail } from '@/lib/errors';
-import { buildXTopicsSQL } from '@/lib/xQueries';
+import { buildXRisingTopicsSQL, buildXTopicsSQL } from '@/lib/xQueries';
+import { rankRising, type TopicPeriodCount } from '@/lib/rising';
 import { tiktokTopicAliasSql } from '@/lib/topicAliases';
 import { parsePlatformFilter } from '@/lib/platforms';
 
@@ -53,6 +58,22 @@ const TOPICS_SQL = (dashboardId: number, dateFilter: string) => `
   ORDER BY count DESC
 `;
 
+// Posts per topic this period and the one before, at the most specific tag on
+// the final list (a subtopic, or the parent when only that is tagged).
+const RISING_SQL = (dashboardId: number, cur: string, prev: string) => `
+  SELECT nt.name AS label,
+    COUNT(DISTINCT IF(${cur}, p.postId, NULL))  AS cur,
+    COUNT(DISTINCT IF(${prev}, p.postId, NULL)) AS prev
+  FROM ${postWeb(dashboardId)} p
+  JOIN ${tableRef('post_x_topic')} pt ON p.postId = pt.postId
+  JOIN ${tableRef('topic')} ot ON ot.id = pt.topicId
+  LEFT JOIN ${tiktokTopicAliasSql()} al ON al.old_name = UPPER(ot.name)
+  JOIN ${metadataRef('topic')} nt ON nt.name = COALESCE(al.new_name, UPPER(ot.name))
+  WHERE p.videoSummary IS NOT NULL
+    AND ((${cur}) OR (${prev}))
+  GROUP BY label
+`;
+
 export async function GET(request: Request): Promise<Response> {
   const { tenant, denied } = await guardTenant(request);
   if (denied) return denied;
@@ -69,10 +90,14 @@ export async function GET(request: Request): Promise<Response> {
   const dateFilter = rangeDateFilter(range);
 
   try {
-    const [styleRows, tiktokTopicRows, xTopicRows] = await Promise.all([
+    const hasPrevious = range !== 'lifetime';
+    const prevFilter = prevRangeDateFilter(range);
+    const [styleRows, tiktokTopicRows, xTopicRows, tiktokRising, xRising] = await Promise.all([
       wantTikTok ? query<TagRow>(STYLES_SQL(dashboardId, dateFilter)) : [],
       wantTikTok ? query<TagRow>(TOPICS_SQL(dashboardId, dateFilter)) : [],
       wantX      ? query<TagRow>(buildXTopicsSQL(dashboardId, range)) : [],
+      wantTikTok && hasPrevious ? query<TopicPeriodCount>(RISING_SQL(dashboardId, dateFilter, prevFilter)) : [],
+      wantX      && hasPrevious ? query<TopicPeriodCount>(buildXRisingTopicsSQL(dashboardId, range)) : [],
     ]);
 
     // Same topic name on both platforms → one row, counts added.
@@ -90,7 +115,11 @@ export async function GET(request: Request): Promise<Response> {
         .filter(r => r.label.length > 0 && r.count > 0);
 
     return Response.json(
-      { styles: clean(styleRows), topics: clean(topicRows) },
+      {
+        styles: clean(styleRows),
+        topics: clean(topicRows),
+        rising: hasPrevious ? rankRising([...tiktokRising, ...xRising], 8) : null,
+      },
       { headers: { 'Cache-Control': 'private, max-age=1800, stale-while-revalidate=120' } },
     );
   } catch (err: unknown) {
