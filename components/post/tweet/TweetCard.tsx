@@ -41,7 +41,8 @@ interface Props {
   groupKey: GroupKey;
   postUrl:  string;
   width?:   number | string;
-  height?:  number;
+  /** A number, or '100%' to fill a sized parent. */
+  height?:  number | string;
 }
 
 export function TweetCard({ tweet, text: rawText, groupKey, postUrl, width = '100%', height }: Props) {
@@ -57,7 +58,7 @@ export function TweetCard({ tweet, text: rawText, groupKey, postUrl, width = '10
 
   return (
     <View
-      style={[styles.card, { width: width as any }, height ? { height } : null]}
+      style={[styles.card, { width: width as any }, height ? { height: height as any } : null]}
       {...(Platform.OS === 'web' ? { 'data-component': 'tweetCard' } as any : {})}
     >
       <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>

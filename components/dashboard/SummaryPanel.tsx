@@ -6,6 +6,7 @@ import type { BriefsApiResponse } from '@/data/types';
 import { DashCard } from '@/components/primitives/DashCard';
 import { DevLabel } from '@/components/primitives/DevLabel';
 import { PostBangerCard } from './PostBangerCard';
+import { TweetBangerCard } from './TweetBangerCard';
 import { Kicker } from '@/components/ui/Kicker';
 import { Title } from '@/components/ui/Title';
 import { neutral, party, glass, accent, brand, dataVis, colourFor } from '@/theme/colors';
@@ -281,7 +282,15 @@ export function SummaryPanel({ politicians, range = 'week', platform = 'tiktok',
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.bangersRow}
             >
-              {topBangers.map(({ post, politician }, i) => (
+              {topBangers.map(({ post, politician }, i) => post.tweet ? (
+                // X: the tweet itself, as in the post feed
+                <TweetBangerCard
+                  key={post.postId}
+                  post={{ ...post, tweet: post.tweet }}
+                  groupKey={politician.groupKey}
+                  delay={i * 60}
+                />
+              ) : (
                 <PostBangerCard
                   key={post.postId}
                   post={post}
