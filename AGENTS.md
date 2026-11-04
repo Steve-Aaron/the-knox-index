@@ -126,10 +126,12 @@ One deployment serves several dashboards, one per subdomain:
 
 - The final topic list is `metadata.topic`: parent topics (`parent_topic` NULL)
   and subtopics. X tags use it directly
-- TikTok still tags with the old `ariadne_tiktok_demo.topic` list.
-  `metadata.tiktok_topic_map` maps each old topic onto `metadata.topic`
-  (`method`: name_match, manual_draft or not_a_subject; `reviewed` marks
-  checked rows). An old topic with no row shows as 'Other topics'
+- TikTok still tags with the old `ariadne_tiktok_demo.topic` list. Until
+  KitSoft move it onto the final list, the site matches old names to final
+  ones itself: same name, or the hand-made list in `lib/topicAliases.ts`. An
+  old topic that matches nothing shows as 'Other topics'
+- Backend topic fixes (the misfiled FOREIGN_AFFAIRS subtopics, retagging) are
+  KitSoft's: the site does not write to the topic tables
 - Subject charts count parent topics. On the account page a subtopic gets its
   own slice once the period has 10+ tagged posts and the subtopic is on 3+
   posts and 15%+ of the tags (`lib/accountPage.ts` STANDOUT_*)

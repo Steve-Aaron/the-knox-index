@@ -19,6 +19,7 @@ import { guardTenant } from '@/lib/tenantGuard';
 import { parseRange, rangeDateFilter } from '@/lib/bqQueries';
 import { safeErrorDetail } from '@/lib/errors';
 import { buildXTopicsSQL } from '@/lib/xQueries';
+import { tiktokTopicAliasSql } from '@/lib/topicAliases';
 import { parsePlatformFilter } from '@/lib/platforms';
 
 interface TagRow { label: string; count: number }
@@ -35,14 +36,16 @@ const STYLES_SQL = (dashboardId: number, dateFilter: string) => `
   ORDER BY count DESC
 `;
 
-// Parent topics on the final list: old TikTok topics go through the map, and
-// a subtopic counts towards its parent, so TikTok and X add up by name.
+// Parent topics on the final list: old TikTok topics are matched by name or
+// by lib/topicAliases.ts, and a subtopic counts towards its parent, so TikTok
+// and X add up by name. Old topics that match nothing are left out.
 const TOPICS_SQL = (dashboardId: number, dateFilter: string) => `
   SELECT COALESCE(par.name, nt.name) AS label, COUNT(DISTINCT p.postId) AS count
   FROM ${postWeb(dashboardId)} p
   JOIN ${tableRef('post_x_topic')} pt ON p.postId = pt.postId
-  JOIN ${metadataRef('tiktok_topic_map')} m ON m.old_topic_id = pt.topicId
-  JOIN ${metadataRef('topic')} nt ON nt.id = m.topic_id
+  JOIN ${tableRef('topic')} ot ON ot.id = pt.topicId
+  LEFT JOIN ${tiktokTopicAliasSql()} al ON al.old_name = UPPER(ot.name)
+  JOIN ${metadataRef('topic')} nt ON nt.name = COALESCE(al.new_name, UPPER(ot.name))
   LEFT JOIN ${metadataRef('topic')} par ON par.id = nt.parent_topic
   WHERE p.videoSummary IS NOT NULL
     AND ${dateFilter}
