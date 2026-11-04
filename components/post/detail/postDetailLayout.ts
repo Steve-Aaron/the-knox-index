@@ -33,6 +33,7 @@ export type PostDetailData = Pick<
   | 'caption'
   | 'videoSummary'
   | 'coverJpeg'
+  | 'videoMp4'
   | 'postDate'
   | 'styles'
   | 'topics'

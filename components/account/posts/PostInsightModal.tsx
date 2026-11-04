@@ -92,6 +92,7 @@ export function PostInsightModal({
                   benchmarks={benchmarks?.[post.platform] ?? undefined}
                   compact={compact}
                   height={detailHeight}
+                  playable
                 />
               </View>
             </ScrollView>

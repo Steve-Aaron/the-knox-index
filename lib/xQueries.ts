@@ -271,7 +271,7 @@ export function buildXTopPostSQL(dashboardId: number): string {
 
 export interface XFeedFilters {
   since?:    string | null;   // ISO date, pre-validated
-  /** ISO date, pre-validated; posts before it (exclusive). */
+  /** ISO date, pre-validated; posts on or before it. */
   until?:    string | null;
   minViews?: number;
   minLikes?: number;
@@ -293,7 +293,7 @@ export function buildXFeedSQL(dashboardId: number, f: XFeedFilters): { sql: stri
   const where: string[] = ['TRUE'];
   const params: Record<string, unknown> = {};
   if (f.since)           where.push(`p.postDate >= DATE '${f.since}'`);
-  if (f.until)           where.push(`p.postDate < DATE '${f.until}'`);
+  if (f.until)           where.push(`p.postDate <= DATE '${f.until}'`);
   if (f.minViews)        { where.push('p.views >= @x_minViews'); params.x_minViews = f.minViews; }
   if (f.minLikes)        { where.push('p.likes >= @x_minLikes'); params.x_minLikes = f.minLikes; }
   if (f.profile)         { where.push('LOWER(a0.author) = @x_profile'); params.x_profile = f.profile; }

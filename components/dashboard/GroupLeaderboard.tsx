@@ -27,8 +27,8 @@ const POSTS_PERIOD: Record<TimeRange, string> = {
 /** Kicker suffix per range. */
 const RANGE_KICKER: Record<TimeRange, string> = {
   yesterday: 'YESTERDAY',
-  week:      'LAST 7 DAYS',
-  month:     'LAST 30 DAYS',
+  week:      'LAST WEEK',
+  month:     'THIS MONTH',
   year:      'THIS YEAR',
   lifetime:  'ALL TIME',
 };

@@ -6,7 +6,7 @@
  *
  * GET /api/posts                 → every processed post, all time, ordered by sortKey
  * GET /api/posts?since=YYYY-MM-DD → posts on or after that date
- * GET /api/posts?until=YYYY-MM-DD → posts before that date (exclusive)
+ * GET /api/posts?until=YYYY-MM-DD → posts on or before that date
  * GET /api/posts?sortKey=views    → server-side ORDER BY (views|likes|comments|
  *                                   shares|engagement|virality|postDate)
  *
@@ -186,7 +186,7 @@ export async function GET(request: Request): Promise<Response> {
   const queryParams: Record<string, unknown> = {};
   const where: string[] = ['p.videoSummary IS NOT NULL'];
   if (since) where.push(`p.postDate >= DATE '${since}'`);
-  if (until) where.push(`p.postDate < DATE '${until}'`);
+  if (until) where.push(`p.postDate <= DATE '${until}'`);
 
   const minViews = Math.max(parseInt(params.get('minViews') ?? '0', 10) || 0, 0);
   if (minViews > 0) { where.push('p.views >= @minViews'); queryParams.minViews = minViews; }

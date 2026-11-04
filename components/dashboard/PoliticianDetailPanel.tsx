@@ -76,8 +76,8 @@ function roleLabel(p: Politician): string {
  */
 const RANGE_TOTALS_LABEL: Record<TimeRange, string> = {
   yesterday: 'Yesterday',
-  week:      'Last 7 days',
-  month:     'Last 30 days',
+  week:      'Past 7 days',
+  month:     'Past 30 days',
   year:      'This year',
   lifetime:  'All time',
 };

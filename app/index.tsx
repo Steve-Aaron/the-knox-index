@@ -78,8 +78,8 @@ const SORTS: { key: LeaderboardSortKey; label: string }[] = [
 
 const RANGE_LABELS: Record<TimeRange, string> = {
   yesterday: 'Yesterday',
-  week:      'Last 7 days',
-  month:     'Last 30 days',
+  week:      'Past 7 days',
+  month:     'Past 30 days',
   year:      'This year',
   lifetime:  'Lifetime',
 };

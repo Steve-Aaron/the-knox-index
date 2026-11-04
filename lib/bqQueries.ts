@@ -22,6 +22,11 @@ export function parseRange(raw: string | null, defaultRange: Range = 'week'): Ra
   return VALID_RANGES.includes(raw as Range) ? (raw as Range) : defaultRange;
 }
 
+/**
+ * Periods in UTC (CURRENT_DATE()): yesterday only, rolling 7 and 30 days
+ * (agreed 29 Oct, so early in a month an account is not left with one day of
+ * data), this year from 1 January.
+ */
 export function rangeDateFilter(range: Range): string {
   switch (range) {
     case 'yesterday': return `postDate = DATE_SUB(CURRENT_DATE(), INTERVAL 1 DAY)`;
@@ -34,8 +39,8 @@ export function rangeDateFilter(range: Range): string {
 
 export const RANGE_LABELS: Record<Range, string> = {
   yesterday: 'Yesterday',
-  week:      'Last 7 days',
-  month:     'Last 30 days',
+  week:      'Past 7 days',
+  month:     'Past 30 days',
   year:      'This year',
   lifetime:  'Lifetime',
 };
@@ -336,13 +341,14 @@ export function buildAllAccountPostsSQL(dashboardId: number, handle: string, lim
 // ── Account page SQL ──────────────────────────────────────────────────────────
 
 /**
- * The window just before `range`, for "vs prev. period" deltas. 'year' compares
- * this year-to-date with the same days last year. Lifetime has no previous
- * period, so it matches nothing.
+ * The same stretch of the previous period, for "vs prev. period" deltas: the
+ * day before yesterday; last week from Monday to the same weekday; last month
+ * from the 1st to the same day; last year from 1 January to the same date.
+ * Lifetime has no previous period, so it matches nothing.
  */
 export function prevRangeDateFilter(range: Range): string {
   switch (range) {
-    case 'yesterday': return `postDate >= DATE_SUB(CURRENT_DATE(), INTERVAL 2 DAY) AND postDate < DATE_SUB(CURRENT_DATE(), INTERVAL 1 DAY)`;
+    case 'yesterday': return `postDate = DATE_SUB(CURRENT_DATE(), INTERVAL 2 DAY)`;
     case 'week':      return `postDate >= DATE_SUB(CURRENT_DATE(), INTERVAL 14 DAY) AND postDate < DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY)`;
     case 'month':     return `postDate >= DATE_SUB(CURRENT_DATE(), INTERVAL 60 DAY) AND postDate < DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)`;
     case 'year':      return `postDate >= DATE_TRUNC(DATE_SUB(CURRENT_DATE(), INTERVAL 1 YEAR), YEAR) AND postDate <= DATE_SUB(CURRENT_DATE(), INTERVAL 1 YEAR)`;

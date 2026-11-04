@@ -17,18 +17,20 @@ import { useAccountLayout } from './accountLayout';
 interface Props {
   title:   string;
   kicker?: string;
+  /** Overrides the kicker's default dim colour. */
+  kickerColor?: string;
   /** Controls aligned to the right, e.g. a SegmentedControl. */
   right?:  React.ReactNode;
   /** Text next to the title, e.g. a count badge. */
   titleAccessory?: React.ReactNode;
 }
 
-export function WidgetHeader({ title, kicker, right, titleAccessory }: Props) {
+export function WidgetHeader({ title, kicker, kickerColor, right, titleAccessory }: Props) {
   const { isMobile } = useAccountLayout();
   return (
     <View style={styles.row}>
       <View style={styles.text}>
-        {kicker ? <Kicker tone="dim">{kicker}</Kicker> : null}
+        {kicker ? <Kicker tone="dim" style={kickerColor ? { color: kickerColor } : undefined}>{kicker}</Kicker> : null}
         <View style={styles.titleRow}>
           <Title style={isMobile ? styles.titleCompact : undefined}>{title}</Title>
           {titleAccessory}

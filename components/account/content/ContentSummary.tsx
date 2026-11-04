@@ -3,7 +3,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { fmtCount } from '@/lib/format';
 import { neutral } from '@/theme/colors';
 import { spacing } from '@/theme/spacing';
-import { font, type } from '@/theme/typography';
+import { font, type, weight } from '@/theme/typography';
 import type { ContentBreakdown } from '@/data/account/types';
 import { useAccountLayout } from '../layout/accountLayout';
 
@@ -71,9 +71,11 @@ const styles = StyleSheet.create({
     color:    neutral.textMid,
   },
   value: {
-    fontFamily: font.mono,
-    fontSize:   18,
-    color:      neutral.text,
+    fontFamily:    font.mono,
+    fontWeight:    weight.bold,
+    fontSize:      18,
+    letterSpacing: -0.3,
+    color:         neutral.text,
   },
   valueCompact: {
     fontSize: 15,
