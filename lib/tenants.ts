@@ -68,6 +68,10 @@ export interface TenantConfig {
     subjectShort: string;
     /** One line under the logo in the footer. */
     footerLine:   string;
+    /** Name in the header's index switcher, e.g. 'UK'. */
+    switcherLabel:      string;
+    /** Shorter form for phone widths, e.g. 'World'. */
+    switcherLabelShort: string;
   };
   grouping: {
     mode: GroupingMode;
@@ -120,6 +124,8 @@ export const TENANTS: readonly TenantConfig[] = [
       subjectPlural: 'Politicians',
       subjectShort:  'MPs',
       footerLine:    'UK political TikTok intelligence, daily.',
+      switcherLabel:      'UK',
+      switcherLabelShort: 'UK',
     },
     grouping: {
       mode:          'party',
@@ -150,6 +156,8 @@ export const TENANTS: readonly TenantConfig[] = [
       subjectPlural: 'World leaders',
       subjectShort:  'world leaders',
       footerLine:    'World leaders’ TikTok and X intelligence, daily.',
+      switcherLabel:      'World Leaders',
+      switcherLabelShort: 'World',
     },
     grouping: {
       mode:          'region',

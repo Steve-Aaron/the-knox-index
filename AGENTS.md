@@ -52,7 +52,7 @@ The proxy handler lives at `app/api/mp/[...path]+api.ts` and forwards all method
 | 7. Registration funnel | `cta_bar_shown`, `cta_bar_tapped`, `unlock_modal_opened`, `registration_submit_attempted`, `registration_succeeded`, `registration_failed` |
 | 8. Error recovery | `error_recovered` (recovery_ms), `posts_error_shown`, `posts_error_recovered` |
 | 9. Scroll depth | `section_reached` (section, method) |
-| 10. Navigation | `date_range_changed`, `wing_changed` |
+| 10. Navigation | `date_range_changed`, `wing_changed`, `index_switched` (from_tenant, to_tenant) |
 
 ### Super Properties
 

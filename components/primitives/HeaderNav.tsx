@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, Pressable, StyleSheet, Platform, Linking, useWindowDimensions } from 'react-native';
 import { router } from 'expo-router';
 import { KnoxLogo } from './KnoxLogo';
+import { IndexSwitcher } from './IndexSwitcher';
 import { logout } from '@/lib/logout';
 import { useRegisteredFlag } from '@/hooks/useRegisteredFlag';
 import { neutral, glass, accent } from '@/theme/colors';
@@ -14,10 +15,11 @@ import { breakpoints } from '@/theme/breakpoints';
  * ----------
  * Two-slot top bar:
  *
- *   [ logo ]                                   [ Sign up  Log in ]
+ *   [ logo  UK | World Leaders ]               [ Sign up  Log in ]
  *
  * The Knox wordmark sits on the left and doubles as the home link (so a
- * separate 'Dashboard' link would be redundant). The auth actions sit on the
+ * separate 'Dashboard' link would be redundant). Beside it, IndexSwitcher
+ * moves between the indexes (UK, World Leaders). The auth actions sit on the
  * right. Tapping the logo reloads the dashboard (full refresh on web).
  *
  * On narrow viewports the layout stays flat (no stacking); the logo
@@ -76,6 +78,7 @@ export function HeaderNav({ activeRoute, leftItems, rightItems }: Props) {
         >
           <KnoxLogo width={logoWidth} />
         </Pressable>
+        <IndexSwitcher compact={isMobile} />
       </View>
 
       <View style={styles.sideRight}>
