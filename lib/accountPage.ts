@@ -42,6 +42,9 @@ export interface BQAccountPagePostRow {
   videoMp4:     string | null;
   styles:       string[] | null;
   topics:       string[] | null;
+  /** The topics on the final list: parent plus subtopic (null when the tag is
+   *  the parent itself). A null parent is an old TikTok topic with no map. */
+  subjects?:    { parent: string | null; sub: string | null }[] | null;
   /** Set on X rows (lib/xQueries.ts buildXAccountPagePostsSQL). */
   platform?:    'tiktok' | 'x';
   tweetJson?:   string | null;
@@ -135,8 +138,18 @@ export function buildKeyStats(target: Politician, all: Politician[], grouping: G
 
 // ── Period data ───────────────────────────────────────────────────────────────
 
-/** Bucket for posts with no tag in the dimension. */
-const UNTAGGED_KEY = 'untagged';
+/** Bucket for old TikTok topics not yet mapped onto the final topic list. */
+const UNMAPPED_KEY = 'unmapped';
+
+/**
+ * A subtopic gets its own slice (e.g. Sudan, not Foreign affairs) once it is
+ * used on at least this many posts and this share of the account's subject
+ * tags in the period. Agreed 29 Oct: parent topics, with standouts.
+ */
+const STANDOUT_MIN_POSTS = 3;
+const STANDOUT_MIN_SHARE = 0.15;
+/** Below this many tagged posts no subtopic stands out: the sample is too small. */
+const STANDOUT_MIN_SAMPLE = 10;
 
 /** 'COST_OF_LIVING' → 'Cost of living'. Drops stray HTML entities and symbols. */
 function tagLabel(name: string): string {
@@ -144,32 +157,44 @@ function tagLabel(name: string): string {
   return words ? words.charAt(0).toUpperCase() + words.slice(1) : 'Other';
 }
 
+/** A standout subtopic's key keeps its parent: 'ELECTIONS/CAMPAIGNS'. */
+const SUB_SEP = '/';
+
+function sliceLabel(key: string): string {
+  if (key === UNMAPPED_KEY) return 'Other topics';
+  const [parent, sub] = key.split(SUB_SEP);
+  return sub ? `${tagLabel(parent)} · ${tagLabel(sub)}` : tagLabel(parent);
+}
+
 type TagFn = (row: BQAccountPagePostRow) => string[];
 
 /**
- * Views per tag, with each post's views split evenly across its tags so the
- * shares add up to 100%. Untagged posts get their own bucket. Post counts
- * stay whole: a post with three topics counts once in each.
+ * Tag uses per tag, and the full views of the posts that carry it. A post
+ * counts once per distinct tag; views are not split across tags, so they
+ * feed an average, never a share. Untagged posts are counted apart.
  */
 function tally(rows: BQAccountPagePostRow[], tags: TagFn) {
   const byTag = new Map<string, { posts: number; views: number }>();
+  let uses = 0;
+  let untagged = 0;
   for (const row of rows) {
-    const list = tags(row);
-    const keys = list.length ? list : [UNTAGGED_KEY];
+    const keys = [...new Set(tags(row))];
+    if (keys.length === 0) { untagged += 1; continue; }
     for (const key of keys) {
       const t = byTag.get(key) ?? { posts: 0, views: 0 };
       t.posts += 1;
-      t.views += row.views / keys.length;
+      t.views += row.views;
       byTag.set(key, t);
+      uses += 1;
     }
   }
-  return byTag;
+  return { byTag, uses, untagged };
 }
 
 /**
- * Every tag as a slice, largest first. Grouping the tail into "Other" for the
- * donut is a display rule, so it happens client-side (contentGroups.ts) and
- * the table can still list every tag.
+ * Every tag as a slice, by share of tag uses (what the account mostly posts
+ * about), largest first. Grouping the tail into "Other" for the donut is a
+ * display rule, so it happens client-side (contentGroups.ts).
  */
 function buildBreakdown(
   current: BQAccountPagePostRow[],
@@ -181,22 +206,25 @@ function buildBreakdown(
   const cur  = tally(current, tags);
   const prev = tally(previous, tags);
 
-  const share     = (v: number, total: number) => (total > 0 ? v / total : 0);
-  const prevShare = (key: string) => share(prev.get(key)?.views ?? 0, prevViews);
+  const share     = (n: number, total: number) => (total > 0 ? n / total : 0);
+  const prevShare = (key: string) => share(prev.byTag.get(key)?.posts ?? 0, prev.uses);
 
-  const slices: ContentSlice[] = [...cur.entries()]
-    .sort((a, b) => b[1].views - a[1].views)
+  const slices: ContentSlice[] = [...cur.byTag.entries()]
+    .sort((a, b) => b[1].posts - a[1].posts || b[1].views - a[1].views)
     .map(([key, t]) => ({
       key,
-      label:   key === UNTAGGED_KEY ? 'Untagged' : tagLabel(key),
-      posts:   t.posts,
-      views:   Math.round(t.views),
-      share:   share(t.views, totalViews),
-      deltaPp: prevViews > 0 ? (share(t.views, totalViews) - prevShare(key)) * 100 : 0,
+      label:    sliceLabel(key),
+      posts:    t.posts,
+      views:    t.views,
+      avgViews: Math.round(t.views / t.posts),
+      share:    share(t.posts, cur.uses),
+      deltaPp:  prev.uses > 0 ? (share(t.posts, cur.uses) - prevShare(key)) * 100 : null,
     }));
 
   return {
     totalPosts:         current.length,
+    taggedPosts:        current.length - cur.untagged,
+    untaggedPosts:      cur.untagged,
     avgViewsPerPost:    current.length ? Math.round(totalViews / current.length) : 0,
     totalViews,
     totalViewsDeltaPct: prevViews > 0 ? ((totalViews - prevViews) / prevViews) * 100 : 0,
@@ -204,10 +232,43 @@ function buildBreakdown(
   };
 }
 
-const CONTENT_TAGS: Record<ContentDimension, TagFn> = {
+/**
+ * Subject keys per post: the parent topic, or the subtopic itself when it
+ * stands out in `rows` (see STANDOUT_MIN_*). The same choice is applied to
+ * the previous period so the deltas compare like with like.
+ */
+function subjectTags(rows: BQAccountPagePostRow[]): TagFn {
+  const subPosts = new Map<string, number>();
+  let uses = 0;
+  let tagged = 0;
+  for (const row of rows) {
+    const list = row.subjects ?? [];
+    if (list.length) tagged += 1;
+    uses += new Set(list.map(t => t.parent ?? UNMAPPED_KEY)).size;
+    for (const sub of new Set(list.map(t => t.sub).filter((x): x is string => !!x))) {
+      subPosts.set(sub, (subPosts.get(sub) ?? 0) + 1);
+    }
+  }
+  const standout = new Set(
+    tagged < STANDOUT_MIN_SAMPLE ? [] : [...subPosts.entries()]
+      .filter(([, n]) => n >= STANDOUT_MIN_POSTS && uses > 0 && n / uses >= STANDOUT_MIN_SHARE)
+      .map(([sub]) => sub),
+  );
+  return r => {
+    const list = r.subjects ?? [];
+    // On a post with a standout, the standout replaces its parent
+    const replaced = new Set(list.filter(t => t.sub && t.parent && standout.has(t.sub)).map(t => t.parent));
+    return list.flatMap(t => {
+      if (t.sub && t.parent && standout.has(t.sub)) return [`${t.parent}${SUB_SEP}${t.sub}`];
+      if (t.parent && replaced.has(t.parent)) return [];
+      return [t.parent ?? UNMAPPED_KEY];
+    });
+  };
+}
+
+const CONTENT_TAGS: Record<Exclude<ContentDimension, 'subjects'>, TagFn> = {
   // Every TikTok post is a video; X posts carry their own format.
   type:     r => [r.contentType ?? 'video'],
-  subjects: r => r.topics ?? [],
   styles:   r => r.styles ?? [],
 };
 
@@ -273,7 +334,7 @@ export function buildPeriod(
     radar,
     content: {
       type:     buildBreakdown(current, previous, CONTENT_TAGS.type),
-      subjects: buildBreakdown(current, previous, CONTENT_TAGS.subjects),
+      subjects: buildBreakdown(current, previous, subjectTags(current)),
       styles:   buildBreakdown(current, previous, CONTENT_TAGS.styles),
     },
     posts: [...current]

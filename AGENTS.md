@@ -122,6 +122,18 @@ One deployment serves several dashboards, one per subdomain:
 - When a new leader takes over, add their `person_x_dashboard` row (and the
   TikTok `account_x_dashboard` row) and update `metadata.person.display_job_title`
 
+### Subjects (topics)
+
+- The final topic list is `metadata.topic`: parent topics (`parent_topic` NULL)
+  and subtopics. X tags use it directly
+- TikTok still tags with the old `ariadne_tiktok_demo.topic` list.
+  `metadata.tiktok_topic_map` maps each old topic onto `metadata.topic`
+  (`method`: name_match, manual_draft or not_a_subject; `reviewed` marks
+  checked rows). An old topic with no row shows as 'Other topics'
+- Subject charts count parent topics. On the account page a subtopic gets its
+  own slice once the period has 10+ tagged posts and the subtopic is on 3+
+  posts and 15%+ of the tags (`lib/accountPage.ts` STANDOUT_*)
+
 ## Key Conventions
 
 - One job per component/hook; compose upward for complexity

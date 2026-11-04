@@ -14,7 +14,7 @@
  * NULL); it intentionally ignores transient feed filters like party/min-views.
  */
 
-import { query, tableRef, postWeb } from '@/lib/bigquery';
+import { query, tableRef, metadataRef, postWeb } from '@/lib/bigquery';
 import { guardTenant } from '@/lib/tenantGuard';
 import { parseRange, rangeDateFilter } from '@/lib/bqQueries';
 import { safeErrorDetail } from '@/lib/errors';
@@ -35,15 +35,18 @@ const STYLES_SQL = (dashboardId: number, dateFilter: string) => `
   ORDER BY count DESC
 `;
 
+// Parent topics on the final list: old TikTok topics go through the map, and
+// a subtopic counts towards its parent, so TikTok and X add up by name.
 const TOPICS_SQL = (dashboardId: number, dateFilter: string) => `
-  SELECT t.name AS label, COUNT(DISTINCT p.postId) AS count
+  SELECT COALESCE(par.name, nt.name) AS label, COUNT(DISTINCT p.postId) AS count
   FROM ${postWeb(dashboardId)} p
   JOIN ${tableRef('post_x_topic')} pt ON p.postId = pt.postId
-  JOIN ${tableRef('topic')} t ON pt.topicId = t.id
+  JOIN ${metadataRef('tiktok_topic_map')} m ON m.old_topic_id = pt.topicId
+  JOIN ${metadataRef('topic')} nt ON nt.id = m.topic_id
+  LEFT JOIN ${metadataRef('topic')} par ON par.id = nt.parent_topic
   WHERE p.videoSummary IS NOT NULL
     AND ${dateFilter}
-    AND t.name IS NOT NULL
-  GROUP BY t.name
+  GROUP BY label
   ORDER BY count DESC
 `;
 

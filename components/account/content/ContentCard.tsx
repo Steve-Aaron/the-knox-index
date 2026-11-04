@@ -1,11 +1,12 @@
 import React, { useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, View, type ViewStyle } from 'react-native';
+import { ScrollView, StyleSheet, Text, View, type ViewStyle } from 'react-native';
 import { AccountWidget } from '@/components/account/layout/AccountWidget';
 import { useAccountLayout } from '@/components/account/layout/accountLayout';
 import { WidgetHeader } from '@/components/account/layout/WidgetHeader';
 import { SegmentedControl, type Segment } from '@/components/primitives/SegmentedControl';
 import { neutral } from '@/theme/colors';
 import { spacing } from '@/theme/spacing';
+import { type } from '@/theme/typography';
 import { prevPeriodLabel } from '@/data/account/periodLabels';
 import type { AccountPeriodData, ContentDimension, TimeRange } from '@/data/account/types';
 import { ContentDonut } from './ContentDonut';
@@ -18,7 +19,8 @@ import { useSliceHighlight } from './useSliceHighlight';
  * ContentCard
  * ------------
  * What the account posts about, sliced by type, subject or style: summary
- * figures, a views-share donut, and the per-slice table. Donut and table
+ * figures, a share-of-tags donut, and the per-slice table. With too few
+ * tagged posts the donut is left out and the table reads as a plain list. Donut and table
  * share one highlighted slice: hover previews it, press pins it. With a
  * fixed height (desktop) everything under the header scrolls as one, so the
  * card matches Performance; otherwise it grows. On mobile the ranked list
@@ -47,6 +49,9 @@ const COLUMN_LABEL: Record<ContentDimension, string> = {
   styles:   'Style',
 };
 
+/** Under this many tagged posts a donut says nothing, so only the list shows. */
+const FEW_POSTS = 5;
+
 const SLICE_NOUN: Record<ContentDimension, string> = {
   type:     'types',
   subjects: 'subjects',
@@ -71,7 +76,6 @@ export function ContentCard({ content, range, height, style }: Props) {
       breakdown={breakdown}
       groups={groups}
       sliceNoun={SLICE_NOUN[dimension]}
-      prevLabel={prevLabel}
       activeKey={highlight.activeKey}
       onSliceHover={highlight.hover}
       onSlicePress={highlight.toggle}
@@ -87,10 +91,21 @@ export function ContentCard({ content, range, height, style }: Props) {
     />
   );
 
+  const fewPosts = breakdown.taggedPosts < FEW_POSTS;
+  const notes = [
+    fewPosts && breakdown.taggedPosts > 0
+      ? `Only ${breakdown.taggedPosts} tagged ${breakdown.taggedPosts === 1 ? 'post' : 'posts'} in this period, so there is no chart.`
+      : null,
+    breakdown.untaggedPosts > 0
+      ? `${breakdown.untaggedPosts} of ${breakdown.totalPosts} posts are not tagged yet and are left out.`
+      : null,
+  ].filter(Boolean) as string[];
+
   const body = (
     <>
       <ContentSummary breakdown={breakdown} />
-      {isMobile ? <>{table}{donut}</> : <>{donut}{table}</>}
+      {fewPosts ? table : isMobile ? <>{table}{donut}</> : <>{donut}{table}</>}
+      {notes.map(n => <Text key={n} style={styles.note}>{n}</Text>)}
     </>
   );
 
@@ -98,7 +113,7 @@ export function ContentCard({ content, range, height, style }: Props) {
     <AccountWidget
       height={height}
       style={style}
-      infoText="Every post is tagged by type, subject and style. Slices show the share of views, with a post's views split evenly across its tags, so they add up to 100%. Small slices are grouped into Other."
+      infoText="Every post is tagged by type, subject and style. Slices show how often each one is used, as a share of all tags, so they add up to 100%. Subjects are grouped under their main topic unless a subtopic stands out. Avg views is the average for posts with that tag. Small slices are grouped into Other."
     >
       <WidgetHeader
         kicker="Content types / subjects / styles"
@@ -124,5 +139,10 @@ const styles = StyleSheet.create({
   },
   body: {
     gap: spacing.base,
+  },
+  note: {
+    ...type.body,
+    fontSize: 13,
+    color:    neutral.textMid,
   },
 });

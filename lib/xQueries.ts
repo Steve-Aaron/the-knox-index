@@ -335,16 +335,17 @@ export function buildXFeedSQL(dashboardId: number, f: XFeedFilters): { sql: stri
 
 // ── Leagues and benchmarks ───────────────────────────────────────────────────
 
-/** Topic counts over X posts in range: { label, count } like the TikTok query. */
+/** Parent-topic counts over X posts in range: { label, count } like the TikTok query. */
 export function buildXTopicsSQL(dashboardId: number, range: Range): string {
   return `
   WITH ${xBaseCtes(dashboardId)}
-  SELECT tn.name AS label, COUNT(DISTINCT p.postId) AS count
+  SELECT COALESCE(par.name, tn.name) AS label, COUNT(DISTINCT p.postId) AS count
   FROM own p
   JOIN ${X('post_x_topic')} t ON t.postId = p.postId
   JOIN ${META('topic')} tn ON tn.id = t.topic_id
-  WHERE ${rangeDateFilter(range)} AND tn.name IS NOT NULL
-  GROUP BY tn.name
+  LEFT JOIN ${META('topic')} par ON par.id = tn.parent_topic
+  WHERE ${rangeDateFilter(range)}
+  GROUP BY label
   ORDER BY count DESC
 `;
 }
@@ -393,9 +394,12 @@ export function buildXAccountPagePostsSQL(dashboardId: number, range: Range, lim
   ),
   ${mediaCte('picked')},
   topics AS (
-    SELECT t.postId, ARRAY_AGG(DISTINCT tn.name IGNORE NULLS) AS names
+    SELECT t.postId, ARRAY_AGG(DISTINCT tn.name IGNORE NULLS) AS names,
+      -- parent plus subtopic (NULL when the tag is a parent)
+      ARRAY_AGG(STRUCT(COALESCE(par.name, tn.name) AS parent, IF(par.id IS NULL, NULL, tn.name) AS sub)) AS subjects
     FROM ${X('post_x_topic')} t JOIN picked i ON i.postId = t.postId
     JOIN ${META('topic')} tn ON tn.id = t.topic_id
+    LEFT JOIN ${META('topic')} par ON par.id = tn.parent_topic
     GROUP BY t.postId
   )
   SELECT x.* EXCEPT (tweet, createdAtTs), TO_JSON_STRING(x.tweet) AS tweetJson
@@ -412,6 +416,7 @@ export function buildXAccountPagePostsSQL(dashboardId: number, range: Range, lim
         ELSE 'text'
       END                                       AS contentType,
       IFNULL(tp.names, [])                      AS topics,
+      IFNULL(tp.subjects, [])                   AS subjects,
       CAST([] AS ARRAY<STRING>)                 AS styles
     FROM picked p
     ${X_POST_JOINS}

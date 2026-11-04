@@ -56,7 +56,7 @@ export function ContentTable({ slices, groups, columnLabel, prevLabel, highlight
     <View style={styles.wrap}>
       <View style={styles.header}>
         <Text style={[styles.heading, styles.headingFirst]}>{columnLabel}</Text>
-        <Text style={[styles.heading, styles.right, contentColumns.views]}>Views</Text>
+        <Text style={[styles.heading, styles.right, contentColumns.views]}>Avg views</Text>
         <Text style={[styles.heading, styles.right, contentColumns.share]}>Share</Text>
         {showDelta ? (
           <Text style={[styles.heading, styles.right, contentColumns.delta]}>{prevLabel}</Text>

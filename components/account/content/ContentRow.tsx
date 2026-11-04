@@ -10,8 +10,8 @@ import { useContentColumns } from './contentColumns';
 /**
  * ContentRow
  * -----------
- * One slice in the content table: dot, post count, label, views, share,
- * delta, with a share bar underneath. Hover previews and press pins the
+ * One slice in the content table: dot, post count, label, average views per
+ * post, share of tags, delta, with a share bar underneath. Hover previews and press pins the
  * slice; dims while another slice is highlighted.
  *
  * One job: render a single content slice.
@@ -30,13 +30,16 @@ interface Props {
   onPress:   (key: string) => void;
 }
 
-function fmtDelta(pp: number): string {
+function fmtDelta(pp: number | null): string {
+  // Nothing to compare with: leave the cell empty
+  if (pp == null) return '';
   return `${pp > 0 ? '+' : ''}${pp.toFixed(1)}pp`;
 }
 
 export function ContentRow({ slice, color, barRatio, showDelta, dimmed, pinned, onHover, onPress }: Props) {
   const contentColumns = useContentColumns();
-  const deltaColor = slice.deltaPp > 0 ? trend.up : slice.deltaPp < 0 ? trend.downPp : neutral.textMid;
+  const pp = slice.deltaPp ?? 0;
+  const deltaColor = pp > 0 ? trend.up : pp < 0 ? trend.downPp : neutral.textMid;
 
   return (
     <Pressable
@@ -45,14 +48,14 @@ export function ContentRow({ slice, color, barRatio, showDelta, dimmed, pinned, 
       onHoverOut={() => onHover(null)}
       accessibilityRole="button"
       accessibilityState={{ selected: pinned }}
-      accessibilityLabel={`${slice.label}, ${(slice.share * 100).toFixed(1)}% of views`}
+      accessibilityLabel={`${slice.label}, ${slice.posts} posts, ${(slice.share * 100).toFixed(1)}% of tags`}
       style={[styles.wrap, dimmed && styles.dimmed]}
     >
       <View style={styles.row}>
         <View style={[styles.dot, { backgroundColor: color }]} />
         <Text style={[styles.posts, { color }]}>{slice.posts}</Text>
         <Text style={styles.label} numberOfLines={1}>{slice.label}</Text>
-        <Text style={[styles.num, styles.bold, contentColumns.views]}>{fmtCount(slice.views)}</Text>
+        <Text style={[styles.num, styles.bold, contentColumns.views]}>{fmtCount(slice.avgViews)}</Text>
         <Text style={[styles.num, styles.dim, contentColumns.share]}>
           {(slice.share * 100).toFixed(1)}%
         </Text>

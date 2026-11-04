@@ -84,23 +84,32 @@ export type RadarScores = Record<RadarAxisKey, number>;
 export type ContentDimension = 'type' | 'subjects' | 'styles';
 
 export interface ContentSlice {
-  key:     string;
-  label:   string;
-  posts:   number;
-  views:   number;
-  /** Share of total views, 0..1. */
-  share:   number;
-  /** Change in share vs the previous period, in percentage points. */
-  deltaPp: number;
+  key:      string;
+  label:    string;
+  /** Posts carrying this tag. */
+  posts:    number;
+  /** Total views of those posts (not split across their other tags). */
+  views:    number;
+  /** views / posts: how posts on this tag perform. */
+  avgViews: number;
+  /** Share of all tag uses in the period, 0..1: what the account posts about. */
+  share:    number;
+  /** Change in share vs the previous period, in percentage points. Null
+   *  when the previous period has nothing to compare with. */
+  deltaPp:  number | null;
 }
 
 export interface ContentBreakdown {
   totalPosts:         number;
+  /** Posts with at least one tag in this dimension. */
+  taggedPosts:        number;
+  /** Posts not tagged yet (left out of the shares). */
+  untaggedPosts:      number;
   avgViewsPerPost:    number;
   totalViews:         number;
   /** % change of total views vs the previous period. */
   totalViewsDeltaPct: number;
-  /** Sorted by views, descending. */
+  /** Sorted by share, descending. */
   slices:             ContentSlice[];
 }
 

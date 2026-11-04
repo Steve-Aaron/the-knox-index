@@ -28,7 +28,7 @@ export interface SliceGroups {
 }
 
 export function groupSlices(slices: ContentSlice[]): SliceGroups {
-  // Slices arrive sorted by views, so the named ones are always a prefix.
+  // Slices arrive sorted by share, so the named ones are always a prefix.
   let n = 0;
   while (n < slices.length && n < MAX_NAMED_SLICES && slices[n].share >= NAMED_MIN) n++;
 
