@@ -5,10 +5,11 @@
  *
  * GET /api/leagues?range=yesterday|week|month|year|lifetime
  *   → { styles: { label, count }[], topics: { label, count }[],
- *       rising: { label, cur, prev, gain, ratio }[] | null }
+ *       rising: RisingTopic[] | null, risingImpact: RisingTopic[] | null }
  *
- * `rising` compares each topic (most specific tag) with the period before;
- * null on lifetime, which has no period before it.
+ * `rising` compares each topic's posts (most specific tag) with the period
+ * before; `risingImpact` compares the views on those posts. Both null on
+ * lifetime, which has no period before it.
  *
  * Counts every matching post in the selected range via GROUP BY in BigQuery —
  * NOT the paginated feed. This is what lets the Style League / Topic Cloud
@@ -23,7 +24,7 @@ import { guardTenant } from '@/lib/tenantGuard';
 import { parseRange, prevRangeDateFilter, rangeDateFilter } from '@/lib/bqQueries';
 import { safeErrorDetail } from '@/lib/errors';
 import { buildXRisingTopicsSQL, buildXTopicsSQL } from '@/lib/xQueries';
-import { rankRising, type TopicPeriodCount } from '@/lib/rising';
+import { rankRising, rankRisingImpact, type TopicPeriodCount } from '@/lib/rising';
 import { tiktokTopicAliasSql } from '@/lib/topicAliases';
 import { parsePlatformFilter } from '@/lib/platforms';
 
@@ -58,19 +59,26 @@ const TOPICS_SQL = (dashboardId: number, dateFilter: string) => `
   ORDER BY count DESC
 `;
 
-// Posts per topic this period and the one before, at the most specific tag on
-// the final list (a subtopic, or the parent when only that is tagged).
+// Posts and views per topic this period and the one before, at the most
+// specific tag on the final list (a subtopic, or the parent when only that is
+// tagged). Each post counts once per topic, even when two old TikTok topics
+// match the same final one.
 const RISING_SQL = (dashboardId: number, cur: string, prev: string) => `
-  SELECT nt.name AS label,
-    COUNT(DISTINCT IF(${cur}, p.postId, NULL))  AS cur,
-    COUNT(DISTINCT IF(${prev}, p.postId, NULL)) AS prev
-  FROM ${postWeb(dashboardId)} p
-  JOIN ${tableRef('post_x_topic')} pt ON p.postId = pt.postId
-  JOIN ${tableRef('topic')} ot ON ot.id = pt.topicId
-  LEFT JOIN ${tiktokTopicAliasSql()} al ON al.old_name = UPPER(ot.name)
-  JOIN ${metadataRef('topic')} nt ON nt.name = COALESCE(al.new_name, UPPER(ot.name))
-  WHERE p.videoSummary IS NOT NULL
-    AND ((${cur}) OR (${prev}))
+  SELECT label,
+    COUNT(IF(isCur, postId, NULL))       AS cur,
+    COUNT(IF(NOT isCur, postId, NULL))   AS prev,
+    SUM(IF(isCur, views, 0))             AS curViews,
+    SUM(IF(NOT isCur, views, 0))         AS prevViews
+  FROM (
+    SELECT DISTINCT nt.name AS label, p.postId, COALESCE(p.views, 0) AS views, (${cur}) AS isCur
+    FROM ${postWeb(dashboardId)} p
+    JOIN ${tableRef('post_x_topic')} pt ON p.postId = pt.postId
+    JOIN ${tableRef('topic')} ot ON ot.id = pt.topicId
+    LEFT JOIN ${tiktokTopicAliasSql()} al ON al.old_name = UPPER(ot.name)
+    JOIN ${metadataRef('topic')} nt ON nt.name = COALESCE(al.new_name, UPPER(ot.name))
+    WHERE p.videoSummary IS NOT NULL
+      AND ((${cur}) OR (${prev}))
+  )
   GROUP BY label
 `;
 
@@ -118,7 +126,8 @@ export async function GET(request: Request): Promise<Response> {
       {
         styles: clean(styleRows),
         topics: clean(topicRows),
-        rising: hasPrevious ? rankRising([...tiktokRising, ...xRising], 8) : null,
+        rising:      hasPrevious ? rankRising([...tiktokRising, ...xRising], 8) : null,
+        risingImpact: hasPrevious ? rankRisingImpact([...tiktokRising, ...xRising], 8) : null,
       },
       { headers: { 'Cache-Control': 'private, max-age=1800, stale-while-revalidate=120' } },
     );

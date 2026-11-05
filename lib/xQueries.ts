@@ -382,22 +382,27 @@ export function buildXFollowerGrowthSQL(dashboardId: number, startFilter: string
 }
 
 /**
- * Posts per topic over X posts in range and in the period before it, at the
- * most specific tag (a subtopic, or the parent when only that is tagged), for
- * rising topics: { label, cur, prev }.
+ * Posts and views per topic over X posts in range and in the period before
+ * it, at the most specific tag (a subtopic, or the parent when only that is
+ * tagged), for rising topics: { label, cur, prev, curViews, prevViews }.
  */
 export function buildXRisingTopicsSQL(dashboardId: number, range: Range): string {
   const cur = rangeDateFilter(range);
   const prev = prevRangeDateFilter(range);
   return `
   WITH ${xBaseCtes(dashboardId)}
-  SELECT tn.name AS label,
-    COUNT(DISTINCT IF(${cur}, p.postId, NULL))  AS cur,
-    COUNT(DISTINCT IF(${prev}, p.postId, NULL)) AS prev
-  FROM own p
-  JOIN ${X('post_x_topic')} t ON t.postId = p.postId
-  JOIN ${META('topic')} tn ON tn.id = t.topic_id
-  WHERE (${cur}) OR (${prev})
+  SELECT label,
+    COUNT(IF(isCur, postId, NULL))       AS cur,
+    COUNT(IF(NOT isCur, postId, NULL))   AS prev,
+    SUM(IF(isCur, views, 0))             AS curViews,
+    SUM(IF(NOT isCur, views, 0))         AS prevViews
+  FROM (
+    SELECT DISTINCT tn.name AS label, p.postId, COALESCE(p.views, 0) AS views, (${cur}) AS isCur
+    FROM own p
+    JOIN ${X('post_x_topic')} t ON t.postId = p.postId
+    JOIN ${META('topic')} tn ON tn.id = t.topic_id
+    WHERE (${cur}) OR (${prev})
+  )
   GROUP BY label
 `;
 }

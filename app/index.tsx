@@ -285,7 +285,7 @@ function DashboardScreenInner() {
     ? politicians.find(p => p.handle.replace(/^@+/, '').toLowerCase() === feedFilters.profile)?.personId ?? null
     : null;
   const { posts, loading: postsLoading, loadingMore: postsLoadingMore, hasMore: postsHasMore, error: postsError, loadMore: loadMorePosts, total: postsTotal } = usePostsData(range, postsSortKey, { ...feedFilters, platform, person: selectedPersonId });
-  const { topics: topicCounts, rising: risingTopics } = useLeagues(range, platform);
+  const { topics: topicCounts, rising: risingTopics, risingImpact } = useLeagues(range, platform);
   const { growth, loading: growthLoading } = useGrowth(range, platform);
   const { benchmarks, byPlatform: benchmarksByPlatform } = useBenchmarks();
 
@@ -704,7 +704,7 @@ function DashboardScreenInner() {
             <View style={styles.insightsCol}>
               {/* Lifetime has no period before it, so it keeps the subject counts */}
               {risingTopics ? (
-                <RisingTopics rising={risingTopics} rangeLabel={RANGE_LABELS[range]} prevLabel={PREV_LABELS[range]} />
+                <RisingTopics rising={risingTopics} risingImpact={risingImpact ?? []} rangeLabel={RANGE_LABELS[range]} prevLabel={PREV_LABELS[range]} />
               ) : (
                 <TopicCloud posts={posts} counts={topicCounts} rangeLabel={RANGE_LABELS[range]} />
               )}
