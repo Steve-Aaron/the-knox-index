@@ -4,7 +4,7 @@ import { TimeRangePicker } from '@/components/dashboard/TimeRangePicker';
 import { PlatformLogoFilter } from '@/components/primitives/PlatformLogoFilter';
 import { DevLabel } from '@/components/primitives/DevLabel';
 import { spacing } from '@/theme/spacing';
-import type { AccountKpis, AccountPlatform, SocialPlatform, TimeRange } from '@/data/account/types';
+import type { AccountKpis, FollowerGrowth, AccountPlatform, SocialPlatform, TimeRange } from '@/data/account/types';
 import { KpiStrip } from './KpiStrip';
 
 /**
@@ -24,6 +24,7 @@ interface Props {
   /** Platforms with data. The filter is hidden until there are two. */
   platforms:        SocialPlatform[];
   kpis:             AccountKpis;
+  followerGrowth:   FollowerGrowth | null;
   compact?:         boolean;
   /** A new range or platform is loading; the numbers shown are the old ones. */
   updating?:        boolean;
@@ -36,6 +37,7 @@ export function OverviewPanel({
   onPlatformChange,
   platforms,
   kpis,
+  followerGrowth,
   compact = false,
   updating = false,
 }: Props) {
@@ -53,7 +55,7 @@ export function OverviewPanel({
         />
       ) : null}
       <View style={[styles.kpis, updating && styles.updating]}>
-        <KpiStrip kpis={kpis} compact={compact} />
+        <KpiStrip kpis={kpis} followerGrowth={followerGrowth} compact={compact} />
       </View>
     </View>
   );

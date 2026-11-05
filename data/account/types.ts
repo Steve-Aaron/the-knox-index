@@ -61,8 +61,35 @@ export interface KeyStatRank {
   id:    string;
   /** Peer group the rank is computed in, e.g. 'Among accounts of the same type'. */
   label: string;
+  /** Short tab name for the standings card, e.g. 'Party'. */
+  short: string;
   rank:  number;
   total: number;
+  /** The account and the accounts ranked just above and below it. */
+  neighbours: StandingRow[];
+}
+
+/** One row of a standings window. */
+export interface StandingRow {
+  rank:       number;
+  name:       string;
+  /** Account page slug. */
+  slug:       string;
+  avatarUrl?: string;
+  initials:   string;
+  groupKey:   string;
+  groupLabel: string;
+  knoxFactor: number;
+  isTarget:   boolean;
+}
+
+/** Followers gained over the period, TikTok and X added together. */
+export interface FollowerGrowth {
+  gained: number;
+  /** gained / start, 0..n. */
+  pct:    number;
+  /** First snapshot used, YYYY-MM-DD. */
+  since:  string;
 }
 
 // ── Period-scoped data ───────────────────────────────────────────────────────
@@ -143,6 +170,8 @@ export interface AccountPost {
 
 export interface AccountPeriodData {
   kpis:    AccountKpis;
+  /** Null when there is no snapshot near the start of the period. */
+  followerGrowth: FollowerGrowth | null;
   /** One entry per platform shown on the radar. */
   radar:   Partial<Record<SocialPlatform, RadarScores>>;
   content: Record<ContentDimension, ContentBreakdown>;

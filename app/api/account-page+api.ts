@@ -34,6 +34,7 @@ import { buildXAccountsSQL, buildXAccountPagePostsSQL, buildXLastPostDateSQL } f
 import { signTweetMedia } from '@/lib/xPosts';
 import { mergeByPerson } from '@/lib/platformMerge';
 import { parsePlatformFilter } from '@/lib/platforms';
+import { followerSnapshots, mergeByPerson as mergeGrowth } from '@/lib/followerGrowth';
 import type { Politician } from '@/data/types';
 
 export async function GET(request: Request): Promise<Response> {
@@ -87,15 +88,23 @@ export async function GET(request: Request): Promise<Response> {
     //    latest post date, from each platform in the filter.
     const tiktokHandle = tiktokRow ? sanitiseHandle(tiktokRow.handle) : '';
     const person = { person: hit.personId ?? '' };
-    const [tiktokPosts, xPosts, tiktokLast, xLast] = await Promise.all([
+    const [tiktokPosts, xPosts, tiktokLast, xLast, snapshots] = await Promise.all([
       tiktokRow && inFilter('tiktok') ? query<BQAccountPagePostRow>(buildAccountPagePostsSQL(dashboardId, tiktokHandle, range)) : [],
       xRow && inFilter('x') ? queryParams<BQAccountPagePostRow>(buildXAccountPagePostsSQL(dashboardId, range), person) : [],
       tiktokRow && inFilter('tiktok') ? query<{ lastPostDate: string | null }>(buildLastPostDateSQL(dashboardId, tiktokHandle)) : [],
       xRow && inFilter('x') ? queryParams<{ lastPostDate: string | null }>(buildXLastPostDateSQL(dashboardId), person) : [],
+      followerSnapshots(dashboardId, range, { tiktok: !!tiktokRow && inFilter('tiktok'), x: !!xRow && inFilter('x') }),
     ]);
     const lastPostDate = [tiktokLast[0]?.lastPostDate, xLast[0]?.lastPostDate].filter(Boolean).sort().pop() ?? null;
 
     const period = buildPeriod(politician, [...tiktokPosts, ...xPosts], platformRows);
+
+    // Followers gained: this person's accounts in the filter, added together
+    const ownIds = new Set(platformRows.map(r => String(r.id)));
+    const growth = mergeGrowth(snapshots.filter(r => (hit.personId && r.personId === hit.personId) || ownIds.has(String(r.accountId))))[0];
+    period.followerGrowth = growth ? { gained: growth.gain, pct: growth.pct, since: growth.since } : null;
+
+    const keyStats = buildKeyStats(politician, all, tenant.grouping.mode);
 
     await Promise.all([
       ...period.posts.map(async (post, i) => {
@@ -105,12 +114,15 @@ export async function GET(request: Request): Promise<Response> {
       (async () => {
         if (politician.avatarUrl) politician.avatarUrl = await signGcsUrl(politician.avatarUrl);
       })(),
+      ...keyStats.flatMap(k => k.neighbours).map(async row => {
+        if (row.avatarUrl) row.avatarUrl = await signGcsUrl(row.avatarUrl);
+      }),
     ]);
 
     const body: AccountPageApiResponse = {
       profile:   buildProfile(politician, all, lastPostDate),
       platforms: available,
-      keyStats:  buildKeyStats(politician, all, tenant.grouping.mode),
+      keyStats,
       period,
     };
 

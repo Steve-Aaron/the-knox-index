@@ -11,7 +11,7 @@ import { type } from '@/theme/typography';
 import { AccountPageHeader } from './AccountPageHeader';
 import { ACCOUNT_LAYOUT, useAccountLayout } from './layout/accountLayout';
 import { ProfileCard } from './profile/ProfileCard';
-import { KeyStatsCard } from './keyStats/KeyStatsCard';
+import { StandingsCard } from './keyStats/StandingsCard';
 import { OverviewPanel } from './overview/OverviewPanel';
 import { PerformanceCard } from './performance/PerformanceCard';
 import { ContentCard } from './content/ContentCard';
@@ -24,9 +24,9 @@ import { BestPostsCard } from './posts/BestPostsCard';
  * Full account page for one handle. Owns the page-level filters (range,
  * platform), pulls data once, and lays the widgets out per breakpoint:
  *
- *   desktop  side column (profile, key stats) | main column (overview,
+ *   desktop  side column (profile, standings) | main column (overview,
  *            performance + content side by side, best posts)
- *   tablet   profile + key stats in a row, everything else stacked
+ *   tablet   profile + standings in a row, everything else stacked
  *   mobile   single column
  *
  * One job: layout + filter state. Widgets render their own content.
@@ -69,7 +69,7 @@ export function AccountScreen({ handle }: Props) {
               <ProfileCard profile={profile} height={widgetHeight} />
             </View>
             <View style={isTablet ? styles.half : undefined}>
-              <KeyStatsCard stats={keyStats} />
+              <StandingsCard stats={keyStats} />
             </View>
           </View>
 
@@ -83,6 +83,7 @@ export function AccountScreen({ handle }: Props) {
               onPlatformChange={setPlatform}
               platforms={data.platforms}
               kpis={period.kpis}
+              followerGrowth={period.followerGrowth}
               compact={isMobile}
               updating={loading}
             />

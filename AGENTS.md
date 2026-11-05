@@ -45,7 +45,7 @@ The proxy handler lives at `app/api/mp/[...path]+api.ts` and forwards all method
 |---|---|
 | 1. Session lifecycle | `session_started`, `session_ended`, `session_resumed` |
 | 2. Data load performance | `data_loaded` (time_to_load_ms), `data_load_failed` |
-| 3. Politician engagement | `politician_selected`, `politician_dwell` (dwell_ms) |
+| 3. Politician engagement | `politician_selected`, `politician_dwell` (dwell_ms), `standings_group_changed` (group, old_group, rank, total) |
 | 4. Filter interactions | `filter_changed` (filter_type, old_value, new_value, result_count), `rising_topics_mode_changed` (mode, old_mode) |
 | 5. Sort interactions | `sort_changed` (sort_key, old_sort_key) |
 | 6. Post card & video | `post_card_opened`, `video_opened`, `tiktok_link_tapped` |

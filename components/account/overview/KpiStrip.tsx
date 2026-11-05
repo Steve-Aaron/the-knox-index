@@ -5,26 +5,30 @@ import { useLayoutWidth } from '@/hooks/useLayoutWidth';
 import { fmtCount } from '@/lib/format';
 import { accent, knox, party } from '@/theme/colors';
 import { spacing } from '@/theme/spacing';
-import type { AccountKpis } from '@/data/account/types';
+import type { AccountKpis, FollowerGrowth } from '@/data/account/types';
 import { KpiStat } from './KpiStat';
 
 /**
  * KpiStrip
  * ---------
- * The five headline numbers for the selected range + platform. A grid of
- * equal columns: as many as fit (up to five), the rest wrap onto the next
- * row in the same columns. Figures step down a size in narrow cells before
- * anything wraps. A single centred column on mobile.
+ * The headline numbers for the selected range + platform, including
+ * followers gained over the period. One row of equal columns: the figures
+ * shrink to fit the cell before anything wraps, and only below
+ * MIN_COLUMN do the rest wrap onto a second row. A single centred column on
+ * mobile.
  *
  * One job: lay out the KPI set.
  */
 interface Props {
-  kpis:     AccountKpis;
-  compact?: boolean;
+  kpis:            AccountKpis;
+  followerGrowth?: FollowerGrowth | null;
+  compact?:        boolean;
 }
 
+type KpiKey = keyof AccountKpis | 'newFollowers';
+
 interface KpiDef {
-  key:       keyof AccountKpis;
+  key:       KpiKey;
   label:     string;
   color:     string;
   format:    (n: number) => string;
@@ -44,6 +48,10 @@ const KPI_DEFS: KpiDef[] = [
     infoText: 'Current follower count across the selected platforms.',
   },
   {
+    key: 'newFollowers', label: 'New followers', color: '#3DDC97', format: n => `${n >= 0 ? '+' : ''}${fmtCount(n)}`,
+    infoText: 'Followers gained over the period on the selected platforms: the latest follower count against the one at the start of the period. TikTok counts are daily; X counts are daily from 1 November 2026.',
+  },
+  {
     key: 'avgViewsPerPost', label: 'Avg views / post', color: knox.secondaryOrange, format: fmtCount,
     infoText: 'Total views in the period divided by the number of posts.',
   },
@@ -57,18 +65,36 @@ const KPI_DEFS: KpiDef[] = [
   },
 ];
 
-/** Narrowest cell for a full-size (56px) figure like '496.6K'. */
-const FULL_COLUMN = 210;
-/** Narrowest cell at all: the figure drops to 48px. */
-const MIN_COLUMN = 172;
-const GAP = spacing.xl;
+/** Figure size bounds; it scales with the cell in between. */
+const MAX_FIGURE = 56;
+const MIN_FIGURE = 30;
+/** A cell at least this wide keeps every KPI on one row. */
+const MIN_COLUMN = 128;
+const GAP = spacing.lg;
 
-export function KpiStrip({ kpis, compact = false }: Props) {
+function fmtSince(iso: string): string {
+  return new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+}
+
+export function KpiStrip({ kpis, followerGrowth = null, compact = false }: Props) {
   const [width, onLayout] = useLayoutWidth();
-  const columns = Math.max(1, Math.min(KPI_DEFS.length, Math.floor((width + GAP) / (MIN_COLUMN + GAP))));
+  const n = KPI_DEFS.length;
+  const columns = Math.max(1, Math.min(n, Math.floor((width + GAP) / (MIN_COLUMN + GAP))));
   const cellWidth = (width - GAP * (columns - 1)) / columns;
+  // A 6-character figure like '496.6K' is about 3.7em wide in the mono face
+  const figure = Math.round(Math.max(MIN_FIGURE, Math.min(MAX_FIGURE, cellWidth / 3.8)));
   // Until measured, share the row equally.
   const cell = width > 0 ? { width: cellWidth } : styles.cellUnmeasured;
+
+  const valueOf = (key: KpiKey): number | null =>
+    key === 'newFollowers' ? followerGrowth?.gained ?? null : kpis[key];
+
+  const sublabelOf = (def: KpiDef): string | undefined => {
+    if (def.key !== 'newFollowers') return def.sublabel;
+    if (!followerGrowth) return 'no count at the start of the period';
+    const pct = followerGrowth.pct * 100;
+    return `${pct >= 0 ? '+' : ''}${pct.toFixed(1)}% since ${fmtSince(followerGrowth.since)}`;
+  };
 
   return (
     <View style={[styles.row, compact && styles.column]} onLayout={onLayout}>
@@ -76,15 +102,15 @@ export function KpiStrip({ kpis, compact = false }: Props) {
       {KPI_DEFS.map(def => (
         <KpiStat
           key={def.key}
-          value={kpis[def.key]}
+          value={valueOf(def.key)}
           format={def.format}
           decimals={def.decimals}
           label={def.label}
           color={def.color}
           infoText={def.infoText}
-          sublabel={def.sublabel}
+          sublabel={sublabelOf(def)}
           compact={compact}
-          small={width > 0 && cellWidth < FULL_COLUMN}
+          figureSize={compact ? undefined : figure}
           style={compact ? undefined : cell}
         />
       ))}

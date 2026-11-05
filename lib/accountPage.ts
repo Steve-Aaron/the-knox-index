@@ -21,6 +21,7 @@ import type {
   ContentDimension,
   ContentSlice,
   KeyStatRank,
+  StandingRow,
 } from '@/data/account/types';
 import { postEngagementRate } from '@/lib/postMetrics';
 import { toTweetData, type RawTweet } from '@/lib/xPosts';
@@ -95,10 +96,46 @@ function primaryType(p: Politician): AccountType | undefined {
   return TYPE_PRIORITY.find(t => types.includes(t)) ?? types[0];
 }
 
-/** Rank by Knox Factor inside one peer group (the target is always a member). */
-function rankWithin(id: KeyStatRank['id'], label: string, target: Politician, peers: Politician[]): KeyStatRank {
+/** Standings tab name for each account type. */
+const TYPE_TAB: Partial<Record<AccountType, string>> = {
+  prime_minister:          'Leaders',
+  party_leader:            'Leaders',
+  cabinet_minister:        'Cabinet',
+  shadow_cabinet_minister: 'Shadow cabinet',
+  member_of_parliament:    'MPs',
+  council:                 'Councils',
+  political_party:         'Party pages',
+};
+
+/** Rows shown either side of the account in a standings window. */
+const WINDOW_EACH_SIDE = 2;
+
+function standingRow(p: Politician, rank: number, target: Politician): StandingRow {
+  return {
+    rank,
+    name:       p.name,
+    slug:       p.slug ?? p.handle.replace(/^@/, ''),
+    avatarUrl:  p.avatarUrl,
+    initials:   p.avatarInitials,
+    groupKey:   p.groupKey,
+    groupLabel: p.groupLabel,
+    knoxFactor: p.scores.knoxFactor,
+    isTarget:   p.id === target.id,
+  };
+}
+
+/**
+ * Rank by Knox Factor inside one peer group (the target is always a member),
+ * with the accounts just above and below. The window keeps five rows at the
+ * top and bottom of the table by shifting rather than shrinking.
+ */
+function rankWithin(id: KeyStatRank['id'], label: string, short: string, target: Politician, peers: Politician[]): KeyStatRank {
   const sorted = [...peers].sort((a, b) => b.scores.knoxFactor - a.scores.knoxFactor);
-  return { id, label, rank: sorted.findIndex(p => p.id === target.id) + 1, total: sorted.length };
+  const at = sorted.findIndex(p => p.id === target.id);
+  const size = WINDOW_EACH_SIDE * 2 + 1;
+  const start = Math.max(0, Math.min(at - WINDOW_EACH_SIDE, sorted.length - size));
+  const neighbours = sorted.slice(start, start + size).map((p, i) => standingRow(p, start + i + 1, target));
+  return { id, label, short, rank: at + 1, total: sorted.length, neighbours };
 }
 
 /**
@@ -110,27 +147,32 @@ function rankWithin(id: KeyStatRank['id'], label: string, target: Politician, pe
 export function buildKeyStats(target: Politician, all: Politician[], grouping: GroupingMode): KeyStatRank[] {
   const stats: KeyStatRank[] = [];
 
+  stats.push(rankWithin(
+    grouping === 'region' ? 'same_region' : 'same_party',
+    grouping === 'region' ? 'Among accounts from the same region' : 'Among accounts from the same party',
+    grouping === 'region' ? 'Region' : 'Party',
+    target,
+    all.filter(p => p.groupKey === target.groupKey),
+  ));
+
+  stats.push(rankWithin('all', 'Among all tracked accounts', 'All', target, all));
+
+  // 'other' is the fallback type, so on a dashboard without a taxonomy
+  // (World Leaders) the type group is everyone: leave it out there.
   const type = primaryType(target);
-  if (type) {
-    // 'other' is the fallback type, so on a dashboard without a taxonomy
-    // (World Leaders) this group is everyone: say so rather than 'same type'.
-    const label = type === 'other' ? 'Among all tracked accounts' : 'Among accounts of the same type';
-    stats.push(rankWithin('same_type', label, target, all.filter(p => primaryType(p) === type)));
+  if (type && type !== 'other') {
+    const typeTab = rankWithin('same_type', 'Among accounts of the same type', TYPE_TAB[type] ?? 'Type', target, all.filter(p => primaryType(p) === type));
+    // A party's own page compares first with other party pages
+    if (type === 'political_party') stats.unshift(typeTab); else stats.push(typeTab);
   }
 
   const f = target.totals.followers;
   stats.push(rankWithin(
     'same_followers',
     'Among accounts with a similar number of followers',
+    'Size',
     target,
     all.filter(p => p.id === target.id || (p.totals.followers >= f / 2 && p.totals.followers <= f * 2)),
-  ));
-
-  stats.push(rankWithin(
-    grouping === 'region' ? 'same_region' : 'same_party',
-    grouping === 'region' ? 'Among accounts from the same region' : 'Among accounts from the same party',
-    target,
-    all.filter(p => p.groupKey === target.groupKey),
   ));
 
   return stats;
@@ -331,6 +373,8 @@ export function buildPeriod(
 
   return {
     kpis:  buildKpis(current, followers),
+    // Filled in by the route, which reads the follower snapshots
+    followerGrowth: null,
     radar,
     content: {
       type:     buildBreakdown(current, previous, CONTENT_TAGS.type),

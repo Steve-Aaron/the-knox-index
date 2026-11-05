@@ -15,7 +15,8 @@ import { font, type, weight } from '@/theme/typography';
  * One job: present a single KPI.
  */
 interface Props {
-  value:    number;
+  /** Null shows 'n/a': no data for the period. */
+  value:    number | null;
   format:   (n: number) => string;
   /** Decimal places kept while counting. Default 0. */
   decimals?: number;
@@ -24,21 +25,26 @@ interface Props {
   infoText: string;
   sublabel?: string;
   compact?:  boolean;
-  /** Smaller figure for a narrow grid cell. */
-  small?:    boolean;
+  /** Figure font size from the parent grid; defaults to the full size. */
+  figureSize?: number;
   /** Cell size from the parent grid. */
   style?:    ViewStyle;
 }
 
-export function KpiStat({ value, format, decimals, label, color, infoText, sublabel, compact = false, small = false, style }: Props) {
+export function KpiStat({ value, format, decimals, label, color, infoText, sublabel, compact = false, figureSize, style }: Props) {
+  const sized = figureSize ? { fontSize: figureSize, lineHeight: Math.round(figureSize * 1.15) } : null;
   return (
     <View style={[styles.wrap, compact && styles.wrapCompact, style]}>
-      <CountUp
-        value={value}
-        decimals={decimals}
-        format={format}
-        style={[styles.value, (compact || small) && styles.valueCompact, { color }]}
-      />
+      {value == null ? (
+        <Text style={[styles.value, compact && styles.valueCompact, sized, styles.valueEmpty]}>n/a</Text>
+      ) : (
+        <CountUp
+          value={value}
+          decimals={decimals}
+          format={format}
+          style={[styles.value, compact && styles.valueCompact, sized, { color }]}
+        />
+      )}
       <View style={styles.labelRow}>
         <Text style={styles.label}>{label}</Text>
         <InfoTip text={infoText} />
@@ -67,6 +73,9 @@ const styles = StyleSheet.create({
     lineHeight:    64,
     letterSpacing: -1,
   },
+  valueEmpty: {
+    color: neutral.textDim,
+  },
   valueCompact: {
     fontSize:   48,
     lineHeight: 56,
@@ -78,8 +87,9 @@ const styles = StyleSheet.create({
   },
   label: {
     ...type.caption,
-    fontSize: 12,
-    color:    neutral.textMid,
+    fontSize:   12,
+    color:      neutral.textMid,
+    flexShrink: 1,
   },
   sublabel: {
     ...type.body,
