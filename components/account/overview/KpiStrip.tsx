@@ -67,10 +67,10 @@ const KPI_DEFS: KpiDef[] = [
 
 /** Figure size bounds; it scales with the cell in between. */
 const MAX_FIGURE = 56;
-const MIN_FIGURE = 30;
+const MIN_FIGURE = 22;
 /** A cell at least this wide keeps every KPI on one row. */
-const MIN_COLUMN = 128;
-const GAP = spacing.lg;
+const MIN_COLUMN = 88;
+const GAP = spacing.md;
 
 function fmtSince(iso: string): string {
   return new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' });
@@ -81,8 +81,8 @@ export function KpiStrip({ kpis, followerGrowth = null, compact = false }: Props
   const n = KPI_DEFS.length;
   const columns = Math.max(1, Math.min(n, Math.floor((width + GAP) / (MIN_COLUMN + GAP))));
   const cellWidth = (width - GAP * (columns - 1)) / columns;
-  // A 6-character figure like '496.6K' is about 3.7em wide in the mono face
-  const figure = Math.round(Math.max(MIN_FIGURE, Math.min(MAX_FIGURE, cellWidth / 3.8)));
+  // A 6-character figure like '135.6K' is about 3.7em wide in the mono face
+  const figure = Math.round(Math.max(MIN_FIGURE, Math.min(MAX_FIGURE, cellWidth / 4)));
   // Until measured, share the row equally.
   const cell = width > 0 ? { width: cellWidth } : styles.cellUnmeasured;
 
