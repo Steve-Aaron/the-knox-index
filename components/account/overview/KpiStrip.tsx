@@ -83,8 +83,11 @@ export function KpiStrip({ kpis, followerGrowth = null, compact = false }: Props
   const cellWidth = (width - GAP * (columns - 1)) / columns;
   // A 6-character figure like '135.6K' is about 3.7em wide in the mono face
   const figure = Math.round(Math.max(MIN_FIGURE, Math.min(MAX_FIGURE, cellWidth / 4)));
-  // Until measured, share the row equally.
-  const cell = width > 0 ? { width: cellWidth } : styles.cellUnmeasured;
+  // All on one row: the cells share it equally and cannot spill over (fixed
+  // pixel widths from a rounded measurement could overshoot by a fraction
+  // and wrap the last one). Narrower: fixed-width cells wrap in columns.
+  const oneRow = width === 0 || columns === n;
+  const cell = oneRow ? styles.cellShare : { width: Math.floor(cellWidth) };
 
   const valueOf = (key: KpiKey): number | null =>
     key === 'newFollowers' ? followerGrowth?.gained ?? null : kpis[key];
@@ -97,7 +100,7 @@ export function KpiStrip({ kpis, followerGrowth = null, compact = false }: Props
   };
 
   return (
-    <View style={[styles.row, compact && styles.column]} onLayout={onLayout}>
+    <View style={[styles.row, !compact && oneRow && styles.rowOne, compact && styles.column]} onLayout={onLayout}>
       <DevLabel name="KpiStrip" />
       {KPI_DEFS.map(def => (
         <KpiStat
@@ -125,8 +128,13 @@ const styles = StyleSheet.create({
     rowGap:        GAP,
     columnGap:     GAP,
   },
-  cellUnmeasured: {
-    flex: 1,
+  rowOne: {
+    flexWrap: 'nowrap',
+  },
+  cellShare: {
+    flex:     1,
+    flexBasis: 0,
+    minWidth: 0,
   },
   column: {
     flexDirection: 'column',
