@@ -10,8 +10,9 @@ import type { PlatformFilter, SocialPlatform } from '@/lib/platforms';
  * PlatformLogoFilter
  * -------------------
  * The platform filter as a row of circular logos: 'All', then one circle per
- * platform. A platform that is in the current view is drawn in its brand
- * white on black; one that is not is greyed out. 'All' lights every platform.
+ * platform. A platform in the current view is drawn as a plain white mark;
+ * one that is not is greyed out. 'All' lights every platform. Facebook and
+ * Instagram follow, greyed and not pressable, until they are tracked.
  * Used on the dashboard and the account page.
  *
  * One job: pick a platform filter value, showing which platforms are in view.
@@ -26,28 +27,29 @@ interface Props {
 
 const SIZE = 36;
 
-// Both marks sit white on black, as the platforms draw them
-const BRAND: Record<SocialPlatform, { name: string; glyph: string }> = {
-  tiktok: { name: 'TikTok', glyph: 'tiktok' },
-  x:      { name: 'X',      glyph: 'x-twitter' },
+type Logo = SocialPlatform | 'facebook' | 'instagram';
+
+// Plain white marks on the page background, no brand-colour offsets
+const BRAND: Record<Logo, { name: string; glyph: string; fallback: string }> = {
+  tiktok:    { name: 'TikTok',    glyph: 'tiktok',     fallback: '♪' },
+  x:         { name: 'X',         glyph: 'x-twitter',  fallback: 'X' },
+  facebook:  { name: 'Facebook',  glyph: 'facebook-f', fallback: 'f' },
+  instagram: { name: 'Instagram', glyph: 'instagram',  fallback: 'IG' },
 };
 
-// TikTok's mark carries its cyan and pink offset; text-shadow draws it on web
-const TIKTOK_SHADOW = '-1.5px -1px 0 #25F4EE, 1.5px 1px 0 #FE2C55';
+/** Shown greyed out after the live platforms: not tracked yet. */
+const COMING_SOON: readonly Logo[] = ['facebook', 'instagram'];
 
-function Glyph({ platform, on }: { platform: SocialPlatform; on: boolean }) {
-  const brand = BRAND[platform];
+function Glyph({ logo, on }: { logo: Logo; on: boolean }) {
+  const brand = BRAND[logo];
+  const color = on ? '#FFFFFF' : neutral.textDim;
   if (Platform.OS !== 'web') {
-    return <Text style={[styles.fallback, { color: on ? '#FFFFFF' : neutral.textDim }]}>{platform === 'x' ? 'X' : '♪'}</Text>;
+    return <Text style={[styles.fallback, { color }]}>{brand.fallback}</Text>;
   }
   return React.createElement('i', {
     className: `fa-brands fa-${brand.glyph}`,
     'aria-hidden': true,
-    style: {
-      color:      on ? '#FFFFFF' : neutral.textDim,
-      fontSize:   16,
-      textShadow: on && platform === 'tiktok' ? TIKTOK_SHADOW : 'none',
-    },
+    style: { color, fontSize: 16 },
   });
 }
 
@@ -66,7 +68,7 @@ export function PlatformLogoFilter({ platforms, value, onChange, label = 'PLATFO
         accessibilityState={{ selected: allOn }}
         style={({ pressed }) => [styles.circle, allOn ? styles.allOn : styles.off, pressed && styles.pressed]}
       >
-        <Text style={[styles.allText, allOn && styles.allTextOn]}>All</Text>
+        <Text style={[styles.allText, allOn && styles.allTextOn]}>ALL</Text>
       </Pressable>
 
       {platforms.map(p => {
@@ -86,10 +88,21 @@ export function PlatformLogoFilter({ platforms, value, onChange, label = 'PLATFO
               pressed && styles.pressed,
             ]}
           >
-            <Glyph platform={p} on={inView} />
+            <Glyph logo={p} on={inView} />
           </Pressable>
         );
       })}
+
+      {COMING_SOON.filter(l => !(platforms as readonly Logo[]).includes(l)).map(l => (
+        <View
+          key={l}
+          accessibilityLabel={`${BRAND[l].name}, coming soon`}
+          {...(Platform.OS === 'web' ? { title: `${BRAND[l].name}: coming soon` } as any : {})}
+          style={[styles.circle, styles.soon]}
+        >
+          <Glyph logo={l} on={false} />
+        </View>
+      ))}
     </View>
   );
 }
@@ -129,8 +142,14 @@ const styles = StyleSheet.create({
     opacity:         0.6,
   },
   on: {
-    backgroundColor: '#000000',
+    backgroundColor: 'transparent',
     borderColor:     'rgba(255,255,255,0.28)',
+  },
+  soon: {
+    backgroundColor: 'transparent',
+    borderColor:     glass.border,
+    opacity:         0.35,
+    ...Platform.select({ web: { cursor: 'not-allowed' } as any, default: {} }),
   },
   allOn: {
     backgroundColor: 'rgba(95,100,189,0.18)',
@@ -141,8 +160,9 @@ const styles = StyleSheet.create({
   },
   allText: {
     fontFamily: font.bold,
-    fontSize:   11,
-    color:      neutral.textDim,
+    fontSize:      10,
+    letterSpacing: 0.6,
+    color:         neutral.textDim,
   },
   allTextOn: {
     color: neutral.text,
