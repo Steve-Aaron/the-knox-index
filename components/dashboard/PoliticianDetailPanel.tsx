@@ -384,8 +384,8 @@ const styles = StyleSheet.create({
   linkRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: spacing.sm,
-    marginTop: -spacing.xs,
+    gap: spacing.md,
+    marginTop: spacing.xs,
   },
 
   // Chart
