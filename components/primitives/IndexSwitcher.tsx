@@ -9,9 +9,9 @@ import { font } from '@/theme/typography';
 /**
  * IndexSwitcher
  * --------------
- * A small segmented bar beside the Knox logo: one segment per index (UK,
- * World Leaders). The current index is highlighted; the others open that
- * index's home page on its own subdomain. Locally there is only localhost,
+ * Two separate buttons beside the Knox logo, one per index (UK, World
+ * Leaders). The current index is filled in; the other opens that index's
+ * home page on its own subdomain. Locally there is only localhost,
  * so it switches with ?tenant=<dashboard id> instead (see lib/devTenant.ts).
  *
  * Web only: each index is a separate host, which native does not have.
@@ -40,7 +40,7 @@ export function IndexSwitcher({ compact = false }: Props) {
   };
 
   return (
-    <View style={styles.bar} accessibilityRole="tablist">
+    <View style={[styles.row, compact && styles.rowCompact]} accessibilityRole="tablist">
       {TENANTS.map(t => {
         const active = t.id === current.id;
         return (
@@ -68,35 +68,38 @@ export function IndexSwitcher({ compact = false }: Props) {
 }
 
 const styles = StyleSheet.create({
-  bar: {
-    flexDirection:   'row',
-    alignItems:      'center',
-    padding:         3,
-    gap:             2,
-    borderRadius:    999,
-    borderWidth:     1,
-    borderColor:     glass.border,
-    backgroundColor: glass.fill,
+  row: {
+    flexDirection: 'row',
+    alignItems:    'center',
+    gap:           8,
+  },
+  rowCompact: {
+    gap: 5,
   },
   seg: {
-    paddingVertical:   6,
+    paddingVertical:   7,
     paddingHorizontal: 14,
-    borderRadius:      999,
+    borderRadius:      8,
+    borderWidth:       1,
+    borderColor:       glass.borderHi,
+    backgroundColor:   glass.fill,
     ...Platform.select({
-      web: { cursor: 'pointer', transitionProperty: 'background-color', transitionDuration: '160ms' } as any,
+      web: { cursor: 'pointer', transitionProperty: 'background-color, border-color', transitionDuration: '160ms' } as any,
       default: {},
     }),
   },
   segCompact: {
     paddingVertical:   5,
-    paddingHorizontal: 9,
+    paddingHorizontal: 8,
   },
   segActive: {
     backgroundColor: 'rgba(95,100,189,0.28)',
+    borderColor:     accent.indigo,
     ...Platform.select({ web: { cursor: 'default' } as any, default: {} }),
   },
   segHover: {
     backgroundColor: glass.fillHi,
+    borderColor:     'rgba(255,255,255,0.28)',
   },
   label: {
     fontFamily:    font.bold,
