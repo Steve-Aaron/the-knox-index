@@ -32,6 +32,7 @@ import { type, font } from '@/theme/typography';
 import { spacing, radius } from '@/theme/spacing';
 import type { PostRecord, PostBenchmarks } from '@/data/types';
 import { track } from '@/lib/analytics';
+import { fmtTopic } from '@/lib/topicLabel';
 import { fmtLabel } from '@/lib/format';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { AdvancedFilterPanel } from './AdvancedFilterPanel';
@@ -744,7 +745,7 @@ export function PostsTable({
               ) : null}
               {topicFilter ? (
                 <Pressable onPress={() => setTopicFilter(null)} style={styles.tagFilterPill}>
-                  <Text style={styles.tagFilterPillText}>{fmtLabel(topicFilter)}</Text>
+                  <Text style={styles.tagFilterPillText}>{fmtTopic(topicFilter)}</Text>
                   <Text style={styles.polPillClose}>×</Text>
                 </Pressable>
               ) : null}

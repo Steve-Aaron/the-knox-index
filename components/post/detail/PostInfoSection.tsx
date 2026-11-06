@@ -1,6 +1,7 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { fmtDate, fmtLabel } from '@/lib/format';
+import { fmtTopic } from '@/lib/topicLabel';
 import { accent, glass, neutral } from '@/theme/colors';
 import { radius, spacing } from '@/theme/spacing';
 import { font } from '@/theme/typography';
@@ -98,7 +99,7 @@ function Tag({ label, kind, active, onPress }: {
         pressed && { opacity: 0.7 },
       ]}
     >
-      <Text style={[styles.tagText, active && styles.tagTextActive]}>{fmtLabel(label)}</Text>
+      <Text style={[styles.tagText, active && styles.tagTextActive]}>{kind === 'topic' ? fmtTopic(label) : fmtLabel(label)}</Text>
     </Pressable>
   );
 }

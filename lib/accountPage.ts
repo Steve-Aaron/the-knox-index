@@ -24,6 +24,7 @@ import type {
   StandingRow,
 } from '@/data/account/types';
 import { postEngagementRate } from '@/lib/postMetrics';
+import { fmtTopic } from '@/lib/topicLabel';
 import { toTweetData, type RawTweet } from '@/lib/xPosts';
 
 /** One row of buildAccountPagePostsSQL. */
@@ -193,10 +194,9 @@ const STANDOUT_MIN_SHARE = 0.15;
 /** Below this many tagged posts no subtopic stands out: the sample is too small. */
 const STANDOUT_MIN_SAMPLE = 10;
 
-/** 'COST_OF_LIVING' → 'Cost of living'. Drops stray HTML entities and symbols. */
+/** Stored topic or style name → display label; 'Other' when nothing is left. */
 function tagLabel(name: string): string {
-  const words = name.replace(/&[a-z]+;/gi, '').replace(/[^A-Za-z0-9_ ]/g, '').replace(/_/g, ' ').trim().toLowerCase();
-  return words ? words.charAt(0).toUpperCase() + words.slice(1) : 'Other';
+  return fmtTopic(name) || 'Other';
 }
 
 /** A standout subtopic's key keeps its parent: 'ELECTIONS/CAMPAIGNS'. */

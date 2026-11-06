@@ -8,6 +8,7 @@ import { neutral, glass, accent, secondary } from '@/theme/colors';
 import { spacing, radius } from '@/theme/spacing';
 import { type, font } from '@/theme/typography';
 import type { PostRecord } from '@/data/types';
+import { fmtTopic } from '@/lib/topicLabel';
 
 /**
  * TopicCloud
@@ -56,7 +57,7 @@ export function TopicCloud({ posts, counts, rangeLabel, topN = 24 }: Props) {
 
     const sorted = Array.from(tally.entries())
       .map(([key, count]) => ({
-        label: key.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
+        label: fmtTopic(key),
         count,
         share: count / total,
       }))

@@ -6,6 +6,7 @@ import { Kicker } from '@/components/ui/Kicker';
 import { Title } from '@/components/ui/Title';
 import { accent, glass, neutral, secondary } from '@/theme/colors';
 import { fmtCount } from '@/lib/format';
+import { fmtTopic } from '@/lib/topicLabel';
 import { track } from '@/lib/analytics';
 import { spacing, radius } from '@/theme/spacing';
 import { font, type } from '@/theme/typography';
@@ -42,12 +43,6 @@ interface Props {
   rangeLabel?: string;
   /** 'vs previous 7 days' etc. */
   prevLabel?:  string;
-}
-
-/** 'COST_OF_LIVING' → 'Cost of living'. */
-function label(name: string): string {
-  const words = name.replace(/_/g, ' ').trim().toLowerCase();
-  return words.charAt(0).toUpperCase() + words.slice(1);
 }
 
 function growth(t: RisingTopic): string {
@@ -112,7 +107,7 @@ export function RisingTopics({ rising: byPosts, risingImpact, rangeLabel, prevLa
               <Text style={styles.rank}>{i + 1}</Text>
               <View style={styles.body}>
                 <View style={styles.line}>
-                  <Text style={styles.name} numberOfLines={1}>{label(t.label)}</Text>
+                  <Text style={styles.name} numberOfLines={1}>{fmtTopic(t.label)}</Text>
                   <Text style={[styles.badge, t.ratio == null && styles.badgeNew]}>{growth(t)}</Text>
                 </View>
                 <View style={styles.track}>
