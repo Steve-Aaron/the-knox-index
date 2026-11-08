@@ -30,12 +30,17 @@ interface Props {
   rules:     Rule[];
   onChange:  (next: Rule[]) => void;
   onClose?:  () => void;
+  /** Fields offered in the field dropdown. Defaults to every field. */
+  fields?:   FieldId[];
 }
 
-export function AdvancedFilterPanel({ visible, rules, onChange, onClose }: Props) {
+export function AdvancedFilterPanel({ visible, rules, onChange, onClose, fields }: Props) {
+  const fieldOptions = fields ? FIELD_OPTIONS.filter(f => fields.includes(f.id)) : FIELD_OPTIONS;
+
+  const firstField = fieldOptions[0]?.id;
   const addRule = useCallback(() => {
-    onChange([...rules, newRule()]);
-  }, [rules, onChange]);
+    onChange([...rules, newRule(firstField)]);
+  }, [rules, onChange, firstField]);
 
   const updateRule = useCallback((id: string, patch: Partial<Rule>) => {
     onChange(rules.map(r => (r.id === id ? { ...r, ...patch } : r)));
@@ -91,6 +96,7 @@ export function AdvancedFilterPanel({ visible, rules, onChange, onClose }: Props
             key={rule.id}
             rule={rule}
             isFirst={i === 0}
+            fieldOptions={fieldOptions}
             onUpdate={patch => updateRule(rule.id, patch)}
             onRemove={() => removeRule(rule.id)}
           />
@@ -125,11 +131,12 @@ export function AdvancedFilterPanel({ visible, rules, onChange, onClose }: Props
 interface RowProps {
   rule:     Rule;
   isFirst:  boolean;
+  fieldOptions: { id: FieldId; label: string }[];
   onUpdate: (patch: Partial<Rule>) => void;
   onRemove: () => void;
 }
 
-function FilterRow({ rule, isFirst, onUpdate, onRemove }: RowProps) {
+function FilterRow({ rule, isFirst, fieldOptions, onUpdate, onRemove }: RowProps) {
   const fieldType = FIELD_META[rule.field].type;
   const ops       = opsForField(rule.field);
   const needsTwo  = rule.op === 'between';
@@ -149,7 +156,7 @@ function FilterRow({ rule, isFirst, onUpdate, onRemove }: RowProps) {
         {/* Field dropdown */}
         <SimplePicker
           value={rule.field}
-          options={FIELD_OPTIONS.map(f => ({ id: f.id, label: f.label }))}
+          options={fieldOptions.map(f => ({ id: f.id, label: f.label }))}
           onChange={v => handleFieldChange(v as FieldId)}
           width={140}
         />
