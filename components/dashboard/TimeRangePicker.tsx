@@ -22,9 +22,9 @@ import { breakpoints } from '@/theme/breakpoints';
  * month / year / lifetime are locked behind registration.
  * One job: pick a time range.
  *
- * Note: ranges are calendar periods (yesterday only, this week from Monday,
- * this month from the 1st, this year from 1 January) and map to the matching
- * server-side range in lib/bqQueries.ts.
+ * Note: ranges are yesterday only, the last 7 and 30 days (rolling) and this
+ * year from 1 January, and map to the matching server-side range in
+ * lib/bqQueries.ts.
  */
 export type TimeRange = 'yesterday' | 'week' | 'month' | 'year' | 'lifetime';
 
@@ -39,10 +39,10 @@ interface Props {
 
 const OPTIONS: { key: TimeRange; label: string }[] = [
   { key: 'yesterday', label: 'Yesterday' },
-  { key: 'week',      label: 'This week' },
-  { key: 'month',     label: 'This month' },
+  { key: 'week',      label: 'Last 7 days' },
+  { key: 'month',     label: 'Last 30 days' },
   { key: 'year',      label: 'This year' },
-  { key: 'lifetime',  label: 'Lifetime' },
+  { key: 'lifetime',  label: 'All data' },
 ];
 
 const LOCKED_RANGES = new Set<TimeRange>(['month', 'year', 'lifetime']);

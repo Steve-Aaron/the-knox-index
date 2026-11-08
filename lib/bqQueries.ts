@@ -23,14 +23,14 @@ export function parseRange(raw: string | null, defaultRange: Range = 'week'): Ra
 }
 
 /**
- * Calendar periods (UTC, as CURRENT_DATE()): yesterday only, this week from
- * Monday, this month from the 1st, this year from 1 January.
+ * UTC, as CURRENT_DATE(): yesterday only, the last 7 and 30 days (rolling),
+ * this year from 1 January.
  */
 export function rangeDateFilter(range: Range): string {
   switch (range) {
     case 'yesterday': return `postDate = DATE_SUB(CURRENT_DATE(), INTERVAL 1 DAY)`;
-    case 'week':      return `postDate >= DATE_TRUNC(CURRENT_DATE(), ISOWEEK)`;
-    case 'month':     return `postDate >= DATE_TRUNC(CURRENT_DATE(), MONTH)`;
+    case 'week':      return `postDate >= DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY)`;
+    case 'month':     return `postDate >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)`;
     case 'year':      return `EXTRACT(YEAR FROM postDate) = EXTRACT(YEAR FROM CURRENT_DATE())`;
     case 'lifetime':  return `postDate IS NOT NULL`;
   }
@@ -38,10 +38,10 @@ export function rangeDateFilter(range: Range): string {
 
 export const RANGE_LABELS: Record<Range, string> = {
   yesterday: 'Yesterday',
-  week:      'This week',
-  month:     'This month',
+  week:      'Last 7 days',
+  month:     'Last 30 days',
   year:      'This year',
-  lifetime:  'Lifetime',
+  lifetime:  'All data',
 };
 
 /**
@@ -339,16 +339,16 @@ export function buildAllAccountPostsSQL(dashboardId: number, handle: string, lim
 // ── Account page SQL ──────────────────────────────────────────────────────────
 
 /**
- * The same stretch of the previous period, for "vs prev. period" deltas: the
- * day before yesterday; last week from Monday to the same weekday; last month
- * from the 1st to the same day; last year from 1 January to the same date.
- * Lifetime has no previous period, so it matches nothing.
+ * The period before `range`, for "vs prev. period" deltas: the day before
+ * yesterday; the 7 days before the last 7 (14–7 days back); the 30 days
+ * before the last 30 (60–30 days back); last year from 1 January to the same
+ * date. Lifetime has no previous period, so it matches nothing.
  */
 export function prevRangeDateFilter(range: Range): string {
   switch (range) {
     case 'yesterday': return `postDate = DATE_SUB(CURRENT_DATE(), INTERVAL 2 DAY)`;
-    case 'week':      return `postDate >= DATE_SUB(DATE_TRUNC(CURRENT_DATE(), ISOWEEK), INTERVAL 1 WEEK) AND postDate <= DATE_SUB(CURRENT_DATE(), INTERVAL 1 WEEK)`;
-    case 'month':     return `postDate >= DATE_TRUNC(DATE_SUB(CURRENT_DATE(), INTERVAL 1 MONTH), MONTH) AND postDate <= DATE_SUB(CURRENT_DATE(), INTERVAL 1 MONTH)`;
+    case 'week':      return `postDate >= DATE_SUB(CURRENT_DATE(), INTERVAL 14 DAY) AND postDate < DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY)`;
+    case 'month':     return `postDate >= DATE_SUB(CURRENT_DATE(), INTERVAL 60 DAY) AND postDate < DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)`;
     case 'year':      return `postDate >= DATE_TRUNC(DATE_SUB(CURRENT_DATE(), INTERVAL 1 YEAR), YEAR) AND postDate <= DATE_SUB(CURRENT_DATE(), INTERVAL 1 YEAR)`;
     case 'lifetime':  return `FALSE`;
   }

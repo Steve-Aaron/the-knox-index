@@ -40,9 +40,8 @@ export interface PostsState {
 
 /**
  * Convert a TimeRange key to its `since` / `until` ISO dates (inclusive), or
- * nulls for lifetime. Calendar periods in UTC, matching rangeDateFilter() in
- * lib/bqQueries.ts: yesterday only, this week from Monday, this month from
- * the 1st, this year from 1 January.
+ * nulls for lifetime. UTC, matching rangeDateFilter() in lib/bqQueries.ts:
+ * yesterday only, the last 7 and 30 days (rolling), this year from 1 January.
  */
 function rangeToWindow(range: TimeRange): { since: string | null; until: string | null } {
   const now = new Date();
@@ -52,8 +51,8 @@ function rangeToWindow(range: TimeRange): { since: string | null; until: string 
   const iso = (day: number, month = m, year = y) => new Date(Date.UTC(year, month, day)).toISOString().slice(0, 10);
   switch (range) {
     case 'yesterday': return { since: iso(d - 1), until: iso(d - 1) };
-    case 'week':      return { since: iso(d - ((now.getUTCDay() + 6) % 7)), until: null };
-    case 'month':     return { since: iso(1), until: null };
+    case 'week':      return { since: iso(d - 7), until: null };
+    case 'month':     return { since: iso(d - 30), until: null };
     case 'year':      return { since: iso(1, 0), until: null };
     case 'lifetime':  return { since: null, until: null };
   }
