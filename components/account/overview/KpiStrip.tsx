@@ -2,6 +2,7 @@ import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { DevLabel } from '@/components/primitives/DevLabel';
 import { useLayoutWidth } from '@/hooks/useLayoutWidth';
+import { useAccountLayout } from '@/components/account/layout/accountLayout';
 import { fmtCount } from '@/lib/format';
 import { accent, knox, party } from '@/theme/colors';
 import { spacing } from '@/theme/spacing';
@@ -62,9 +63,17 @@ const MAX_FIGURE = 56;
 const MIN_FIGURE = 28;
 /** A six-character figure like '496.6K' is about 3.5× its font size wide. */
 const FIGURE_WIDTH_RATIO = 3.6;
+/**
+ * Below 1024px the side column stacks above, so the row gets wider again.
+ * Capping the figure at what fits at 1024px keeps it from growing back as
+ * the window narrows past that breakpoint.
+ */
+const TABLET_MAX_FIGURE = 30;
 
 export function KpiStrip({ kpis, compact = false }: Props) {
   const [width, onLayout] = useLayoutWidth();
+  const { isTablet } = useAccountLayout();
+  const maxFigure = isTablet ? TABLET_MAX_FIGURE : MAX_FIGURE;
   const columns = KPI_DEFS.length;
   // Whole pixels, 1px short: the measured width is rounded and may be up to
   // half a pixel wider than the row, and fractional cells that overshoot it
@@ -73,8 +82,8 @@ export function KpiStrip({ kpis, compact = false }: Props) {
   // Until measured, share the row equally.
   const cell = width > 0 ? { width: cellWidth } : styles.cellUnmeasured;
   const figureSize = width > 0
-    ? Math.max(MIN_FIGURE, Math.min(MAX_FIGURE, Math.floor(cellWidth / FIGURE_WIDTH_RATIO)))
-    : MAX_FIGURE;
+    ? Math.max(MIN_FIGURE, Math.min(maxFigure, Math.floor(cellWidth / FIGURE_WIDTH_RATIO)))
+    : maxFigure;
 
   return (
     <View style={[styles.row, compact && styles.column]} onLayout={onLayout}>
