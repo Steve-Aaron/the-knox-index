@@ -90,6 +90,7 @@ export function AccountScreen({ handle }: Props) {
               <PerformanceCard
                 radar={period.radar}
                 politician={profile.politician}
+                kpis={period.kpis}
                 height={widgetHeight}
                 style={isDesktop ? styles.half : undefined}
               />
