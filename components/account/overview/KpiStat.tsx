@@ -24,20 +24,26 @@ interface Props {
   infoText: string;
   sublabel?: string;
   compact?:  boolean;
-  /** Smaller figure for a narrow grid cell. */
-  small?:    boolean;
+  /** Figure font size in px, fitted to the grid cell. Default 56. */
+  figureSize?: number;
   /** Cell size from the parent grid. */
   style?:    ViewStyle;
 }
 
-export function KpiStat({ value, format, decimals, label, color, infoText, sublabel, compact = false, small = false, style }: Props) {
+export function KpiStat({ value, format, decimals, label, color, infoText, sublabel, compact = false, figureSize = 56, style }: Props) {
   return (
     <View style={[styles.wrap, compact && styles.wrapCompact, style]}>
       <CountUp
         value={value}
         decimals={decimals}
         format={format}
-        style={[styles.value, (compact || small) && styles.valueCompact, { color }]}
+        style={[
+          styles.value,
+          compact
+            ? styles.valueCompact
+            : { fontSize: figureSize, lineHeight: Math.round(figureSize * 8 / 7) },
+          { color },
+        ]}
       />
       <View style={styles.labelRow}>
         <Text style={styles.label}>{label}</Text>
@@ -78,6 +84,8 @@ const styles = StyleSheet.create({
   },
   label: {
     ...type.caption,
+    // Long labels wrap in narrow cells instead of overflowing.
+    flexShrink: 1,
     fontSize: 12,
     color:    neutral.textMid,
   },

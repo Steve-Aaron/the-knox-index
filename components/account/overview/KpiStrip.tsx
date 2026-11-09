@@ -11,10 +11,10 @@ import { KpiStat } from './KpiStat';
 /**
  * KpiStrip
  * ---------
- * The five headline numbers for the selected range + platform. A grid of
- * equal columns: as many as fit (up to five), the rest wrap onto the next
- * row in the same columns. Figures step down a size in narrow cells before
- * anything wraps. A single centred column on mobile.
+ * The five headline numbers for the selected range + platform. Five equal
+ * columns in one row; the figures scale with the column width (56px down to
+ * 28px), so they only ever shrink as the row narrows and never wrap. A
+ * single centred column on mobile.
  *
  * One job: lay out the KPI set.
  */
@@ -57,18 +57,24 @@ const KPI_DEFS: KpiDef[] = [
   },
 ];
 
-/** Narrowest cell for a full-size (56px) figure like '496.6K'. */
-const FULL_COLUMN = 210;
-/** Narrowest cell at all: the figure drops to 48px. */
-const MIN_COLUMN = 172;
 const GAP = spacing.xl;
+const MAX_FIGURE = 56;
+const MIN_FIGURE = 28;
+/** A six-character figure like '496.6K' is about 3.5× its font size wide. */
+const FIGURE_WIDTH_RATIO = 3.6;
 
 export function KpiStrip({ kpis, compact = false }: Props) {
   const [width, onLayout] = useLayoutWidth();
-  const columns = Math.max(1, Math.min(KPI_DEFS.length, Math.floor((width + GAP) / (MIN_COLUMN + GAP))));
-  const cellWidth = (width - GAP * (columns - 1)) / columns;
+  const columns = KPI_DEFS.length;
+  // Whole pixels, 1px short: the measured width is rounded and may be up to
+  // half a pixel wider than the row, and fractional cells that overshoot it
+  // wrap the last stat at every other width.
+  const cellWidth = Math.floor((width - 1 - GAP * (columns - 1)) / columns);
   // Until measured, share the row equally.
   const cell = width > 0 ? { width: cellWidth } : styles.cellUnmeasured;
+  const figureSize = width > 0
+    ? Math.max(MIN_FIGURE, Math.min(MAX_FIGURE, Math.floor(cellWidth / FIGURE_WIDTH_RATIO)))
+    : MAX_FIGURE;
 
   return (
     <View style={[styles.row, compact && styles.column]} onLayout={onLayout}>
@@ -84,7 +90,7 @@ export function KpiStrip({ kpis, compact = false }: Props) {
           infoText={def.infoText}
           sublabel={def.sublabel}
           compact={compact}
-          small={width > 0 && cellWidth < FULL_COLUMN}
+          figureSize={figureSize}
           style={compact ? undefined : cell}
         />
       ))}
