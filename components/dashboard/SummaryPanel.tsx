@@ -212,36 +212,35 @@ export function SummaryPanel({ politicians, range = 'week', platform = 'tiktok',
           </View>
         </MotiView>
 
-        {/* ── AI narrative — daily or weekly, driven by selected time range ───── */}
-        <MotiView
-          from={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ type: 'timing', duration: 400, delay: 80 }}
-        >
-          <View style={styles.narrativeCard}>
-            <View style={[styles.narrativeBar, { backgroundColor: accent.indigo }]} />
-            {briefLoading ? (
-              <Text style={[styles.narrativeText, styles.narrativeLoading]}>
-                Loading briefing…
-              </Text>
-            ) : (() => {
-              const summaryText = isWeekly
-                ? brief?.brief.briefWeeklySummary
-                : brief?.brief.briefDailySummary;
-              if (summaryText) {
-                return <Text style={styles.narrativeText}>{summaryText}</Text>;
+        {/* ── AI-generated top narratives, first; only shown when 'This week' is selected ── */}
+        {isWeekly && (brief?.brief.topNarrativesThisWeek?.length || briefLoading) ? (
+          <>
+            <Text style={styles.sectionKicker}>TOP NARRATIVES THIS WEEK</Text>
+            <View style={styles.narratives}>
+              {briefLoading
+                ? [0, 1, 2].map(i => (
+                    <View key={i} style={[styles.narrativeItem, styles.narrativeSkeleton]} />
+                  ))
+                : brief!.brief.topNarrativesThisWeek.map((n, i) => (
+                    <MotiView
+                      key={i}
+                      from={{ opacity: 0, translateY: 8 }}
+                      animate={{ opacity: 1, translateY: 0 }}
+                      transition={{ type: 'timing', duration: 300, delay: 300 + i * 80 }}
+                    >
+                      <View style={styles.narrativeItem}>
+                        <View style={[styles.narrativeDot, { backgroundColor: INSIGHT_COLOURS[i % INSIGHT_COLOURS.length] }]} />
+                        <View style={styles.narrativeContent}>
+                          <Text style={styles.narrativeHeadline}>{n.headline}</Text>
+                          <Text style={styles.narrativeBody}>{n.body}</Text>
+                        </View>
+                      </View>
+                    </MotiView>
+                  ))
               }
-              return (
-                <Text style={[styles.narrativeText, styles.narrativeLoading]}>
-                  {briefError
-                    ? `Error: ${briefError}`
-                    : 'No briefing available yet — check back later.'}
-                </Text>
-              );
-            })()}
-          </View>
-        </MotiView>
-
+            </View>
+          </>
+        ) : null}
         {/* ── Computed insight chips ───────────────── */}
         <Text style={styles.sectionKicker}>KEY STATS THIS WEEK</Text>
         <View style={styles.insights}>
@@ -321,35 +320,36 @@ export function SummaryPanel({ politicians, range = 'week', platform = 'tiktok',
           </>
         ) : null}
 
-        {/* ── AI-generated top narratives — only shown when 'This week' is selected ── */}
-        {isWeekly && (brief?.brief.topNarrativesThisWeek?.length || briefLoading) ? (
-          <>
-            <Text style={styles.sectionKicker}>TOP NARRATIVES THIS WEEK</Text>
-            <View style={styles.narratives}>
-              {briefLoading
-                ? [0, 1, 2].map(i => (
-                    <View key={i} style={[styles.narrativeItem, styles.narrativeSkeleton]} />
-                  ))
-                : brief!.brief.topNarrativesThisWeek.map((n, i) => (
-                    <MotiView
-                      key={i}
-                      from={{ opacity: 0, translateY: 8 }}
-                      animate={{ opacity: 1, translateY: 0 }}
-                      transition={{ type: 'timing', duration: 300, delay: 300 + i * 80 }}
-                    >
-                      <View style={styles.narrativeItem}>
-                        <View style={[styles.narrativeDot, { backgroundColor: INSIGHT_COLOURS[i % INSIGHT_COLOURS.length] }]} />
-                        <View style={styles.narrativeContent}>
-                          <Text style={styles.narrativeHeadline}>{n.headline}</Text>
-                          <Text style={styles.narrativeBody}>{n.body}</Text>
-                        </View>
-                      </View>
-                    </MotiView>
-                  ))
+        {/* ── AI narrative summary, after the posts; daily or weekly by time range ───── */}
+        <MotiView
+          from={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ type: 'timing', duration: 400, delay: 80 }}
+        >
+          <View style={styles.narrativeCard}>
+            <View style={[styles.narrativeBar, { backgroundColor: accent.indigo }]} />
+            {briefLoading ? (
+              <Text style={[styles.narrativeText, styles.narrativeLoading]}>
+                Loading briefing…
+              </Text>
+            ) : (() => {
+              const summaryText = isWeekly
+                ? brief?.brief.briefWeeklySummary
+                : brief?.brief.briefDailySummary;
+              if (summaryText) {
+                return <Text style={styles.narrativeText}>{summaryText}</Text>;
               }
-            </View>
-          </>
-        ) : null}
+              return (
+                <Text style={[styles.narrativeText, styles.narrativeLoading]}>
+                  {briefError
+                    ? `Error: ${briefError}`
+                    : 'No briefing available yet — check back later.'}
+                </Text>
+              );
+            })()}
+          </View>
+        </MotiView>
+
       </ScrollView>
     </DashCard>
   );

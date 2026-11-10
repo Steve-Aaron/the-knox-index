@@ -26,23 +26,30 @@ export interface GrowthRow {
 }
 
 interface GrowthState {
-  growth:  GrowthRow[];
-  loading: boolean;
+  /** Largest % growth first. */
+  growth:         GrowthRow[];
+  /** Most followers gained first. */
+  growthAbsolute: GrowthRow[];
+  loading:        boolean;
 }
 
 export function useGrowth(range: TimeRange = 'week', platform: PlatformFilter = 'tiktok'): GrowthState {
-  const [state, setState] = useState<GrowthState>({ growth: [], loading: true });
+  const [state, setState] = useState<GrowthState>({ growth: [], growthAbsolute: [], loading: true });
 
   useEffect(() => {
     let cancelled = false;
     setState(prev => ({ ...prev, loading: true }));
 
     fetchWithRetry(`/api/growth?range=${range}&platform=${platform}`)
-      .then(r => r.json() as Promise<{ growth?: GrowthRow[] }>)
+      .then(r => r.json() as Promise<{ growth?: GrowthRow[]; growthAbsolute?: GrowthRow[] }>)
       .then(data => {
-        if (!cancelled) setState({ growth: Array.isArray(data.growth) ? data.growth : [], loading: false });
+        if (!cancelled) setState({
+          growth:         Array.isArray(data.growth) ? data.growth : [],
+          growthAbsolute: Array.isArray(data.growthAbsolute) ? data.growthAbsolute : [],
+          loading:        false,
+        });
       })
-      .catch(() => { if (!cancelled) setState({ growth: [], loading: false }); });
+      .catch(() => { if (!cancelled) setState({ growth: [], growthAbsolute: [], loading: false }); });
 
     return () => { cancelled = true; };
   }, [range, platform]);

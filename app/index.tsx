@@ -286,7 +286,7 @@ function DashboardScreenInner() {
     : null;
   const { posts, loading: postsLoading, loadingMore: postsLoadingMore, hasMore: postsHasMore, error: postsError, loadMore: loadMorePosts, total: postsTotal } = usePostsData(range, postsSortKey, { ...feedFilters, platform, person: selectedPersonId });
   const { topics: topicCounts, rising: risingTopics, risingImpact } = useLeagues(range, platform);
-  const { growth, loading: growthLoading } = useGrowth(range, platform);
+  const { growth, growthAbsolute, loading: growthLoading } = useGrowth(range, platform);
   const { benchmarks, byPlatform: benchmarksByPlatform } = useBenchmarks();
 
   // Hero entrance animations are gated until the LoadingScreen has fully
@@ -695,6 +695,7 @@ function DashboardScreenInner() {
             <View style={styles.insightsCol}>
               <FastestGrowing
                 growth={growth}
+                growthAbsolute={growthAbsolute}
                 politicians={politicians}
                 rangeLabel={RANGE_LABELS[range]}
                 showSince={range === 'year' || range === 'lifetime'}

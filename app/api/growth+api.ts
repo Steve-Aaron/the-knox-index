@@ -5,7 +5,8 @@
  * person on the dashboard, TikTok and X added together.
  *
  * GET /api/growth?range=yesterday|week|month|year|lifetime&platform=all|tiktok|x
- *   → { growth: GrowthRow[] }   largest % growth first
+ *   → { growth: GrowthRow[], growthAbsolute: GrowthRow[] }
+ *     growth: largest % growth first; growthAbsolute: most followers gained first
  *
  * Followers come from the account snapshots: TikTok's daily accountMetrics,
  * X's accountMetrics (every few days). Start = the latest snapshot within a
@@ -39,9 +40,11 @@ export async function GET(request: Request): Promise<Response> {
 
   try {
     const rows = await followerSnapshots(tenant.dashboardId, range, { tiktok: wantTikTok, x: wantX });
-    const growth = mergeByPerson(rows).filter(g => g.startFollowers >= MIN_START_FOLLOWERS).slice(0, LIMIT);
+    const merged = mergeByPerson(rows).filter(g => g.startFollowers >= MIN_START_FOLLOWERS);
+    const growth = merged.slice(0, LIMIT);
+    const growthAbsolute = [...merged].sort((a, b) => b.gain - a.gain || b.pct - a.pct).slice(0, LIMIT);
     return Response.json(
-      { growth },
+      { growth, growthAbsolute },
       { headers: { 'Cache-Control': 'private, max-age=1800, stale-while-revalidate=120' } },
     );
   } catch (err: unknown) {
