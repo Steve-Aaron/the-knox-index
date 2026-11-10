@@ -212,8 +212,8 @@ export function SummaryPanel({ politicians, range = 'week', platform = 'tiktok',
           </View>
         </MotiView>
 
-        {/* ── AI-generated top narratives, first; only shown when 'This week' is selected ── */}
-        {isWeekly && (brief?.brief.topNarrativesThisWeek?.length || briefLoading) ? (
+        {/* ── AI-generated top narratives: the brief's bullets, on every range (the summary paragraph is not shown) ── */}
+        {brief?.brief.topNarrativesThisWeek?.length || briefLoading ? (
           <>
             <Text style={styles.sectionKicker}>TOP NARRATIVES THIS WEEK</Text>
             <View style={styles.narratives}>
@@ -240,7 +240,12 @@ export function SummaryPanel({ politicians, range = 'week', platform = 'tiktok',
               }
             </View>
           </>
-        ) : null}
+        ) : (
+          <Text style={styles.narrativeEmpty}>
+            {briefError ? `Error: ${briefError}` : 'No briefing available yet. Check back later.'}
+          </Text>
+        )}
+
         {/* ── Computed insight chips ───────────────── */}
         <Text style={styles.sectionKicker}>KEY STATS THIS WEEK</Text>
         <View style={styles.insights}>
@@ -320,38 +325,6 @@ export function SummaryPanel({ politicians, range = 'week', platform = 'tiktok',
           </>
         ) : null}
 
-        {/* ── AI narrative summary: daily ranges only. On 'This week' the top
-            narratives above replace it; it stays if there are none. ── */}
-        {isWeekly && brief?.brief.topNarrativesThisWeek?.length ? null : (
-          <MotiView
-            from={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ type: 'timing', duration: 400, delay: 80 }}
-          >
-            <View style={styles.narrativeCard}>
-              <View style={[styles.narrativeBar, { backgroundColor: accent.indigo }]} />
-              {briefLoading ? (
-                <Text style={[styles.narrativeText, styles.narrativeLoading]}>
-                  Loading briefing…
-                </Text>
-              ) : (() => {
-                const summaryText = isWeekly
-                  ? brief?.brief.briefWeeklySummary
-                  : brief?.brief.briefDailySummary;
-                if (summaryText) {
-                  return <Text style={styles.narrativeText}>{summaryText}</Text>;
-                }
-                return (
-                  <Text style={[styles.narrativeText, styles.narrativeLoading]}>
-                    {briefError
-                      ? `Error: ${briefError}`
-                      : 'No briefing available yet. Check back later.'}
-                  </Text>
-                );
-              })()}
-            </View>
-          </MotiView>
-        )}
 
       </ScrollView>
     </DashCard>
@@ -398,6 +371,11 @@ const styles = StyleSheet.create({
   },
 
   // Narrative card
+  narrativeEmpty: {
+    ...type.body,
+    fontSize: 13,
+    color:    neutral.textDim,
+  },
   narrativeCard: {
     flexDirection: 'row',
     gap: spacing.md,
