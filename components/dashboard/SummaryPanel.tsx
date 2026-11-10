@@ -125,14 +125,14 @@ export function SummaryPanel({ politicians, range = 'week', platform = 'tiktok',
       {
         id: 'i1',
         label: '#1 this week',
-        value: top?.name ?? '—',
+        value: top?.name ?? 'n/a',
         sub: `Knox Factor · ${top?.scores.knoxFactor ?? 0}`,
         accentColor: colourFor(top?.groupKey ?? 'unknown').glow,
       },
       {
         id: 'i2',
         label: 'Most viral post',
-        value: mostViral ? formatters.compact(mostViral.views) + ' views' : '—',
+        value: mostViral ? formatters.compact(mostViral.views) + ' views' : 'n/a',
         sub: mostViral?.politician.name ?? '',
         accentColor: dataVis[4],
       },
@@ -320,35 +320,38 @@ export function SummaryPanel({ politicians, range = 'week', platform = 'tiktok',
           </>
         ) : null}
 
-        {/* ── AI narrative summary, after the posts; daily or weekly by time range ───── */}
-        <MotiView
-          from={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ type: 'timing', duration: 400, delay: 80 }}
-        >
-          <View style={styles.narrativeCard}>
-            <View style={[styles.narrativeBar, { backgroundColor: accent.indigo }]} />
-            {briefLoading ? (
-              <Text style={[styles.narrativeText, styles.narrativeLoading]}>
-                Loading briefing…
-              </Text>
-            ) : (() => {
-              const summaryText = isWeekly
-                ? brief?.brief.briefWeeklySummary
-                : brief?.brief.briefDailySummary;
-              if (summaryText) {
-                return <Text style={styles.narrativeText}>{summaryText}</Text>;
-              }
-              return (
+        {/* ── AI narrative summary: daily ranges only. On 'This week' the top
+            narratives above replace it; it stays if there are none. ── */}
+        {isWeekly && brief?.brief.topNarrativesThisWeek?.length ? null : (
+          <MotiView
+            from={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ type: 'timing', duration: 400, delay: 80 }}
+          >
+            <View style={styles.narrativeCard}>
+              <View style={[styles.narrativeBar, { backgroundColor: accent.indigo }]} />
+              {briefLoading ? (
                 <Text style={[styles.narrativeText, styles.narrativeLoading]}>
-                  {briefError
-                    ? `Error: ${briefError}`
-                    : 'No briefing available yet — check back later.'}
+                  Loading briefing…
                 </Text>
-              );
-            })()}
-          </View>
-        </MotiView>
+              ) : (() => {
+                const summaryText = isWeekly
+                  ? brief?.brief.briefWeeklySummary
+                  : brief?.brief.briefDailySummary;
+                if (summaryText) {
+                  return <Text style={styles.narrativeText}>{summaryText}</Text>;
+                }
+                return (
+                  <Text style={[styles.narrativeText, styles.narrativeLoading]}>
+                    {briefError
+                      ? `Error: ${briefError}`
+                      : 'No briefing available yet. Check back later.'}
+                  </Text>
+                );
+              })()}
+            </View>
+          </MotiView>
+        )}
 
       </ScrollView>
     </DashCard>
