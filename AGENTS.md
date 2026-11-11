@@ -39,7 +39,7 @@ The proxy handler lives at `app/api/mp/[...path]+api.ts` and forwards all method
 
 **Do not change `api_host` to point directly at `api.mixpanel.com`** — direct calls are blocked by common ad-blockers and privacy extensions.
 
-### Tracking Plan (10 Areas)
+### Tracking Plan (11 Areas)
 
 | Area | Key Events |
 |---|---|
@@ -53,6 +53,7 @@ The proxy handler lives at `app/api/mp/[...path]+api.ts` and forwards all method
 | 8. Error recovery | `error_recovered` (recovery_ms), `posts_error_shown`, `posts_error_recovered` |
 | 9. Scroll depth | `section_reached` (section, method) |
 | 10. Navigation | `date_range_changed`, `wing_changed` |
+| 11. Header search | `search_result_selected` (result_type, politician_id, group_key, locked, position, query_length), `search_register_tapped` (query_length) |
 
 ### Super Properties
 

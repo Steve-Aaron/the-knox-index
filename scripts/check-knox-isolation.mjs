@@ -36,6 +36,7 @@ const ALLOWLIST = new Set([
   'app/api/ariadne+api.ts',      // server route
   'app/api/account+api.ts',      // server route
   'app/api/account-page+api.ts', // server route
+  'app/api/search+api.ts',       // server route
 ]);
 
 const SKIP_DIRS = new Set(['node_modules', '.git', '.expo', 'dist', 'ios', 'android', '.vercel', '_to_delete']);

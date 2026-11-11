@@ -76,7 +76,7 @@ expect(TENANTS.find(t => t.id === 'uk').access.mode,                'public',  '
 // ── 3. Gate leaks ─────────────────────────────────────────────────────────────
 console.log('\nGate leaks');
 // Public data routes must read the gated sources, never the base tables.
-const PUBLIC_ROUTES = ['ariadne+api.ts', 'posts+api.ts', 'account+api.ts', 'leagues+api.ts', 'benchmarks+api.ts', 'brief+api.ts'];
+const PUBLIC_ROUTES = ['ariadne+api.ts', 'posts+api.ts', 'account+api.ts', 'leagues+api.ts', 'benchmarks+api.ts', 'brief+api.ts', 'search+api.ts'];
 const BASE_TABLE_RE = /tableRef\(\s*'(account|post)'\s*\)/;
 
 for (const file of PUBLIC_ROUTES) {
