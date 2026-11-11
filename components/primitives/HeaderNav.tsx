@@ -89,6 +89,7 @@ export function HeaderNav({ activeRoute, leftItems, rightItems }: Props) {
             onPress={() => setMobileSearchOpen(o => !o)}
             accessibilityRole="button"
             accessibilityLabel="Search"
+            accessibilityState={{ expanded: mobileSearchOpen }}
             style={({ pressed }) => [styles.searchToggle, pressed && { opacity: 0.7 }]}
           >
             <SearchIcon color={mobileSearchOpen ? neutral.text : neutral.textMid} />

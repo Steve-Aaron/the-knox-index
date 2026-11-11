@@ -277,18 +277,18 @@ function DashboardScreenInner() {
 
   // Header search → '/?group=<key>': apply the group filter once the dashboard
   // has rendered, scroll to the feed, then drop the param so picking the same
-  // group again still fires.
+  // group again still fires. Unknown keys are ignored.
   const { group: groupParam } = useLocalSearchParams<{ group?: string }>();
   useEffect(() => {
     if (!groupParam || !heroReady) return;
-    if (/^[a-z_]+$/.test(groupParam)) {
+    if (politicians.some(p => p.groupKey === groupParam)) {
       track('party_filter_changed', { party: groupParam, source: 'search' });
       setGroupFilter(groupParam as GroupKey);
       setTimeout(scrollToPosts, 0);
     }
     // '' rather than undefined: expo-router would store the string 'undefined'.
     router.setParams({ group: '' });
-  }, [groupParam, heroReady, scrollToPosts]);
+  }, [groupParam, heroReady, politicians, scrollToPosts]);
 
   // Area 10: fire analytics events when data status changes, including recovery timing.
   const prevStatusRef  = useRef(status);

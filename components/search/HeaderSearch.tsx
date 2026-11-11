@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, Pressable, StyleSheet, Platform, TextInput } from 'react-native';
+import { View, Text, Pressable, ScrollView, StyleSheet, Platform, TextInput, useWindowDimensions } from 'react-native';
 import { router } from 'expo-router';
 import { SearchField } from './SearchField';
 import { SearchResultRow } from './SearchResultRow';
@@ -24,6 +24,7 @@ import { font, weight } from '@/theme/typography';
  *
  * Data scope is the server's: /api/search runs the tenant guard. Guests see
  * accounts outside the leaderboard's top 5 locked, plus a register prompt.
+ * Enter opens the highlighted row, else the best match.
  *
  * One job: turn a query into navigation.
  */
@@ -38,6 +39,7 @@ export function HeaderSearch({ variant, autoFocus, onClose }: Props) {
   const tenant       = useTenant();
   const isRegistered = useRegisteredFlag();
   const isMobile     = variant === 'mobile';
+  const { height }   = useWindowDimensions();
 
   const [query, setQuery]         = useState('');
   const [open, setOpen]           = useState(!!autoFocus);
@@ -45,7 +47,7 @@ export function HeaderSearch({ variant, autoFocus, onClose }: Props) {
   const inputRef = useRef<TextInput>(null);
   const rootRef  = useRef<View>(null);
 
-  const { index, loading } = useSearchIndex(open);
+  const { index, failed, retry } = useSearchIndex(open);
 
   const subjects  = tenant.brand.subjectPlural;
   const groupsPl  = tenant.grouping.mode === 'region' ? 'Regions' : 'Parties';
@@ -54,13 +56,11 @@ export function HeaderSearch({ variant, autoFocus, onClose }: Props) {
   const hits = useMemo(() => (index ? searchIndex(index, query) : []), [index, query]);
   const people = hits.filter(h => h.type === 'person');
   const groups = hits.filter(h => h.type === 'group');
-  // Grouped (desktop) lists people first; the highlight walks the shown order.
+  // Grouped (desktop) lists people first; arrow keys walk the shown order.
   const shown  = isMobile ? hits : [...people, ...groups];
 
   const isLocked = (hit: SearchHit) => hit.type === 'person' && hit.person.locked && !isRegistered;
   const showDropdown = open && query.trim().length > 0;
-
-  useEffect(() => { setHighlight(-1); }, [query]);
 
   // Desktop web: close when a press lands outside the search. Not on blur —
   // pressing a result blurs the input before the press registers.
@@ -82,16 +82,14 @@ export function HeaderSearch({ variant, autoFocus, onClose }: Props) {
   };
 
   const select = (hit: SearchHit, position: number) => {
-    try {
-      track('search_result_selected', {
-        result_type:   hit.type === 'person' ? 'politician' : 'group',
-        politician_id: hit.type === 'person' ? hit.person.id : null,
-        group_key:     hit.type === 'group' ? hit.group.key : hit.person.groupKey,
-        locked:        isLocked(hit),
-        position,
-        query_length:  query.trim().length,
-      });
-    } catch { /* analytics never breaks navigation */ }
+    track('search_result_selected', {
+      result_type:   hit.type === 'person' ? 'politician' : 'group',
+      politician_id: hit.type === 'person' ? hit.person.id : null,
+      group_key:     hit.type === 'group' ? hit.group.key : hit.person.groupKey,
+      locked:        isLocked(hit),
+      position,
+      query_length:  query.trim().length,
+    });
 
     close();
     if (isLocked(hit))           router.push('/login');
@@ -101,7 +99,7 @@ export function HeaderSearch({ variant, autoFocus, onClose }: Props) {
   };
 
   const onRegister = () => {
-    try { track('search_register_tapped', { query_length: query.trim().length }); } catch { /* ignore */ }
+    track('search_register_tapped', { query_length: query.trim().length });
     close();
     router.push('/login');
   };
@@ -114,8 +112,15 @@ export function HeaderSearch({ variant, autoFocus, onClose }: Props) {
   };
 
   const onSubmit = () => {
-    const hit = shown[highlight >= 0 ? highlight : 0];
+    const hit = highlight >= 0 ? shown[highlight] : hits[0];
     if (hit) select(hit, shown.indexOf(hit) + 1);
+  };
+
+  const onChangeText = (text: string) => {
+    setQuery(text);
+    setHighlight(-1);
+    setOpen(true);
+    if (failed) retry();
   };
 
   const renderRow = (hit: SearchHit) => {
@@ -128,12 +133,11 @@ export function HeaderSearch({ variant, autoFocus, onClose }: Props) {
         locked={isLocked(hit)}
         highlighted={i === highlight}
         onPress={() => select(hit, i + 1)}
-        onHover={() => setHighlight(i)}
       />
     );
   };
 
-  const showPrompt = !isRegistered && hits.length > 0;
+  const showPrompt = hits.some(isLocked);
 
   return (
     <View ref={rootRef} style={isMobile ? styles.rootMobile : styles.rootDesktop}>
@@ -142,7 +146,7 @@ export function HeaderSearch({ variant, autoFocus, onClose }: Props) {
         value={query}
         placeholder={placeholder}
         autoFocus={autoFocus}
-        onChangeText={text => { setQuery(text); setOpen(true); }}
+        onChangeText={onChangeText}
         onFocus={() => setOpen(true)}
         onClear={() => { setQuery(''); inputRef.current?.focus(); }}
         onSubmit={onSubmit}
@@ -150,10 +154,15 @@ export function HeaderSearch({ variant, autoFocus, onClose }: Props) {
       />
 
       {showDropdown && (
-        <View style={[styles.dropdown, !isMobile && styles.dropdownFloating]}>
+        // Scrolls on mobile, where the keyboard can cover the bottom rows.
+        <ScrollView
+          style={[styles.dropdown, isMobile ? { maxHeight: height * 0.5 } : styles.dropdownFloating]}
+          contentContainerStyle={styles.dropdownContent}
+          keyboardShouldPersistTaps="handled"
+        >
           {hits.length === 0 ? (
             <Text style={styles.sectionTitle}>
-              {loading || !index ? 'Searching…' : 'No matches'}
+              {failed ? 'Search is unavailable, try again' : index ? 'No matches' : 'Searching…'}
             </Text>
           ) : isMobile ? (
             hits.map(renderRow)
@@ -177,7 +186,7 @@ export function HeaderSearch({ variant, autoFocus, onClose }: Props) {
                     <Text style={styles.promptHeadline}>Register to see all {subjects.toLowerCase()}</Text>
                   </View>
                   <Text style={styles.promptBody}>
-                    Unlock full details about the leaders and parties, and gain access to all posts
+                    Unlock full details about the {subjects.toLowerCase()} and {groupsPl.toLowerCase()}, and gain access to all posts
                   </Text>
                 </View>
                 <Pressable
@@ -190,7 +199,7 @@ export function HeaderSearch({ variant, autoFocus, onClose }: Props) {
               </View>
             </>
           )}
-        </View>
+        </ScrollView>
       )}
     </View>
   );
@@ -209,8 +218,6 @@ const styles = StyleSheet.create({
   },
 
   dropdown: {
-    gap:             8,
-    padding:         8,
     borderWidth:     1,
     borderColor:     glass.border,
     backgroundColor: neutral.felt + 'F0',  // 94%
@@ -228,6 +235,10 @@ const styles = StyleSheet.create({
         elevation:     12,
       },
     }),
+  },
+  dropdownContent: {
+    gap:     8,
+    padding: 8,
   },
   dropdownFloating: {
     position: 'absolute',
@@ -264,7 +275,7 @@ const styles = StyleSheet.create({
       web: {
         backdropFilter:       'blur(8px)',
         WebkitBackdropFilter: 'blur(8px)',
-        boxShadow:            '0 16px 24px rgba(232,60,145,0.28)',
+        boxShadow:            `0 16px 24px ${knox.primaryPink}47`,  // 28%
       } as any,
       default: {},
     }),

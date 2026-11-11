@@ -1,5 +1,5 @@
 import React, { forwardRef, useState } from 'react';
-import { View, TextInput, Pressable, StyleSheet, Platform } from 'react-native';
+import { TextInput, Pressable, StyleSheet, Platform } from 'react-native';
 import { SearchIcon, CloseIcon } from './SearchIcons';
 import { neutral, glass, accent, party } from '@/theme/colors';
 import { font, weight } from '@/theme/typography';
@@ -17,17 +17,16 @@ interface Props {
   value:        string;
   placeholder:  string;
   onChangeText: (text: string) => void;
-  onFocus?:     () => void;
-  onBlur?:      () => void;
+  onFocus:      () => void;
   onClear:      () => void;
-  onSubmit?:    () => void;
+  onSubmit:     () => void;
   /** Web key presses — arrows and Escape drive the dropdown. */
-  onKey?:       (key: string) => void;
+  onKey:        (key: string) => void;
   autoFocus?:   boolean;
 }
 
 export const SearchField = forwardRef<TextInput, Props>(function SearchField(
-  { value, placeholder, onChangeText, onFocus, onBlur, onClear, onSubmit, onKey, autoFocus },
+  { value, placeholder, onChangeText, onFocus, onClear, onSubmit, onKey, autoFocus },
   ref,
 ) {
   const [focused, setFocused] = useState(false);
@@ -57,10 +56,10 @@ export const SearchField = forwardRef<TextInput, Props>(function SearchField(
         autoCapitalize="none"
         returnKeyType="search"
         accessibilityLabel={placeholder}
-        onFocus={() => { setFocused(true); onFocus?.(); }}
-        onBlur={() => { setFocused(false); onBlur?.(); }}
+        onFocus={() => { setFocused(true); onFocus(); }}
+        onBlur={() => setFocused(false)}
         onSubmitEditing={onSubmit}
-        onKeyPress={e => onKey?.(e.nativeEvent.key)}
+        onKeyPress={e => onKey(e.nativeEvent.key)}
       />
       {value.length > 0 && (
         <Pressable onPress={onClear} hitSlop={8} accessibilityRole="button" accessibilityLabel="Clear search" style={styles.clear}>

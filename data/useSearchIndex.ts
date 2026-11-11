@@ -1,51 +1,49 @@
 /**
  * data/useSearchIndex.ts
  * -----------------------
- * Loads the header search index from /api/search the first time `enabled`
- * turns true (the user focuses the search), then keeps it for the session so
- * every page's header shares one fetch.
+ * Loads the header search index from /api/search when `enabled` turns true
+ * (the user opens the search). One request is shared by every header on the
+ * page and reused for TTL_MS; the next open after that refetches, so signed
+ * avatar URLs and lock flags never go stale.
  *
- * Fails soft: on error the index stays null and the next focus retries.
+ * Fails soft: `failed` is set and `retry()` tries again.
  */
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { fetchWithRetry } from './fetchWithRetry';
 import type { SearchIndex } from '@/lib/search';
 
-let cached:   SearchIndex | null = null;
-let inFlight: Promise<SearchIndex> | null = null;
+/** Matches the CDN's 30-min freshness (CDN_DATA in lib/cacheHeaders.ts). */
+const TTL_MS = 30 * 60 * 1000;
+
+let entry: { at: number; promise: Promise<SearchIndex> } | null = null;
 
 function loadIndex(): Promise<SearchIndex> {
-  inFlight ??= fetchWithRetry('/api/search')
-    .then(r => {
-      if (!r.ok) throw new Error(`/api/search ${r.status}`);
-      return r.json() as Promise<SearchIndex>;
-    })
-    .then(data => {
-      cached = {
-        people: Array.isArray(data.people) ? data.people : [],
-        groups: Array.isArray(data.groups) ? data.groups : [],
-      };
-      return cached;
-    })
-    .finally(() => { inFlight = null; });
-  return inFlight;
+  if (!entry || Date.now() - entry.at > TTL_MS) {
+    const promise = fetchWithRetry('/api/search').then(r => r.json() as Promise<SearchIndex>);
+    entry = { at: Date.now(), promise };
+    // A failed load must not be reused.
+    promise.catch(() => { if (entry?.promise === promise) entry = null; });
+  }
+  return entry.promise;
 }
 
-export function useSearchIndex(enabled: boolean): { index: SearchIndex | null; loading: boolean } {
-  const [index, setIndex]     = useState<SearchIndex | null>(cached);
-  const [loading, setLoading] = useState(false);
+export function useSearchIndex(enabled: boolean) {
+  const [index, setIndex]   = useState<SearchIndex | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
-    if (!enabled || index) return;
+    if (!enabled) return;
     let cancelled = false;
-    setLoading(true);
-    loadIndex()
-      .then(data => { if (!cancelled) setIndex(data); })
-      .catch(() => { /* stays null; the next focus retries */ })
-      .finally(() => { if (!cancelled) setLoading(false); });
+    setFailed(false);
+    loadIndex().then(
+      data => { if (!cancelled) setIndex(data); },
+      ()   => { if (!cancelled) setFailed(true); },
+    );
     return () => { cancelled = true; };
-  }, [enabled, index]);
+  }, [enabled, attempt]);
 
-  return { index, loading };
+  const retry = useCallback(() => setAttempt(a => a + 1), []);
+  return { index, failed, retry };
 }

@@ -27,7 +27,7 @@ import { Title } from '@/components/ui/Title';
 import { neutral, party, glass, accent, colourFor } from '@/theme/colors';
 import type { GroupKey } from '@/theme/colors';
 import { useTenant } from '@/hooks/useTenant';
-import { labelForGroupKey } from '@/data/grouping';
+import { groupDisplayLabel } from '@/data/grouping';
 import { type, font } from '@/theme/typography';
 import { spacing, radius } from '@/theme/spacing';
 import type { PostRecord, PostBenchmarks } from '@/data/types';
@@ -129,19 +129,8 @@ const LIKE_THRESHOLDS: { value: number; label: string }[] = [
 
 // ── Group label helper ─────────────────────────────────────────────────────────
 
-/** Hand-written short labels for UK parties; other modes defer to the adapter. */
 function groupLabel(key: GroupKey, mode: 'party' | 'region' = 'party'): string {
-  if (mode !== 'party') return labelForGroupKey(mode, key);
-  const labels: Partial<Record<GroupKey, string>> = {
-    labour: 'Labour', conservative: 'Conservative', libdem: 'Lib Dems',
-    snp: 'SNP', green: 'Greens', reform: 'Reform', plaid: 'Plaid',
-    dup: 'DUP', sinnfein: 'Sinn Féin',
-    alliance: 'Alliance', sdlp: 'SDLP', uup: 'UUP', tuv: 'TUV',
-    workers: 'Workers Party', advance: 'Advance UK', restore: 'Restore Britain',
-    yourparty: 'Your Party',
-    independent: 'Independent', unknown: 'Unknown',
-  };
-  return labels[key] ?? key;
+  return groupDisplayLabel(mode, key);
 }
 
 /**

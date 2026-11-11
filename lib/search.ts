@@ -43,14 +43,19 @@ export type SearchHit =
   | { type: 'group';  group:  SearchGroup };
 
 /** Most hits the dropdown shows. */
-export const SEARCH_LIMIT = 5;
+const LIMIT = 5;
+
+/** Lowercase and strip accents, so 'sinn fein' finds 'Sinn Féin'. */
+function fold(text: string): string {
+  return text.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+}
 
 /**
- * How well `text` matches `q` (both lowercased): 3 = starts with it, 2 = a
+ * How well `text` matches the folded query `q`: 3 = starts with it, 2 = a
  * word starts with it, 1 = contains it, 0 = no match.
  */
 function matchScore(text: string, q: string): number {
-  const t = text.toLowerCase();
+  const t = fold(text);
   if (t.startsWith(q)) return 3;
   if (t.split(/[\s\-_.']+/).some(w => w.startsWith(q))) return 2;
   return t.includes(q) ? 1 : 0;
@@ -61,8 +66,8 @@ function matchScore(text: string, q: string): number {
  * (there are few groups, so an exact party name should not be buried under
  * its members), then alphabetical. Empty query → no hits.
  */
-export function searchIndex(index: SearchIndex, query: string, limit = SEARCH_LIMIT): SearchHit[] {
-  const q = query.trim().toLowerCase().replace(/^@+/, '');
+export function searchIndex(index: SearchIndex, query: string): SearchHit[] {
+  const q = fold(query.trim()).replace(/^@+/, '');
   if (!q) return [];
 
   const scored: { hit: SearchHit; score: number; label: string; tie: number }[] = [];
@@ -78,6 +83,6 @@ export function searchIndex(index: SearchIndex, query: string, limit = SEARCH_LI
 
   return scored
     .sort((a, b) => b.score - a.score || a.tie - b.tie || a.label.localeCompare(b.label))
-    .slice(0, limit)
+    .slice(0, LIMIT)
     .map(s => s.hit);
 }

@@ -23,10 +23,9 @@ interface Props {
   locked:      boolean;
   highlighted: boolean;
   onPress:     () => void;
-  onHover?:    () => void;
 }
 
-export function SearchResultRow({ hit, groupNoun, locked, highlighted, onPress, onHover }: Props) {
+export function SearchResultRow({ hit, groupNoun, locked, highlighted, onPress }: Props) {
   const isPerson    = hit.type === 'person';
   const name        = isPerson ? hit.person.name : hit.group.label;
   const description = isPerson ? hit.person.partyLabel : groupNoun;
@@ -34,7 +33,6 @@ export function SearchResultRow({ hit, groupNoun, locked, highlighted, onPress, 
   return (
     <Pressable
       onPress={onPress}
-      onHoverIn={onHover}
       accessibilityRole="link"
       accessibilityLabel={locked ? `${name}, locked` : name}
       style={({ hovered, pressed }: any) => [
@@ -112,7 +110,7 @@ const styles = StyleSheet.create({
     color:         neutral.textDim,
   },
   lockGlow: Platform.select({
-    web: { filter: 'drop-shadow(2px 1px 2px rgba(232,60,145,0.4)) drop-shadow(-2px -1px 2px rgba(232,60,145,0.4))' } as any,
+    web: { filter: `drop-shadow(2px 1px 2px ${knox.primaryPink}66) drop-shadow(-2px -1px 2px ${knox.primaryPink}66)` } as any,  // 40%
     default: {},
   }) as any,
 });
