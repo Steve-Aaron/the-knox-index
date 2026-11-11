@@ -10,8 +10,7 @@
  * One job: turn politicians + one account's posts into AccountPageApiResponse.
  */
 
-import type { AccountType, Politician } from '@/data/types';
-import type { GroupingMode } from '@/lib/tenants';
+import type { Politician } from '@/data/types';
 import type {
   AccountKpis,
   AccountPeriodData,
@@ -20,7 +19,7 @@ import type {
   ContentBreakdown,
   ContentDimension,
   ContentSlice,
-  KeyStatRank,
+  ComparisonRow,
 } from '@/data/account/types';
 import { postEngagementRate } from '@/lib/postMetrics';
 
@@ -66,61 +65,36 @@ export function buildProfile(
   };
 }
 
-// ── Key stats ─────────────────────────────────────────────────────────────────
+// ── Comparison ────────────────────────────────────────────────────────────────
 
-/** Most specific role first; an account with several types ranks by its top one. */
-const TYPE_PRIORITY: AccountType[] = [
-  'prime_minister',
-  'party_leader',
-  'cabinet_minister',
-  'shadow_cabinet_minister',
-  'member_of_parliament',
-  'council',
-  'political_party',
-  'other',
-];
-
-function primaryType(p: Politician): AccountType | undefined {
-  const types = p.accountTypes ?? [];
-  return TYPE_PRIORITY.find(t => types.includes(t)) ?? types[0];
-}
-
-/** Rank by Knox Factor inside one peer group (the target is always a member). */
-function rankWithin(id: KeyStatRank['id'], label: string, target: Politician, peers: Politician[]): KeyStatRank {
-  const sorted = [...peers].sort((a, b) => b.scores.knoxFactor - a.scores.knoxFactor);
-  return { id, label, rank: sorted.findIndex(p => p.id === target.id) + 1, total: sorted.length };
-}
+/** Rows on the Comparison card: the account and two either side. */
+const COMPARISON_ROWS = 5;
 
 /**
- * Peer-group ranks. Similar followers = between half and double the target's
- * count (follower counts are spread over four orders of magnitude, so fixed
- * bands would lump most accounts together). The third group is the tenant's
- * own grouping: party on The Knox Index, region on World Leaders.
+ * The account's slice of the main-page Knox Factor leaderboard (RankBoard
+ * with no filters): accounts that posted in the range, by Knox Factor. The
+ * window shifts at either end so it always holds COMPARISON_ROWS rows when
+ * there are enough accounts. Empty when the account has no posts in range.
  */
-export function buildKeyStats(target: Politician, all: Politician[], grouping: GroupingMode): KeyStatRank[] {
-  const stats: KeyStatRank[] = [];
+export function buildComparison(target: Politician, all: Politician[]): ComparisonRow[] {
+  const ranked = all
+    .filter(p => p.totals.postsInRange > 0)
+    .sort((a, b) => b.scores.knoxFactor - a.scores.knoxFactor);
+  const at = ranked.findIndex(p => p.id === target.id);
+  if (at < 0) return [];
 
-  const type = primaryType(target);
-  if (type) {
-    stats.push(rankWithin('same_type', 'Among accounts of the same type', target, all.filter(p => primaryType(p) === type)));
-  }
-
-  const f = target.totals.followers;
-  stats.push(rankWithin(
-    'same_followers',
-    'Among accounts with a similar number of followers',
-    target,
-    all.filter(p => p.id === target.id || (p.totals.followers >= f / 2 && p.totals.followers <= f * 2)),
-  ));
-
-  stats.push(rankWithin(
-    grouping === 'region' ? 'same_region' : 'same_party',
-    grouping === 'region' ? 'Among accounts from the same region' : 'Among accounts from the same party',
-    target,
-    all.filter(p => p.groupKey === target.groupKey),
-  ));
-
-  return stats;
+  const start = Math.max(0, Math.min(at - 2, ranked.length - COMPARISON_ROWS));
+  return ranked.slice(start, start + COMPARISON_ROWS).map((p, i) => ({
+    rank:           start + i + 1,
+    handle:         p.handle.replace(/^@+/, ''),
+    name:           p.name,
+    partyLabel:     p.partyLabel,
+    groupKey:       p.groupKey,
+    avatarInitials: p.avatarInitials,
+    avatarUrl:      p.avatarUrl,
+    knoxFactor:     Math.round(p.scores.knoxFactor),
+    isSelf:         p.id === target.id,
+  }));
 }
 
 // ── Period data ───────────────────────────────────────────────────────────────

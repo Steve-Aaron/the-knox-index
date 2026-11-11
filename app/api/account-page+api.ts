@@ -23,7 +23,7 @@ import {
   buildAccountPagePostsSQL,
   buildLastPostDateSQL,
 } from '@/lib/bqQueries';
-import { buildKeyStats, buildPeriod, buildProfile, type BQAccountPagePostRow } from '@/lib/accountPage';
+import { buildComparison, buildPeriod, buildProfile, type BQAccountPagePostRow } from '@/lib/accountPage';
 import type { BQAccountRow, BQPostRow } from '@/data/transformers';
 import type { AccountPageApiResponse } from '@/data/account/types';
 
@@ -59,7 +59,8 @@ export async function GET(request: Request): Promise<Response> {
       return Response.json({ error: `No account found for handle: ${handle}` }, { status: 404 });
     }
 
-    const period = buildPeriod(politician, postRows);
+    const period     = buildPeriod(politician, postRows);
+    const comparison = buildComparison(politician, all);
 
     await Promise.all([
       ...period.posts.map(async (post, i) => {
@@ -68,12 +69,15 @@ export async function GET(request: Request): Promise<Response> {
       (async () => {
         if (politician.avatarUrl) politician.avatarUrl = await signGcsUrl(politician.avatarUrl);
       })(),
+      ...comparison.map(async row => {
+        if (row.avatarUrl) row.avatarUrl = await signGcsUrl(row.avatarUrl);
+      }),
     ]);
 
     const body: AccountPageApiResponse = {
       profile:   buildProfile(politician, all, lastPostRows[0]?.lastPostDate ?? null),
       platforms: ['tiktok'],
-      keyStats:  buildKeyStats(politician, all, tenant.grouping.mode),
+      comparison,
       period,
     };
 

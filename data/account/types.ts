@@ -1,5 +1,6 @@
 import type { Politician, PostBenchmarks } from '@/data/types';
 import type { TimeRange } from '@/components/dashboard/TimeRangePicker';
+import type { GroupKey } from '@/theme/colors';
 
 /**
  * data/account/types.ts
@@ -55,14 +56,23 @@ export interface AccountProfile {
   lastPostAt:  string;
 }
 
-// ── Key stats ────────────────────────────────────────────────────────────────
+// ── Comparison ───────────────────────────────────────────────────────────────
 
-export interface KeyStatRank {
-  id:    string;
-  /** Peer group the rank is computed in, e.g. 'Among accounts of the same type'. */
-  label: string;
-  rank:  number;
-  total: number;
+/** One row of the Comparison card: a slice of the main-page leaderboard. */
+export interface ComparisonRow {
+  /** 1-based leaderboard position. */
+  rank:           number;
+  /** Without the leading @. */
+  handle:         string;
+  name:           string;
+  partyLabel:     string;
+  groupKey:       GroupKey;
+  avatarInitials: string;
+  avatarUrl?:     string;
+  /** Knox Factor for the selected range, 0–100. */
+  knoxFactor:     number;
+  /** The account the page is about. */
+  isSelf:         boolean;
 }
 
 // ── Period-scoped data ───────────────────────────────────────────────────────
@@ -143,7 +153,9 @@ export interface AccountPageData {
   /** Platforms with data, in display order. The platform filter shows only
    *  when there is more than one. */
   platforms: SocialPlatform[];
-  keyStats: KeyStatRank[];
+  /** The account and its leaderboard neighbours for the range; empty when
+   *  the account did not post in the range (it is not on the leaderboard). */
+  comparison: ComparisonRow[];
   period:   AccountPeriodData;
   /** Distribution of every tracked post — places one post in the dataset.
    *  null while loading or when /api/benchmarks fails. */

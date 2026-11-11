@@ -11,7 +11,7 @@ import { type } from '@/theme/typography';
 import { AccountPageHeader } from './AccountPageHeader';
 import { ACCOUNT_LAYOUT, useAccountLayout } from './layout/accountLayout';
 import { ProfileCard } from './profile/ProfileCard';
-import { KeyStatsCard } from './keyStats/KeyStatsCard';
+import { ComparisonCard } from './comparison/ComparisonCard';
 import { OverviewPanel } from './overview/OverviewPanel';
 import { PerformanceCard } from './performance/PerformanceCard';
 import { ContentCard } from './content/ContentCard';
@@ -51,7 +51,7 @@ export function AccountScreen({ handle }: Props) {
     );
   }
 
-  const { profile, keyStats, period } = data;
+  const { profile, comparison, period } = data;
 
   return (
     <ScrollView
@@ -69,7 +69,7 @@ export function AccountScreen({ handle }: Props) {
               <ProfileCard profile={profile} height={widgetHeight} />
             </View>
             <View style={isTablet ? styles.half : undefined}>
-              <KeyStatsCard stats={keyStats} />
+              <ComparisonCard rows={comparison} />
             </View>
           </View>
 
