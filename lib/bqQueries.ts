@@ -72,11 +72,28 @@ function excludeHidden(profileExpr: string): string {
 /**
  * All accounts joined with their latest accountMetrics row and range
  * aggregates from the post table. Returns one row per account.
+ *
+ * `daysAgo` moves the Knox Factor inputs back in time: the accountMetrics row
+ * (lifetime totals and followers) from that many days before the latest one,
+ * and the 7- and 28-day post counts ending that many days ago. Post views are
+ * today's figures, as no history of them is kept. 0 = now.
  */
-export function buildAccountsSQL(dashboardId: number, range: Range): string {
+export function buildAccountsSQL(dashboardId: number, range: Range, daysAgo = 0): string {
   const dateFilter = rangeDateFilter(range);
   const ACCOUNT_WEB = accountWeb(dashboardId);
   const POST_WEB    = postWeb(dashboardId);
+  const days        = Math.max(0, Math.floor(daysAgo));
+  // Followers come from the account row now, and from the dated metrics row in the past.
+  const followers   = days ? 'm.totalFollowers' : 'a.totalFollowers';
+  const metricsDate = days
+    ? `DATE_SUB((SELECT MAX(dateUpdated) FROM ${tableRef('accountMetrics')}), INTERVAL ${days} DAY)`
+    : `(
+      SELECT MAX(dateUpdated)
+      FROM ${tableRef('accountMetrics')}
+    )`;
+  const lastDays = (n: number) => days
+    ? `postDate >= DATE_SUB(CURRENT_DATE(), INTERVAL ${n + days} DAY) AND postDate < DATE_SUB(CURRENT_DATE(), INTERVAL ${days} DAY)`
+    : `postDate >= DATE_SUB(CURRENT_DATE(), INTERVAL ${n} DAY)`;
   return `
   SELECT
     a.id,
@@ -97,7 +114,7 @@ export function buildAccountsSQL(dashboardId: number, range: Range): string {
     a.person_constituency,
     a.person_latitude,
     a.person_longitude,
-    COALESCE(a.totalFollowers, 0)  AS totalFollowers,
+    COALESCE(${followers}, 0)  AS totalFollowers,
     COALESCE(a.totalFollowing, 0)  AS totalFollowing,
     COALESCE(m.totalPosts,     0)  AS totalPosts,
     COALESCE(m.totalLikes,     0)  AS totalLikes,
@@ -133,21 +150,18 @@ export function buildAccountsSQL(dashboardId: number, range: Range): string {
   LEFT JOIN (
     SELECT *
     FROM ${tableRef('accountMetrics')}
-    WHERE dateUpdated = (
-      SELECT MAX(dateUpdated)
-      FROM ${tableRef('accountMetrics')}
-    )
+    WHERE dateUpdated = ${metricsDate}
   ) m ON a.id = m.pageId
   LEFT JOIN (
     SELECT LTRIM(profile, '@') AS profile, COUNT(*) AS postsThisWeek
     FROM ${POST_WEB}
-    WHERE postDate >= DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY)
+    WHERE ${lastDays(7)}
     GROUP BY LTRIM(profile, '@')
   ) pw ON LTRIM(a.profile, '@') = pw.profile
   LEFT JOIN (
     SELECT LTRIM(profile, '@') AS profile, COUNT(*) AS postsLast28d
     FROM ${POST_WEB}
-    WHERE postDate >= DATE_SUB(CURRENT_DATE(), INTERVAL 28 DAY)
+    WHERE ${lastDays(28)}
     GROUP BY LTRIM(profile, '@')
   ) p28 ON LTRIM(a.profile, '@') = p28.profile
   LEFT JOIN (

@@ -45,11 +45,14 @@ export async function GET(request: Request): Promise<Response> {
     // 2. Range posts — feed the scoring transformer, as on /api/account
     // 3. This account's posts in the range and the period before, with tags
     // 4. This account's latest post date, any range
-    const [accountRows, rangePostRows, postRows, lastPostRows] = await Promise.all([
+    // 5. All accounts on the Knox Factor inputs from a week ago — scored the
+    //    same way, for the profile card's 'vs prev. week' trend
+    const [accountRows, rangePostRows, postRows, lastPostRows, weekAgoRows] = await Promise.all([
       query<BQAccountRow>(buildAccountsSQL(dashboardId, range)),
       query<BQPostRow>(buildAccountPostsSQL(dashboardId, handle, range, 5)),
       query<BQAccountPagePostRow>(buildAccountPagePostsSQL(dashboardId, handle, range)),
       query<{ lastPostDate: string | null }>(buildLastPostDateSQL(dashboardId, handle)),
+      query<BQAccountRow>(buildAccountsSQL(dashboardId, range, 7)),
     ]);
 
     const all = transformToPoliticians(accountRows, rangePostRows, tenant.grouping.mode);
@@ -58,6 +61,13 @@ export async function GET(request: Request): Promise<Response> {
     if (!politician) {
       return Response.json({ error: `No account found for handle: ${handle}` }, { status: 404 });
     }
+
+    // No metrics row a week ago (e.g. a newly tracked account) → no trend.
+    const isTarget = (p: { handle?: string | null; profile?: string | null }) =>
+      (p.handle ?? p.profile ?? '').replace(/^@/, '').toLowerCase() === handle;
+    const weekAgo = weekAgoRows.find(isTarget)?.totalFollowers
+      ? transformToPoliticians(weekAgoRows, [], tenant.grouping.mode).find(isTarget)
+      : undefined;
 
     const period     = buildPeriod(politician, postRows);
     const comparison = buildComparison(politician, all);
@@ -75,7 +85,7 @@ export async function GET(request: Request): Promise<Response> {
     ]);
 
     const body: AccountPageApiResponse = {
-      profile:   buildProfile(politician, all, lastPostRows[0]?.lastPostDate ?? null),
+      profile:   buildProfile(politician, all, lastPostRows[0]?.lastPostDate ?? null, weekAgo),
       platforms: ['tiktok'],
       comparison,
       period,

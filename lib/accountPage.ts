@@ -46,16 +46,22 @@ export interface BQAccountPagePostRow {
 
 // ── Profile ───────────────────────────────────────────────────────────────────
 
+/**
+ * `weekAgo` is the same account scored on the inputs from 7 days earlier
+ * (buildAccountsSQL with daysAgo = 7); undefined when it had no metrics then,
+ * which hides the trend.
+ */
 export function buildProfile(
   politician: Politician,
   all: Politician[],
   lastPostDate: string | null,
+  weekAgo: Politician | undefined,
 ): AccountProfile {
   const handle = politician.handle.replace(/^@/, '');
+  const score  = politician.scores.knoxFactor;
   return {
     politician,
-    // No score history yet, so there is nothing to compare against.
-    knoxFactor:  { score: politician.scores.knoxFactor, deltaVsPrev: null },
+    knoxFactor:  { score, deltaVsPrev: weekAgo ? score - weekAgo.scores.knoxFactor : null },
     affiliation: {
       label:       politician.groupLabel,
       memberCount: all.filter(p => p.groupKey === politician.groupKey).length,
