@@ -39,6 +39,8 @@ export interface BQAccountPagePostRow {
   postUrl:      string | null;
   coverJpeg:    string | null;
   videoMp4:     string | null;
+  /** 'Video', 'Carousel' or 'Image with Audio'; null on a few posts. */
+  postType:     string | null;
   styles:       string[] | null;
   topics:       string[] | null;
 }
@@ -193,8 +195,8 @@ function buildBreakdown(
 }
 
 const CONTENT_TAGS: Record<ContentDimension, TagFn> = {
-  // Every TikTok post is a video. Other formats arrive with other platforms.
-  type:     () => ['video'],
+  // A post has one format; posts without one go to Untagged.
+  type:     r => (r.postType ? [r.postType] : []),
   subjects: r => r.topics ?? [],
   styles:   r => r.styles ?? [],
 };

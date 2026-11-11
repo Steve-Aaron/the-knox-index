@@ -55,8 +55,8 @@ const SLICE_NOUN: Record<ContentDimension, string> = {
 
 export function ContentCard({ content, range, height, style }: Props) {
   const { isMobile } = useAccountLayout();
-  // A dimension with a single slice says nothing (every TikTok post is a
-  // video), so its tab is hidden until there is something to compare.
+  // A dimension with a single slice says nothing (e.g. an account that posts
+  // only videos), so its tab is hidden until there is something to compare.
   const segments = DIMENSIONS.filter(d => content[d.value].slices.length > 1);
   const [picked, setDimension] = useState<ContentDimension>('subjects');
   const dimension = segments.some(d => d.value === picked) ? picked : (segments[0]?.value ?? picked);

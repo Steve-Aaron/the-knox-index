@@ -386,6 +386,7 @@ export function buildAccountPagePostsSQL(dashboardId: number, handle: string, ra
     p.postUrl,
     p.coverJpeg,
     p.videoMp4,
+    p.postType,
     ARRAY(
       SELECT DISTINCT s.name FROM ${tableRef('post_x_style')} pxs
       JOIN ${tableRef('style')} s ON pxs.styleId = s.id
