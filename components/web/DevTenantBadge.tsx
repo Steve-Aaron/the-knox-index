@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, Pressable, StyleSheet, Platform } from 'react-native';
-import { readDevTenantOverride, exitDevTenantOverride } from '@/lib/devTenant';
+import { readDevTenantOverride, exitDevTenantOverride, tenantSwitchAllowed } from '@/lib/devTenant';
 import { tenantById } from '@/lib/tenants';
 import { neutral, knox, glass } from '@/theme/colors';
 import { spacing, radius } from '@/theme/spacing';
@@ -25,7 +25,7 @@ export function DevTenantBadge() {
   // Read once on mount: the override cannot change without a reload.
   const [override] = useState(() => readDevTenantOverride());
 
-  if (process.env.NODE_ENV === 'production' || Platform.OS !== 'web' || !override) return null;
+  if (Platform.OS !== 'web' || !override || !tenantSwitchAllowed()) return null;
 
   const tenant = tenantById(override);
 

@@ -16,11 +16,14 @@
  *   2. patches fetch to send `x-knox-tenant` on same-origin /api/ calls, which
  *      is the same header lib/tenantRequest.ts already honours in development
  *
- * Every path here is dead in production: the checks are on NODE_ENV, not on
- * the presence of the flag, and the server ignores the header when built for
- * production regardless.
+ * It works locally and on Vercel PREVIEW deployments (e.g. the dev branch at
+ * theknoxindex-git-dev-….vercel.app), which have no worldleaders subdomain
+ * either. On the live site it is dead: the browser side only switches on for
+ * a preview address, and the server only honours the header when Vercel
+ * says the deployment is a preview (lib/tenantRequest.ts). Gated tenants
+ * still need sign-in wherever the switch is used.
  *
- * One job: make `?tenant=<id>` a truthful local preview.
+ * One job: make `?tenant=<id>` a truthful local or preview view.
  */
 
 const STORAGE_KEY = 'knox_dev_tenant';
@@ -28,10 +31,28 @@ const HEADER      = 'x-knox-tenant';
 /** Values that mean 'stop overriding', so the URL can undo itself. */
 const CLEAR_VALUES = new Set(['off', 'clear', 'none', 'reset', '']);
 
+/** Production's own vercel.app names, which are not previews. */
+const PRODUCTION_VERCEL_HOSTS = new Set(['theknoxindex.vercel.app', 'theknoxindex-steveaarons-projects.vercel.app']);
+
+/**
+ * A Vercel preview address: *.vercel.app, but not production's own names or
+ * the main branch's alias. Only decides whether the browser offers the
+ * switch; the server decides for itself whether to honour it.
+ */
+function isPreviewHost(host: string): boolean {
+  const h = host.toLowerCase();
+  return h.endsWith('.vercel.app') && !PRODUCTION_VERCEL_HOSTS.has(h) && !h.includes('-git-main-');
+}
+
+/** True where `?tenant=` may switch the index: local development or a Vercel preview. */
+export function tenantSwitchAllowed(): boolean {
+  if (typeof window === 'undefined' || typeof window.location === 'undefined') return false;
+  if (process.env.NODE_ENV !== 'production') return true;
+  return isPreviewHost(window.location.hostname);
+}
+
 function isDevWeb(): boolean {
-  return process.env.NODE_ENV !== 'production'
-    && typeof window !== 'undefined'
-    && typeof window.location !== 'undefined';
+  return tenantSwitchAllowed();
 }
 
 /** The forced tenant id for this tab, or null. Query string wins, then the tab's memory. */

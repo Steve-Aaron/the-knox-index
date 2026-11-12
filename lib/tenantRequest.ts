@@ -11,16 +11,23 @@
  *   1. x-forwarded-host  (Vercel sets this; it is the domain the user typed)
  *   2. host              (direct / local dev)
  *
- * Development only: `?tenant=world` or an `x-knox-tenant: world` header force a
- * tenant, so both sites can be exercised from a single localhost origin. The
- * override is ignored in production — otherwise anyone could read a gated
- * dashboard by adding a query string.
+ * Development and Vercel preview deployments only: `?tenant=world` or an
+ * `x-knox-tenant: world` header force a tenant, so both sites can be used from
+ * one origin (localhost, or a preview such as the dev branch). Vercel sets
+ * VERCEL_ENV to 'preview' there and 'production' on the live site, where the
+ * override is ignored. The tenant's access rules still apply either way
+ * (lib/tenantGuard.ts), so a gated dashboard still needs sign-in.
  */
+
+/** Local development, or a Vercel preview deployment. Never the live site. */
+export function tenantOverrideAllowed(): boolean {
+  return process.env.NODE_ENV !== 'production' || process.env.VERCEL_ENV === 'preview';
+}
 
 import { resolveTenant, tenantById, type TenantConfig } from '@/lib/tenants';
 
 export function tenantFromRequest(request: Request): TenantConfig {
-  if (process.env.NODE_ENV !== 'production') {
+  if (tenantOverrideAllowed()) {
     const headerOverride = request.headers.get('x-knox-tenant');
     let queryOverride: string | null = null;
     try { queryOverride = new URL(request.url).searchParams.get('tenant'); } catch { /* non-absolute URL */ }

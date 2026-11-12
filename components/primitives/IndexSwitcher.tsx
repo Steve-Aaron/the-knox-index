@@ -3,6 +3,7 @@ import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTenant } from '@/hooks/useTenant';
 import { track } from '@/lib/analytics';
 import { TENANTS, type TenantConfig } from '@/lib/tenants';
+import { tenantSwitchAllowed } from '@/lib/devTenant';
 import { accent, glass, neutral } from '@/theme/colors';
 import { font } from '@/theme/typography';
 
@@ -11,8 +12,9 @@ import { font } from '@/theme/typography';
  * --------------
  * Two separate buttons beside the Knox logo, one per index (UK, World
  * Leaders). The current index is filled in; the other opens that index's
- * home page on its own subdomain. Locally there is only localhost,
- * so it switches with ?tenant=<dashboard id> instead (see lib/devTenant.ts).
+ * home page on its own subdomain. Locally and on Vercel previews there is
+ * only one address, so it switches with ?tenant=<dashboard id> instead (see
+ * lib/devTenant.ts).
  *
  * Web only: each index is a separate host, which native does not have.
  *
@@ -23,7 +25,7 @@ interface Props {
 }
 
 function homeUrl(t: TenantConfig): string {
-  if (process.env.NODE_ENV !== 'production') {
+  if (tenantSwitchAllowed()) {
     return `${window.location.origin}/?tenant=${t.dashboardId}`;
   }
   return `https://${t.hosts[0]}/`;
