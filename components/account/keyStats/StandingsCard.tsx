@@ -8,7 +8,8 @@ import { track } from '@/lib/analytics';
 import { accent, colourFor, glass, neutral } from '@/theme/colors';
 import { radius, spacing } from '@/theme/spacing';
 import { font, type, weight } from '@/theme/typography';
-import type { KeyStatRank, StandingRow } from '@/data/account/types';
+import { rangeLabel } from '@/components/dashboard/TimeRangePicker';
+import type { KeyStatRank, StandingRow, TimeRange } from '@/data/account/types';
 
 /**
  * StandingsCard
@@ -16,17 +17,18 @@ import type { KeyStatRank, StandingRow } from '@/data/account/types';
  * Where the account ranks by Knox Factor against comparable accounts, as a
  * short leaderboard: the account with the two ranked just above and below
  * it. A tab per peer group (party or region, party pages or other account
- * type, everyone, similar follower count). Knox Factor is one score per
- * account, the same under every period tab (as on the main leaderboard).
- * Tap a row to open that account.
+ * type, everyone, similar follower count). The ranking follows the page's
+ * period tabs: Knox Factor worked out over the selected period ('All data'
+ * uses the fixed score). Tap a row to open that account.
  *
  * One job: show the account's place among its peers.
  */
 interface Props {
   stats: KeyStatRank[];
+  range: TimeRange;
 }
 
-export function StandingsCard({ stats }: Props) {
+export function StandingsCard({ stats, range }: Props) {
   const [id, setId] = useState(stats[0]?.id);
   const stat = stats.find(s => s.id === id) ?? stats[0];
   if (!stat) return null;
@@ -38,8 +40,8 @@ export function StandingsCard({ stats }: Props) {
   };
 
   return (
-    <AccountWidget infoText="Where this account ranks by Knox Factor against comparable accounts, with the accounts ranked just above and below it. Politicians and parties are ranked together, as on the main leaderboard. Knox Factor does not change with the period tabs. Groups: the same party or region, the same account type, every tracked account, and accounts with between half and double its followers.">
-      <WidgetHeader title="Standings" kicker="BY KNOX FACTOR" />
+    <AccountWidget infoText="Where this account ranks by Knox Factor over the selected period against comparable accounts, with the accounts ranked just above and below it. Politicians and parties are ranked together, as on the main leaderboard. The period score uses the same formula as Knox Factor, with the period's posts as its inputs, so the ranking changes with the tabs; 'All data' uses the overall Knox Factor shown on the profile card. Groups: the same party or region, the same account type, every tracked account, and accounts with between half and double its followers.">
+      <WidgetHeader title="Standings" kicker={`KNOX FACTOR · ${rangeLabel(range).toUpperCase()}`} />
 
       <View style={styles.tabs} accessibilityRole="tablist">
         {stats.map(s => {

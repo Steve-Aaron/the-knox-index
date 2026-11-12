@@ -12,7 +12,7 @@
  *       → summed. Views are 'times the post was shown' on both platforms.
  *         Followers are summed audiences; people who follow on both are
  *         counted twice, so the label says 'combined followers'.
- *   score axes and Knox Factor (0..100)
+ *   score axes, Knox Factor and period Knox Factor (0..100)
  *       → mean of the person's per-platform scores. Each platform is scored
  *         against its own dataset first, so the two are on the same scale.
  *         A person on one platform keeps that platform's score.
@@ -53,6 +53,12 @@ function mergePerson(rows: Politician[]): Politician {
     scores[key] = Math.round(rows.reduce((t, r) => t + r.scores[key], 0) / rows.length);
   }
 
+  // Period Knox Factor merges like the other scores: the mean across platforms
+  const periodScores = rows.map(r => r.periodKnoxFactor).filter((v): v is number => v != null);
+  const periodKnoxFactor = periodScores.length
+    ? Math.round(periodScores.reduce((a, b) => a + b, 0) / periodScores.length)
+    : undefined;
+
   const recentPosts = rows
     .flatMap(r => r.recentPosts ?? [])
     .sort((a, b) => (b.tweet?.createdAt ?? b.postDate ?? '').localeCompare(a.tweet?.createdAt ?? a.postDate ?? ''))
@@ -66,6 +72,7 @@ function mergePerson(rows: Politician[]): Politician {
     platforms:   rows.flatMap(r => r.platforms ?? []),
     totals,
     scores,
+    periodKnoxFactor,
     recentPosts,
   };
 }

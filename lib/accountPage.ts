@@ -111,7 +111,13 @@ const TYPE_TAB: Partial<Record<AccountType, string>> = {
 /** Rows shown either side of the account in a standings window. */
 const WINDOW_EACH_SIDE = 2;
 
-function standingRow(p: Politician, rank: number, target: Politician): StandingRow {
+/** The score a Standings ranking uses: the period's Knox Factor, or the fixed one. */
+type ScoreOf = (p: Politician) => number;
+
+const fixedKnox: ScoreOf = p => p.scores.knoxFactor;
+const periodKnox: ScoreOf = p => p.periodKnoxFactor ?? p.scores.knoxFactor;
+
+function standingRow(p: Politician, rank: number, target: Politician, score: ScoreOf): StandingRow {
   return {
     rank,
     name:       p.name,
@@ -120,7 +126,7 @@ function standingRow(p: Politician, rank: number, target: Politician): StandingR
     initials:   p.avatarInitials,
     groupKey:   p.groupKey,
     groupLabel: p.groupLabel,
-    knoxFactor: p.scores.knoxFactor,
+    knoxFactor: score(p),
     isTarget:   p.id === target.id,
   };
 }
@@ -130,12 +136,14 @@ function standingRow(p: Politician, rank: number, target: Politician): StandingR
  * with the accounts just above and below. The window keeps five rows at the
  * top and bottom of the table by shifting rather than shrinking.
  */
-function rankWithin(id: KeyStatRank['id'], label: string, short: string, target: Politician, peers: Politician[]): KeyStatRank {
-  const sorted = [...peers].sort((a, b) => b.scores.knoxFactor - a.scores.knoxFactor);
+function rankWithin(id: KeyStatRank['id'], label: string, short: string, target: Politician, peers: Politician[], score: ScoreOf): KeyStatRank {
+  // Ties broken by the fixed Knox Factor, then followers, so the order is stable
+  const sorted = [...peers].sort((a, b) =>
+    score(b) - score(a) || b.scores.knoxFactor - a.scores.knoxFactor || b.totals.followers - a.totals.followers);
   const at = sorted.findIndex(p => p.id === target.id);
   const size = WINDOW_EACH_SIDE * 2 + 1;
   const start = Math.max(0, Math.min(at - WINDOW_EACH_SIDE, sorted.length - size));
-  const neighbours = sorted.slice(start, start + size).map((p, i) => standingRow(p, start + i + 1, target));
+  const neighbours = sorted.slice(start, start + size).map((p, i) => standingRow(p, start + i + 1, target, score));
   return { id, label, short, rank: at + 1, total: sorted.length, neighbours };
 }
 
@@ -145,8 +153,10 @@ function rankWithin(id: KeyStatRank['id'], label: string, short: string, target:
  * bands would lump most accounts together). The third group is the tenant's
  * own grouping: party on The Knox Index, region on World Leaders.
  */
-export function buildKeyStats(target: Politician, all: Politician[], grouping: GroupingMode): KeyStatRank[] {
+export function buildKeyStats(target: Politician, all: Politician[], grouping: GroupingMode, byPeriod = true): KeyStatRank[] {
   const stats: KeyStatRank[] = [];
+  // Follows the period tabs; 'All data' has no shorter period, so it uses the fixed score
+  const score = byPeriod ? periodKnox : fixedKnox;
 
   stats.push(rankWithin(
     grouping === 'region' ? 'same_region' : 'same_party',
@@ -154,15 +164,16 @@ export function buildKeyStats(target: Politician, all: Politician[], grouping: G
     grouping === 'region' ? 'Region' : 'Party',
     target,
     all.filter(p => p.groupKey === target.groupKey),
+    score,
   ));
 
-  stats.push(rankWithin('all', 'Among all tracked accounts', 'All', target, all));
+  stats.push(rankWithin('all', 'Among all tracked accounts', 'All', target, all, score));
 
   // 'other' is the fallback type, so on a dashboard without a taxonomy
   // (World Leaders) the type group is everyone: leave it out there.
   const type = primaryType(target);
   if (type && type !== 'other') {
-    const typeTab = rankWithin('same_type', 'Among accounts of the same type', TYPE_TAB[type] ?? 'Type', target, all.filter(p => primaryType(p) === type));
+    const typeTab = rankWithin('same_type', 'Among accounts of the same type', TYPE_TAB[type] ?? 'Type', target, all.filter(p => primaryType(p) === type), score);
     // A party's own page compares first with other party pages
     if (type === 'political_party') stats.unshift(typeTab); else stats.push(typeTab);
   }
@@ -174,6 +185,7 @@ export function buildKeyStats(target: Politician, all: Politician[], grouping: G
     'Size',
     target,
     all.filter(p => p.id === target.id || (p.totals.followers >= f / 2 && p.totals.followers <= f * 2)),
+    score,
   ));
 
   return stats;

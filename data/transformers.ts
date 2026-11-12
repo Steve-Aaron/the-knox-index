@@ -261,10 +261,66 @@ function rawAxes(acc: BQAccountRow): RawAxes {
   };
 }
 
-// NOTE: the range-scoped scoring (computeRangeScores / computeRangeKnoxScore /
-// rangeAxes) was removed — there is now a SINGLE scoring calculation
-// (computeScores below, matching the canonical SQL). The leaderboard reads that
-// same score under every date filter; nothing recomputes a separate in-range score.
+// The canonical Knox Factor (computeScores below, matching the SQL) is the one
+// score the leaderboard, profile card and radar show under every date filter.
+// periodKnoxFactor (computePeriodKnox) is a second, period-scoped score used
+// only where a ranking must follow the period tabs: the account page's
+// Standings card. Same formula and caps; the inputs are the selected period's.
+
+/** Raw axes over the selected period's posts (the *InRange aggregates). */
+function periodAxes(acc: BQAccountRow): { viralityRaw: number; engRate: number; posts: number; followers: number } {
+  const posts     = acc.postsInRange ?? 0;
+  const followers = acc.totalFollowers ?? 0;
+  const { viralityRaw, engRate } = clampedRatios(
+    posts,
+    acc.viewsInRange ?? 0,
+    (acc.likesInRange ?? 0) + (acc.commentsInRange ?? 0) + (acc.savesInRange ?? 0) + (acc.sharesInRange ?? 0),
+    followers,
+  );
+  return { viralityRaw, engRate, posts, followers };
+}
+
+interface PeriodMax { virality: number; engagementRate: number; posts: number; followers: number }
+
+function computePeriodMax(rows: BQAccountRow[]): PeriodMax {
+  let virality = 0, engagementRate = 1, posts = 1, followers = 1;
+  for (const acc of rows) {
+    const r = periodAxes(acc);
+    if (r.viralityRaw > virality)     virality = r.viralityRaw;
+    if (r.engRate > engagementRate)   engagementRate = r.engRate;
+    if (r.posts > posts)              posts = r.posts;
+    if (r.followers > followers)      followers = r.followers;
+  }
+  return { virality: virality > 0 ? virality : 1, engagementRate, posts, followers };
+}
+
+/**
+ * Knox Factor over the selected period: virality and engagement from the
+ * period's posts, frequency from the period's post count against the busiest
+ * account in it, followers as usual. Penalties as documented in
+ * knoxPenaltyMultiplier for the range score: the period's post count stands
+ * in for the 28-day count; lifetime posts, 7-day recency and lifetime average
+ * views stay as they are.
+ */
+function computePeriodKnox(acc: BQAccountRow, max: PeriodMax): number {
+  const r = periodAxes(acc);
+  const life = rawAxes(acc);
+  return applyKnoxNameBonus(
+    computeKnoxFactor(
+      logNormaliseRaw(r.viralityRaw, max.virality),
+      normaliseRaw(r.engRate, max.engagementRate),
+      logNormaliseRaw(r.followers, max.followers),
+      normaliseRaw(r.posts, max.posts),
+      {
+        lifetimePosts: life.lifetimePosts,
+        postsLast7d:   life.postsLast7d,
+        postsLast28d:  r.posts,
+        avgViews:      life.avgViews,
+      },
+    ),
+    acc.name,
+  );
+}
 
 interface ScoreMaxValues {
   virality:       number;  // clamped virality ratio
@@ -399,6 +455,7 @@ export function transformToPoliticians(
   }
 
   const max = computeMaxValues(accountRows);
+  const periodMax = computePeriodMax(accountRows);
 
   return accountRows.map((acc): Politician => {
     const posts = (postsByProfile.get(normProfile(acc.profile)) ?? []).slice(0, 5);
@@ -457,6 +514,7 @@ export function transformToPoliticians(
         lifetimePostInteractions: acc.lifetimePostInteractions ?? 0,
       },
       scores,
+      periodKnoxFactor: computePeriodKnox(acc, periodMax),
       recentPosts: posts.map(transformPost),
     };
   });

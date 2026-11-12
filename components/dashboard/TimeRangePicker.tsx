@@ -44,6 +44,11 @@ const OPTIONS: { key: TimeRange; label: string }[] = [
   { key: 'lifetime',  label: 'All data' },
 ];
 
+/** The tab label for a range, e.g. 'Past 7 days', for cards that name the period. */
+export function rangeLabel(range: TimeRange): string {
+  return OPTIONS.find(o => o.key === range)?.label ?? '';
+}
+
 const LOCKED_RANGES = new Set<TimeRange>(['month', 'year', 'lifetime']);
 
 export function TimeRangePicker({ value, onChange, isRegistered = false, onLockedTap }: Props) {

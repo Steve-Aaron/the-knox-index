@@ -104,7 +104,7 @@ export async function GET(request: Request): Promise<Response> {
     const growth = mergeGrowth(snapshots.filter(r => (hit.personId && r.personId === hit.personId) || ownIds.has(String(r.accountId))))[0];
     period.followerGrowth = growth ? { gained: growth.gain, pct: growth.pct, since: growth.since } : null;
 
-    const keyStats = buildKeyStats(politician, all, tenant.grouping.mode);
+    const keyStats = buildKeyStats(politician, all, tenant.grouping.mode, range !== 'lifetime');
 
     await Promise.all([
       ...period.posts.map(async (post, i) => {

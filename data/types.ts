@@ -265,5 +265,11 @@ export interface Politician {
     lifetimePostInteractions: number;
   };
   scores: TopTrumpScores;
+  /**
+   * Knox Factor over the selected period only (same formula, the period's
+   * posts as inputs). Used by the account page's Standings so its ranking
+   * follows the period tabs; everything else shows scores.knoxFactor.
+   */
+  periodKnoxFactor?: number;
   recentPosts?: RecentPost[];
 }

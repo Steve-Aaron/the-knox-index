@@ -69,7 +69,7 @@ export function AccountScreen({ handle }: Props) {
               <ProfileCard profile={profile} height={widgetHeight} />
             </View>
             <View style={isTablet ? styles.half : undefined}>
-              <StandingsCard stats={keyStats} />
+              <StandingsCard stats={keyStats} range={range} />
             </View>
           </View>
 
