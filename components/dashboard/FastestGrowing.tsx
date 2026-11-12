@@ -46,7 +46,7 @@ interface Props {
   /** The leaderboard's people, for names, photos and colours. */
   politicians:  Politician[];
   rangeLabel?:  string;
-  /** Show each row's own start date (This year / Lifetime start at different times). */
+  /** Show each row's own start date (This year / All data start at different times). */
   showSince?:   boolean;
   loading?:     boolean;
   topN?:        number;

@@ -83,7 +83,7 @@ const RANGE_LABELS: Record<TimeRange, string> = {
   week:      'Past 7 days',
   month:     'Past 30 days',
   year:      'This year',
-  lifetime:  'Lifetime',
+  lifetime:  'All data',
 };
 
 /** What the Rising topics card compares against (prevRangeDateFilter). */
@@ -123,7 +123,7 @@ function DashboardScreenInner() {
   const postsSectionRef = useRef<View>(null);
 
   // Locked time-range interstitial — set to the attempted range when an
-  // unregistered user taps This Month / This Year / Lifetime.
+  // unregistered user taps Past 30 days / This year / All data.
   const [lockedRangeAttempt, setLockedRangeAttempt] = useState<TimeRange | null>(null);
 
   // Sticky 'Register' bar should only appear AFTER the user has scrolled past
@@ -758,7 +758,7 @@ function DashboardScreenInner() {
       )}
 
       {/* Locked time-range interstitial — unregistered users see this when
-          they tap This Month / This Year / Lifetime. */}
+          they tap Past 30 days / This year / All data. */}
       <Interstitial
         visible={lockedRangeAttempt != null}
         onClose={() => setLockedRangeAttempt(null)}

@@ -16,7 +16,9 @@ import type { KeyStatRank, StandingRow } from '@/data/account/types';
  * Where the account ranks by Knox Factor against comparable accounts, as a
  * short leaderboard: the account with the two ranked just above and below
  * it. A tab per peer group (party or region, party pages or other account
- * type, everyone, similar follower count). Tap a row to open that account.
+ * type, everyone, similar follower count). Knox Factor is one score per
+ * account, the same under every period tab (as on the main leaderboard).
+ * Tap a row to open that account.
  *
  * One job: show the account's place among its peers.
  */
@@ -36,8 +38,8 @@ export function StandingsCard({ stats }: Props) {
   };
 
   return (
-    <AccountWidget infoText="Where this account ranks by Knox Factor against comparable accounts, with the accounts ranked just above and below it. Groups: the same party or region, the same account type, every tracked account, and accounts with between half and double its followers.">
-      <WidgetHeader title="Standings" />
+    <AccountWidget infoText="Where this account ranks by Knox Factor against comparable accounts, with the accounts ranked just above and below it. Politicians and parties are ranked together, as on the main leaderboard. Knox Factor does not change with the period tabs. Groups: the same party or region, the same account type, every tracked account, and accounts with between half and double its followers.">
+      <WidgetHeader title="Standings" kicker="BY KNOX FACTOR" />
 
       <View style={styles.tabs} accessibilityRole="tablist">
         {stats.map(s => {

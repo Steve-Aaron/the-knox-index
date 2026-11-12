@@ -41,7 +41,7 @@ const OPTIONS: { key: TimeRange; label: string }[] = [
   { key: 'week',      label: 'Past 7 days' },
   { key: 'month',     label: 'Past 30 days' },
   { key: 'year',      label: 'This year' },
-  { key: 'lifetime',  label: 'Lifetime' },
+  { key: 'lifetime',  label: 'All data' },
 ];
 
 const LOCKED_RANGES = new Set<TimeRange>(['month', 'year', 'lifetime']);

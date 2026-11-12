@@ -43,7 +43,7 @@ export const RANGE_LABELS: Record<Range, string> = {
   week:      'Past 7 days',
   month:     'Past 30 days',
   year:      'This year',
-  lifetime:  'Lifetime',
+  lifetime:  'All data',
 };
 
 /**
