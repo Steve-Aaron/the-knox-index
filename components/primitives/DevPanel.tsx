@@ -1,7 +1,8 @@
 import React from 'react';
 import { View, Text, Pressable, StyleSheet, Platform } from 'react-native';
 import { MotiView } from 'moti';
-import { getDevPreview, setDevPreview, type DevPreviewState } from '@/lib/devPreview';
+import { devPreviewEnabled, getDevPreview, setDevPreview, type DevPreviewState } from '@/lib/devPreview';
+import { isPreviewSite } from '@/lib/devTenant';
 import { neutral, glass, knox } from '@/theme/colors';
 import { spacing, radius } from '@/theme/spacing';
 import { font } from '@/theme/typography';
@@ -11,7 +12,8 @@ import { font } from '@/theme/typography';
  * ---------
  * Persistent floating toolbar docked bottom-centre.
  * Shows the active dev preview state and lets you tap any state to switch.
- * Renders only in __DEV__ + web. Zero runtime cost in production.
+ * Renders on web in __DEV__ and on Vercel preview deployments (labelled
+ * PREVIEW there, without the Admin shortcut). Never on the live site.
  *
  * One job: control dev preview state without typing URLs.
  */
@@ -24,9 +26,10 @@ const STATES: { state: DevPreviewState; label: string; color: string }[] = [
 ];
 
 export function DevPanel() {
-  if (!__DEV__ || Platform.OS !== 'web') return null;
+  if (Platform.OS !== 'web' || !devPreviewEnabled()) return null;
 
   const current = getDevPreview();
+  const preview = isPreviewSite();
 
   function goToAdmin() {
     document.cookie = 'admin_panel=1; Path=/';
@@ -41,7 +44,7 @@ export function DevPanel() {
         transition={{ type: 'timing', duration: 240 }}
         style={styles.bar}
       >
-        <Text style={styles.label}>DEV</Text>
+        <Text style={styles.label}>{preview ? 'PREVIEW' : 'DEV'}</Text>
         <View style={styles.divider} />
         {STATES.map(({ state, label, color }) => {
           const active = state === current;
@@ -64,13 +67,17 @@ export function DevPanel() {
             </Pressable>
           );
         })}
-        <View style={styles.divider} />
-        <Pressable
-          onPress={goToAdmin}
-          style={({ pressed }) => [styles.pill, pressed && { opacity: 0.7 }]}
-        >
-          <Text style={[styles.pillText, { color: knox.primaryOrange }]}>Admin</Text>
-        </Pressable>
+        {preview ? null : (
+          <>
+            <View style={styles.divider} />
+            <Pressable
+              onPress={goToAdmin}
+              style={({ pressed }) => [styles.pill, pressed && { opacity: 0.7 }]}
+            >
+              <Text style={[styles.pillText, { color: knox.primaryOrange }]}>Admin</Text>
+            </Pressable>
+          </>
+        )}
       </MotiView>
     </View>
   );

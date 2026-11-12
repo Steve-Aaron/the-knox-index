@@ -10,24 +10,44 @@
  *   signup — registered but not yet profiled (shows profiling modal)
  *   full   — registered and profiled (fully unlocked dashboard)
  *
- * Only ever reads/writes in __DEV__ mode. Production builds get a no-op.
- * Changing state triggers a full page reload so all hooks re-hydrate cleanly.
+ * Works in __DEV__ and on Vercel preview deployments, so reviewers of the dev
+ * branch can see the whole site. On a preview, 'full' also sets a cookie that
+ * the server accepts as full access to gated dashboards, but only when Vercel
+ * says the build is a preview (lib/devIdentity.ts). The live site gets a
+ * no-op. Changing state triggers a full page reload so all hooks re-hydrate.
  *
  * One job: be the single source of truth for dev preview state.
  */
+
+import { isPreviewSite } from '@/lib/devTenant';
 
 export type DevPreviewState = 'off' | 'gate' | 'signup' | 'full';
 
 const KEY = '__tki_dev_preview__';
 
+/** Cookie the server reads (on a preview build only) as full access to gated dashboards. */
+export const PREVIEW_FULL_ACCESS_COOKIE = 'tki_preview_full';
+
+/** Local development or a Vercel preview: where the preview states may be used. */
+export function devPreviewEnabled(): boolean {
+  return (typeof __DEV__ !== 'undefined' && __DEV__) || isPreviewSite();
+}
+
 export function getDevPreview(): DevPreviewState {
-  if (typeof __DEV__ === 'undefined' || !__DEV__) return 'off';
+  if (!devPreviewEnabled()) return 'off';
   if (typeof localStorage === 'undefined') return 'off';
   return (localStorage.getItem(KEY) as DevPreviewState) ?? 'off';
 }
 
 export function setDevPreview(state: DevPreviewState): void {
-  if (typeof __DEV__ === 'undefined' || !__DEV__) return;
+  if (!devPreviewEnabled()) return;
+
+  // Preview builds: 'full' also opens gated dashboards (the server checks the build)
+  if (isPreviewSite()) {
+    document.cookie = state === 'full'
+      ? `${PREVIEW_FULL_ACCESS_COOKIE}=1; Path=/; SameSite=Lax; Secure`
+      : `${PREVIEW_FULL_ACCESS_COOKIE}=; Path=/; Max-Age=0; SameSite=Lax; Secure`;
+  }
 
   // Wipe any residual auth/profile keys so hooks re-hydrate from scratch
   localStorage.removeItem('tki_registered');

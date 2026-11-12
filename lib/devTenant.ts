@@ -44,6 +44,12 @@ function isPreviewHost(host: string): boolean {
   return h.endsWith('.vercel.app') && !PRODUCTION_VERCEL_HOSTS.has(h) && !h.includes('-git-main-');
 }
 
+/** True on a Vercel preview address in a production build (never locally, never live). */
+export function isPreviewSite(): boolean {
+  if (typeof window === 'undefined' || typeof window.location === 'undefined') return false;
+  return process.env.NODE_ENV === 'production' && isPreviewHost(window.location.hostname);
+}
+
 /** True where `?tenant=` may switch the index: local development or a Vercel preview. */
 export function tenantSwitchAllowed(): boolean {
   if (typeof window === 'undefined' || typeof window.location === 'undefined') return false;

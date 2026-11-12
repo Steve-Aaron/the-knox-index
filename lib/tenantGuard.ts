@@ -17,7 +17,7 @@ import { verifySession } from '@/lib/firebaseAdmin';
 import { tenantFromRequest } from '@/lib/tenantRequest';
 import { decideAccess, type AccessDecision } from '@/lib/tenantAccess';
 import type { TenantConfig } from '@/lib/tenants';
-import { devSessionEmail } from '@/lib/devIdentity';
+import { devSessionEmail, previewFullAccess } from '@/lib/devIdentity';
 
 export interface TenantGuard {
   tenant:   TenantConfig;
@@ -37,6 +37,11 @@ export async function guardTenant(request: Request): Promise<TenantGuard> {
       decision: { allowed: true, reason: 'public' },
       denied:   null,
     };
+  }
+
+  // Vercel preview only: the reviewer turned on full access in the preview bar
+  if (previewFullAccess(request.headers.get('Cookie'))) {
+    return { tenant, email: null, decision: { allowed: true, reason: 'dev-bypass' }, denied: null };
   }
 
   let email: string | null = null;
