@@ -5,6 +5,7 @@ import { AuthScreen } from '@/components/auth/AuthScreen';
 import { PrimaryButton } from '@/components/primitives/PrimaryButton';
 import { AccessRequestForm } from '@/components/auth/AccessRequestForm';
 import { DevLabel } from '@/components/primitives/DevLabel';
+import { DevPanel } from '@/components/primitives/DevPanel';
 import { useTenantAccess } from '@/hooks/useTenantAccess';
 import { tenantFullName } from '@/lib/tenants';
 import { neutral } from '@/theme/colors';
@@ -34,13 +35,22 @@ interface Props {
   children: React.ReactNode;
 }
 
+/**
+ * Every locked screen also carries the dev / preview bar, so a reviewer on a
+ * Vercel preview can turn on 'Full' access without signing in. The bar
+ * renders nothing on the live site.
+ */
+function withPreviewBar(node: React.ReactNode): React.ReactElement {
+  return <>{node}<DevPanel /></>;
+}
+
 export function TenantGate({ children }: Props) {
   const { tenant, loading, allowed, reason, email, error, refresh } = useTenantAccess();
 
   if (allowed) return <>{children}</>;
 
   if (loading) {
-    return (
+    return withPreviewBar(
       <AuthScreen kicker={tenant.brand.kicker} title="Checking your access…" frameless>
         <View style={styles.spinnerWrap}>
           <ActivityIndicator color={neutral.textMid} />
@@ -52,7 +62,7 @@ export function TenantGate({ children }: Props) {
   const domains = tenant.access.allowedDomains.map(d => `@${d}`).join(' or ');
 
   if (reason === 'unauthenticated') {
-    return (
+    return withPreviewBar(
       <AuthScreen
         kicker={tenant.brand.kicker}
         title="Sign in to continue"
@@ -66,7 +76,7 @@ export function TenantGate({ children }: Props) {
   }
 
   if (reason === 'none') {
-    return (
+    return withPreviewBar(
       <AuthScreen
         kicker={tenant.brand.kicker}
         title="Request access"
@@ -84,7 +94,7 @@ export function TenantGate({ children }: Props) {
   }
 
   if (reason === 'pending') {
-    return (
+    return withPreviewBar(
       <AuthScreen
         kicker={tenant.brand.kicker}
         title="Access requested"
@@ -95,7 +105,7 @@ export function TenantGate({ children }: Props) {
     );
   }
 
-  return (
+  return withPreviewBar(
     <AuthScreen
       kicker={tenant.brand.kicker}
       title="Access not granted"
