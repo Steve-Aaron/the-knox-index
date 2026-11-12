@@ -15,7 +15,7 @@
  */
 
 import { verifySession } from '@/lib/firebaseAdmin';
-import { devSessionEmail } from '@/lib/devIdentity';
+import { devSessionEmail, previewFullAccess } from '@/lib/devIdentity';
 import { tenantFromRequest } from '@/lib/tenantRequest';
 import { tenantFullName } from '@/lib/tenants';
 import { decideAccess, requestAccess, getAccessRecord, type AccessRequestDetails } from '@/lib/tenantAccess';
@@ -41,7 +41,10 @@ export async function GET(request: Request): Promise<Response> {
   const email  = tenant.access.mode === 'public' ? null : await currentEmail(request);
 
   try {
-    const decision = await decideAccess(email, tenant);
+    // Vercel preview only: full access turned on in the preview bar (same rule as lib/tenantGuard.ts)
+    const decision = previewFullAccess(request.headers.get('Cookie'))
+      ? { allowed: true as const, reason: 'dev-bypass' as const }
+      : await decideAccess(email, tenant);
     return Response.json(
       {
         // The dashboard id is the identifier; the slug is along for readability.
