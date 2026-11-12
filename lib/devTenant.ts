@@ -13,8 +13,9 @@
  *
  *   1. remembers the override for the tab (sessionStorage), so it survives
  *      client-side navigation that drops the query string
- *   2. patches fetch to send `x-knox-tenant` on same-origin /api/ calls, which
- *      is the same header lib/tenantRequest.ts already honours in development
+ *   2. patches fetch to send `x-knox-tenant` on same-origin /api/ calls (and
+ *      `?tenant=` in their URL, so the browser cache keeps the indexes apart),
+ *      which lib/tenantRequest.ts honours in development and on previews
  *
  * It works locally and on Vercel PREVIEW deployments (e.g. the dev branch at
  * theknoxindex-git-dev-….vercel.app), which have no worldleaders subdomain
@@ -104,21 +105,24 @@ export function installDevTenantFetch(): void {
   const original = window.fetch.bind(window);
 
   window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
-    let path = '';
+    let url: URL | null = null;
     try {
-      path = typeof input === 'string'
-        ? input
-        : input instanceof URL ? input.pathname : (input as Request).url;
+      const raw = typeof input === 'string' ? input : input instanceof URL ? input.href : (input as Request).url;
+      url = new URL(raw, window.location.origin);
     } catch { /* exotic input — fall through unmodified */ }
 
-    const sameOriginApi = path.startsWith('/api/')
-      || path.startsWith(`${window.location.origin}/api/`);
+    if (!url || url.origin !== window.location.origin || !url.pathname.startsWith('/api/')) {
+      return original(input as any, init);
+    }
 
-    if (!sameOriginApi) return original(input as any, init);
-
+    // The tenant goes in the URL as well as the header: one origin serves both
+    // indexes here, and the browser caches /api/ responses by URL alone, so
+    // without it a UK response would be reused for World Leaders.
+    url.searchParams.set('tenant', tenant);
     const headers = new Headers(init?.headers ?? (input instanceof Request ? input.headers : undefined));
     headers.set(HEADER, tenant);
-    return original(input as any, { ...init, headers });
+    const target = typeof input === 'string' || input instanceof URL ? url.toString() : new Request(url.toString(), input as Request);
+    return original(target as any, { ...init, headers });
   };
 
   patched = true;
