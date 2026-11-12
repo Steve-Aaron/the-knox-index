@@ -9,15 +9,15 @@ import { Kicker } from '@/components/ui/Kicker';
 import { useLayoutWidth } from '@/hooks/useLayoutWidth';
 import { spacing } from '@/theme/spacing';
 import type { Politician } from '@/data/types';
-import type { AccountPeriodData, RadarAxisKey } from '@/data/account/types';
+import type { AccountKpis, AccountPeriodData, RadarAxisKey } from '@/data/account/types';
 import { PLATFORM_META, PLATFORM_ORDER } from '../platforms';
 import { RadarLegend, type LegendItem } from './RadarLegend';
 
 /**
  * PerformanceCard
  * ----------------
- * Radar comparing the account's platforms on the five score axes, plus the
- * follower-quality verdict underneath.
+ * Radar comparing the account's platforms on the five score axes, plus a
+ * low-reach callout underneath when the follower-quality threshold is met.
  *
  * One job: show how the account performs, per platform.
  */
@@ -25,23 +25,25 @@ interface Props {
   radar:      AccountPeriodData['radar'];
   /** Feeds the shared FollowerQualityFlag. */
   politician: Politician;
+  /** Period KPIs — the flag's ratio is avgViewsPerPost / followers. */
+  kpis:       AccountKpis;
   height?:    number;
   /** Layout from the parent, e.g. flex share in a row. */
   style?:     ViewStyle;
 }
 
 const AXES: RadarAxis<RadarAxisKey>[] = [
-  { key: 'virality',   label: 'Virality' },
-  { key: 'activity',   label: 'Activity' },
-  { key: 'engagement', label: 'Eng. %' },
-  { key: 'followers',  label: 'Followers' },
-  { key: 'knoxFactor', label: 'Knox' },
+  { key: 'virality',   label: 'Virality',    desc: 'Avg views per follower' },
+  { key: 'activity',   label: 'Activity',    desc: 'Posting frequency in the period' },
+  { key: 'engagement', label: 'Eng. %',      desc: 'Active engagements divided by views' },
+  { key: 'followers',  label: 'Followers',   desc: 'Total followers' },
+  { key: 'knoxFactor', label: 'Knox factor', desc: 'Our custom rating of this account\'s effectiveness' },
 ];
 
 /** Largest the radar gets, so it never dominates a wide card. */
 const MAX_CHART_SIZE = 400;
 
-export function PerformanceCard({ radar, politician, height, style }: Props) {
+export function PerformanceCard({ radar, politician, kpis, height, style }: Props) {
   const [chartWidth, onChartLayout] = useLayoutWidth();
   const chartSize = Math.min(chartWidth, MAX_CHART_SIZE);
 
@@ -51,7 +53,7 @@ export function PerformanceCard({ radar, politician, height, style }: Props) {
       return values ? [{ platform: p, values, ...PLATFORM_META[p] }] : [];
     });
     return {
-      series: shown.map<RadarSeries<RadarAxisKey>>(s => ({ id: s.platform, color: s.color, values: s.values })),
+      series: shown.map<RadarSeries<RadarAxisKey>>(s => ({ id: s.platform, label: s.label, color: s.color, values: s.values })),
       legend: shown.map<LegendItem>(s => ({ id: s.platform, label: s.label, color: s.color })),
     };
   }, [radar]);
@@ -76,7 +78,11 @@ export function PerformanceCard({ radar, politician, height, style }: Props) {
         {chartSize > 0 ? <RadarChart axes={AXES} series={series} size={chartSize} /> : null}
       </View>
 
-      <FollowerQualityFlag politician={politician} />
+      <FollowerQualityFlag
+        politician={politician}
+        sample={{ avgViews: kpis.avgViewsPerPost, postCount: kpis.posts }}
+        flagsOnly
+      />
     </AccountWidget>
   );
 }

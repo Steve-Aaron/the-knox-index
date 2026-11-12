@@ -13,6 +13,9 @@
 
 import type { Politician, LeaderboardSortKey } from './types';
 
+/** Leaderboard rows a guest sees unlocked; the rest need registration. */
+export const GUEST_OPEN_ROWS = 5;
+
 /**
  * The value the leaderboard ranks and displays for a given sort key.
  *

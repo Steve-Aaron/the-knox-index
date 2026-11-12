@@ -23,15 +23,20 @@ import { computeFollowerQuality, FOLLOWER_QUALITY } from '@/data/knoxConfig';
 
 interface Props {
   politician: Politician;
+  /** Posts to average instead of politician.recentPosts, e.g. the account
+   *  page's period KPIs, so the ratio matches the figures shown beside it. */
+  sample?: { avgViews: number; postCount: number };
+  /** Render nothing unless reach is flagged (amber or red). */
+  flagsOnly?: boolean;
 }
 
-export function FollowerQualityFlag({ politician }: Props) {
+export function FollowerQualityFlag({ politician, sample, flagsOnly = false }: Props) {
   const verdict = useMemo(() => {
     const followers   = politician.totals.followers;
     const recentPosts = politician.recentPosts ?? [];
-    const postCount   = recentPosts.length;
-    const avgViews    = postCount > 0
-      ? recentPosts.reduce((s, p) => s + p.views, 0) / postCount
+    const postCount   = sample?.postCount ?? recentPosts.length;
+    const avgViews    = sample ? sample.avgViews
+      : postCount > 0 ? recentPosts.reduce((s, p) => s + p.views, 0) / postCount
       : 0;
 
     const v = computeFollowerQuality(avgViews, followers, postCount);
@@ -71,7 +76,9 @@ export function FollowerQualityFlag({ politician }: Props) {
       label: 'Reach looks healthy for size',
       hint:  'Followers are seeing posts at a normal rate for an account this size.',
     };
-  }, [politician]);
+  }, [politician, sample?.avgViews, sample?.postCount]);
+
+  if (flagsOnly && verdict.tone !== 'amber' && verdict.tone !== 'red') return null;
 
   const tint = verdict.tone === 'red' ? '#ff7a7a'
              : verdict.tone === 'amber' ? accent.amber

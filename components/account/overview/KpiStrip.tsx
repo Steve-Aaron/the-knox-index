@@ -1,8 +1,10 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { DevLabel } from '@/components/primitives/DevLabel';
+import { useLayoutWidth } from '@/hooks/useLayoutWidth';
+import { useAccountLayout } from '@/components/account/layout/accountLayout';
 import { fmtCount } from '@/lib/format';
-import { accent, knox } from '@/theme/colors';
+import { accent, knox, party } from '@/theme/colors';
 import { spacing } from '@/theme/spacing';
 import type { AccountKpis } from '@/data/account/types';
 import { KpiStat } from './KpiStat';
@@ -10,8 +12,10 @@ import { KpiStat } from './KpiStat';
 /**
  * KpiStrip
  * ---------
- * The five headline numbers for the selected range + platform. A row on
- * wide screens, a single centred column on mobile.
+ * The five headline numbers for the selected range + platform. Five equal
+ * columns in one row; the figures scale with the column width (56px down to
+ * 28px), so they only ever shrink as the row narrows and never wrap. A
+ * single centred column on mobile.
  *
  * One job: lay out the KPI set.
  */
@@ -25,6 +29,7 @@ interface KpiDef {
   label:     string;
   color:     string;
   format:    (n: number) => string;
+  decimals?: number;
   infoText:  string;
   sublabel?: string;
 }
@@ -48,25 +53,54 @@ const KPI_DEFS: KpiDef[] = [
     infoText: 'Likes received on posts published in the selected period.',
   },
   {
-    key: 'engagementRate', label: 'Engagement rate', color: knox.primaryPurple, format: n => `${n}%`,
+    key: 'engagementRate', label: 'Engagement rate', color: party.labour.base, format: n => `${n.toFixed(1)}%`, decimals: 1,
     infoText: 'Likes, comments, saves and shares divided by views, across posts in the period.',
   },
 ];
 
+const GAP = spacing.xl;
+const MAX_FIGURE = 56;
+const MIN_FIGURE = 28;
+/** A six-character figure like '496.6K' is about 3.5× its font size wide. */
+const FIGURE_WIDTH_RATIO = 3.6;
+/**
+ * Below 1024px the side column stacks above, so the row gets wider again.
+ * Capping the figure at what fits at 1024px keeps it from growing back as
+ * the window narrows past that breakpoint.
+ */
+const TABLET_MAX_FIGURE = 30;
+
 export function KpiStrip({ kpis, compact = false }: Props) {
+  const [width, onLayout] = useLayoutWidth();
+  const { isTablet } = useAccountLayout();
+  const maxFigure = isTablet ? TABLET_MAX_FIGURE : MAX_FIGURE;
+  const columns = KPI_DEFS.length;
+  // Whole pixels, 1px short: the measured width is rounded and may be up to
+  // half a pixel wider than the row, and fractional cells that overshoot it
+  // wrap the last stat at every other width.
+  const cellWidth = Math.floor((width - 1 - GAP * (columns - 1)) / columns);
+  // Until measured, share the row equally.
+  const cell = width > 0 ? { width: cellWidth } : styles.cellUnmeasured;
+  const figureSize = width > 0
+    ? Math.max(MIN_FIGURE, Math.min(maxFigure, Math.floor(cellWidth / FIGURE_WIDTH_RATIO)))
+    : maxFigure;
+
   return (
-    <View style={[styles.row, compact && styles.column]}>
+    <View style={[styles.row, compact && styles.column]} onLayout={onLayout}>
       <DevLabel name="KpiStrip" />
       {KPI_DEFS.map(def => (
         <KpiStat
           key={def.key}
           value={kpis[def.key]}
           format={def.format}
+          decimals={def.decimals}
           label={def.label}
           color={def.color}
           infoText={def.infoText}
           sublabel={def.sublabel}
           compact={compact}
+          figureSize={figureSize}
+          style={compact ? undefined : cell}
         />
       ))}
     </View>
@@ -75,11 +109,13 @@ export function KpiStrip({ kpis, compact = false }: Props) {
 
 const styles = StyleSheet.create({
   row: {
-    flexDirection:  'row',
-    flexWrap:       'wrap',
-    justifyContent: 'space-between',
-    rowGap:         spacing.xl,
-    columnGap:      spacing.xl,
+    flexDirection: 'row',
+    flexWrap:      'wrap',
+    rowGap:        GAP,
+    columnGap:     GAP,
+  },
+  cellUnmeasured: {
+    flex: 1,
   },
   column: {
     flexDirection: 'column',

@@ -10,7 +10,7 @@ import { useBreakpoint } from '@/theme/breakpoints';
  *   │ Profile   │ │ Time range · platform · KPIs       │
  *   │           │ ├── Performance 50% ─┬─ Content 50% ─┤
  *   ├───────────┤ │                    │               │
- *   │ Key stats │ ├────────────────────┴───────────────┤
+ *   │Comparison │ ├────────────────────┴───────────────┤
  *   └───────────┘ │ Best-performing posts              │
  *                 └────────────────────────────────────┘
  */

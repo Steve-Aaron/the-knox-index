@@ -47,7 +47,7 @@ function SocialLinkPill({ social }: { social: SocialProfile }) {
         pressed && styles.pillPressed,
       ]}
     >
-      <FontAwesome6 name={meta.icon} size={12} color={neutral.text} />
+      <FontAwesome6 name={meta.icon} size={12} color={neutral.textMid} />
       <Text style={styles.label}>{meta.label} profile</Text>
       <Text style={styles.arrow}>↗</Text>
     </Pressable>
@@ -85,7 +85,7 @@ const styles = StyleSheet.create({
   label: {
     ...type.caption,
     fontSize: 11,
-    color:    neutral.text,
+    color:    neutral.textMid,
   },
   arrow: {
     fontSize: 11,

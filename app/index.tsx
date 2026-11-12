@@ -11,6 +11,7 @@ import {
 import { MotiView } from 'moti';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { router, useLocalSearchParams } from 'expo-router';
 import { PoliticianDetailPanel } from '@/components/dashboard/PoliticianDetailPanel';
 import { SummaryPanel } from '@/components/dashboard/SummaryPanel';
 import { RankBoard } from '@/components/dashboard/RankBoard';
@@ -78,7 +79,7 @@ const RANGE_LABELS: Record<TimeRange, string> = {
   week:      'Last 7 days',
   month:     'Last 30 days',
   year:      'This year',
-  lifetime:  'Lifetime',
+  lifetime:  'All data',
 };
 
 /** Fixed height for the three panels when side-by-side. */
@@ -109,7 +110,7 @@ function DashboardScreenInner() {
   const postsSectionRef = useRef<View>(null);
 
   // Locked time-range interstitial — set to the attempted range when an
-  // unregistered user taps This Month / This Year / Lifetime.
+  // unregistered user taps Last 30 days / This year / All data.
   const [lockedRangeAttempt, setLockedRangeAttempt] = useState<TimeRange | null>(null);
 
   // Sticky 'Register' bar should only appear AFTER the user has scrolled past
@@ -127,22 +128,27 @@ function DashboardScreenInner() {
     else if (y <= thresh && pastHero) setPastHero(false);
   }, [pastHero]);
 
+  // Bring the post feed into view — a filter set from elsewhere on the page
+  // gives the user no signal it took otherwise.
+  const scrollToPosts = useCallback(() => {
+    if (!postsSectionRef.current) return;
+    // measure() gives us the y of the posts section relative to its parent
+    // ScrollView, then we scroll to it with a slight offset for breathing room.
+    const sv: any = scrollViewRef.current;
+    const innerNode = sv?.getInnerViewNode?.() ?? sv;
+    postsSectionRef.current.measureLayout(
+      innerNode,
+      (_x, y) => scrollViewRef.current?.scrollTo({ y: Math.max(0, y - 16), animated: true }),
+      () => {/* measure failed — silently ignore */},
+    );
+  }, []);
+
   // Selecting a style from the Style League below the feed should bring the
-  // filtered feed into view — otherwise the user has no signal the filter took.
+  // filtered feed into view.
   const handleStyleSelect = useCallback((s: string | null) => {
     setStyleFilter(s);
-    if (s && postsSectionRef.current) {
-      // measure() gives us the y of the posts section relative to its parent
-      // ScrollView, then we scroll to it with a slight offset for breathing room.
-      const sv: any = scrollViewRef.current;
-      const innerNode = sv?.getInnerViewNode?.() ?? sv;
-      postsSectionRef.current.measureLayout(
-        innerNode,
-        (_x, y) => scrollViewRef.current?.scrollTo({ y: Math.max(0, y - 16), animated: true }),
-        () => {/* measure failed — silently ignore */},
-      );
-    }
-  }, []);
+    if (s) scrollToPosts();
+  }, [scrollToPosts]);
 
   // Tapping a row in the GroupLeaderboard widget also changes the post feed's
   // group filter via shared parent state. Fire `party_filter_changed` here so
@@ -268,6 +274,21 @@ function DashboardScreenInner() {
     const t = setTimeout(() => setHeroReady(true), 650);
     return () => clearTimeout(t);
   }, [loadingDone, heroReady]);
+
+  // Header search → '/?group=<key>': apply the group filter once the dashboard
+  // has rendered, scroll to the feed, then drop the param so picking the same
+  // group again still fires. Unknown keys are ignored.
+  const { group: groupParam } = useLocalSearchParams<{ group?: string }>();
+  useEffect(() => {
+    if (!groupParam || !heroReady) return;
+    if (politicians.some(p => p.groupKey === groupParam)) {
+      track('party_filter_changed', { party: groupParam, source: 'search' });
+      setGroupFilter(groupParam as GroupKey);
+      setTimeout(scrollToPosts, 0);
+    }
+    // '' rather than undefined: expo-router would store the string 'undefined'.
+    router.setParams({ group: '' });
+  }, [groupParam, heroReady, politicians, scrollToPosts]);
 
   // Area 10: fire analytics events when data status changes, including recovery timing.
   const prevStatusRef  = useRef(status);
@@ -714,7 +735,7 @@ function DashboardScreenInner() {
       )}
 
       {/* Locked time-range interstitial — unregistered users see this when
-          they tap This Month / This Year / Lifetime. */}
+          they tap Last 30 days / This year / All data. */}
       <Interstitial
         visible={lockedRangeAttempt != null}
         onClose={() => setLockedRangeAttempt(null)}

@@ -32,6 +32,8 @@ interface Props {
   compact?:    boolean;
   /** Height of the side-by-side layout; sets the 9:16 cover size. */
   height?:     number;
+  /** Play the video in place of the cover (when the post has one). */
+  playable?:   boolean;
   isAdmin?:    boolean;
   activeStyle?: string | null;
   activeTopic?: string | null;
@@ -45,6 +47,7 @@ export function PostDetail({
   benchmarks,
   compact = false,
   height = POST_DETAIL_HEIGHT,
+  playable = false,
   isAdmin = false,
   activeStyle,
   activeTopic,
@@ -56,7 +59,9 @@ export function PostDetail({
   return (
     <>
       <PostCover
+        key={post.postId}
         uri={post.coverJpeg}
+        video={playable && post.videoMp4 ? { uri: post.videoMp4, postId: String(post.postId) } : undefined}
         views={post.views}
         accentColour={colour.base}
         width={postCoverWidth(height)}

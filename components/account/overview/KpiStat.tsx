@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View, type ViewStyle } from 'react-native';
 import { CountUp } from '@/components/primitives/CountUp';
 import { InfoTip } from '@/components/primitives/InfoTip';
 import { neutral } from '@/theme/colors';
@@ -17,20 +17,33 @@ import { font, type, weight } from '@/theme/typography';
 interface Props {
   value:    number;
   format:   (n: number) => string;
+  /** Decimal places kept while counting. Default 0. */
+  decimals?: number;
   label:    string;
   color:    string;
   infoText: string;
   sublabel?: string;
   compact?:  boolean;
+  /** Figure font size in px, fitted to the grid cell. Default 56. */
+  figureSize?: number;
+  /** Cell size from the parent grid. */
+  style?:    ViewStyle;
 }
 
-export function KpiStat({ value, format, label, color, infoText, sublabel, compact = false }: Props) {
+export function KpiStat({ value, format, decimals, label, color, infoText, sublabel, compact = false, figureSize = 56, style }: Props) {
   return (
-    <View style={[styles.wrap, compact && styles.wrapCompact]}>
+    <View style={[styles.wrap, compact && styles.wrapCompact, style]}>
       <CountUp
         value={value}
+        decimals={decimals}
         format={format}
-        style={[styles.value, compact && styles.valueCompact, { color }]}
+        style={[
+          styles.value,
+          compact
+            ? styles.valueCompact
+            : { fontSize: figureSize, lineHeight: Math.round(figureSize * 8 / 7) },
+          { color },
+        ]}
       />
       <View style={styles.labelRow}>
         <Text style={styles.label}>{label}</Text>
@@ -42,6 +55,8 @@ export function KpiStat({ value, format, label, color, infoText, sublabel, compa
 }
 
 const styles = StyleSheet.create({
+  // The parent grid gives every stat the same fixed width, so a number that
+  // grows or shrinks while it counts never pushes its neighbours sideways.
   wrap: {
     gap: spacing.xs,
   },
@@ -69,6 +84,8 @@ const styles = StyleSheet.create({
   },
   label: {
     ...type.caption,
+    // Long labels wrap in narrow cells instead of overflowing.
+    flexShrink: 1,
     fontSize: 12,
     color:    neutral.textMid,
   },

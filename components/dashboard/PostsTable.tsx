@@ -27,14 +27,14 @@ import { Title } from '@/components/ui/Title';
 import { neutral, party, glass, accent, colourFor } from '@/theme/colors';
 import type { GroupKey } from '@/theme/colors';
 import { useTenant } from '@/hooks/useTenant';
-import { labelForGroupKey } from '@/data/grouping';
+import { groupDisplayLabel } from '@/data/grouping';
 import { type, font } from '@/theme/typography';
 import { spacing, radius } from '@/theme/spacing';
 import type { PostRecord, PostBenchmarks } from '@/data/types';
 import { track } from '@/lib/analytics';
 import { fmtLabel } from '@/lib/format';
-import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { AdvancedFilterPanel } from './AdvancedFilterPanel';
+import { AdvancedFilterButton } from './AdvancedFilterButton';
 import type { FeedFilters } from '@/data/usePostsData';
 import { applyAdvancedFilter, type Rule } from '@/lib/advancedFilters';
 
@@ -129,19 +129,8 @@ const LIKE_THRESHOLDS: { value: number; label: string }[] = [
 
 // ── Group label helper ─────────────────────────────────────────────────────────
 
-/** Hand-written short labels for UK parties; other modes defer to the adapter. */
 function groupLabel(key: GroupKey, mode: 'party' | 'region' = 'party'): string {
-  if (mode !== 'party') return labelForGroupKey(mode, key);
-  const labels: Partial<Record<GroupKey, string>> = {
-    labour: 'Labour', conservative: 'Conservative', libdem: 'Lib Dems',
-    snp: 'SNP', green: 'Greens', reform: 'Reform', plaid: 'Plaid',
-    dup: 'DUP', sinnfein: 'Sinn Féin',
-    alliance: 'Alliance', sdlp: 'SDLP', uup: 'UUP', tuv: 'TUV',
-    workers: 'Workers Party', advance: 'Advance UK', restore: 'Restore Britain',
-    yourparty: 'Your Party',
-    independent: 'Independent', unknown: 'Unknown',
-  };
-  return labels[key] ?? key;
+  return groupDisplayLabel(mode, key);
 }
 
 /**
@@ -523,33 +512,15 @@ export function PostsTable({
                 <Text style={styles.countText}>{feedTotal}</Text>
               </View>
               {/* Magnifying glass — toggles the AdvancedFilterPanel below */}
-              <Pressable
+              <AdvancedFilterButton
+                open={advancedVisible}
+                ruleCount={advancedRules.length}
                 onPress={() => {
                   const next = !advancedVisible;
                   setAdvancedVisible(next);
                   track('advanced_filter_toggled', { open: next, rule_count: advancedRules.length });
                 }}
-                style={({ pressed, hovered }: any) => [
-                  styles.advFilterBtn,
-                  advancedVisible && styles.advFilterBtnActive,
-                  advancedRules.length > 0 && styles.advFilterBtnHasRules,
-                  hovered && { opacity: 0.85 },
-                  pressed && { opacity: 0.7 },
-                ]}
-                accessibilityLabel="Toggle advanced filter"
-              >
-                <FontAwesome6
-                  name="magnifying-glass"
-                  size={12}
-                  color={advancedVisible || advancedRules.length > 0 ? accent.indigo : neutral.textMid}
-                  solid
-                />
-                {advancedRules.length > 0 && (
-                  <View style={styles.advFilterCount}>
-                    <Text style={styles.advFilterCountText}>{advancedRules.length}</Text>
-                  </View>
-                )}
-              </Pressable>
+              />
             </View>
           </View>
           <ScrollView
@@ -948,41 +919,6 @@ const styles = StyleSheet.create({
   },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: 2 },
 
-  // ── Advanced filter button ─────────────────────────────────────────────────
-  advFilterBtn: {
-    flexDirection:   'row',
-    alignItems:      'center',
-    gap:             4,
-    width:           32,
-    height:          32,
-    justifyContent:  'center',
-    borderRadius:    radius.pill,
-    borderWidth:     1,
-    borderColor:     glass.borderHi,
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    ...Platform.select({ web: { cursor: 'pointer' } as any, default: {} }),
-  },
-  advFilterBtnActive: {
-    borderColor:     accent.indigo,
-    backgroundColor: accent.indigo + '20',
-  },
-  advFilterBtnHasRules: {
-    width:             'auto' as any,
-    paddingHorizontal: 8,
-  },
-  advFilterCount: {
-    backgroundColor:   accent.indigo,
-    paddingHorizontal: 5,
-    paddingVertical:   1,
-    borderRadius:      radius.pill,
-    minWidth:          16,
-    alignItems:        'center',
-  },
-  advFilterCountText: {
-    fontFamily: font.bold,
-    fontSize:   9,
-    color:      '#fff',
-  },
   titleRange: { ...type.body, color: neutral.textDim, fontSize: 16 },
   countBadge: {
     backgroundColor: accent.indigo + '22',
