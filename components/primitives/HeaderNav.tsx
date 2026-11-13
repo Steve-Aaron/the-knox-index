@@ -9,6 +9,7 @@ import { neutral, glass, accent } from '@/theme/colors';
 import { spacing } from '@/theme/spacing';
 import { font } from '@/theme/typography';
 import { breakpoints } from '@/theme/breakpoints';
+import { homeHref } from '@/lib/devTenant';
 
 /**
  * HeaderNav
@@ -63,8 +64,8 @@ export function HeaderNav({ activeRoute, leftItems, rightItems }: Props) {
   // Logo = home. On web do a real refresh to '/' (rebuilds the dashboard and
   // re-fetches), on native push the route.
   const goHome = () => {
-    if (Platform.OS === 'web' && typeof window !== 'undefined') window.location.assign('/');
-    else router.push('/');
+    if (Platform.OS === 'web' && typeof window !== 'undefined') window.location.assign(homeHref());
+    else router.push(homeHref() as any);
   };
 
   return (

@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
+import { accountHref } from '@/lib/devTenant';
 import { DashCard } from '@/components/primitives/DashCard';
 import { DevLabel } from '@/components/primitives/DevLabel';
 import { CardAvatar } from '@/components/card/CardAvatar';
@@ -132,7 +133,7 @@ export function FastestGrowing({ growth: byPct, growthAbsolute, politicians, ran
             return (
               <Pressable
                 key={r.key}
-                onPress={() => router.push(`/account/${slug}`)}
+                onPress={() => router.push(accountHref(slug))}
                 accessibilityRole="link"
                 accessibilityLabel={`${p.name}, +${fmtCount(r.gain)} followers, ${fmtPct(r.pct)}, open account`}
                 style={({ pressed, hovered }: any) => [styles.row, hovered && styles.rowHover, pressed && { opacity: 0.8 }]}

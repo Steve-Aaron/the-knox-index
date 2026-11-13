@@ -5,6 +5,7 @@ import { DevLabel } from '@/components/primitives/DevLabel';
 import { neutral, glass } from '@/theme/colors';
 import { spacing, radius } from '@/theme/spacing';
 import { font } from '@/theme/typography';
+import { homeHref } from '@/lib/devTenant';
 
 /**
  * GoogleSignInButton
@@ -69,7 +70,7 @@ export function GoogleSignInButton({
 
       await establishSession(idToken);
       // Reload so useAuth and friends re-hydrate from the new cookie.
-      window.location.assign('/');
+      window.location.assign(homeHref());
     } catch (err) {
       console.error('[GoogleSignInButton] Sign-in failed', err);
       setBusy(false);

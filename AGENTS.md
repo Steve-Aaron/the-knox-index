@@ -93,6 +93,11 @@ One deployment serves several dashboards, one per subdomain:
 
 - The registry is `lib/tenants.ts`. Adding a subdomain = one entry there + a
   Vercel domain. Full guide: `docs/tenants.md`
+- Locally and on Vercel previews (one address for both indexes) the path names
+  the index: `/uk`, `/uk/<slug>`, `/world-leaders`, `/world-leaders/<slug>`;
+  `/` goes to the tab's last index. Build links with `homeHref()` /
+  `accountHref()` from `lib/devTenant.ts`, never a hard-coded `/account/...`.
+  The live site keeps subdomains and `/account/<slug>`
 - The DASHBOARD ID identifies a tenant (`?tenant=2`, `x-knox-tenant: 2`,
   `tenant_access.tenantId`). `tenantById()` also accepts the slug
 - Server routes MUST call `guardTenant(request)` before querying, and pass

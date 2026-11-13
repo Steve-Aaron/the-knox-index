@@ -46,6 +46,12 @@ export interface TenantConfig {
   dashboardId: number;
   /** Subdomain label, e.g. 'worldleaders'. Null for the apex/root site. */
   subdomain: string | null;
+  /**
+   * First path segment for this index where one address serves both (local
+   * development and Vercel previews): /uk, /world-leaders/lula-da-silva. The
+   * live site uses its subdomains instead.
+   */
+  path: string;
   /** Exact hostnames that resolve to this tenant (no port, lowercase). */
   hosts: readonly string[];
   brand: {
@@ -108,6 +114,7 @@ export const TENANTS: readonly TenantConfig[] = [
     id:          'uk',
     dashboardId: 1,
     subdomain:   null,
+    path:        'uk',
     hosts: [
       ROOT_HOST,
       'theknoxindex.knox.digital',
@@ -142,6 +149,7 @@ export const TENANTS: readonly TenantConfig[] = [
     id:          'world',
     dashboardId: 2,
     subdomain:   'worldleaders',
+    path:        'world-leaders',
     hosts: [
       `worldleaders.${ROOT_HOST}`,
       'worldleaders.localhost',
@@ -202,7 +210,13 @@ export function tenantById(id: string | number | null | undefined): TenantConfig
     return TENANTS.find(t => t.dashboardId === Number(raw)) ?? DEFAULT_TENANT;
   }
 
-  return TENANTS.find(t => t.id === raw) ?? DEFAULT_TENANT;
+  return TENANTS.find(t => t.id === raw || t.path === raw) ?? DEFAULT_TENANT;
+}
+
+/** The tenant whose path is this segment ('uk', 'world-leaders'), or null. */
+export function tenantByPath(segment: string | null | undefined): TenantConfig | null {
+  const raw = String(segment ?? '').trim().toLowerCase();
+  return TENANTS.find(t => t.path === raw) ?? null;
 }
 
 /** Lookup by dashboard id alone. Null when no tenant serves that dashboard. */

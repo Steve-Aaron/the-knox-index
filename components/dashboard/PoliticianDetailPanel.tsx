@@ -26,6 +26,7 @@ import { type } from '@/theme/typography';
 import type { Politician, LeaderboardSortKey } from '@/data/types';
 import type { TimeRange } from '@/components/dashboard/TimeRangePicker';
 import { router } from 'expo-router';
+import { accountHref } from '@/lib/devTenant';
 
 /**
  * PoliticianDetailPanel
@@ -197,7 +198,7 @@ export function PoliticianDetailPanel({ politician, headlineKey, range, panelHei
                 styles.cta,
                 { borderColor: colour.base, backgroundColor: `${colour.base}22`, opacity: pressed ? 0.7 : 1 },
               ]}
-              onPress={() => router.push(`/account/${politician.slug ?? politician.handle.replace(/^@/, '')}`)}
+              onPress={() => router.push(accountHref(politician.slug ?? politician.handle.replace(/^@/, '')))}
             >
               <Text style={[styles.ctaText, { color: colour.glow }]}>VIEW FULL PROFILE →</Text>
             </Pressable>

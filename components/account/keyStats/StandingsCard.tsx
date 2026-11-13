@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
+import { accountHref } from '@/lib/devTenant';
 import { AccountWidget } from '@/components/account/layout/AccountWidget';
 import { WidgetHeader } from '@/components/account/layout/WidgetHeader';
 import { CardAvatar } from '@/components/card/CardAvatar';
@@ -91,7 +92,7 @@ function Row({ row }: { row: StandingRow }) {
   }
   return (
     <Pressable
-      onPress={() => router.push(`/account/${row.slug}`)}
+      onPress={() => router.push(accountHref(row.slug))}
       accessibilityRole="link"
       accessibilityLabel={`${row.name}, rank ${row.rank}, Knox Factor ${row.knoxFactor}, open account`}
       style={({ hovered, pressed }: any) => [styles.row, hovered && styles.rowHover, pressed && { opacity: 0.8 }]}

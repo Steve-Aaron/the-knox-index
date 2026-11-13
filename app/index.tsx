@@ -9,6 +9,8 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { MotiView } from 'moti';
+import { Redirect } from 'expo-router';
+import { rootIndexPath, tenantSwitchAllowed } from '@/lib/devTenant';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { PoliticianDetailPanel } from '@/components/dashboard/PoliticianDetailPanel';
@@ -783,6 +785,10 @@ function DashboardScreenInner() {
 }
 
 export default function DashboardScreen() {
+  // One address for both indexes (local, previews): '/' goes to an index path
+  if (Platform.OS === 'web' && tenantSwitchAllowed() && window.location.pathname === '/') {
+    return <Redirect href={rootIndexPath() as any} />;
+  }
   // TenantGate is a pass-through on public tenants (The Knox Index) and the
   // sign-in / approval door on gated ones (World Leaders).
   return (

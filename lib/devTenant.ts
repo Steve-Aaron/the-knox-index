@@ -1,103 +1,135 @@
 /**
  * lib/devTenant.ts
  * -----------------
- * Local-preview support for tenants you cannot reach by hostname.
+ * Index paths for one-address setups: local development and Vercel preview
+ * deployments, where there is no worldleaders subdomain. The live site uses
+ * its subdomains and none of this runs there.
  *
- * `worldleaders.localhost:8081` works in Chrome and Firefox, which map every
- * *.localhost name to loopback. Safari does not, and neither does a machine
- * with a strict resolver — so `?tenant=world` is the fallback.
+ * The address says which index you are on, and every page has one:
  *
- * A query string alone is not enough, though: the page would render the World
- * Leaders brand while its fetches to /api/* still carried the localhost Host
- * header and came back with Knox Index data. So this module does two things:
+ *   /uk                          UK dashboard
+ *   /uk/andy-burnham             UK account page
+ *   /world-leaders               World Leaders dashboard
+ *   /world-leaders/lula-da-silva World Leaders account page
+ *   /                            goes to the last index used in the tab (UK first)
  *
- *   1. remembers the override for the tab (sessionStorage), so it survives
- *      client-side navigation that drops the query string
- *   2. patches fetch to send `x-knox-tenant` on same-origin /api/ calls (and
- *      `?tenant=` in their URL, so the browser cache keeps the indexes apart),
- *      which lib/tenantRequest.ts honours in development and on previews
+ * Pages without an index in their path (privacy, preferences, sign-in, admin)
+ * keep the index you came from: the tab remembers the last index path.
+ * The old `?tenant=world` still works and lands on the matching path.
  *
- * It works locally and on Vercel PREVIEW deployments (e.g. the dev branch at
- * theknoxindex-git-dev-….vercel.app), which have no worldleaders subdomain
- * either. On the live site it is dead: the browser side only switches on for
- * a preview address, and the server only honours the header when Vercel
- * says the deployment is a preview (lib/tenantRequest.ts). Gated tenants
- * still need sign-in wherever the switch is used.
+ * The browser alone cannot pick the data, so this module also patches fetch:
+ * same-origin /api/ calls carry `x-knox-tenant` and `?tenant=` (the query
+ * keeps the indexes apart in the browser cache). The server only honours them
+ * locally or when Vercel says the build is a preview (lib/tenantRequest.ts),
+ * and gated indexes still need sign-in or preview Full access.
  *
- * One job: make `?tenant=<id>` a truthful local or preview view.
+ * One job: map addresses to indexes where one address serves both.
  */
 
-const STORAGE_KEY = 'knox_dev_tenant';
+import type { Href } from 'expo-router';
+import { tenantById, tenantByPath, DEFAULT_TENANT, type TenantConfig } from '@/lib/tenants';
+
+/** The tab's last index (tenant id), for pages without an index in their path. */
+const STORAGE_KEY = 'knox_index';
 const HEADER      = 'x-knox-tenant';
-/** Values that mean 'stop overriding', so the URL can undo itself. */
-const CLEAR_VALUES = new Set(['off', 'clear', 'none', 'reset', '']);
 
 /** Production's own vercel.app names, which are not previews. */
 const PRODUCTION_VERCEL_HOSTS = new Set(['theknoxindex.vercel.app', 'theknoxindex-steveaarons-projects.vercel.app']);
 
 /**
  * A Vercel preview address: *.vercel.app, but not production's own names or
- * the main branch's alias. Only decides whether the browser offers the
- * switch; the server decides for itself whether to honour it.
+ * the main branch's alias. Only decides what the browser offers; the server
+ * decides for itself whether to honour it.
  */
 function isPreviewHost(host: string): boolean {
   const h = host.toLowerCase();
   return h.endsWith('.vercel.app') && !PRODUCTION_VERCEL_HOSTS.has(h) && !h.includes('-git-main-');
 }
 
+function hasWindow(): boolean {
+  return typeof window !== 'undefined' && typeof window.location !== 'undefined';
+}
+
 /** True on a Vercel preview address in a production build (never locally, never live). */
 export function isPreviewSite(): boolean {
-  if (typeof window === 'undefined' || typeof window.location === 'undefined') return false;
-  return process.env.NODE_ENV === 'production' && isPreviewHost(window.location.hostname);
+  return hasWindow() && process.env.NODE_ENV === 'production' && isPreviewHost(window.location.hostname);
 }
 
-/** True where `?tenant=` may switch the index: local development or a Vercel preview. */
+/** True where index paths are used: local development or a Vercel preview. */
 export function tenantSwitchAllowed(): boolean {
-  if (typeof window === 'undefined' || typeof window.location === 'undefined') return false;
-  if (process.env.NODE_ENV !== 'production') return true;
-  return isPreviewHost(window.location.hostname);
+  if (!hasWindow()) return false;
+  return process.env.NODE_ENV !== 'production' || isPreviewHost(window.location.hostname);
 }
 
-function isDevWeb(): boolean {
-  return tenantSwitchAllowed();
+/** The index named by the first segment of a path, or null. */
+export function tenantFromPathname(pathname: string): TenantConfig | null {
+  return tenantByPath(pathname.split('/').filter(Boolean)[0]);
 }
 
-/** The forced tenant id for this tab, or null. Query string wins, then the tab's memory. */
-export function readDevTenantOverride(): string | null {
-  if (!isDevWeb()) return null;
+function remember(tenant: TenantConfig): void {
+  try { window.sessionStorage.setItem(STORAGE_KEY, tenant.id); } catch { /* private mode */ }
+}
 
-  let fromQuery: string | null = null;
+function remembered(): TenantConfig | null {
   try {
-    fromQuery = new URLSearchParams(window.location.search).get('tenant');
-  } catch { /* malformed query string */ }
+    const id = window.sessionStorage.getItem(STORAGE_KEY);
+    return id ? tenantById(id) : null;
+  } catch { return null; }
+}
 
-  if (fromQuery !== null) {
-    // ?tenant=off (or clear/none/reset) removes the override for the tab.
-    if (CLEAR_VALUES.has(fromQuery.trim().toLowerCase())) {
-      clearDevTenantOverride();
-      return null;
-    }
-    try { window.sessionStorage.setItem(STORAGE_KEY, fromQuery); } catch { /* private mode */ }
-    return fromQuery;
+/**
+ * The index this page is on (tenant id), or null to resolve from the
+ * hostname. Order: the path, then an old `?tenant=` link, then the tab's
+ * last index for pages without one in their path.
+ */
+export function readDevTenantOverride(): string | null {
+  if (!tenantSwitchAllowed()) return null;
+
+  const fromPath = tenantFromPathname(window.location.pathname);
+  if (fromPath) {
+    remember(fromPath);
+    return fromPath.id;
   }
 
-  try { return window.sessionStorage.getItem(STORAGE_KEY); } catch { return null; }
+  let fromQuery: string | null = null;
+  try { fromQuery = new URLSearchParams(window.location.search).get('tenant'); } catch { /* malformed */ }
+  if (fromQuery) {
+    const t = tenantById(fromQuery);
+    remember(t);
+    return t.id;
+  }
+
+  return remembered()?.id ?? null;
 }
 
-/** Clears the override for this tab. */
-export function clearDevTenantOverride(): void {
-  if (!isDevWeb()) return;
-  try { window.sessionStorage.removeItem(STORAGE_KEY); } catch { /* private mode */ }
+/** Where '/' goes when index paths are used: the tab's last index, else UK. */
+export function rootIndexPath(): string {
+  const t = readDevTenantOverride();
+  return `/${(t ? tenantById(t) : DEFAULT_TENANT).path}`;
+}
+
+/** Home of the current index: '/uk' or '/world-leaders' here, '/' on the live site. */
+export function homeHref(tenant?: TenantConfig): string {
+  if (!tenantSwitchAllowed()) return '/';
+  const current = readDevTenantOverride();
+  const t = tenant ?? (current ? tenantById(current) : DEFAULT_TENANT);
+  return `/${t.path}`;
+}
+
+/** An account page on the current index: '/uk/andy-burnham' here, '/account/andy-burnham' live. */
+export function accountHref(slug: string): Href {
+  const clean = encodeURIComponent(slug.replace(/^@/, ''));
+  return (tenantSwitchAllowed() ? `${homeHref()}/${clean}` : `/account/${clean}`) as Href;
 }
 
 let patched = false;
 
 /**
- * Patches window.fetch so same-origin /api/ calls carry the override header.
- * Idempotent, and a no-op when there is no override or outside development.
+ * Patches window.fetch so same-origin /api/ calls carry the index. Idempotent,
+ * and a no-op on the live site or when the page resolves from its hostname.
  */
 export function installDevTenantFetch(): void {
-  if (!isDevWeb() || patched) return;
+  if (!tenantSwitchAllowed() || patched) return;
 
   const tenant = readDevTenantOverride();
   if (!tenant) return;
@@ -115,10 +147,10 @@ export function installDevTenantFetch(): void {
       return original(input as any, init);
     }
 
-    // The tenant goes in the URL as well as the header: one origin serves both
-    // indexes here, and the browser caches /api/ responses by URL alone, so
-    // without it a UK response would be reused for World Leaders.
-    url.searchParams.set('tenant', tenant);
+    // In the URL as well as the header: the browser caches /api/ responses by
+    // URL alone, so without it a UK response would be reused for World Leaders.
+    // A call that names its own tenant (the admin access panel) keeps it.
+    if (!url.searchParams.has('tenant')) url.searchParams.set('tenant', tenant);
     const headers = new Headers(init?.headers ?? (input instanceof Request ? input.headers : undefined));
     headers.set(HEADER, tenant);
     const target = typeof input === 'string' || input instanceof URL ? url.toString() : new Request(url.toString(), input as Request);
@@ -126,18 +158,4 @@ export function installDevTenantFetch(): void {
   };
 
   patched = true;
-  // Loud on purpose: this line is the difference between 'the data looks wrong'
-  // and 'oh, I am in override mode'. The on-screen badge says the same thing
-  // for anyone not watching the console.
-  console.info(`[dev] tenant override active → ${tenant}. Visit ?tenant=off, or use the badge, to clear it.`);
-}
-
-/**
- * Drops the override and reloads on the current path with no query string, so
- * the tab goes back to resolving the tenant from the hostname.
- */
-export function exitDevTenantOverride(): void {
-  if (!isDevWeb()) return;
-  clearDevTenantOverride();
-  window.location.replace(window.location.pathname);
 }

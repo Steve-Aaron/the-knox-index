@@ -8,6 +8,7 @@ import { KnoxLogo } from '@/components/primitives/KnoxLogo';
 import { neutral, glass, accent } from '@/theme/colors';
 import { spacing, radius } from '@/theme/spacing';
 import { type, font } from '@/theme/typography';
+import { homeHref } from '@/lib/devTenant';
 
 /**
  * AppFooter
@@ -44,8 +45,8 @@ export function AppFooter() {
   const LINKS = isRegistered ? SIGNED_IN_LINKS : SIGNED_OUT_LINKS;
   // Logo = home. Full refresh to '/' on web, route push on native.
   const goHome = () => {
-    if (Platform.OS === 'web' && typeof window !== 'undefined') window.location.assign('/');
-    else router.push('/');
+    if (Platform.OS === 'web' && typeof window !== 'undefined') window.location.assign(homeHref());
+    else router.push(homeHref() as any);
   };
   return (
     <View style={styles.wrap}>
