@@ -127,7 +127,7 @@ export const TENANTS: readonly TenantConfig[] = [
       nameShort:     'Knox Index',
       kicker:        'THE KNOX INDEX',
       headlineWords: ['THE', 'KNOX', 'INDEX'],
-      tagline:       'Learn how UK politicians use TikTok and X, in real time. Get insights live on our dashboard below, and bespoke email insights every day.',
+      tagline:       'Learn how UK politicians use social media, in real time. Get insights live on our dashboard below, and bespoke email insights every day.',
       description:   'Daily intelligence on how UK politicians perform on TikTok and X: ranked, scored and briefed.',
       subjectPlural: 'Politicians',
       subjectShort:  'MPs',
