@@ -38,7 +38,7 @@ interface Props {
 }
 
 export function AccountScreen({ handle }: Props) {
-  const [range, setRange] = useState<TimeRange>('yesterday');
+  const [range, setRange] = useState<TimeRange>('week');
   const [platform, setPlatform] = useState<AccountPlatform>('all');
   const { data, loading, error, notFound } = useAccountPage(handle, range, platform);
   const { isDesktop, isTablet, isMobile, widgetHeight } = useAccountLayout();
