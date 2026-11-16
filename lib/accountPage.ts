@@ -97,6 +97,21 @@ function primaryType(p: Politician): AccountType | undefined {
   return TYPE_PRIORITY.find(t => types.includes(t)) ?? types[0];
 }
 
+/**
+ * Account types that share one Standings group. The Prime Minister is ranked
+ * with the party leaders: a group of one says nothing.
+ */
+const PEER_GROUP: Partial<Record<AccountType, string>> = {
+  prime_minister: 'leaders',
+  party_leader:   'leaders',
+};
+
+/** The Standings group for an account's type. */
+function peerGroup(p: Politician): string | undefined {
+  const type = primaryType(p);
+  return type ? PEER_GROUP[type] ?? type : undefined;
+}
+
 /** Standings tab name for each account type. */
 const TYPE_TAB: Partial<Record<AccountType, string>> = {
   prime_minister:          'Leaders',
@@ -173,7 +188,8 @@ export function buildKeyStats(target: Politician, all: Politician[], grouping: G
   // (World Leaders) the type group is everyone: leave it out there.
   const type = primaryType(target);
   if (type && type !== 'other') {
-    const typeTab = rankWithin('same_type', 'Among accounts of the same type', TYPE_TAB[type] ?? 'Type', target, all.filter(p => primaryType(p) === type), score);
+    const group = peerGroup(target);
+    const typeTab = rankWithin('same_type', 'Among accounts of the same type', TYPE_TAB[type] ?? 'Type', target, all.filter(p => peerGroup(p) === group), score);
     // A party's own page compares first with other party pages
     if (type === 'political_party') stats.unshift(typeTab); else stats.push(typeTab);
   }
