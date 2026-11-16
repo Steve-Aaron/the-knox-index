@@ -9,7 +9,7 @@ import { neutral, glass, accent } from '@/theme/colors';
 import { spacing } from '@/theme/spacing';
 import { font } from '@/theme/typography';
 import { breakpoints } from '@/theme/breakpoints';
-import { homeHref } from '@/lib/devTenant';
+import { homeHref } from '@/lib/indexPaths';
 
 /**
  * HeaderNav

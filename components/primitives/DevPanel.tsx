@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, Pressable, StyleSheet, Platform } from 'react-native';
 import { MotiView } from 'moti';
 import { devPreviewEnabled, getDevPreview, setDevPreview, type DevPreviewState } from '@/lib/devPreview';
-import { isPreviewSite } from '@/lib/devTenant';
+import { isPreviewSite } from '@/lib/indexPaths';
 import { neutral, glass, knox } from '@/theme/colors';
 import { spacing, radius } from '@/theme/spacing';
 import { font } from '@/theme/typography';

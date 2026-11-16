@@ -8,7 +8,7 @@ import { KnoxLogo } from '@/components/primitives/KnoxLogo';
 import { neutral, glass, accent } from '@/theme/colors';
 import { spacing, radius } from '@/theme/spacing';
 import { type, font } from '@/theme/typography';
-import { homeHref } from '@/lib/devTenant';
+import { homeHref } from '@/lib/indexPaths';
 
 /**
  * AppFooter

@@ -7,7 +7,6 @@ import { AccessRequestForm } from '@/components/auth/AccessRequestForm';
 import { DevLabel } from '@/components/primitives/DevLabel';
 import { DevPanel } from '@/components/primitives/DevPanel';
 import { useTenantAccess } from '@/hooks/useTenantAccess';
-import { tenantFullName } from '@/lib/tenants';
 import { neutral } from '@/theme/colors';
 import { spacing } from '@/theme/spacing';
 import { font } from '@/theme/typography';
@@ -59,14 +58,12 @@ export function TenantGate({ children }: Props) {
     );
   }
 
-  const domains = tenant.access.allowedDomains.map(d => `@${d}`).join(' or ');
-
   if (reason === 'unauthenticated') {
     return withPreviewBar(
       <AuthScreen
         kicker={tenant.brand.kicker}
         title="Sign in to continue"
-        subtitle={`${tenantFullName(tenant)} is a restricted dashboard. Sign in with your work email — ${domains} accounts are admitted automatically.`}
+        subtitle={`${tenant.brand.subtitle ?? tenant.brand.nameShort} is available to approved users. Sign in with your email to continue. If you don't have access yet, you can request it after signing in.`}
       >
         <DevLabel name="TenantGate" />
         <PrimaryButton label="Sign in" onPress={() => router.push('/login')} style={styles.action} />
@@ -80,7 +77,7 @@ export function TenantGate({ children }: Props) {
       <AuthScreen
         kicker={tenant.brand.kicker}
         title="Request access"
-        subtitle={`${tenantFullName(tenant)} is restricted. ${domains} accounts are admitted automatically; anyone else is reviewed by the Knox team. Tell us a little about you and we will come back by email.`}
+        subtitle={`${tenant.brand.subtitle ?? tenant.brand.nameShort} is available to approved users. Tell us a little about yourself and what you're looking for, and we'll get back to you by email.`}
       >
         <DevLabel name="TenantGate" />
         <AccessRequestForm
@@ -98,7 +95,7 @@ export function TenantGate({ children }: Props) {
       <AuthScreen
         kicker={tenant.brand.kicker}
         title="Access requested"
-        subtitle={`Your request for ${email ?? 'this address'} is with the Knox team. We have emailed you a confirmation, and you will hear from us once it has been reviewed.`}
+        subtitle={`Thanks, we've received your request for ${email ?? 'this address'}. We've emailed you a confirmation and will be in touch once it's been reviewed.`}
       >
         <DevLabel name="TenantGate" />
       </AuthScreen>
@@ -109,7 +106,7 @@ export function TenantGate({ children }: Props) {
     <AuthScreen
       kicker={tenant.brand.kicker}
       title="Access not granted"
-      subtitle={`${email ?? 'This address'} is not approved for ${tenantFullName(tenant)}. If that looks wrong, contact the Knox team.`}
+      subtitle={`We weren't able to approve access for ${email ?? 'this address'}. If you think this is a mistake, please get in touch.`}
     >
       <DevLabel name="TenantGate" />
     </AuthScreen>

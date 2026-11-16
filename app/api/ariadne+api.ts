@@ -21,6 +21,7 @@ import type { LifetimeTopPost } from '@/data/types';
 import { buildXAccountsSQL, buildXPostsSQL, buildXTopPostSQL, buildXTotalsSQL } from '@/lib/xQueries';
 import { signTweetMedia } from '@/lib/xPosts';
 import { mergeByPerson } from '@/lib/platformMerge';
+import { alignScoresToHome } from '@/lib/sharedScores';
 import { parsePlatformFilter } from '@/lib/platforms';
 
 // ── Handler ───────────────────────────────────────────────────────────────────
@@ -137,8 +138,11 @@ export async function GET(request: Request): Promise<Response> {
       wantX      ? query<Totals>(buildXTotalsSQL(dashboardId))               : [],
     ]);
 
-    const tiktokPoliticians = transformToPoliticians(accountRows, postRows, tenant.grouping.mode, 'tiktok');
-    const xPoliticians      = transformToPoliticians(xAccountRows, xPostRows, tenant.grouping.mode, 'x');
+    // People also on another index keep their home index's scores (lib/sharedScores.ts)
+    const [tiktokPoliticians, xPoliticians] = await Promise.all([
+      alignScoresToHome(tenant, range, 'tiktok', transformToPoliticians(accountRows, postRows, tenant.grouping.mode, 'tiktok')),
+      alignScoresToHome(tenant, range, 'x',      transformToPoliticians(xAccountRows, xPostRows, tenant.grouping.mode, 'x')),
+    ]);
     const politicians = platform === 'all'
       ? mergeByPerson(tiktokPoliticians, xPoliticians)
       : platform === 'x' ? xPoliticians : tiktokPoliticians;

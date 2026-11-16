@@ -33,6 +33,7 @@ import { queryParams } from '@/lib/bigquery';
 import { buildXAccountsSQL, buildXAccountPagePostsSQL, buildXLastPostDateSQL } from '@/lib/xQueries';
 import { signTweetMedia } from '@/lib/xPosts';
 import { mergeByPerson } from '@/lib/platformMerge';
+import { alignScoresToHome } from '@/lib/sharedScores';
 import { parsePlatformFilter } from '@/lib/platforms';
 import { followerSnapshots, mergeByPerson as mergeGrowth } from '@/lib/followerGrowth';
 import type { Politician } from '@/data/types';
@@ -59,8 +60,11 @@ export async function GET(request: Request): Promise<Response> {
       query<BQAccountRow>(buildAccountsSQL(dashboardId, range)),
       xEnabled ? query<BQAccountRow>(buildXAccountsSQL(dashboardId, range)) : Promise.resolve([] as BQAccountRow[]),
     ]);
-    const tiktokAll = transformToPoliticians(tiktokRows, [], tenant.grouping.mode, 'tiktok');
-    const xAll      = transformToPoliticians(xRows, [], tenant.grouping.mode, 'x');
+    // People also on another index keep their home index's scores (lib/sharedScores.ts)
+    const [tiktokAll, xAll] = await Promise.all([
+      alignScoresToHome(tenant, range, 'tiktok', transformToPoliticians(tiktokRows, [], tenant.grouping.mode, 'tiktok')),
+      alignScoresToHome(tenant, range, 'x',      transformToPoliticians(xRows, [], tenant.grouping.mode, 'x')),
+    ]);
 
     // 2. Who is this? A TikTok handle, an X handle or a person slug.
     const matches = (p: Politician) =>

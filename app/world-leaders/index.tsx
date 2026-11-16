@@ -1,1 +1,1 @@
-export { IndexDashboardRoute as default } from '@/components/routes/IndexRoutes';
+export { WorldLeadersAliasRoute as default } from '@/components/routes/IndexRoutes';

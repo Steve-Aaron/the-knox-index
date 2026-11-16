@@ -84,20 +84,26 @@ Set on every event via `setSuperProperties`:
 
 ## Multi-tenant dashboards
 
-One deployment serves several dashboards, one per subdomain:
+One deployment serves several dashboards, one per path on `index.knox.digital`:
 
 | Host | Tenant | `dashboard.id` | Grouping | Access |
 |---|---|---|---|---|
-| `index.knox.digital` | The Knox Index | 1 | Party | Public |
-| `worldleaders.index.knox.digital` | World Leaders | 2 | Region | Sign-in, `@knoxdigi.com` / `@knox.digital` auto, others approved |
+| `index.knox.digital/uk` | The Knox Index | 1 | Party | Public |
+| `index.knox.digital/worldleaders` | World Leaders | 2 | Region | Sign-in, `@knoxdigi.com` / `@knox.digital` auto, others approved |
 
 - The registry is `lib/tenants.ts`. Adding a subdomain = one entry there + a
   Vercel domain. Full guide: `docs/tenants.md`
-- Locally and on Vercel previews (one address for both indexes) the path names
-  the index: `/uk`, `/uk/<slug>`, `/world-leaders`, `/world-leaders/<slug>`;
-  `/` goes to the tab's last index. Build links with `homeHref()` /
-  `accountHref()` from `lib/devTenant.ts`, never a hard-coded `/account/...`.
-  The live site keeps subdomains and `/account/<slug>`
+- The path names the index on every site: `/uk` and `/worldleaders` are the
+  dashboards; account pages are `/account/<slug>` on the index the tab came
+  from (and move to the other index if the person is only there); `/` goes to
+  the tab's last index. Build links with `homeHref()` / `accountHref()` from
+  `lib/indexPaths.ts`. The page sends its index as `?tenant=` and
+  `x-knox-tenant`; `guardTenant` still applies that index's access rules
+- One Knox Factor per person: someone on several indexes keeps the scores of
+  their home index (lowest dashboard id) everywhere (`lib/sharedScores.ts`)
+- The PREVIEW bar and its Full access only work on Vercel preview builds:
+  `app.config.js` writes `VERCEL_ENV` into the build, and the server checks
+  `VERCEL_ENV` too
 - The DASHBOARD ID identifies a tenant (`?tenant=2`, `x-knox-tenant: 2`,
   `tenant_access.tenantId`). `tenantById()` also accepts the slug
 - Server routes MUST call `guardTenant(request)` before querying, and pass

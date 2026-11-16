@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
-import { accountHref } from '@/lib/devTenant';
+import { accountHref } from '@/lib/indexPaths';
 import { AccountWidget } from '@/components/account/layout/AccountWidget';
 import { WidgetHeader } from '@/components/account/layout/WidgetHeader';
 import { CardAvatar } from '@/components/card/CardAvatar';

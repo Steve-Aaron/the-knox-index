@@ -11,29 +11,21 @@
  *   1. x-forwarded-host  (Vercel sets this; it is the domain the user typed)
  *   2. host              (direct / local dev)
  *
- * Development and Vercel preview deployments only: `?tenant=world` or an
- * `x-knox-tenant: world` header force a tenant, so both sites can be used from
- * one origin (localhost, or a preview such as the dev branch). Vercel sets
- * VERCEL_ENV to 'preview' there and 'production' on the live site, where the
- * override is ignored. The tenant's access rules still apply either way
- * (lib/tenantGuard.ts), so a gated dashboard still needs sign-in.
+ * The page names its index (/uk, /worldleaders; lib/indexPaths.ts) and sends
+ * it as `?tenant=` and an `x-knox-tenant` header; that wins over the host on
+ * every site. Naming an index never grants access to it: every data route
+ * calls guardTenant (lib/tenantGuard.ts), which applies that index's own
+ * access rules, so World Leaders still needs sign-in.
  */
 
-/** Local development, or a Vercel preview deployment. Never the live site. */
-export function tenantOverrideAllowed(): boolean {
-  return process.env.NODE_ENV !== 'production' || process.env.VERCEL_ENV === 'preview';
-}
-
-import { resolveTenant, tenantById, type TenantConfig } from '@/lib/tenants';
+import { resolveTenant, tenantById, isKnownTenant, type TenantConfig } from '@/lib/tenants';
 
 export function tenantFromRequest(request: Request): TenantConfig {
-  if (tenantOverrideAllowed()) {
-    const headerOverride = request.headers.get('x-knox-tenant');
-    let queryOverride: string | null = null;
-    try { queryOverride = new URL(request.url).searchParams.get('tenant'); } catch { /* non-absolute URL */ }
-    const override = queryOverride ?? headerOverride;
-    if (override) return tenantById(override);
-  }
+  const headerOverride = request.headers.get('x-knox-tenant');
+  let queryOverride: string | null = null;
+  try { queryOverride = new URL(request.url).searchParams.get('tenant'); } catch { /* non-absolute URL */ }
+  const override = queryOverride ?? headerOverride;
+  if (override && isKnownTenant(override)) return tenantById(override);
 
   const host = request.headers.get('x-forwarded-host') ?? request.headers.get('host');
   return resolveTenant(host);

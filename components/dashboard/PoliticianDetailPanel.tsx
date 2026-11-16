@@ -26,7 +26,7 @@ import { type } from '@/theme/typography';
 import type { Politician, LeaderboardSortKey } from '@/data/types';
 import type { TimeRange } from '@/components/dashboard/TimeRangePicker';
 import { router } from 'expo-router';
-import { accountHref } from '@/lib/devTenant';
+import { accountHref } from '@/lib/indexPaths';
 
 /**
  * PoliticianDetailPanel

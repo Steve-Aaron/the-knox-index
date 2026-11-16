@@ -17,6 +17,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { HeaderNav } from '@/components/primitives/HeaderNav';
+import { BackToDashboard } from '@/components/primitives/BackToDashboard';
 import { FrequencyPicker } from '@/components/primitives/FrequencyPicker';
 import { Kicker } from '@/components/ui/Kicker';
 import { Title } from '@/components/ui/Title';
@@ -268,6 +269,9 @@ export default function PreferencesScreen() {
             animate={{ opacity: 1, translateY: 0 }}
             transition={{ type: 'timing', duration: 320 }}
           >
+            <View style={{ marginBottom: 20 }}>
+              <BackToDashboard />
+            </View>
             <Kicker style={{ letterSpacing: 1.5 }}>YOUR ACCOUNT</Kicker>
             <Title style={{ fontSize: 32, marginTop: 4, letterSpacing: -0.5 }}>Preferences</Title>
             <Text style={styles.subtitle}>

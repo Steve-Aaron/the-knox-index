@@ -1,1 +1,1 @@
-export { IndexAccountRoute as default } from '@/components/routes/IndexRoutes';
+export { LegacyAccountRoute as default } from '@/components/routes/IndexRoutes';

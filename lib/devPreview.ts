@@ -19,7 +19,7 @@
  * One job: be the single source of truth for dev preview state.
  */
 
-import { isPreviewSite } from '@/lib/devTenant';
+import { isPreviewSite } from '@/lib/indexPaths';
 
 export type DevPreviewState = 'off' | 'gate' | 'signup' | 'full';
 

@@ -5,7 +5,7 @@ import { DevLabel } from '@/components/primitives/DevLabel';
 import { neutral, glass } from '@/theme/colors';
 import { spacing, radius } from '@/theme/spacing';
 import { font } from '@/theme/typography';
-import { homeHref } from '@/lib/devTenant';
+import { homeHref } from '@/lib/indexPaths';
 
 /**
  * GoogleSignInButton
