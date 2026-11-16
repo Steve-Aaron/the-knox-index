@@ -172,6 +172,27 @@ function inferAccountTypes(name: string, affiliation: string, dbTypeNames?: stri
   return ['other'];
 }
 
+/**
+ * A job title that says the person leads a party or the Opposition ('Leader
+ * of HM Official Opposition', 'Leader of the Green Party', 'Party Leader').
+ * 'Leader of the House' (of Commons or Lords) is a cabinet job, not this.
+ */
+function isPartyLeaderTitle(title: string): boolean {
+  const t = (title ?? '').trim().toLowerCase();
+  if (/^leader of the house\b/.test(t)) return false;
+  return /^leader of\b/.test(t) || /\bparty leader\b/.test(t);
+}
+
+/**
+ * The account's types, with 'party_leader' added when the job title says so
+ * (the account type table does not have every leader, e.g. Kemi Badenoch).
+ */
+function accountTypesFor(name: string, affiliation: string, dbTypeNames: string | undefined, title: string): AccountType[] {
+  const types = inferAccountTypes(name, affiliation, dbTypeNames);
+  if (!isPartyLeaderTitle(title) || types.includes('party_leader')) return types;
+  return ['party_leader', ...types.filter(t => t !== 'other')];
+}
+
 function toInitials(name: string): string {
   if (!name) return '';
   return name
@@ -490,7 +511,7 @@ export function transformToPoliticians(
         : undefined,
       avatarInitials: toInitials(acc.name ?? ''),
       avatarUrl:      acc.avatar || undefined,
-      accountTypes:   inferAccountTypes(acc.name ?? '', acc.affiliation ?? '', acc.accountTypeNames),
+      accountTypes:   accountTypesFor(acc.name ?? '', acc.affiliation ?? '', acc.accountTypeNames, acc.person_job_title || acc.displayJobTitle || ''),
       totals: {
         posts:          acc.totalPosts     ?? 0,
         followers:      acc.totalFollowers ?? 0,
