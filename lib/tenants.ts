@@ -162,7 +162,7 @@ export const TENANTS: readonly TenantConfig[] = [
       kicker:        'THE KNOX INDEX',
       subtitle:      'World Leaders',
       headlineWords: ['THE', 'KNOX', 'INDEX'],
-      tagline:       'Learn how the world’s heads of state and government use TikTok and X, in real time. Live rankings, regional breakdowns and daily intelligence.',
+      tagline:       'Learn how the world’s heads of state and government use social media, in real time. Live rankings, regional breakdowns and daily intelligence.',
       description:   'Daily intelligence on how world leaders perform on TikTok and X: ranked, scored and briefed.',
       subjectPlural: 'World leaders',
       subjectShort:  'world leaders',
