@@ -30,7 +30,11 @@ export interface TenantGuard {
 export async function guardTenant(request: Request): Promise<TenantGuard> {
   const tenant = tenantFromRequest(request);
 
-  if (tenant.access.mode === 'public') {
+  // A waitlist index serves its data the way The Knox Index does: the guest
+  // limits (top 5, short ranges, no post feed) are applied in the client, so
+  // the read itself is open. Who has the FULL view is answered separately by
+  // /api/tenant/access.
+  if (tenant.access.mode === 'public' || tenant.access.mode === 'waitlist') {
     return {
       tenant,
       email:    null,

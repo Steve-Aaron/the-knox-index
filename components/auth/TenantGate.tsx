@@ -7,6 +7,7 @@ import { AccessRequestForm } from '@/components/auth/AccessRequestForm';
 import { DevLabel } from '@/components/primitives/DevLabel';
 import { DevPanel } from '@/components/primitives/DevPanel';
 import { useTenantAccess } from '@/hooks/useTenantAccess';
+import { useTenant } from '@/hooks/useTenant';
 import { neutral } from '@/theme/colors';
 import { spacing } from '@/theme/spacing';
 import { font } from '@/theme/typography';
@@ -15,8 +16,9 @@ import { font } from '@/theme/typography';
  * TenantGate
  * -----------
  * Wraps a screen on a gated tenant and renders it only when the server says
- * this visitor may read it. On a public tenant it is a pass-through with no
- * network call, so The Knox Index is untouched.
+ * this visitor may read it. On a public or waitlist tenant it is a
+ * pass-through with no network call: anyone sees the guest view there, and
+ * the waitlist is handled on the dashboard itself (StickyUnlock).
  *
  * Four locked states, one screen each:
  *   unauthenticated → sign in
@@ -44,6 +46,12 @@ function withPreviewBar(node: React.ReactNode): React.ReactElement {
 }
 
 export function TenantGate({ children }: Props) {
+  const tenant = useTenant();
+  if (tenant.access.mode !== 'authenticated') return <>{children}</>;
+  return <LockedTenantGate>{children}</LockedTenantGate>;
+}
+
+function LockedTenantGate({ children }: Props) {
   const { tenant, loading, allowed, reason, email, error, refresh } = useTenantAccess();
 
   if (allowed) return <>{children}</>;

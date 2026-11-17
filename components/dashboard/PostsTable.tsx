@@ -758,7 +758,9 @@ export function PostsTable({
           <View style={styles.lockedWrap}>
             <Text style={styles.lockedTitle}>Post feed is locked</Text>
             <Text style={styles.lockedBody}>
-              Register free to access every post, filter by party, and sort by views, likes, virality and more.
+              {tenant.access.mode === 'waitlist'
+                ? 'Join the waitlist for full access to every post, with filters and sorting by views, likes, virality and more.'
+                : 'Register free to access every post, filter by party, and sort by views, likes, virality and more.'}
             </Text>
           </View>
         )}

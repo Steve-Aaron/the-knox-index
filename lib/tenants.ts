@@ -26,8 +26,15 @@ export type GroupingMode = 'party' | 'region';
 export type MapMode = 'uk' | 'world' | 'none';
 
 export interface TenantAccess {
-  /** 'public' — anyone may read. 'authenticated' — a signed-in, allowed user only. */
-  mode: 'public' | 'authenticated';
+  /**
+   * 'public'        — anyone may read everything a signed-in user can.
+   * 'waitlist'      — anyone may read the limited guest view (top 5, Yesterday
+   *                   and Past 7 days, no post feed). The full view needs an
+   *                   allowed domain or an approved tenant_access record, so
+   *                   signing up joins a waitlist that Knox approves by hand.
+   * 'authenticated' — nothing is readable until the visitor is allowed.
+   */
+  mode: 'public' | 'waitlist' | 'authenticated';
   /**
    * Email domains that are allowed automatically, no approval needed.
    * Compared case-insensitively against the part after '@'.
@@ -180,7 +187,7 @@ export const TENANTS: readonly TenantConfig[] = [
     map: 'world',
     platforms: ['tiktok', 'x'],
     access: {
-      mode:            'authenticated',
+      mode:            'waitlist',
       allowedDomains:  ['knoxdigi.com', 'knox.digital'],
       requireApproval: true,
     },

@@ -29,6 +29,8 @@ import { ContactFooter } from '@/components/dashboard/ContactFooter';
 import { AppFooter } from '@/components/dashboard/AppFooter';
 import { StickyUnlock } from '@/components/auth/StickyUnlock';
 import { TenantGate } from '@/components/auth/TenantGate';
+import { LockedInsights } from '@/components/dashboard/LockedInsights';
+import { useTenantAccess } from '@/hooks/useTenantAccess';
 import { HeaderNav } from '@/components/primitives/HeaderNav';
 import { PageContainer } from '@/components/primitives/PageContainer';
 import { SquareButton } from '@/components/primitives/SquareButton';
@@ -260,6 +262,21 @@ function DashboardScreenInner() {
   }, []);
 
   const { isRegistered, email: authEmail } = useAuth();
+
+  // The FULL view (every row, every range, post feed, growth and topics):
+  // signed in on The Knox Index; approved, or Knox staff, on a waitlist index
+  // such as World Leaders, where signing up only joins the waitlist.
+  const tenant        = useTenant();
+  const access        = useTenantAccess();
+  const isWaitlist    = tenant.access.mode === 'waitlist';
+  const hasFullAccess = isWaitlist ? access.allowed : isRegistered;
+  const waitlist      = isWaitlist
+    ? { reason: access.reason, tenantName: tenant.brand.nameShort, onJoined: access.refresh }
+    : null;
+  const onWaitlist    = isWaitlist && isRegistered && (access.reason === 'pending' || access.reason === 'denied');
+  // Bumped to open the sign-up / waitlist modal from locked panels
+  const [unlockSignal, setUnlockSignal] = useState(0);
+  const openUnlock = () => setUnlockSignal(n => n + 1);
   const isAdmin = useIsAdmin();
 
   // Post feed sort is lifted here so it can drive the API's ORDER BY (the
@@ -476,7 +493,7 @@ function DashboardScreenInner() {
             <TimeRangePicker
               value={range}
               onChange={handleSetRange}
-              isRegistered={isRegistered}
+              isRegistered={hasFullAccess}
               onLockedTap={(r) => {
                 track('locked_range_tapped', { range: r });
                 setLockedRangeAttempt(r);
@@ -553,7 +570,7 @@ function DashboardScreenInner() {
                   timeRangeLabel={RANGE_LABELS[range]}
                   onSelect={handleSetActiveId}
                   panelHeight={PANEL_HEIGHT}
-                  isRegistered={isRegistered}
+                  isRegistered={hasFullAccess}
                   isLifetime={range === 'lifetime'}
                   engReference={engReference}
                 />
@@ -593,7 +610,7 @@ function DashboardScreenInner() {
                     timeRangeLabel={RANGE_LABELS[range]}
                     onSelect={handleSetActiveId}
                     panelHeight={PANEL_HEIGHT}
-                    isRegistered={isRegistered}
+                    isRegistered={hasFullAccess}
                     isLifetime={range === 'lifetime'}
                   engReference={engReference}
                   />
@@ -620,7 +637,7 @@ function DashboardScreenInner() {
                 headlineKey={sortKey}
                 timeRangeLabel={RANGE_LABELS[range]}
                 onSelect={handleSetActiveId}
-                isRegistered={isRegistered}
+                isRegistered={hasFullAccess}
                 isLifetime={range === 'lifetime'}
                 engReference={engReference}
               />
@@ -669,7 +686,7 @@ function DashboardScreenInner() {
                 onClearPolitician={() => handleSetActiveId('')}
                 benchmarks={benchmarks ?? undefined}
                 benchmarksByPlatform={benchmarksByPlatform}
-                isRegistered={isRegistered}
+                isRegistered={hasFullAccess}
                 isAdmin={isAdmin}
                 onFiltersChange={setFeedFilters}
                 total={postsTotal}
@@ -694,6 +711,21 @@ function DashboardScreenInner() {
             style={[styles.insightsRow, { paddingHorizontal: hPad }, isDesktop ? styles.insightsRowDesktop : styles.insightsRowStacked]}
             {...(Platform.OS === 'web' ? { 'data-container_name': 'row_style_topics_insights' } as any : {})}
           >
+            {!hasFullAccess ? (
+              <View style={styles.insightsCol}>
+                <LockedInsights
+                  body={
+                    onWaitlist
+                      ? "You're on the waitlist. We'll email you as soon as your access is approved."
+                      : isWaitlist
+                      ? 'Join the waitlist to see which leaders are gaining followers fastest and which topics are picking up.'
+                      : 'Register free to see which accounts are gaining followers fastest and which topics are picking up.'
+                  }
+                  cta={onWaitlist ? null : isWaitlist ? 'JOIN THE WAITLIST →' : 'REGISTER FREE →'}
+                  onCta={() => { track('locked_insights_cta', { waitlist: isWaitlist }); openUnlock(); }}
+                />
+              </View>
+            ) : (<>
             <View style={styles.insightsCol}>
               <FastestGrowing
                 growth={growth}
@@ -712,6 +744,7 @@ function DashboardScreenInner() {
                 <TopicCloud posts={posts} counts={topicCounts} rangeLabel={RANGE_LABELS[range]} />
               )}
             </View>
+            </>)}
           </View>
           </MobileSection>
 
@@ -740,7 +773,13 @@ function DashboardScreenInner() {
 
         </ScrollView>
         {/* Sticky registration CTA — visible immediately for unregistered users */}
-        <StickyUnlock showBar={pastHero && !isRegistered} isRegistered={isRegistered} email={authEmail} />
+        <StickyUnlock
+          showBar={pastHero && !hasFullAccess}
+          isRegistered={isRegistered}
+          email={authEmail}
+          waitlist={waitlist}
+          openSignal={unlockSignal}
+        />
       </SafeAreaView>
 
       {/* Dev-only preview panel — stripped from production builds */}
@@ -764,19 +803,24 @@ function DashboardScreenInner() {
       <Interstitial
         visible={lockedRangeAttempt != null}
         onClose={() => setLockedRangeAttempt(null)}
-        kicker="REGISTER TO UNLOCK"
+        kicker={isWaitlist ? 'JOIN THE WAITLIST' : 'REGISTER TO UNLOCK'}
         title={
           lockedRangeAttempt
-            ? `The full ${RANGE_LABELS[lockedRangeAttempt].toLowerCase()} view is for registered users.`
+            ? `The full ${RANGE_LABELS[lockedRangeAttempt].toLowerCase()} view is for ${isWaitlist ? 'approved' : 'registered'} users.`
             : ''
         }
-        text="Free, takes 30 seconds. Magic link sent to your inbox - no password. You'll see every tracked post across this time range, plus party-level filters, virality scoring and CSV export."
-        ctaLabel="Register free"
+        text={
+          onWaitlist
+            ? "You're on the waitlist. We'll email you as soon as your access is approved."
+            : isWaitlist
+            ? "Full access is approved by the Knox team. Join the waitlist and we'll email you when you're in."
+            : "Free, takes 30 seconds. Magic link sent to your inbox - no password. You'll see every tracked post across this time range, plus party-level filters, virality scoring and CSV export."
+        }
+        ctaLabel={onWaitlist ? 'Got it' : isWaitlist ? 'Join the waitlist' : 'Register free'}
         onCta={() => {
-          track('locked_range_register_cta', { range: lockedRangeAttempt ?? 'unknown' });
+          track('locked_range_register_cta', { range: lockedRangeAttempt ?? 'unknown', waitlist: isWaitlist });
           setLockedRangeAttempt(null);
-          // Scroll back to the hero — the NewsletterForm is there
-          scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+          if (!onWaitlist) openUnlock();
         }}
         secondaryLabel="Maybe later"
       />

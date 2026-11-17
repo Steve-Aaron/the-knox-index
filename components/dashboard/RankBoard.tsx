@@ -333,13 +333,19 @@ export function RankBoard({ politicians, activeId, headlineKey, timeRangeLabel, 
                         <View style={styles.lockedPromptCard}>
                           <Text style={styles.lockedKicker}>LOCKED</Text>
                           <Text style={styles.lockedTitle}>
-                            Register to see all {ranked.length} politicians
+                            {tenant.access.mode === 'waitlist'
+                              ? `Join the waitlist to see all ${ranked.length} leaders`
+                              : `Register to see all ${ranked.length} politicians`}
                           </Text>
                           <Text style={styles.lockedBody}>
-                            Unlock the full leaderboard, filter by party and political alignment, and access every post.
+                            {tenant.access.mode === 'waitlist'
+                              ? 'Full access is approved by the Knox team: the whole leaderboard, every time range and every post.'
+                              : 'Unlock the full leaderboard, filter by party and political alignment, and access every post.'}
                           </Text>
                           <View style={styles.lockedButton}>
-                            <Text style={styles.lockedButtonText}>SCROLL DOWN TO REGISTER ↓</Text>
+                            <Text style={styles.lockedButtonText}>
+                              {tenant.access.mode === 'waitlist' ? 'SCROLL DOWN TO JOIN ↓' : 'SCROLL DOWN TO REGISTER ↓'}
+                            </Text>
                           </View>
                         </View>
                       </View>
