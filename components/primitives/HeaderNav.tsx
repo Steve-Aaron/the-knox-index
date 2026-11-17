@@ -1,7 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, Pressable, StyleSheet, Platform, Linking, useWindowDimensions } from 'react-native';
 import { router } from 'expo-router';
 import { KnoxLogo } from './KnoxLogo';
+import { HeaderSearch } from '@/components/search/HeaderSearch';
+import { SearchIcon } from '@/components/search/SearchIcons';
 import { logout } from '@/lib/logout';
 import { useRegisteredFlag } from '@/hooks/useRegisteredFlag';
 import { neutral, glass, accent } from '@/theme/colors';
@@ -14,7 +16,7 @@ import { breakpoints } from '@/theme/breakpoints';
  * ----------
  * Two-slot top bar:
  *
- *   [ logo ]                                   [ Sign up  Log in ]
+ *   [ logo ]                    [ search ]     [ Sign up  Log in ]
  *
  * The Knox wordmark sits on the left and doubles as the home link (so a
  * separate 'Dashboard' link would be redundant). The auth actions sit on the
@@ -22,6 +24,8 @@ import { breakpoints } from '@/theme/breakpoints';
  *
  * On narrow viewports the layout stays flat (no stacking); the logo
  * shrinks and the side links tighten up via reduced horizontal padding.
+ * The search collapses to an icon that opens it full-width under the bar,
+ * over a dimmed page.
  */
 
 export type HeaderNavItem = {
@@ -50,8 +54,9 @@ const SIGNED_IN_LINKS: HeaderNavItem[] = [
 ];
 
 export function HeaderNav({ activeRoute, leftItems, rightItems }: Props) {
-  const { width }    = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
   const isRegistered = useRegisteredFlag();
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const isMobile     = width < breakpoints.tablet;
   const logoWidth    = isMobile ? 88 : 132;
 
@@ -79,10 +84,36 @@ export function HeaderNav({ activeRoute, leftItems, rightItems }: Props) {
       </View>
 
       <View style={styles.sideRight}>
+        {isMobile ? (
+          <Pressable
+            onPress={() => setMobileSearchOpen(o => !o)}
+            accessibilityRole="button"
+            accessibilityLabel="Search"
+            accessibilityState={{ expanded: mobileSearchOpen }}
+            style={({ pressed }) => [styles.searchToggle, pressed && { opacity: 0.7 }]}
+          >
+            <SearchIcon color={mobileSearchOpen ? neutral.text : neutral.textMid} />
+          </Pressable>
+        ) : (
+          <View style={styles.searchDesktop}>
+            <HeaderSearch variant="desktop" />
+          </View>
+        )}
         {links.map(item => (
           <NavLink key={item.label} item={item} active={item.to === activeRoute} compact={isMobile} />
         ))}
       </View>
+
+      {isMobile && mobileSearchOpen && (
+        <View style={styles.mobileSearch}>
+          <Pressable
+            onPress={() => setMobileSearchOpen(false)}
+            accessibilityLabel="Close search"
+            style={[styles.mobileBackdrop, { height }]}
+          />
+          <HeaderSearch variant="mobile" autoFocus onClose={() => setMobileSearchOpen(false)} />
+        </View>
+      )}
     </View>
   );
 }
@@ -129,13 +160,16 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: glass.border,
     gap:               spacing.md,
+    // Search results overlay the page below the bar.
+    position:          'relative',
+    zIndex:            20,
   },
   wrapMobile: {
     paddingHorizontal: spacing.md,
   },
 
   sideLeft: {
-    flex:           1,
+    flexShrink:     0,
     flexDirection:  'row',
     alignItems:     'center',
     justifyContent: 'flex-start',
@@ -147,6 +181,32 @@ const styles = StyleSheet.create({
     alignItems:     'center',
     justifyContent: 'flex-end',
     gap:            spacing.sm,
+  },
+  searchDesktop: {
+    flexShrink:  1,
+    marginRight: spacing.xxxl,
+  },
+  searchToggle: {
+    width:          30,
+    alignSelf:      'stretch',
+    alignItems:     'center',
+    justifyContent: 'center',
+    ...Platform.select({ web: { cursor: 'pointer' } as any, default: {} }),
+  },
+  mobileSearch: {
+    position:          'absolute',
+    top:               '100%',
+    left:              0,
+    right:             0,
+    paddingHorizontal: 10,
+    paddingTop:        spacing.sm,
+  },
+  mobileBackdrop: {
+    position:        'absolute',
+    top:             0,
+    left:            0,
+    right:           0,
+    backgroundColor: neutral.felt + 'CC',  // 80%
   },
   brand: {
     ...Platform.select({ web: { cursor: 'pointer' } as any, default: {} }),

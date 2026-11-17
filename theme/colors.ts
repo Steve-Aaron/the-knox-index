@@ -131,6 +131,14 @@ export const accent = {
   amber:  knox.secondaryOrange,
 };
 
+/** Direction colours for week-on-week trend arrows. */
+export const trend = {
+  up:   '#5FA095',
+  down: knox.secondaryOrange,
+  /** Negative pp deltas in the content table. */
+  downPp: '#FF4F6E',
+} as const;
+
 /**
  * Knox 2.0 secondary palette.
  * Lower-saturation accent colours — used individually paired with primaries.

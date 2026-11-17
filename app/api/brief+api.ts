@@ -13,6 +13,7 @@
 
 import { query, tableRef, accountWeb, postWeb } from '@/lib/bigquery';
 import { guardTenant } from '@/lib/tenantGuard';
+import { dataCacheHeaders } from '@/lib/cacheHeaders';
 import { generateContent } from '@/lib/gemini';
 import { safeErrorDetail } from '@/lib/errors';
 import type { BriefResponse } from '@/data/types';
@@ -167,9 +168,10 @@ export async function GET(request: Request): Promise<Response> {
 
     return Response.json(
       { brief },
-      // Cache for 12 hours, with a 1-hour grace window where stale content is
-      // served instantly while a fresh one regenerates in the background.
-      { headers: { 'Cache-Control': 'public, max-age=43200, stale-while-revalidate=3600' } }
+      // CDN keeps it for 12 hours, with a 1-hour grace window where stale content
+      // is served instantly while a fresh one regenerates in the background.
+      // Gated tenants get no shared copy (see lib/cacheHeaders.ts).
+      { headers: dataCacheHeaders(tenant, 's-maxage=43200, stale-while-revalidate=3600') }
     );
 
   } catch (err: unknown) {

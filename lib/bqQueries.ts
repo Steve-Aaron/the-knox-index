@@ -22,9 +22,13 @@ export function parseRange(raw: string | null, defaultRange: Range = 'week'): Ra
   return VALID_RANGES.includes(raw as Range) ? (raw as Range) : defaultRange;
 }
 
+/**
+ * UTC, as CURRENT_DATE(): yesterday only, the last 7 and 30 days (rolling),
+ * this year from 1 January.
+ */
 export function rangeDateFilter(range: Range): string {
   switch (range) {
-    case 'yesterday': return `postDate >= DATE_SUB(CURRENT_DATE(), INTERVAL 1 DAY)`;
+    case 'yesterday': return `postDate = DATE_SUB(CURRENT_DATE(), INTERVAL 1 DAY)`;
     case 'week':      return `postDate >= DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY)`;
     case 'month':     return `postDate >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)`;
     case 'year':      return `EXTRACT(YEAR FROM postDate) = EXTRACT(YEAR FROM CURRENT_DATE())`;
@@ -37,7 +41,7 @@ export const RANGE_LABELS: Record<Range, string> = {
   week:      'Last 7 days',
   month:     'Last 30 days',
   year:      'This year',
-  lifetime:  'Lifetime',
+  lifetime:  'All data',
 };
 
 /**
@@ -68,11 +72,28 @@ function excludeHidden(profileExpr: string): string {
 /**
  * All accounts joined with their latest accountMetrics row and range
  * aggregates from the post table. Returns one row per account.
+ *
+ * `daysAgo` moves the Knox Factor inputs back in time: the accountMetrics row
+ * (lifetime totals and followers) from that many days before the latest one,
+ * and the 7- and 28-day post counts ending that many days ago. Post views are
+ * today's figures, as no history of them is kept. 0 = now.
  */
-export function buildAccountsSQL(dashboardId: number, range: Range): string {
+export function buildAccountsSQL(dashboardId: number, range: Range, daysAgo = 0): string {
   const dateFilter = rangeDateFilter(range);
   const ACCOUNT_WEB = accountWeb(dashboardId);
   const POST_WEB    = postWeb(dashboardId);
+  const days        = Math.max(0, Math.floor(daysAgo));
+  // Followers come from the account row now, and from the dated metrics row in the past.
+  const followers   = days ? 'm.totalFollowers' : 'a.totalFollowers';
+  const metricsDate = days
+    ? `DATE_SUB((SELECT MAX(dateUpdated) FROM ${tableRef('accountMetrics')}), INTERVAL ${days} DAY)`
+    : `(
+      SELECT MAX(dateUpdated)
+      FROM ${tableRef('accountMetrics')}
+    )`;
+  const lastDays = (n: number) => days
+    ? `postDate >= DATE_SUB(CURRENT_DATE(), INTERVAL ${n + days} DAY) AND postDate < DATE_SUB(CURRENT_DATE(), INTERVAL ${days} DAY)`
+    : `postDate >= DATE_SUB(CURRENT_DATE(), INTERVAL ${n} DAY)`;
   return `
   SELECT
     a.id,
@@ -93,7 +114,7 @@ export function buildAccountsSQL(dashboardId: number, range: Range): string {
     a.person_constituency,
     a.person_latitude,
     a.person_longitude,
-    COALESCE(a.totalFollowers, 0)  AS totalFollowers,
+    COALESCE(${followers}, 0)  AS totalFollowers,
     COALESCE(a.totalFollowing, 0)  AS totalFollowing,
     COALESCE(m.totalPosts,     0)  AS totalPosts,
     COALESCE(m.totalLikes,     0)  AS totalLikes,
@@ -129,21 +150,18 @@ export function buildAccountsSQL(dashboardId: number, range: Range): string {
   LEFT JOIN (
     SELECT *
     FROM ${tableRef('accountMetrics')}
-    WHERE dateUpdated = (
-      SELECT MAX(dateUpdated)
-      FROM ${tableRef('accountMetrics')}
-    )
+    WHERE dateUpdated = ${metricsDate}
   ) m ON a.id = m.pageId
   LEFT JOIN (
     SELECT LTRIM(profile, '@') AS profile, COUNT(*) AS postsThisWeek
     FROM ${POST_WEB}
-    WHERE postDate >= DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY)
+    WHERE ${lastDays(7)}
     GROUP BY LTRIM(profile, '@')
   ) pw ON LTRIM(a.profile, '@') = pw.profile
   LEFT JOIN (
     SELECT LTRIM(profile, '@') AS profile, COUNT(*) AS postsLast28d
     FROM ${POST_WEB}
-    WHERE postDate >= DATE_SUB(CURRENT_DATE(), INTERVAL 28 DAY)
+    WHERE ${lastDays(28)}
     GROUP BY LTRIM(profile, '@')
   ) p28 ON LTRIM(a.profile, '@') = p28.profile
   LEFT JOIN (
@@ -329,5 +347,83 @@ export function buildAllAccountPostsSQL(dashboardId: number, handle: string, lim
     p.postDate, p.postUrl, p.coverJpeg, p.videoMp4
   ORDER BY MAX(p.postDate) DESC
   LIMIT ${limit}
+`;
+}
+
+// ── Account page SQL ──────────────────────────────────────────────────────────
+
+/**
+ * The period before `range`, for "vs prev. period" deltas: the day before
+ * yesterday; the 7 days before the last 7 (14–7 days back); the 30 days
+ * before the last 30 (60–30 days back); last year from 1 January to the same
+ * date. Lifetime has no previous period, so it matches nothing.
+ */
+export function prevRangeDateFilter(range: Range): string {
+  switch (range) {
+    case 'yesterday': return `postDate = DATE_SUB(CURRENT_DATE(), INTERVAL 2 DAY)`;
+    case 'week':      return `postDate >= DATE_SUB(CURRENT_DATE(), INTERVAL 14 DAY) AND postDate < DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY)`;
+    case 'month':     return `postDate >= DATE_SUB(CURRENT_DATE(), INTERVAL 60 DAY) AND postDate < DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)`;
+    case 'year':      return `postDate >= DATE_TRUNC(DATE_SUB(CURRENT_DATE(), INTERVAL 1 YEAR), YEAR) AND postDate <= DATE_SUB(CURRENT_DATE(), INTERVAL 1 YEAR)`;
+    case 'lifetime':  return `FALSE`;
+  }
+}
+
+/**
+ * One profile's posts in `range` and in the period before it, with their style
+ * and topic names. `period` is 'current' or 'previous'. Unprocessed posts (no
+ * videoSummary) are included so the counts match the account's real output.
+ * Used by /api/account-page. Handle must be pre-sanitised with sanitiseHandle().
+ */
+export function buildAccountPagePostsSQL(dashboardId: number, handle: string, range: Range, limit = 3000): string {
+  const safe     = sanitiseHandle(handle);
+  const POST_WEB = postWeb(dashboardId);
+  const current  = rangeDateFilter(range);
+  return `
+  WITH p AS (
+    SELECT *
+    FROM ${POST_WEB}
+    WHERE LTRIM(profile, '@') = '${safe}'
+      AND ${excludeHidden('profile')}
+      AND ((${current}) OR (${prevRangeDateFilter(range)}))
+  )
+  SELECT
+    CAST(p.postId AS STRING) AS postId,
+    IF(${current}, 'current', 'previous') AS period,
+    p.caption,
+    p.videoSummary,
+    COALESCE(p.views,    0) AS views,
+    COALESCE(p.likes,    0) AS likes,
+    COALESCE(p.comments, 0) AS comments,
+    COALESCE(p.shares,   0) AS shares,
+    COALESCE(p.saves,    0) AS saves,
+    CAST(p.postDate AS STRING) AS postDate,
+    p.postUrl,
+    p.coverJpeg,
+    p.videoMp4,
+    p.postType,
+    ARRAY(
+      SELECT DISTINCT s.name FROM ${tableRef('post_x_style')} pxs
+      JOIN ${tableRef('style')} s ON pxs.styleId = s.id
+      WHERE pxs.postId = p.postId AND s.name IS NOT NULL
+    ) AS styles,
+    ARRAY(
+      SELECT DISTINCT t.name FROM ${tableRef('post_x_topic')} pxt
+      JOIN ${tableRef('topic')} t ON pxt.topicId = t.id
+      WHERE pxt.postId = p.postId AND t.name IS NOT NULL
+    ) AS topics
+  FROM p
+  ORDER BY p.postDate DESC
+  LIMIT ${limit}
+`;
+}
+
+/** Date of one profile's most recent post, any range. */
+export function buildLastPostDateSQL(dashboardId: number, handle: string): string {
+  const safe = sanitiseHandle(handle);
+  return `
+  SELECT CAST(MAX(postDate) AS STRING) AS lastPostDate
+  FROM ${postWeb(dashboardId)}
+  WHERE LTRIM(profile, '@') = '${safe}'
+    AND ${excludeHidden('profile')}
 `;
 }

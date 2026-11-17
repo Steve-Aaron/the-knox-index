@@ -3,44 +3,57 @@ import { StyleSheet, Text, View } from 'react-native';
 import { DonutChart, type DonutSegment } from '@/components/charts/DonutChart';
 import { useLayoutWidth } from '@/hooks/useLayoutWidth';
 import { fmtCount } from '@/lib/format';
-import { accent, neutral } from '@/theme/colors';
+import { neutral, trend } from '@/theme/colors';
 import { spacing } from '@/theme/spacing';
-import { font, type } from '@/theme/typography';
+import { font, type, weight } from '@/theme/typography';
 import type { ContentBreakdown } from '@/data/account/types';
-import { sliceColor } from './contentPalette';
+import { OTHER_KEY, type SliceGroups } from './contentGroups';
+import { OTHER_COLOR, sliceColor } from './contentPalette';
 
 /**
  * ContentDonut
  * -------------
  * Views share per slice as a ring, with total views and its change in the
- * centre. While a slice is highlighted the centre shows that slice instead:
- * its label, views and share.
+ * centre. Small slices share one grey "Other" segment (see contentGroups).
+ * While a slice is highlighted the centre shows that slice instead: its
+ * label, views and share.
  *
  * One job: visualise the active content breakdown.
  */
 interface Props {
   breakdown:      ContentBreakdown;
-  /** 'vs prev. week' etc. Null hides the delta. */
+  groups:         SliceGroups;
+  /** Plural for the "Other (12 subjects)" label. */
+  sliceNoun:      string;
+  /** 'vs prev week' etc. Null hides the delta. */
   prevLabel:      string | null;
   activeKey:      string | null;
   onSliceHover:   (key: string | null) => void;
   onSlicePress:   (key: string) => void;
 }
 
-const MAX_SIZE = 240;
+const MAX_SIZE = 260;
+/** Ring thickness as a share of the diameter: 30px on the 260px Figma donut. */
+const THICKNESS = 30 / 260;
 
-export function ContentDonut({ breakdown, prevLabel, activeKey, onSliceHover, onSlicePress }: Props) {
+export function ContentDonut({ breakdown, groups, sliceNoun, prevLabel, activeKey, onSliceHover, onSlicePress }: Props) {
   const [width, onLayout] = useLayoutWidth();
   const size = Math.min(width, MAX_SIZE);
 
-  const segments = useMemo<DonutSegment[]>(
-    () => breakdown.slices.map((s, i) => ({ key: s.key, value: s.views, color: sliceColor(i) })),
-    [breakdown.slices],
-  );
+  const segments = useMemo<DonutSegment[]>(() => {
+    const named = groups.named.map((s, i) => ({ key: s.key, value: s.views, color: sliceColor(i) }));
+    return groups.other
+      ? [...named, { key: OTHER_KEY, value: groups.other.views, color: OTHER_COLOR }]
+      : named;
+  }, [groups]);
 
-  const active = activeKey != null ? breakdown.slices.find(s => s.key === activeKey) : undefined;
+  // A slice folded into "Other" highlights the whole "Other" segment.
+  const segmentKey = activeKey != null && groups.otherKeys.has(activeKey) ? OTHER_KEY : activeKey;
+  const active = segmentKey === OTHER_KEY && groups.other
+    ? { label: `Other (${groups.other.count} ${sliceNoun})`, views: groups.other.views, share: groups.other.share }
+    : segmentKey != null ? groups.named.find(s => s.key === segmentKey) : undefined;
   const delta = breakdown.totalViewsDeltaPct;
-  const deltaColor = delta >= 0 ? accent.mint : accent.amber;
+  const deltaColor = delta >= 0 ? trend.up : trend.downPp;
 
   return (
     <View style={styles.wrap} onLayout={onLayout}>
@@ -48,8 +61,9 @@ export function ContentDonut({ breakdown, prevLabel, activeKey, onSliceHover, on
         <DonutChart
           segments={segments}
           size={size}
-          thickness={Math.round(size * 0.13)}
-          activeKey={activeKey}
+          thickness={Math.round(size * THICKNESS)}
+          activeKey={segmentKey}
+          centreGlow={segments[0]?.color}
           onSegmentHover={onSliceHover}
           onSegmentPress={onSlicePress}
         >
@@ -65,7 +79,7 @@ export function ContentDonut({ breakdown, prevLabel, activeKey, onSliceHover, on
               <Text style={styles.total}>{fmtCount(breakdown.totalViews)}</Text>
               {prevLabel ? (
                 <Text style={[styles.delta, { color: deltaColor }]}>
-                  {delta >= 0 ? '+' : ''}{delta}% {prevLabel}
+                  {delta >= 0 ? '+' : ''}{delta.toFixed(1)}% {prevLabel}
                 </Text>
               ) : null}
             </>
@@ -91,13 +105,16 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   total: {
-    fontFamily: font.mono,
-    fontSize:   28,
-    color:      neutral.text,
+    fontFamily:    font.mono,
+    fontWeight:    weight.bold,
+    fontSize:      30,
+    letterSpacing: -0.8,
+    color:         neutral.text,
   },
   delta: {
     ...type.body,
-    fontSize: 11,
+    fontWeight: weight.semiBold,
+    fontSize:   11,
   },
   share: {
     color: neutral.textMid,

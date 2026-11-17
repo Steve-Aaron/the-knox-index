@@ -7,7 +7,7 @@ import { SkeletonBlock } from '@/components/primitives/SkeletonBlock';
 import { RankBoardRow } from './RankBoardRow';
 import { ViewTabs, VIEW_ACCOUNT_TYPES, type ViewType } from './ViewTabs';
 import { useTenant } from '@/hooks/useTenant';
-import { labelForGroupKey } from '@/data/grouping';
+import { groupDisplayLabel } from '@/data/grouping';
 import { Kicker } from '@/components/ui/Kicker';
 import { Title } from '@/components/ui/Title';
 import { neutral, glass, party, brand, knox, colourFor } from '@/theme/colors';
@@ -15,13 +15,7 @@ import type { GroupKey } from '@/theme/colors';
 import { spacing, radius } from '@/theme/spacing';
 import { type, font } from '@/theme/typography';
 import type { Politician, ScoreKey, LeaderboardSortKey } from '@/data/types';
-import { leaderboardScore, viralityRatioFor, engagementRate } from '@/data/leaderboard';
-
-const PARTY_LABELS: Partial<Record<GroupKey, string>> = {
-  labour: 'Labour', conservative: 'Conservative', libdem: 'Lib Dem',
-  snp: 'SNP', green: 'Greens', reform: 'Reform', plaid: 'Plaid',
-  dup: 'DUP', sinnfein: 'Sinn Féin', independent: 'Independent', unknown: 'Unknown',
-};
+import { leaderboardScore, viralityRatioFor, engagementRate, GUEST_OPEN_ROWS } from '@/data/leaderboard';
 
 /**
  * RankBoard
@@ -177,7 +171,7 @@ export function RankBoard({ politicians, activeId, headlineKey, timeRangeLabel, 
           {timeRangeLabel}
           {' · '}
           {ranked.reduce((sum, p) => sum + p.totals.postsInRange, 0)} posts by {ranked.filter(p => p.totals.postsInRange > 0).length} accounts
-          {partyFilter ? ` · ${PARTY_LABELS[partyFilter] ?? labelForGroupKey(tenant.grouping.mode, partyFilter)}` : ''}
+          {partyFilter ? ` · ${groupDisplayLabel(tenant.grouping.mode, partyFilter)}` : ''}
         </Text>
 
         {/* Account-type tabs — MPs / Parties / Cabinet / All.
@@ -250,7 +244,7 @@ export function RankBoard({ politicians, activeId, headlineKey, timeRangeLabel, 
                 >
                   <View style={[styles.partyDot, { backgroundColor: colour.base }]} />
                   <Text style={[styles.partyChipText, active && { color: colour.glow }]}>
-                    {PARTY_LABELS[pk] ?? pk}
+                    {groupDisplayLabel(tenant.grouping.mode, pk)}
                   </Text>
                 </Pressable>
               );
@@ -275,7 +269,7 @@ export function RankBoard({ politicians, activeId, headlineKey, timeRangeLabel, 
               // Split into visible (top 5 for guests, all for registered users)
               // and locked rows so the registration prompt can sit over the
               // blurred block instead of being inlined awkwardly between rows.
-              const cutoff = isRegistered ? ranked.length : Math.min(5, ranked.length);
+              const cutoff = isRegistered ? ranked.length : Math.min(GUEST_OPEN_ROWS, ranked.length);
               const visible = ranked.slice(0, cutoff);
               const locked  = isRegistered ? [] : ranked.slice(cutoff);
 

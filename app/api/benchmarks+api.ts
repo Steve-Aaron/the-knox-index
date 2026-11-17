@@ -15,6 +15,7 @@
 
 import { query, postWeb } from '@/lib/bigquery';
 import { guardTenant } from '@/lib/tenantGuard';
+import { dataCacheHeaders } from '@/lib/cacheHeaders';
 import { safeErrorDetail } from '@/lib/errors';
 import type { PostBenchmarks } from '@/data/types';
 
@@ -103,7 +104,7 @@ export async function GET(request: Request): Promise<Response> {
 
     return Response.json(
       { benchmarks },
-      { headers: { 'Cache-Control': 'private, max-age=3600, stale-while-revalidate=300' } }
+      { headers: dataCacheHeaders(tenant, 's-maxage=3600, stale-while-revalidate=300') }
     );
 
   } catch (err: unknown) {

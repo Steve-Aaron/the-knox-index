@@ -22,8 +22,9 @@ import { breakpoints } from '@/theme/breakpoints';
  * month / year / lifetime are locked behind registration.
  * One job: pick a time range.
  *
- * Note: 'yesterday' is the shortest selectable window (postDate >= today - 1
- * day) and maps to the matching server-side range in lib/bqQueries.ts.
+ * Note: ranges are yesterday only, the last 7 and 30 days (rolling) and this
+ * year from 1 January, and map to the matching server-side range in
+ * lib/bqQueries.ts.
  */
 export type TimeRange = 'yesterday' | 'week' | 'month' | 'year' | 'lifetime';
 
@@ -41,7 +42,7 @@ const OPTIONS: { key: TimeRange; label: string }[] = [
   { key: 'week',      label: 'Last 7 days' },
   { key: 'month',     label: 'Last 30 days' },
   { key: 'year',      label: 'This year' },
-  { key: 'lifetime',  label: 'Lifetime' },
+  { key: 'lifetime',  label: 'All data' },
 ];
 
 const LOCKED_RANGES = new Set<TimeRange>(['month', 'year', 'lifetime']);
@@ -57,7 +58,9 @@ export function TimeRangePicker({ value, onChange, isRegistered = false, onLocke
   }, [index, xPct]);
 
   const highlightStyle = useAnimatedStyle(() => ({
-    left: `${(xPct.value / OPTIONS.length) * 100}%`,
+    // The spring overshoots; clamp so the pill never slides past the first
+    // or last option (out of the container) and still bounces in between.
+    left: `${(Math.min(Math.max(xPct.value, 0), OPTIONS.length - 1) / OPTIONS.length) * 100}%`,
     width: `${100 / OPTIONS.length}%`,
   } as any));
 

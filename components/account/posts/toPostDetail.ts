@@ -14,6 +14,7 @@ export function toPostDetail(post: AccountPost, politician: Politician): PostDet
     caption:        post.caption,
     videoSummary:   post.summary ?? '',
     coverJpeg:      post.coverJpeg ?? '',
+    videoMp4:       post.videoMp4 ?? '',
     postDate:       post.postDate,
     styles:         post.styles,
     topics:         post.topics,

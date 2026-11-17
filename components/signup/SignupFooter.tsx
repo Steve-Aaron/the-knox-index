@@ -4,6 +4,7 @@ import { neutral, glass, accent } from '@/theme/colors';
 import { spacing, radius } from '@/theme/spacing';
 import { font } from '@/theme/typography';
 import { BRAND } from '@/brand/constants';
+import { router } from 'expo-router';
 import { DevLabel } from '@/components/primitives/DevLabel';
 
 /**
@@ -16,8 +17,9 @@ import { DevLabel } from '@/components/primitives/DevLabel';
 
 const YEAR = new Date().getFullYear();
 
-const LINKS = [
-  { label: 'Privacy Policy', url: 'https://knoxdigi.com/privacy-policy' },
+/** `to` = in-app route, `url` = external. */
+const LINKS: { label: string; to?: string; url?: string }[] = [
+  { label: 'Privacy Policy', to:  '/privacy-policy' },
   { label: 'Cookie Policy',  url: 'https://knoxdigi.com/cookie-policy'  },
   { label: 'Terms of Service', url: 'https://knoxdigi.com/terms'        },
 ];
@@ -36,7 +38,7 @@ export function SignupFooter() {
         {LINKS.map(l => (
           <Pressable
             key={l.label}
-            onPress={() => Linking.openURL(l.url)}
+            onPress={() => (l.to ? router.push(l.to as any) : Linking.openURL(l.url!))}
             style={({ pressed }) => [styles.link, pressed && { opacity: 0.65 }]}
           >
             <Text style={styles.linkText}>{l.label}</Text>

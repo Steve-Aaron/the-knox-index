@@ -1,12 +1,13 @@
 import type { Politician, PostBenchmarks } from '@/data/types';
 import type { TimeRange } from '@/components/dashboard/TimeRangePicker';
+import type { GroupKey } from '@/theme/colors';
 
 /**
  * data/account/types.ts
  * ----------------------
  * View-model for the account page (/account/[handle]). This is the contract
- * the page renders from. It is filled by mocks today (./mockAccount.ts) and
- * is the shape the future /api/account response should be mapped into.
+ * the page renders from. GET /api/account-page returns everything except
+ * postBenchmarks, which comes from /api/benchmarks (see ./useAccountPage.ts).
  *
  * Split in two:
  *   - range-independent: profile + key stats (who the account is)
@@ -26,8 +27,9 @@ export type SocialPlatform = Exclude<AccountPlatform, 'all'>;
 export interface KnoxFactorSnapshot {
   /** 0..100 */
   score:        number;
-  /** Points vs the previous week. Positive = improved. */
-  deltaVsPrev:  number;
+  /** Points vs the previous week. Positive = improved. null = not tracked
+   *  yet (no score history), and the trend line is hidden. */
+  deltaVsPrev:  number | null;
 }
 
 export interface SocialProfile {
@@ -54,14 +56,23 @@ export interface AccountProfile {
   lastPostAt:  string;
 }
 
-// ── Key stats ────────────────────────────────────────────────────────────────
+// ── Comparison ───────────────────────────────────────────────────────────────
 
-export interface KeyStatRank {
-  id:    string;
-  /** Peer group the rank is computed in, e.g. 'Among accounts of the same type'. */
-  label: string;
-  rank:  number;
-  total: number;
+/** One row of the Comparison card: a slice of the main-page leaderboard. */
+export interface ComparisonRow {
+  /** 1-based leaderboard position. */
+  rank:           number;
+  /** Without the leading @. */
+  handle:         string;
+  name:           string;
+  partyLabel:     string;
+  groupKey:       GroupKey;
+  avatarInitials: string;
+  avatarUrl?:     string;
+  /** Knox Factor for the selected range, 0–100. */
+  knoxFactor:     number;
+  /** The account the page is about. */
+  isSelf:         boolean;
 }
 
 // ── Period-scoped data ───────────────────────────────────────────────────────
@@ -139,8 +150,17 @@ export interface AccountPeriodData {
 
 export interface AccountPageData {
   profile:  AccountProfile;
-  keyStats: KeyStatRank[];
+  /** Platforms with data, in display order. The platform filter shows only
+   *  when there is more than one. */
+  platforms: SocialPlatform[];
+  /** The account and its leaderboard neighbours for the range; empty when
+   *  the account did not post in the range (it is not on the leaderboard). */
+  comparison: ComparisonRow[];
   period:   AccountPeriodData;
-  /** Distribution of every tracked post — places one post in the dataset. */
-  postBenchmarks: PostBenchmarks;
+  /** Distribution of every tracked post — places one post in the dataset.
+   *  null while loading or when /api/benchmarks fails. */
+  postBenchmarks: PostBenchmarks | null;
 }
+
+/** GET /api/account-page response. */
+export type AccountPageApiResponse = Omit<AccountPageData, 'postBenchmarks'>;

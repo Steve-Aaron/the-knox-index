@@ -4,7 +4,7 @@ import { TimeRangePicker } from '@/components/dashboard/TimeRangePicker';
 import { ChipGroup, type ChipOption } from '@/components/primitives/ChipGroup';
 import { DevLabel } from '@/components/primitives/DevLabel';
 import { spacing } from '@/theme/spacing';
-import type { AccountKpis, AccountPlatform, TimeRange } from '@/data/account/types';
+import type { AccountKpis, AccountPlatform, SocialPlatform, TimeRange } from '@/data/account/types';
 import { KpiStrip } from './KpiStrip';
 
 /**
@@ -21,6 +21,8 @@ interface Props {
   onRangeChange:    (next: TimeRange) => void;
   platform:         AccountPlatform;
   onPlatformChange: (next: AccountPlatform) => void;
+  /** Platforms with data. The filter is hidden until there are two. */
+  platforms:        SocialPlatform[];
   kpis:             AccountKpis;
   compact?:         boolean;
 }
@@ -36,6 +38,7 @@ export function OverviewPanel({
   onRangeChange,
   platform,
   onPlatformChange,
+  platforms,
   kpis,
   compact = false,
 }: Props) {
@@ -45,12 +48,14 @@ export function OverviewPanel({
       {/* Mock phase: every range is open. Wire isRegistered + onLockedTap
           (as on the dashboard) once real data is behind registration. */}
       <TimeRangePicker value={range} onChange={onRangeChange} isRegistered />
-      <ChipGroup
-        label="Platform"
-        options={PLATFORM_OPTIONS}
-        value={platform}
-        onChange={onPlatformChange}
-      />
+      {platforms.length > 1 ? (
+        <ChipGroup
+          label="Platform"
+          options={PLATFORM_OPTIONS.filter(o => o.value === 'all' || platforms.includes(o.value))}
+          value={platform}
+          onChange={onPlatformChange}
+        />
+      ) : null}
       <View style={styles.kpis}>
         <KpiStrip kpis={kpis} compact={compact} />
       </View>

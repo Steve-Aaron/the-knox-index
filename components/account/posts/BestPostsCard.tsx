@@ -9,6 +9,9 @@ import { radius, spacing } from '@/theme/spacing';
 import { type } from '@/theme/typography';
 import type { PostBenchmarks, Politician } from '@/data/types';
 import type { AccountPost, SocialProfile } from '@/data/account/types';
+import { AdvancedFilterButton } from '@/components/dashboard/AdvancedFilterButton';
+import { AdvancedFilterPanel } from '@/components/dashboard/AdvancedFilterPanel';
+import type { FieldId } from '@/lib/advancedFilters';
 import { PLATFORM_META } from '../platforms';
 import { SocialLinks } from '../profile/SocialLinks';
 import { BestPostsFilters } from './BestPostsFilters';
@@ -19,6 +22,8 @@ import { useBestPosts } from './useBestPosts';
  * BestPostsCard
  * --------------
  * Ranked, filterable list of the account's posts in the selected period.
+ * The magnifying glass opens the same advanced filter as the dashboard's
+ * Post Feed, limited to the fields an account's own posts have.
  * Tapping a post opens it in the post insight modal, which steps through the
  * same ranked list.
  *
@@ -29,13 +34,21 @@ interface Props {
   /** Author of every post — colours the cards and fills the modal identity. */
   politician: Politician;
   socials:    SocialProfile[];
-  benchmarks: PostBenchmarks;
+  benchmarks?: PostBenchmarks;
 }
 
 const PAGE_SIZE = 10;
 
+/** Every post here is the same account's, so name / handle / party say nothing. */
+const FILTER_FIELDS: FieldId[] = [
+  'caption', 'views', 'likes', 'comments', 'shares', 'saves', 'engagementRate', 'postDate',
+];
+
 export function BestPostsCard({ posts, politician, socials, benchmarks }: Props) {
-  const { visible, sortKey, setSortKey, minViews, setMinViews, minLikes, setMinLikes } = useBestPosts(posts);
+  const {
+    visible, sortKey, setSortKey, minViews, setMinViews, minLikes, setMinLikes, rules, setRules,
+  } = useBestPosts(posts);
+  const [filterOpen, setFilterOpen] = useState(false);
   const [shown, setShown] = useState(PAGE_SIZE);
   /** Index into `visible` of the post open in the modal. */
   const [openIndex, setOpenIndex] = useState<number | null>(null);
@@ -45,7 +58,7 @@ export function BestPostsCard({ posts, politician, socials, benchmarks }: Props)
   // New data or filters → back to the first page.
   useEffect(() => {
     setShown(PAGE_SIZE);
-  }, [posts, sortKey, minViews, minLikes]);
+  }, [posts, sortKey, minViews, minLikes, rules]);
 
   const remaining = visible.length - shown;
 
@@ -54,7 +67,17 @@ export function BestPostsCard({ posts, politician, socials, benchmarks }: Props)
       <WidgetHeader
         kicker="Best posts"
         title="Best-performing posts"
-        titleAccessory={<CountBadge count={visible.length} />}
+        titleAccessory={
+          // One group, so the count and the search wrap together on mobile.
+          <View style={styles.titleAccessory}>
+            <CountBadge count={visible.length} />
+            <AdvancedFilterButton
+              open={filterOpen}
+              ruleCount={rules.length}
+              onPress={() => setFilterOpen(o => !o)}
+            />
+          </View>
+        }
       />
 
       <BestPostsFilters
@@ -64,6 +87,14 @@ export function BestPostsCard({ posts, politician, socials, benchmarks }: Props)
         onMinViews={setMinViews}
         minLikes={minLikes}
         onMinLikes={setMinLikes}
+      />
+
+      <AdvancedFilterPanel
+        visible={filterOpen}
+        rules={rules}
+        onChange={setRules}
+        onClose={() => setFilterOpen(false)}
+        fields={FILTER_FIELDS}
       />
 
       {visible.length === 0 ? (
@@ -76,7 +107,6 @@ export function BestPostsCard({ posts, politician, socials, benchmarks }: Props)
               post={post}
               colour={colour}
               layout={isMobile ? 'narrow' : 'split'}
-              rank={i + 1}
               platformIcon={PLATFORM_META[post.platform].icon}
               onPress={() => setOpenIndex(i)}
               accessibilityRole="button"
@@ -120,6 +150,11 @@ function CountBadge({ count }: { count: number }) {
 }
 
 const styles = StyleSheet.create({
+  titleAccessory: {
+    flexDirection: 'row',
+    alignItems:    'center',
+    gap:           spacing.sm,
+  },
   list: {
     gap: spacing.sm,
   },

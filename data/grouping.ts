@@ -61,3 +61,31 @@ export function labelForGroupKey(mode: GroupingMode, key: string): string {
 export function isWarehouseGroup(mode: GroupingMode): boolean {
   return mode === 'region';
 }
+
+/** Short display names for party keys. Raw party strings prettify badly
+ *  ('Dup', 'Snp'), so a party is named by its key. */
+const PARTY_DISPLAY_LABELS: Partial<Record<GroupKey, string>> = {
+  labour:       'Labour',
+  conservative: 'Conservative',
+  libdem:       'Lib Dems',
+  snp:          'SNP',
+  green:        'Greens',
+  reform:       'Reform',
+  plaid:        'Plaid',
+  dup:          'DUP',
+  sinnfein:     'Sinn Féin',
+  alliance:     'Alliance',
+  sdlp:         'SDLP',
+  uup:          'UUP',
+  tuv:          'TUV',
+  workers:      'Workers Party',
+  advance:      'Advance UK',
+  restore:      'Restore Britain',
+  yourparty:    'Your Party',
+  independent:  'Independent',
+};
+
+/** What the UI calls a group: a party's short name, or a region's label. */
+export function groupDisplayLabel(mode: GroupingMode, key: string): string {
+  return (mode === 'party' ? PARTY_DISPLAY_LABELS[key as GroupKey] : undefined) ?? labelForGroupKey(mode, key);
+}

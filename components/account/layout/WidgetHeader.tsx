@@ -10,26 +10,31 @@ import { useAccountLayout } from './accountLayout';
  * -------------
  * Kicker + title on the left, optional controls on the right. Leaves room on
  * the right for the DashCard ? helper, which is absolutely positioned. The
- * title steps down a size on mobile so it fits one line with its accessory.
+ * title steps down a size on mobile. The helper sits level with the kicker,
+ * so without right-hand controls the title line may use its gutter; if the
+ * title and its accessory still don't fit one line, the accessory wraps under
+ * the title instead of breaking it.
  *
  * One job: the top line of an account widget.
  */
 interface Props {
   title:   string;
   kicker?: string;
+  /** Overrides the kicker's default dim colour. */
+  kickerColor?: string;
   /** Controls aligned to the right, e.g. a SegmentedControl. */
   right?:  React.ReactNode;
   /** Text next to the title, e.g. a count badge. */
   titleAccessory?: React.ReactNode;
 }
 
-export function WidgetHeader({ title, kicker, right, titleAccessory }: Props) {
+export function WidgetHeader({ title, kicker, kickerColor, right, titleAccessory }: Props) {
   const { isMobile } = useAccountLayout();
   return (
     <View style={styles.row}>
       <View style={styles.text}>
-        {kicker ? <Kicker tone="dim">{kicker}</Kicker> : null}
-        <View style={styles.titleRow}>
+        {kicker ? <Kicker tone="dim" style={kickerColor ? { color: kickerColor } : undefined}>{kicker}</Kicker> : null}
+        <View style={[styles.titleRow, !right && styles.titleRowIntoGutter]}>
           <Title style={isMobile ? styles.titleCompact : undefined}>{title}</Title>
           {titleAccessory}
         </View>
@@ -57,8 +62,13 @@ const styles = StyleSheet.create({
   },
   titleRow: {
     flexDirection: 'row',
+    flexWrap:      'wrap',
     alignItems:    'center',
     gap:           spacing.sm,
+  },
+  /** The ? helper is level with the kicker, not the title. */
+  titleRowIntoGutter: {
+    marginRight: -HELPER_GUTTER,
   },
   titleCompact: {
     fontSize:   20,

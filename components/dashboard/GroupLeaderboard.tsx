@@ -13,7 +13,7 @@ import { track } from '@/lib/analytics';
 import type { Politician } from '@/data/types';
 import type { TimeRange } from '@/components/dashboard/TimeRangePicker';
 import { useTenant } from '@/hooks/useTenant';
-import { labelForGroupKey } from '@/data/grouping';
+import { groupDisplayLabel } from '@/data/grouping';
 
 /** Short label for the activity meta line on each row. */
 const POSTS_PERIOD: Record<TimeRange, string> = {
@@ -27,8 +27,8 @@ const POSTS_PERIOD: Record<TimeRange, string> = {
 /** Kicker suffix per range. */
 const RANGE_KICKER: Record<TimeRange, string> = {
   yesterday: 'YESTERDAY',
-  week:      'LAST 7 DAYS',
-  month:     'LAST 30 DAYS',
+  week:      'LAST WEEK',
+  month:     'THIS MONTH',
   year:      'THIS YEAR',
   lifetime:  'ALL TIME',
 };
@@ -71,28 +71,6 @@ const SORT_OPTIONS: { key: SortKey; label: string; tip: string }[] = [
   { key: 'accounts',      label: 'Accounts',   tip: 'Number of distinct tracked accounts in the group.' },
 ];
 
-const PARTY_LABELS: Partial<Record<GroupKey, string>> = {
-  labour:       'Labour',
-  conservative: 'Conservative',
-  libdem:       'Lib Dem',
-  snp:          'SNP',
-  green:        'Greens',
-  reform:       'Reform',
-  plaid:        'Plaid',
-  dup:          'DUP',
-  sinnfein:     'Sinn Féin',
-  alliance:     'Alliance',
-  sdlp:         'SDLP',
-  uup:          'UUP',
-  tuv:          'TUV',
-  workers:      'Workers Party',
-  advance:      'Advance UK',
-  restore:      'Restore Britain',
-  yourparty:    'Your Party',
-  independent:  'Independent',
-  unknown:      'Unknown',
-};
-
 export function GroupLeaderboard({ politicians, range = 'week', onGroupSelect, activeGroup }: Props) {
   const tenant = useTenant();
   const mode   = tenant.grouping.mode;
@@ -129,7 +107,7 @@ export function GroupLeaderboard({ politicians, range = 'week', onGroupSelect, a
         key,
         // Party mode keeps the hand-written short labels ('Lib Dem', 'Sinn Féin');
         // every other mode resolves its label from the grouping adapter.
-        label:          (mode === 'party' ? PARTY_LABELS[key] : undefined) ?? labelForGroupKey(mode, key),
+        label:          groupDisplayLabel(mode, key),
         accounts:       members.length,
         totalViews,
         totalPosts,

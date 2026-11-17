@@ -97,13 +97,21 @@ function parseGcsRef(ref: string): { bucketName: string; objectPath: string } | 
 }
 
 /**
- * Returns a signed URL valid for `ttlMs` milliseconds (default 1 hour).
+ * Default lifetime of signed media URLs. Must stay well above the worst-case
+ * age of a cached API response (CDN s-maxage + stale-while-revalidate +
+ * browser max-age in lib/cacheHeaders.ts) so clients never receive an
+ * already-expired URL.
+ */
+const SIGNED_URL_TTL_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Returns a signed URL valid for `ttlMs` milliseconds (default 24 hours).
  * Falls back to the original `ref` string if parsing or signing fails,
  * so the rest of the pipeline never throws on a bad URL.
  */
 export async function signGcsUrl(
   ref: string,
-  ttlMs = 60 * 60 * 1000,
+  ttlMs = SIGNED_URL_TTL_MS,
 ): Promise<string> {
   if (!ref) return ref;
 
@@ -131,7 +139,7 @@ export async function signGcsUrl(
  */
 export async function signMediaFields<T extends { coverJpeg?: string; videoMp4?: string }>(
   record: T,
-  ttlMs = 60 * 60 * 1000,
+  ttlMs = SIGNED_URL_TTL_MS,
 ): Promise<T> {
   const [coverJpeg, videoMp4] = await Promise.all([
     signGcsUrl(record.coverJpeg ?? '', ttlMs),

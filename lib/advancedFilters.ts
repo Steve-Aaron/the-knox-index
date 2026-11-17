@@ -132,8 +132,14 @@ export function newRule(field: FieldId = 'caption'): Rule {
 
 // ── Runtime evaluation ────────────────────────────────────────────────────────
 
-/** Extract the raw value of a field off a PostRecord. engagementRate is derived. */
-function getValue(post: PostRecord, field: FieldId): unknown {
+/**
+ * Any post the rules can run on: the dashboard's PostRecord or the account
+ * page's AccountPost. Fields a post lacks simply never match.
+ */
+export type FilterablePost = Pick<PostRecord, 'views' | 'likes' | 'comments' | 'saves' | 'shares'>;
+
+/** Extract the raw value of a field off a post. engagementRate is derived. */
+function getValue(post: FilterablePost, field: FieldId): unknown {
   if (field === 'engagementRate') {
     return post.views > 0
       ? ((post.likes + post.comments + post.saves + post.shares) / post.views) * 100
@@ -215,7 +221,7 @@ function matchDate(postValue: unknown, op: DateOp, a: string, b: string | undefi
  * Rules with empty value (or invalid types) silently match all posts —
  * better UX than dropping every result while the user is mid-typing.
  */
-export function applyAdvancedFilter(posts: PostRecord[], rules: AdvancedFilter): PostRecord[] {
+export function applyAdvancedFilter<T extends FilterablePost>(posts: T[], rules: AdvancedFilter): T[] {
   if (rules.length === 0) return posts;
 
   // Pre-validate each rule once: filter out incomplete rules so empty input
