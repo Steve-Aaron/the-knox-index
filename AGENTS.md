@@ -49,7 +49,7 @@ The proxy handler lives at `app/api/mp/[...path]+api.ts` and forwards all method
 | 4. Filter interactions | `filter_changed` (filter_type, old_value, new_value, result_count), `rising_topics_mode_changed` (mode, old_mode), `fastest_growing_mode_changed` (mode, old_mode) |
 | 5. Sort interactions | `sort_changed` (sort_key, old_sort_key) |
 | 6. Post card & video | `post_card_opened`, `video_opened`, `tiktok_link_tapped` |
-| 7. Registration funnel | `cta_bar_shown`, `cta_bar_tapped`, `unlock_modal_opened`, `registration_submit_attempted`, `registration_succeeded`, `registration_failed` |
+| 7. Registration funnel | `cta_bar_shown`, `cta_bar_tapped`, `unlock_modal_opened`, `registration_submit_attempted`, `registration_succeeded`, `registration_failed`, `locked_insights_cta`, `waitlist_modal_opened`, `waitlist_joined` |
 | 8. Error recovery | `error_recovered` (recovery_ms), `posts_error_shown`, `posts_error_recovered` |
 | 9. Scroll depth | `section_reached` (section, method) |
 | 10. Navigation | `date_range_changed`, `wing_changed`, `index_switched` (from_tenant, to_tenant) |
@@ -89,7 +89,7 @@ One deployment serves several dashboards, one per path on `index.knox.digital`:
 | Host | Tenant | `dashboard.id` | Grouping | Access |
 |---|---|---|---|---|
 | `index.knox.digital/uk` | The Knox Index | 1 | Party | Public |
-| `index.knox.digital/worldleaders` | World Leaders | 2 | Region | Sign-in, `@knoxdigi.com` / `@knox.digital` auto, others approved |
+| `index.knox.digital/worldleaders` | World Leaders | 2 | Region | Waitlist: guest view open; full view `@knoxdigi.com` / `@knox.digital` auto, others approved by hand |
 
 - The registry is `lib/tenants.ts`. Adding a subdomain = one entry there + a
   Vercel domain. Full guide: `docs/tenants.md`
@@ -113,6 +113,13 @@ One deployment serves several dashboards, one per path on `index.knox.digital`:
   (party key or region key); `partyLabel` is always the real party
 - Client copy, grouping and map come from `useTenant()`; never trust the client
   for data scope
+- Access modes (`lib/tenants.ts`): `public` (UK), `waitlist` (World Leaders)
+  and `authenticated`. On a waitlist index anyone gets the guest view (top 5,
+  Yesterday and Past 7 days, no post feed, no growth or topics), exactly like
+  a signed-out UK visitor. The full view needs an allowed domain or an
+  `approved` tenant_access row; signing up only joins the waitlist (a
+  `pending` row from the waitlist form), approved in the admin panel. Guest
+  limits are client-side, as on the UK index
 - `npm run check:tenants` guards host routing, access rules, gate leaks and
   region coverage. Run it with the other checks
 
