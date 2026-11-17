@@ -69,14 +69,21 @@ export async function POST(request: Request): Promise<Response> {
     return Response.json({ error: 'Failed to send message' }, { status: 502 });
   }
 
-  // 2. Auto-reply to sender (fire-and-forget)
-  brevo('/smtp/email', {
+  // 2. Auto-reply to sender. Awaited so Vercel does not cut it off once the
+  //    response is sent; a failure is logged but the enquiry already went.
+  const replyRes = await brevo('/smtp/email', {
     sender: { name: FROM_NAME, email: FROM_EMAIL },
     to:     [{ name: name || email, email }],
     subject: 'We got your message — The Knox Index',
     htmlContent: replyHtml(name),
     textContent: replyText(name),
-  }).catch((e: any) => console.error('contact: auto-reply error', e));
+  }).catch((e: any) => {
+    console.error('contact: auto-reply error', e?.message ?? e);
+    return null;
+  });
+  if (replyRes && !replyRes.ok) {
+    console.error('contact: auto-reply rejected', replyRes.status, (await replyRes.text().catch(() => '')).slice(0, 300));
+  }
 
   return Response.json({ ok: true }, { status: 200 });
 }
