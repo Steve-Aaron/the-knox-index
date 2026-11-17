@@ -4,22 +4,25 @@ import { router } from 'expo-router';
 import { KnoxLogo } from './KnoxLogo';
 import { HeaderSearch } from '@/components/search/HeaderSearch';
 import { SearchIcon } from '@/components/search/SearchIcons';
+import { IndexSwitcher } from './IndexSwitcher';
 import { logout } from '@/lib/logout';
 import { useRegisteredFlag } from '@/hooks/useRegisteredFlag';
 import { neutral, glass, accent } from '@/theme/colors';
 import { spacing } from '@/theme/spacing';
 import { font } from '@/theme/typography';
 import { breakpoints } from '@/theme/breakpoints';
+import { homeHref } from '@/lib/indexPaths';
 
 /**
  * HeaderNav
  * ----------
  * Two-slot top bar:
  *
- *   [ logo ]                    [ search ]     [ Sign up  Log in ]
+ *   [ logo  UK | World Leaders ]       [ search ]     [ Sign up  Log in ]
  *
  * The Knox wordmark sits on the left and doubles as the home link (so a
- * separate 'Dashboard' link would be redundant). The auth actions sit on the
+ * separate 'Dashboard' link would be redundant). Beside it, IndexSwitcher
+ * moves between the indexes (UK, World Leaders). The auth actions sit on the
  * right. Tapping the logo reloads the dashboard (full refresh on web).
  *
  * On narrow viewports the layout stays flat (no stacking); the logo
@@ -66,8 +69,8 @@ export function HeaderNav({ activeRoute, leftItems, rightItems }: Props) {
   // Logo = home. On web do a real refresh to '/' (rebuilds the dashboard and
   // re-fetches), on native push the route.
   const goHome = () => {
-    if (Platform.OS === 'web' && typeof window !== 'undefined') window.location.assign('/');
-    else router.push('/');
+    if (Platform.OS === 'web' && typeof window !== 'undefined') window.location.assign(homeHref());
+    else router.push(homeHref() as any);
   };
 
   return (
@@ -81,6 +84,7 @@ export function HeaderNav({ activeRoute, leftItems, rightItems }: Props) {
         >
           <KnoxLogo width={logoWidth} />
         </Pressable>
+        <IndexSwitcher compact={isMobile} />
       </View>
 
       <View style={styles.sideRight}>

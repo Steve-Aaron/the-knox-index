@@ -25,6 +25,8 @@ import { spacing, radius } from '@/theme/spacing';
 import { type } from '@/theme/typography';
 import type { Politician, LeaderboardSortKey } from '@/data/types';
 import type { TimeRange } from '@/components/dashboard/TimeRangePicker';
+import { router } from 'expo-router';
+import { accountHref } from '@/lib/indexPaths';
 
 /**
  * PoliticianDetailPanel
@@ -75,8 +77,8 @@ function roleLabel(p: Politician): string {
  */
 const RANGE_TOTALS_LABEL: Record<TimeRange, string> = {
   yesterday: 'Yesterday',
-  week:      'Last 7 days',
-  month:     'Last 30 days',
+  week:      'Past 7 days',
+  month:     'Past 30 days',
   year:      'This year',
   lifetime:  'All time',
 };
@@ -85,6 +87,19 @@ export function PoliticianDetailPanel({ politician, headlineKey, range, panelHei
   const colour = colourFor(politician.groupKey);
 
   const recentPosts = politician.recentPosts ?? [];
+
+  // Platform accounts behind this row. Rows from before multi-platform carry
+  // none, so fall back to the TikTok handle as the panel always did.
+  const profiles = politician.platforms?.length
+    ? politician.platforms
+    : [{ platform: 'tiktok' as const, handle: politician.handle, url: `https://www.tiktok.com/${politician.handle}` }];
+  const hasX      = profiles.some(pr => pr.platform === 'x');
+  const hasTikTok = profiles.some(pr => pr.platform === 'tiktok');
+  // X calls its comments replies and its saves bookmarks.
+  const countLabels = {
+    comments: hasX ? (hasTikTok ? 'Comments + replies' : 'Replies')   : 'Comments',
+    saves:    hasX ? (hasTikTok ? 'Saves + bookmarks'  : 'Bookmarks') : 'Saves',
+  };
 
   // Lifetime avg views — used in the 'Account totals' tile, which is always
   // lifetime regardless of the selected range. Sourced from the post table we
@@ -177,12 +192,26 @@ export function PoliticianDetailPanel({ politician, headlineKey, range, panelHei
               initials={politician.avatarInitials}
               avatarUrl={politician.avatarUrl}
             />
+            {/* Account page — the person across every platform, ahead of the platform links */}
+            <Pressable
+              style={({ pressed }) => [
+                styles.cta,
+                { borderColor: colour.base, backgroundColor: `${colour.base}22`, opacity: pressed ? 0.7 : 1 },
+              ]}
+              onPress={() => router.push(accountHref(politician.slug ?? politician.handle.replace(/^@/, '')))}
+            >
+              <Text style={[styles.ctaText, { color: colour.glow }]}>VIEW FULL PROFILE →</Text>
+            </Pressable>
             <View style={styles.linkRow}>
-              <LinkPill
-                label={politician.handle}
-                url={`https://www.tiktok.com/${politician.handle}`}
-                accentColour={colour.glow}
-              />
+              {/* One pill per platform account behind the row (TikTok, X). */}
+              {profiles.map(pr => (
+                <LinkPill
+                  key={pr.platform}
+                  label={`${pr.platform === 'x' ? 'X' : 'TikTok'} @${pr.handle.replace(/^@/, '')}`}
+                  url={pr.url}
+                  accentColour={colour.glow}
+                />
+              ))}
             </View>
           </View>
 
@@ -240,8 +269,8 @@ export function PoliticianDetailPanel({ politician, headlineKey, range, panelHei
           >
             <TotalTile label="Views"    value={politician.totals.viewsInRange}    accentColor={colour.glow} zeroDash />
             <TotalTile label="Likes"    value={politician.totals.likesInRange}    accentColor={colour.glow} zeroDash />
-            <TotalTile label="Comments" value={politician.totals.commentsInRange} accentColor={colour.glow} zeroDash />
-            <TotalTile label="Saves"    value={politician.totals.savesInRange}    accentColor={colour.glow} zeroDash />
+            <TotalTile label={countLabels.comments} value={politician.totals.commentsInRange} accentColor={colour.glow} zeroDash />
+            <TotalTile label={countLabels.saves}    value={politician.totals.savesInRange}    accentColor={colour.glow} zeroDash />
           </View>
 
           {/* ── Recent posts ─────────────────────────── */}
@@ -261,7 +290,7 @@ export function PoliticianDetailPanel({ politician, headlineKey, range, panelHei
                 key={post.postId}
                 post={post}
                 colour={colour}
-                platformIcon={post.postUrl ? 'tiktok' : undefined}
+                platformIcon={post.postUrl ? (post.platform === 'x' ? 'x-twitter' : 'tiktok') : undefined}
                 onPress={post.postUrl ? () => Linking.openURL(post.postUrl!) : undefined}
                 accessibilityRole="link"
               />
@@ -269,22 +298,23 @@ export function PoliticianDetailPanel({ politician, headlineKey, range, panelHei
           </View>
           )}
 
-          {/* ── CTA ──────────────────────────────────── */}
-          <Pressable
-            style={({ pressed }) => [
-              styles.cta,
-              { borderColor: colour.base, opacity: pressed ? 0.7 : 1 },
-            ]}
-            // @ts-ignore — web hoverStyle
-            hoverStyle={Platform.OS === 'web' ? { backgroundColor: `${colour.base}22` } : undefined}
-            onPress={() =>
-              Linking.openURL(`https://www.tiktok.com/${politician.handle}`)
-            }
-          >
-            <Text style={[styles.ctaText, { color: colour.glow }]}>
-              OPEN TIKTOK PROFILE
-            </Text>
-          </Pressable>
+          {/* ── CTA — one per platform account ───────── */}
+          {profiles.map(pr => (
+            <Pressable
+              key={pr.platform}
+              style={({ pressed }) => [
+                styles.cta,
+                { borderColor: colour.base, opacity: pressed ? 0.7 : 1 },
+              ]}
+              // @ts-ignore — web hoverStyle
+              hoverStyle={Platform.OS === 'web' ? { backgroundColor: `${colour.base}22` } : undefined}
+              onPress={() => Linking.openURL(pr.url)}
+            >
+              <Text style={[styles.ctaText, { color: colour.glow }]}>
+                {pr.platform === 'x' ? 'OPEN X PROFILE' : 'OPEN TIKTOK PROFILE'}
+              </Text>
+            </Pressable>
+          ))}
         </ScrollView>
       </MotiView>
     </DashCard>
@@ -354,7 +384,9 @@ const styles = StyleSheet.create({
   },
   linkRow: {
     flexDirection: 'row',
-    marginTop: -spacing.xs,
+    flexWrap: 'wrap',
+    gap: spacing.md,
+    marginTop: spacing.xs,
   },
 
   // Chart

@@ -9,7 +9,7 @@ import { DevLabel } from '@/components/primitives/DevLabel';
  * LinkPill
  * ---------
  * A compact, pressable label+arrow that opens an external URL.
- * Used for the politician's TikTok handle on the card front. One job.
+ * Used for the politician's TikTok and X handles. The label names the platform. One job.
  */
 interface Props {
   label: string;           // e.g. "@angelarayner"
@@ -28,7 +28,7 @@ export function LinkPill({ label, url, accentColour, iconGlyph = '↗' }: Props)
   return (
     <Pressable
       accessibilityRole="link"
-      accessibilityLabel={`Open ${label} on TikTok`}
+      accessibilityLabel={`Open ${label}`}
       onPress={onPress}
       style={({ pressed, hovered }: any) => [
         styles.pill,

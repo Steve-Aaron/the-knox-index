@@ -6,6 +6,8 @@
  */
 
 import type { Politician, TopTrumpScores, RecentPost, AccountType } from './types';
+import { toTweetData, type RawTweet } from '@/lib/xPosts';
+import { profileUrlFor } from '@/lib/platforms';
 import type { GroupKey } from '@/theme/colors';
 import { toPartyKeyPublic } from './partyUtils';
 import { computeKnoxFactor, applyKnoxNameBonus, NORMALISATION_LIMITS } from './knoxFactor.server';
@@ -30,6 +32,7 @@ export interface BQAccountRow {
   accountTypeNames?: string;   // comma-separated — all types for this account (STRING_AGG)
   // From metadata.person, joined on in accountWeb(). Null when an account has
   // been ingested but not yet linked to a person.
+  person_id?:           string | null;
   person_slug?:         string | null;
   person_name?:         string | null;
   person_job_title?:    string | null;
@@ -89,6 +92,9 @@ export interface BQPostRow {
   coverJpeg:     string;
   videoMp4:      string;
   styles:        string[] | null;
+  /** Set on X rows (lib/xQueries.ts); absent on TikTok rows. */
+  platform?:     'tiktok' | 'x';
+  tweet?:        RawTweet;
 }
 
 // Re-export for backward compat; use toPartyKeyPublic from partyUtils for new code.
@@ -164,6 +170,27 @@ function inferAccountTypes(name: string, affiliation: string, dbTypeNames?: stri
 
   // 3. Final fallback
   return ['other'];
+}
+
+/**
+ * A job title that says the person leads a party or the Opposition ('Leader
+ * of HM Official Opposition', 'Leader of the Green Party', 'Party Leader').
+ * 'Leader of the House' (of Commons or Lords) is a cabinet job, not this.
+ */
+function isPartyLeaderTitle(title: string): boolean {
+  const t = (title ?? '').trim().toLowerCase();
+  if (/^leader of the house\b/.test(t)) return false;
+  return /^leader of\b/.test(t) || /\bparty leader\b/.test(t);
+}
+
+/**
+ * The account's types, with 'party_leader' added when the job title says so
+ * (the account type table does not have every leader, e.g. Kemi Badenoch).
+ */
+function accountTypesFor(name: string, affiliation: string, dbTypeNames: string | undefined, title: string): AccountType[] {
+  const types = inferAccountTypes(name, affiliation, dbTypeNames);
+  if (!isPartyLeaderTitle(title) || types.includes('party_leader')) return types;
+  return ['party_leader', ...types.filter(t => t !== 'other')];
 }
 
 function toInitials(name: string): string {
@@ -255,10 +282,66 @@ function rawAxes(acc: BQAccountRow): RawAxes {
   };
 }
 
-// NOTE: the range-scoped scoring (computeRangeScores / computeRangeKnoxScore /
-// rangeAxes) was removed — there is now a SINGLE scoring calculation
-// (computeScores below, matching the canonical SQL). The leaderboard reads that
-// same score under every date filter; nothing recomputes a separate in-range score.
+// The canonical Knox Factor (computeScores below, matching the SQL) is the one
+// score the leaderboard, profile card and radar show under every date filter.
+// periodKnoxFactor (computePeriodKnox) is a second, period-scoped score used
+// only where a ranking must follow the period tabs: the account page's
+// Standings card. Same formula and caps; the inputs are the selected period's.
+
+/** Raw axes over the selected period's posts (the *InRange aggregates). */
+function periodAxes(acc: BQAccountRow): { viralityRaw: number; engRate: number; posts: number; followers: number } {
+  const posts     = acc.postsInRange ?? 0;
+  const followers = acc.totalFollowers ?? 0;
+  const { viralityRaw, engRate } = clampedRatios(
+    posts,
+    acc.viewsInRange ?? 0,
+    (acc.likesInRange ?? 0) + (acc.commentsInRange ?? 0) + (acc.savesInRange ?? 0) + (acc.sharesInRange ?? 0),
+    followers,
+  );
+  return { viralityRaw, engRate, posts, followers };
+}
+
+interface PeriodMax { virality: number; engagementRate: number; posts: number; followers: number }
+
+function computePeriodMax(rows: BQAccountRow[]): PeriodMax {
+  let virality = 0, engagementRate = 1, posts = 1, followers = 1;
+  for (const acc of rows) {
+    const r = periodAxes(acc);
+    if (r.viralityRaw > virality)     virality = r.viralityRaw;
+    if (r.engRate > engagementRate)   engagementRate = r.engRate;
+    if (r.posts > posts)              posts = r.posts;
+    if (r.followers > followers)      followers = r.followers;
+  }
+  return { virality: virality > 0 ? virality : 1, engagementRate, posts, followers };
+}
+
+/**
+ * Knox Factor over the selected period: virality and engagement from the
+ * period's posts, frequency from the period's post count against the busiest
+ * account in it, followers as usual. Penalties as documented in
+ * knoxPenaltyMultiplier for the range score: the period's post count stands
+ * in for the 28-day count; lifetime posts, 7-day recency and lifetime average
+ * views stay as they are.
+ */
+function computePeriodKnox(acc: BQAccountRow, max: PeriodMax): number {
+  const r = periodAxes(acc);
+  const life = rawAxes(acc);
+  return applyKnoxNameBonus(
+    computeKnoxFactor(
+      logNormaliseRaw(r.viralityRaw, max.virality),
+      normaliseRaw(r.engRate, max.engagementRate),
+      logNormaliseRaw(r.followers, max.followers),
+      normaliseRaw(r.posts, max.posts),
+      {
+        lifetimePosts: life.lifetimePosts,
+        postsLast7d:   life.postsLast7d,
+        postsLast28d:  r.posts,
+        avgViews:      life.avgViews,
+      },
+    ),
+    acc.name,
+  );
+}
 
 interface ScoreMaxValues {
   virality:       number;  // clamped virality ratio
@@ -343,6 +426,8 @@ function toDateStr(v: unknown): string | undefined {
 
 function transformPost(row: BQPostRow): RecentPost {
   return {
+    platform:  row.platform ?? 'tiktok',
+    tweet:     row.tweet ? toTweetData(row.tweet) : undefined,
     // postId is already a STRING from the SQL CAST — wrap in String() as a
     // belt-and-braces safeguard for any future codepath that hands us a
     // number again. TikTok IDs exceed Number.MAX_SAFE_INTEGER so we must
@@ -374,6 +459,8 @@ export function transformToPoliticians(
    * by continent, with the party name still shown as the label beneath.
    */
   grouping: GroupingMode = 'party',
+  /** Which platform the rows came from. X rows are scored within the X set. */
+  platform: 'tiktok' | 'x' = 'tiktok',
 ): Politician[] {
   // Group posts by normalised profile handle.
   // account.profile = '@uklabour', post.profile = 'uklabour' — strip the
@@ -389,6 +476,7 @@ export function transformToPoliticians(
   }
 
   const max = computeMaxValues(accountRows);
+  const periodMax = computePeriodMax(accountRows);
 
   return accountRows.map((acc): Politician => {
     const posts = (postsByProfile.get(normProfile(acc.profile)) ?? []).slice(0, 5);
@@ -396,6 +484,16 @@ export function transformToPoliticians(
 
     return {
       id:             String(acc.id),
+      personId:       acc.person_id ?? undefined,
+      slug:           acc.person_slug ?? undefined,
+      platform,
+      platforms:      [{
+        platform,
+        handle:     acc.profile ?? '',
+        url:        profileUrlFor(platform, acc.profile ?? ''),
+        followers:  acc.totalFollowers ?? 0,
+        knoxFactor: scores.knoxFactor,
+      }],
       name:           acc.name ?? '',
       handle:         acc.profile ?? '',
       role:           acc.affiliation ?? '',
@@ -413,7 +511,7 @@ export function transformToPoliticians(
         : undefined,
       avatarInitials: toInitials(acc.name ?? ''),
       avatarUrl:      acc.avatar || undefined,
-      accountTypes:   inferAccountTypes(acc.name ?? '', acc.affiliation ?? '', acc.accountTypeNames),
+      accountTypes:   accountTypesFor(acc.name ?? '', acc.affiliation ?? '', acc.accountTypeNames, acc.person_job_title || acc.displayJobTitle || ''),
       totals: {
         posts:          acc.totalPosts     ?? 0,
         followers:      acc.totalFollowers ?? 0,
@@ -437,6 +535,7 @@ export function transformToPoliticians(
         lifetimePostInteractions: acc.lifetimePostInteractions ?? 0,
       },
       scores,
+      periodKnoxFactor: computePeriodKnox(acc, periodMax),
       recentPosts: posts.map(transformPost),
     };
   });

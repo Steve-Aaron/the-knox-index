@@ -9,6 +9,8 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { MotiView } from 'moti';
+import { Redirect } from 'expo-router';
+import { homeHref } from '@/lib/indexPaths';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -21,12 +23,15 @@ import { LoadingScreen } from '@/components/dashboard/LoadingScreen';
 import { TimeRangePicker, TimeRange } from '@/components/dashboard/TimeRangePicker';
 import { GroupLeaderboard } from '@/components/dashboard/GroupLeaderboard';
 import { AccountsInterstitial } from '@/components/dashboard/AccountsInterstitial';
-import { StyleBreakdown } from '@/components/dashboard/StyleBreakdown';
 import { TopicCloud } from '@/components/dashboard/TopicCloud';
+import { RisingTopics } from '@/components/dashboard/RisingTopics';
+import { FastestGrowing } from '@/components/dashboard/FastestGrowing';
 import { ContactFooter } from '@/components/dashboard/ContactFooter';
 import { AppFooter } from '@/components/dashboard/AppFooter';
 import { StickyUnlock } from '@/components/auth/StickyUnlock';
 import { TenantGate } from '@/components/auth/TenantGate';
+import { LockedInsights } from '@/components/dashboard/LockedInsights';
+import { useTenantAccess } from '@/hooks/useTenantAccess';
 import { HeaderNav } from '@/components/primitives/HeaderNav';
 import { PageContainer } from '@/components/primitives/PageContainer';
 import { SquareButton } from '@/components/primitives/SquareButton';
@@ -39,6 +44,10 @@ import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { useLiveData } from '@/data/useLiveData';
 import { usePostsData, type PostsSortKey, type FeedFilters } from '@/data/usePostsData';
 import { useLeagues } from '@/data/useLeagues';
+import { useGrowth } from '@/data/useGrowth';
+import { useTenant } from '@/hooks/useTenant';
+import { type PlatformFilter } from '@/lib/platforms';
+import { PlatformLogoFilter } from '@/components/primitives/PlatformLogoFilter';
 import { track, startTimer, stopTimer } from '@/lib/analytics';
 import { useSessionTracking } from '@/hooks/useSessionTracking';
 import { useSectionTracking } from '@/hooks/useSectionTracking';
@@ -76,10 +85,19 @@ const SORTS: { key: LeaderboardSortKey; label: string }[] = [
 
 const RANGE_LABELS: Record<TimeRange, string> = {
   yesterday: 'Yesterday',
-  week:      'Last 7 days',
-  month:     'Last 30 days',
+  week:      'Past 7 days',
+  month:     'Past 30 days',
   year:      'This year',
   lifetime:  'All data',
+};
+
+/** What the Rising topics card compares against (prevRangeDateFilter). */
+const PREV_LABELS: Record<TimeRange, string> = {
+  yesterday: 'Against the day before',
+  week:      'Against the 7 days before',
+  month:     'Against the 30 days before',
+  year:      'Against the same stretch last year',
+  lifetime:  '',
 };
 
 /** Fixed height for the three panels when side-by-side. */
@@ -110,7 +128,7 @@ function DashboardScreenInner() {
   const postsSectionRef = useRef<View>(null);
 
   // Locked time-range interstitial — set to the attempted range when an
-  // unregistered user taps Last 30 days / This year / All data.
+  // unregistered user taps Past 30 days / This year / All data.
   const [lockedRangeAttempt, setLockedRangeAttempt] = useState<TimeRange | null>(null);
 
   // Sticky 'Register' bar should only appear AFTER the user has scrolled past
@@ -250,6 +268,21 @@ function DashboardScreenInner() {
   }, []);
 
   const { isRegistered, email: authEmail } = useAuth();
+
+  // The FULL view (every row, every range, post feed, growth and topics):
+  // signed in on The Knox Index; approved, or Knox staff, on a waitlist index
+  // such as World Leaders, where signing up only joins the waitlist.
+  const tenant        = useTenant();
+  const access        = useTenantAccess();
+  const isWaitlist    = tenant.access.mode === 'waitlist';
+  const hasFullAccess = isWaitlist ? access.allowed : isRegistered;
+  const waitlist      = isWaitlist
+    ? { reason: access.reason, tenantName: tenant.brand.nameShort, onJoined: access.refresh }
+    : null;
+  const onWaitlist    = isWaitlist && isRegistered && (access.reason === 'pending' || access.reason === 'denied');
+  // Bumped to open the sign-up / waitlist modal from locked panels
+  const [unlockSignal, setUnlockSignal] = useState(0);
+  const openUnlock = () => setUnlockSignal(n => n + 1);
   const isAdmin = useIsAdmin();
 
   // Post feed sort is lifted here so it can drive the API's ORDER BY (the
@@ -257,11 +290,29 @@ function DashboardScreenInner() {
   // changes sort in the PostsTable, a new fetch fires and the feed refreshes.
   const [postsSortKey, setPostsSortKey] = useState<PostsSortKey>('views');
 
-  const { politicians, totalPostsInDb, totalViewsInDb, topPost, status, isLive, error, retryAttempt, retryTotal, isInitialLoad, refresh } = useLiveData(range);
+  // Platform filter: shown when the tenant reads more than one platform
+  // (World Leaders). Single-platform tenants stay on TikTok, as before.
+  const tenantPlatforms   = useTenant().platforms ?? ['tiktok'];
+  const hasPlatformFilter = tenantPlatforms.length > 1;
+  const [platform, setPlatform] = useState<PlatformFilter>(hasPlatformFilter ? 'all' : 'tiktok');
+  // Row ids differ per platform (TikTok id, X id, person id), so a platform
+  // switch drops the selection and the board falls back to its #1.
+  const handleSetPlatform = (p: PlatformFilter) => {
+    track('platform_changed', { platform: p, previous_platform: platform });
+    setPlatform(p);
+    setActiveId('');
+  };
+
+  const { politicians, totalPostsInDb, totalViewsInDb, topPost, status, isLive, error, retryAttempt, retryTotal, isInitialLoad, refresh } = useLiveData(range, platform);
   const [feedFilters, setFeedFilters] = useState<FeedFilters>({});
-  const { posts, loading: postsLoading, loadingMore: postsLoadingMore, hasMore: postsHasMore, error: postsError, loadMore: loadMorePosts, total: postsTotal } = usePostsData(range, postsSortKey, feedFilters);
-  const { styles: styleCounts, topics: topicCounts } = useLeagues(range);
-  const { benchmarks } = useBenchmarks();
+  // A selected leader is matched on every platform by person_id, not handle.
+  const selectedPersonId = feedFilters.profile
+    ? politicians.find(p => p.handle.replace(/^@+/, '').toLowerCase() === feedFilters.profile)?.personId ?? null
+    : null;
+  const { posts, loading: postsLoading, loadingMore: postsLoadingMore, hasMore: postsHasMore, error: postsError, loadMore: loadMorePosts, total: postsTotal } = usePostsData(range, postsSortKey, { ...feedFilters, platform, person: selectedPersonId });
+  const { topics: topicCounts, rising: risingTopics, risingImpact } = useLeagues(range, platform);
+  const { growth, growthAbsolute, loading: growthLoading } = useGrowth(range, platform);
+  const { benchmarks, byPlatform: benchmarksByPlatform } = useBenchmarks();
 
   // Hero entrance animations are gated until the LoadingScreen has fully
   // faded out — otherwise the headline 'folds in' under the loading
@@ -429,7 +480,7 @@ function DashboardScreenInner() {
                       ? 'Loading…'
                       : status === 'error'
                       ? 'Error — tap to retry'
-                      : 'See all TikTok accounts'
+                      : hasPlatformFilter ? 'See all accounts' : 'See all TikTok accounts'
                   }
                   variant="live"
                   leading={<LiveDot status={status} isLive={isLive} />}
@@ -463,12 +514,17 @@ function DashboardScreenInner() {
             <TimeRangePicker
               value={range}
               onChange={handleSetRange}
-              isRegistered={isRegistered}
+              isRegistered={hasFullAccess}
               onLockedTap={(r) => {
                 track('locked_range_tapped', { range: r });
                 setLockedRangeAttempt(r);
               }}
             />
+
+            {/* Platform chips — only on tenants that read more than one platform */}
+            {hasPlatformFilter && (
+              <PlatformLogoFilter platforms={tenantPlatforms} value={platform} onChange={handleSetPlatform} />
+            )}
 
             {/* Sort chips — full-width horizontal scroll */}
             <View style={styles.sortWrap}>
@@ -535,7 +591,7 @@ function DashboardScreenInner() {
                   timeRangeLabel={RANGE_LABELS[range]}
                   onSelect={handleSetActiveId}
                   panelHeight={PANEL_HEIGHT}
-                  isRegistered={isRegistered}
+                  isRegistered={hasFullAccess}
                   isLifetime={range === 'lifetime'}
                   engReference={engReference}
                 />
@@ -552,7 +608,7 @@ function DashboardScreenInner() {
                 style={styles.col}
                 {...(Platform.OS === 'web' ? { 'data-container_name': 'card_summary_panel_col' } as any : {})}
               >
-                <SummaryPanel politicians={politicians} range={range} panelHeight={PANEL_HEIGHT} />
+                <SummaryPanel politicians={politicians} range={range} platform={platform} panelHeight={PANEL_HEIGHT} />
               </View>
             </View>
           ) : isTablet ? (
@@ -575,7 +631,7 @@ function DashboardScreenInner() {
                     timeRangeLabel={RANGE_LABELS[range]}
                     onSelect={handleSetActiveId}
                     panelHeight={PANEL_HEIGHT}
-                    isRegistered={isRegistered}
+                    isRegistered={hasFullAccess}
                     isLifetime={range === 'lifetime'}
                   engReference={engReference}
                   />
@@ -589,7 +645,7 @@ function DashboardScreenInner() {
                     : <SkeletonBlock height={PANEL_HEIGHT} style={{ borderRadius: 22 }} />}
                 </View>
               </View>
-              <SummaryPanel politicians={politicians} range={range} />
+              <SummaryPanel politicians={politicians} range={range} platform={platform} />
             </View>
           ) : (
             <View
@@ -602,14 +658,14 @@ function DashboardScreenInner() {
                 headlineKey={sortKey}
                 timeRangeLabel={RANGE_LABELS[range]}
                 onSelect={handleSetActiveId}
-                isRegistered={isRegistered}
+                isRegistered={hasFullAccess}
                 isLifetime={range === 'lifetime'}
                 engReference={engReference}
               />
               {active
                 ? <PoliticianDetailPanel politician={active} headlineKey={sortKey} range={range} engReference={engReference} />
                 : <SkeletonBlock height={400} style={{ borderRadius: 22 }} />}
-              <SummaryPanel politicians={politicians} range={range} />
+              <SummaryPanel politicians={politicians} range={range} platform={platform} />
             </View>
           )}
           </MobileSection>
@@ -650,7 +706,8 @@ function DashboardScreenInner() {
                 activePoliticianHandle={selectedPolitician?.handle ?? null}
                 onClearPolitician={() => handleSetActiveId('')}
                 benchmarks={benchmarks ?? undefined}
-                isRegistered={isRegistered}
+                benchmarksByPlatform={benchmarksByPlatform}
+                isRegistered={hasFullAccess}
                 isAdmin={isAdmin}
                 onFiltersChange={setFeedFilters}
                 total={postsTotal}
@@ -668,25 +725,47 @@ function DashboardScreenInner() {
           </View>
           </MobileSection>
 
-          {/* ── 7. Style + topics row ─────────────────── */}
+          {/* ── 7. Growth + rising topics row ─────────── */}
           <MobileSection index={5}>
           <View
             ref={sectionRef('style_breakdown') as any}
             style={[styles.insightsRow, { paddingHorizontal: hPad }, isDesktop ? styles.insightsRowDesktop : styles.insightsRowStacked]}
             {...(Platform.OS === 'web' ? { 'data-container_name': 'row_style_topics_insights' } as any : {})}
           >
+            {!hasFullAccess ? (
+              <View style={styles.insightsCol}>
+                <LockedInsights
+                  body={
+                    onWaitlist
+                      ? "You're on the waitlist. We'll email you as soon as your access is approved."
+                      : isWaitlist
+                      ? 'Join the waitlist to see which leaders are gaining followers fastest and which topics are picking up.'
+                      : 'Register free to see which accounts are gaining followers fastest and which topics are picking up.'
+                  }
+                  cta={onWaitlist ? null : isWaitlist ? 'JOIN THE WAITLIST →' : 'REGISTER FREE →'}
+                  onCta={() => { track('locked_insights_cta', { waitlist: isWaitlist }); openUnlock(); }}
+                />
+              </View>
+            ) : (<>
             <View style={styles.insightsCol}>
-              <StyleBreakdown
-                posts={posts}
-                counts={styleCounts}
+              <FastestGrowing
+                growth={growth}
+                growthAbsolute={growthAbsolute}
+                politicians={politicians}
                 rangeLabel={RANGE_LABELS[range]}
-                activeStyle={styleFilter}
-                onStyleSelect={handleStyleSelect}
+                showSince={range === 'year' || range === 'lifetime'}
+                loading={growthLoading}
               />
             </View>
             <View style={styles.insightsCol}>
-              <TopicCloud posts={posts} counts={topicCounts} rangeLabel={RANGE_LABELS[range]} />
+              {/* Lifetime has no period before it, so it keeps the subject counts */}
+              {risingTopics ? (
+                <RisingTopics rising={risingTopics} risingImpact={risingImpact ?? []} rangeLabel={RANGE_LABELS[range]} prevLabel={PREV_LABELS[range]} />
+              ) : (
+                <TopicCloud posts={posts} counts={topicCounts} rangeLabel={RANGE_LABELS[range]} />
+              )}
             </View>
+            </>)}
           </View>
           </MobileSection>
 
@@ -715,7 +794,13 @@ function DashboardScreenInner() {
 
         </ScrollView>
         {/* Sticky registration CTA — visible immediately for unregistered users */}
-        <StickyUnlock showBar={pastHero && !isRegistered} isRegistered={isRegistered} email={authEmail} />
+        <StickyUnlock
+          showBar={pastHero && !hasFullAccess}
+          isRegistered={isRegistered}
+          email={authEmail}
+          waitlist={waitlist}
+          openSignal={unlockSignal}
+        />
       </SafeAreaView>
 
       {/* Dev-only preview panel — stripped from production builds */}
@@ -735,23 +820,28 @@ function DashboardScreenInner() {
       )}
 
       {/* Locked time-range interstitial — unregistered users see this when
-          they tap Last 30 days / This year / All data. */}
+          they tap Past 30 days / This year / All data. */}
       <Interstitial
         visible={lockedRangeAttempt != null}
         onClose={() => setLockedRangeAttempt(null)}
-        kicker="REGISTER TO UNLOCK"
+        kicker={isWaitlist ? 'JOIN THE WAITLIST' : 'REGISTER TO UNLOCK'}
         title={
           lockedRangeAttempt
-            ? `The full ${RANGE_LABELS[lockedRangeAttempt].toLowerCase()} view is for registered users.`
+            ? `The full ${RANGE_LABELS[lockedRangeAttempt].toLowerCase()} view is for ${isWaitlist ? 'approved' : 'registered'} users.`
             : ''
         }
-        text="Free, takes 30 seconds. Magic link sent to your inbox - no password. You'll see every tracked post across this time range, plus party-level filters, virality scoring and CSV export."
-        ctaLabel="Register free"
+        text={
+          onWaitlist
+            ? "You're on the waitlist. We'll email you as soon as your access is approved."
+            : isWaitlist
+            ? "Full access is approved by the Knox team. Join the waitlist and we'll email you when you're in."
+            : "Free, takes 30 seconds. Magic link sent to your inbox - no password. You'll see every tracked post across this time range, plus party-level filters, virality scoring and CSV export."
+        }
+        ctaLabel={onWaitlist ? 'Got it' : isWaitlist ? 'Join the waitlist' : 'Register free'}
         onCta={() => {
-          track('locked_range_register_cta', { range: lockedRangeAttempt ?? 'unknown' });
+          track('locked_range_register_cta', { range: lockedRangeAttempt ?? 'unknown', waitlist: isWaitlist });
           setLockedRangeAttempt(null);
-          // Scroll back to the hero — the NewsletterForm is there
-          scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+          if (!onWaitlist) openUnlock();
         }}
         secondaryLabel="Maybe later"
       />
@@ -760,6 +850,10 @@ function DashboardScreenInner() {
 }
 
 export default function DashboardScreen() {
+  // '/' goes to an index: the tab's last one, else UK (lib/indexPaths.ts)
+  if (Platform.OS === 'web' && window.location.pathname === '/') {
+    return <Redirect href={homeHref() as any} />;
+  }
   // TenantGate is a pass-through on public tenants (The Knox Index) and the
   // sign-in / approval door on gated ones (World Leaders).
   return (

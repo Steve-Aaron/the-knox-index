@@ -39,11 +39,16 @@ interface Props {
 
 const OPTIONS: { key: TimeRange; label: string }[] = [
   { key: 'yesterday', label: 'Yesterday' },
-  { key: 'week',      label: 'Last 7 days' },
-  { key: 'month',     label: 'Last 30 days' },
+  { key: 'week',      label: 'Past 7 days' },
+  { key: 'month',     label: 'Past 30 days' },
   { key: 'year',      label: 'This year' },
   { key: 'lifetime',  label: 'All data' },
 ];
+
+/** The tab label for a range, e.g. 'Past 7 days', for cards that name the period. */
+export function rangeLabel(range: TimeRange): string {
+  return OPTIONS.find(o => o.key === range)?.label ?? '';
+}
 
 const LOCKED_RANGES = new Set<TimeRange>(['month', 'year', 'lifetime']);
 

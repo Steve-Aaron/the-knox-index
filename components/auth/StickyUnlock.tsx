@@ -35,6 +35,8 @@ import { SelectableCard } from '@/components/primitives/SelectableCard';
 import { LabeledInput } from '@/components/primitives/LabeledInput';
 import { PrimaryButton } from '@/components/primitives/PrimaryButton';
 import { GoogleSignInButton } from '@/components/primitives/GoogleSignInButton';
+import { AccessRequestForm } from '@/components/auth/AccessRequestForm';
+import type { AccessReason } from '@/hooks/useTenantAccess';
 
 /**
  * StickyUnlock
@@ -56,6 +58,12 @@ import { GoogleSignInButton } from '@/components/primitives/GoogleSignInButton';
  *   a short delay to collect name, company, LinkedIn, segment, interests,
  *   and comms consent. Submits to /api/preferences → Brevo.
  *
+ * Waitlist indexes (World Leaders) — `waitlist` is set
+ *   Signing up does not unlock anything. The bar and modal invite people to
+ *   join the waitlist; once signed in, the waitlist modal collects who they
+ *   are (AccessRequestForm → a pending tenant_access row) and Knox approves
+ *   it by hand in the admin panel. The profiling modal is skipped there.
+ *
  * Auth state (isRegistered, email) is owned by the parent via useAuth().
  * This component never writes tki_registered to localStorage directly.
  */
@@ -63,15 +71,32 @@ import { GoogleSignInButton } from '@/components/primitives/GoogleSignInButton';
 const PROFILE_DELAY_MS = 2500;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-interface Props {
-  showBar:      boolean;
-  isRegistered: boolean;
-  email:        string | null;
+const WAITLIST_PROMPTED_KEY = 'tki_waitlist_prompted';
+
+export interface WaitlistState {
+  /** The visitor's standing on the waitlist, from /api/tenant/access. */
+  reason:     AccessReason;
+  /** Short index name for the copy, e.g. 'World Leaders'. */
+  tenantName: string;
+  /** Re-reads access after the waitlist form is sent. */
+  onJoined:   () => void | Promise<void>;
 }
 
-type ModalState = 'hidden' | 'unlock' | 'profiling';
+interface Props {
+  /** Whether the sticky bar shows. The parent decides (past the hero, no full access). */
+  showBar:      boolean;
+  /** Signed in (a session exists). On a waitlist index this is not full access. */
+  isRegistered: boolean;
+  email:        string | null;
+  /** Set on waitlist indexes; null or absent on The Knox Index. */
+  waitlist?:    WaitlistState | null;
+  /** Bump to open the sign-up (or waitlist) modal from elsewhere on the page. */
+  openSignal?:  number;
+}
 
-export function StickyUnlock({ showBar, isRegistered, email }: Props) {
+type ModalState = 'hidden' | 'unlock' | 'profiling' | 'waitlist';
+
+export function StickyUnlock({ showBar, isRegistered, email, waitlist = null, openSignal = 0 }: Props) {
   const [profiled, setProfiled] = useState(false);
   const [modal,    setModal]    = useState<ModalState>('hidden');
 
@@ -90,9 +115,10 @@ export function StickyUnlock({ showBar, isRegistered, email }: Props) {
     const read = () => localStorage.getItem('tki_profiled') === '1';
     setProfiled(read());
 
-    // If registered but not yet profiled → show profiling modal after delay
+    // If registered but not yet profiled → show profiling modal after delay.
+    // Waitlist indexes collect their details in the waitlist form instead.
     let timer: ReturnType<typeof setTimeout> | null = null;
-    if (isRegistered && !read()) {
+    if (isRegistered && !read() && !waitlist) {
       timer = setTimeout(() => {
         // Re-check at fire time — profiled may have flipped during the delay
         if (!read()) setModal('profiling');
@@ -110,9 +136,39 @@ export function StickyUnlock({ showBar, isRegistered, email }: Props) {
       if (timer) clearTimeout(timer);
       unsubscribe();
     };
-  }, [isRegistered]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isRegistered, !!waitlist]);
 
-  const shouldShowBar = showBar && !isRegistered;
+  // Waitlist: a newly signed-in visitor who has not yet asked is shown the
+  // waitlist form once per browser session.
+  const waitlistReason = waitlist?.reason ?? null;
+  useEffect(() => {
+    if (Platform.OS !== 'web' || !isRegistered || waitlistReason !== 'none') return;
+    let prompted = false;
+    try { prompted = sessionStorage.getItem(WAITLIST_PROMPTED_KEY) === '1'; } catch { /* storage blocked */ }
+    if (prompted) return;
+    const timer = setTimeout(() => {
+      try { sessionStorage.setItem(WAITLIST_PROMPTED_KEY, '1'); } catch { /* storage blocked */ }
+      setModal(m => (m === 'hidden' ? 'waitlist' : m));
+    }, PROFILE_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [isRegistered, waitlistReason]);
+
+  // Signed out → the sign-in modal. Signed in on a waitlist index without a
+  // request yet → the waitlist form. Already waiting → nothing to open.
+  const openModal = useCallback(() => {
+    if (!waitlist || !isRegistered) { setModal('unlock'); return; }
+    if (waitlist.reason === 'none') setModal('waitlist');
+  }, [waitlist, isRegistered]);
+
+  // The parent bumps openSignal from locked panels and the range interstitial
+  useEffect(() => {
+    if (openSignal > 0) openModal();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openSignal]);
+
+  const shouldShowBar = showBar;
+  const bar = barCopy(waitlist, isRegistered);
 
   // Fire cta_bar_shown analytics event once per session
   const ctaShownRef = useRef(false);
@@ -143,33 +199,39 @@ export function StickyUnlock({ showBar, isRegistered, email }: Props) {
           pointerEvents="box-none"
         >
           <Pressable
-            onPress={() => { track('cta_bar_tapped'); setModal('unlock'); }}
-            style={({ pressed }) => [styles.ctaBar, pressed && { opacity: 0.95 }]}
+            onPress={() => {
+              if (!bar.button) return;
+              track('cta_bar_tapped', { waitlist: !!waitlist });
+              openModal();
+            }}
+            style={({ pressed }) => [styles.ctaBar, pressed && bar.button && { opacity: 0.95 }]}
           >
             <View style={[styles.ctaInner, isMobile && styles.ctaInnerMobile]}>
               <View style={styles.ctaTextGroup}>
-                <Text style={styles.ctaKicker}>GET ACCESS FOR FREE</Text>
-                <Text style={styles.ctaHeadline}>Want complete access?</Text>
+                <Text style={styles.ctaKicker}>{bar.kicker}</Text>
+                <Text style={styles.ctaHeadline}>{bar.headline}</Text>
                 {/* Sub-copy is desktop-only — mobile keeps the bar to two lines */}
                 {!isMobile && (
-                  <Text style={styles.ctaCopy}>
-                    Register via email - free for a limited time only.
-                  </Text>
+                  <Text style={styles.ctaCopy}>{bar.copy}</Text>
                 )}
               </View>
               <View style={[styles.ctaActions, isMobile && styles.ctaActionsMobile]}>
-                <View style={[styles.ctaBtn, isMobile && styles.ctaBtnMobile]}>
-                  <Text style={styles.ctaBtnText}>REGISTER →</Text>
-                </View>
+                {bar.button && (
+                  <View style={[styles.ctaBtn, isMobile && styles.ctaBtnMobile]}>
+                    <Text style={styles.ctaBtnText}>{bar.button}</Text>
+                  </View>
+                )}
                 {/* Secondary action: existing users go straight to /login.
                     Inner Pressable wins the press over the bar's modal opener. */}
-                <Pressable
-                  onPress={() => { track('cta_login_tapped'); router.push('/login'); }}
-                  accessibilityRole="link"
-                  style={({ pressed }) => [styles.ctaLogin, pressed && { opacity: 0.7 }]}
-                >
-                  <Text style={styles.ctaLoginText}>Already registered? Log in</Text>
-                </Pressable>
+                {!isRegistered && (
+                  <Pressable
+                    onPress={() => { track('cta_login_tapped'); router.push('/login'); }}
+                    accessibilityRole="link"
+                    style={({ pressed }) => [styles.ctaLogin, pressed && { opacity: 0.7 }]}
+                  >
+                    <Text style={styles.ctaLoginText}>{bar.login}</Text>
+                  </Pressable>
+                )}
               </View>
             </View>
           </Pressable>
@@ -183,7 +245,18 @@ export function StickyUnlock({ showBar, isRegistered, email }: Props) {
       {modal === 'unlock' && (
         <UnlockModal
           onClose={() => setModal('hidden')}
-          onOpen={() => track('unlock_modal_opened')}
+          onOpen={() => track('unlock_modal_opened', { waitlist: !!waitlist })}
+          waitlistName={waitlist?.tenantName ?? null}
+        />
+      )}
+
+      {/* ── Waitlist modal (signed in, not yet on the list) ──────────── */}
+      {modal === 'waitlist' && waitlist && (
+        <WaitlistModal
+          email={email}
+          tenantName={waitlist.tenantName}
+          onClose={() => setModal('hidden')}
+          onJoined={waitlist.onJoined}
         />
       )}
 
@@ -204,11 +277,13 @@ export function StickyUnlock({ showBar, isRegistered, email }: Props) {
 interface UnlockModalProps {
   onClose: () => void;
   onOpen?: () => void;
+  /** Set on a waitlist index: the modal invites people onto the waitlist. */
+  waitlistName?: string | null;
 }
 
 type UnlockStep = 'form' | 'sending' | 'sent';
 
-function UnlockModal({ onClose, onOpen }: UnlockModalProps) {
+function UnlockModal({ onClose, onOpen, waitlistName = null }: UnlockModalProps) {
   const [email, setEmail] = useState('');
   const [step,  setStep]  = useState<UnlockStep>('form');
   const [error, setError] = useState<string | null>(null);
@@ -272,7 +347,9 @@ function UnlockModal({ onClose, onOpen }: UnlockModalProps) {
                 <Text style={styles.sentEmail}>{email.trim().toLowerCase()}</Text>
               </Text>
               <Text style={styles.sentHint}>
-                The link expires in one hour. Check your spam folder if it doesn't arrive.
+                {waitlistName
+                  ? "Open the link to finish joining the waitlist. It expires in one hour, so check your spam folder if it doesn't arrive."
+                  : "The link expires in one hour. Check your spam folder if it doesn't arrive."}
               </Text>
               <Pressable
                 onPress={onClose}
@@ -283,10 +360,14 @@ function UnlockModal({ onClose, onOpen }: UnlockModalProps) {
             </MotiView>
           ) : (
             <View style={styles.modalInner}>
-              <Text style={styles.modalKicker}>Free • Limited time only</Text>
-              <Text style={styles.modalTitle}>Unlock the Complete Knox Index</Text>
+              <Text style={styles.modalKicker}>{waitlistName ? 'Waitlist' : 'Free • Limited time only'}</Text>
+              <Text style={styles.modalTitle}>
+                {waitlistName ? `Join the ${waitlistName} waitlist` : 'Unlock the Complete Knox Index'}
+              </Text>
               <Text style={styles.modalCopy}>
-                Enter your email and we'll send you a one-click access link.
+                {waitlistName
+                  ? "Full access is by approval. Enter your email and we'll send you a sign-in link, then tell us a little about yourself and we'll review your request."
+                  : "Enter your email and we'll send you a one-click access link."}
               </Text>
 
               <TextInput
@@ -349,6 +430,139 @@ function UnlockModal({ onClose, onOpen }: UnlockModalProps) {
                 {' '}for more details.
               </Text>
             </View>
+          )}
+        </MotiView>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
+}
+
+// ── Bar copy ──────────────────────────────────────────────────────────────────
+
+interface BarCopy {
+  kicker:   string;
+  headline: string;
+  copy:     string;
+  /** Button label; null when there is nothing to do (already waiting). */
+  button:   string | null;
+  login:    string;
+}
+
+function barCopy(waitlist: WaitlistState | null, signedIn: boolean): BarCopy {
+  if (!waitlist) {
+    return {
+      kicker:   'GET ACCESS FOR FREE',
+      headline: 'Want complete access?',
+      copy:     'Register via email - free for a limited time only.',
+      button:   'REGISTER →',
+      login:    'Already registered? Log in',
+    };
+  }
+  const login = 'Already approved? Log in';
+  if (!signedIn) {
+    return {
+      kicker:   'JOIN THE WAITLIST',
+      headline: 'Want complete access?',
+      copy:     `Full access to ${waitlist.tenantName} is by approval. Join the waitlist and we'll email you when you're in.`,
+      button:   'JOIN WAITLIST →',
+      login,
+    };
+  }
+  if (waitlist.reason === 'none') {
+    return {
+      kicker:   'ONE MORE STEP',
+      headline: 'Finish joining the waitlist',
+      copy:     'Tell us a little about yourself so we can review your request.',
+      button:   'CONTINUE →',
+      login,
+    };
+  }
+  if (waitlist.reason === 'denied') {
+    return {
+      kicker:   'WAITLIST',
+      headline: 'Access not approved',
+      copy:     'If you think this is a mistake, please get in touch.',
+      button:   null,
+      login,
+    };
+  }
+  return {
+    kicker:   'ON THE WAITLIST',
+    headline: "You're on the waitlist",
+    copy:     "We'll email you as soon as your access is approved.",
+    button:   null,
+    login,
+  };
+}
+
+// ── Waitlist modal ────────────────────────────────────────────────────────────
+
+interface WaitlistModalProps {
+  email:      string | null;
+  tenantName: string;
+  onClose:    () => void;
+  onJoined:   () => void | Promise<void>;
+}
+
+function WaitlistModal({ email, tenantName, onClose, onJoined }: WaitlistModalProps) {
+  const [joined, setJoined] = useState(false);
+  const { height } = useWindowDimensions();
+
+  useEffect(() => { track('waitlist_modal_opened'); }, []);
+
+  const handleSubmitted = useCallback(async () => {
+    track('waitlist_joined');
+    setJoined(true);
+    await onJoined();
+  }, [onJoined]);
+
+  return (
+    <Modal transparent animationType="fade" onRequestClose={onClose}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={styles.modalBackdrop}
+      >
+        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+
+        <MotiView
+          from={{ opacity: 0, scale: 0.94 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ type: 'spring', damping: 20, stiffness: 260 }}
+          style={[styles.modalCard, { maxHeight: Math.round(height * 0.88) }]}
+        >
+          <LinearGradient
+            colors={brand.gradient as unknown as [string, string, ...string[]]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.accentLine}
+          />
+
+          {joined ? (
+            <View style={styles.sentWrap}>
+              <View style={styles.sentIconWrap}>
+                <FontAwesome6 name="circle-check" size={36} color={accent.mint} solid />
+              </View>
+              <Text style={styles.sentTitle}>You're on the waitlist</Text>
+              <Text style={styles.sentCopy}>
+                We've emailed you a confirmation and will be in touch once your request has been reviewed.
+              </Text>
+              <Pressable
+                onPress={onClose}
+                style={({ pressed }) => [styles.closeBtn, pressed && { opacity: 0.75 }]}
+              >
+                <Text style={styles.closeBtnText}>Got it</Text>
+              </Pressable>
+            </View>
+          ) : (
+            <ScrollView contentContainerStyle={styles.modalInner} keyboardShouldPersistTaps="handled">
+              <DevLabel name="WaitlistModal" />
+              <Text style={styles.modalKicker}>Waitlist</Text>
+              <Text style={styles.modalTitle}>Join the {tenantName} waitlist</Text>
+              <Text style={styles.modalCopy}>
+                Full access is approved by the Knox team. Tell us a little about yourself and what you're looking for, and we'll email you when you're in.
+              </Text>
+              <AccessRequestForm email={email} tenantName={tenantName} onSubmitted={handleSubmitted} />
+            </ScrollView>
           )}
         </MotiView>
       </KeyboardAvoidingView>

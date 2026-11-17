@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { Platform } from 'react-native';
 import { useTenant } from '@/hooks/useTenant';
 import { tenantFullName } from '@/lib/tenants';
-import { installDevTenantFetch } from '@/lib/devTenant';
+import { installIndexFetch } from '@/lib/indexPaths';
 
 /**
  * TenantHead
@@ -23,7 +23,7 @@ export function TenantHead() {
     if (Platform.OS !== 'web' || typeof document === 'undefined') return;
 
     // Development only: make ?tenant=<id> apply to API calls as well as copy.
-    installDevTenantFetch();
+    installIndexFetch();
 
     // Tab title keeps the product name and adds what this one covers.
     document.title = tenantFullName(tenant);

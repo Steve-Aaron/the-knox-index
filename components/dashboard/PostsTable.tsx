@@ -32,6 +32,7 @@ import { type, font } from '@/theme/typography';
 import { spacing, radius } from '@/theme/spacing';
 import type { PostRecord, PostBenchmarks } from '@/data/types';
 import { track } from '@/lib/analytics';
+import { fmtTopic } from '@/lib/topicLabel';
 import { fmtLabel } from '@/lib/format';
 import { AdvancedFilterPanel } from './AdvancedFilterPanel';
 import { AdvancedFilterButton } from './AdvancedFilterButton';
@@ -155,6 +156,8 @@ interface Props {
   activePoliticianHandle?: string | null;
   onClearPolitician?:     () => void;
   benchmarks?:            PostBenchmarks;
+  /** Per-platform benchmarks; an X post is compared with X posts. */
+  benchmarksByPlatform?:  { tiktok: PostBenchmarks | null; x: PostBenchmarks | null };
   /** When false, the post feed is hidden behind a registration gate. */
   isRegistered?:          boolean;
   /** Controlled party filter — set externally (e.g. from PartyLeaderboard). */
@@ -189,6 +192,7 @@ export function PostsTable({
   activePoliticianHandle,
   onClearPolitician,
   benchmarks,
+  benchmarksByPlatform,
   isRegistered = false,
   externalPartyFilter,
   onPartyFilterChange,
@@ -476,7 +480,7 @@ export function PostsTable({
         <PostCard
           post={post}
           index={index}
-          benchmarks={benchmarks}
+          benchmarks={(post.platform === 'x' ? benchmarksByPlatform?.x : benchmarksByPlatform?.tiktok) ?? benchmarks}
           onPress={() => !isActive && handleCardPress(post, index)}
           drag={drag}
           isActive={isActive}
@@ -490,7 +494,7 @@ export function PostsTable({
         />
       </ScaleDecorator>
     );
-  }, [benchmarks, isMobile, handleCardPress, styleFilter, topicFilter, handleStyleFilter, handleTopicFilter, sortKey, isAdmin]);
+  }, [benchmarks, benchmarksByPlatform, isMobile, handleCardPress, styleFilter, topicFilter, handleStyleFilter, handleTopicFilter, sortKey, isAdmin]);
 
   return (
     <DashCard style={styles.wrap} topAccent={undefined}>
@@ -712,7 +716,7 @@ export function PostsTable({
               ) : null}
               {topicFilter ? (
                 <Pressable onPress={() => setTopicFilter(null)} style={styles.tagFilterPill}>
-                  <Text style={styles.tagFilterPillText}>{fmtLabel(topicFilter)}</Text>
+                  <Text style={styles.tagFilterPillText}>{fmtTopic(topicFilter)}</Text>
                   <Text style={styles.polPillClose}>×</Text>
                 </Pressable>
               ) : null}
@@ -725,7 +729,9 @@ export function PostsTable({
           <View style={styles.lockedWrap}>
             <Text style={styles.lockedTitle}>Post feed is locked</Text>
             <Text style={styles.lockedBody}>
-              Register free to access every post, filter by party, and sort by views, likes, virality and more.
+              {tenant.access.mode === 'waitlist'
+                ? 'Join the waitlist for full access to every post, with filters and sorting by views, likes, virality and more.'
+                : 'Register free to access every post, filter by party, and sort by views, likes, virality and more.'}
             </Text>
           </View>
         )}
@@ -834,6 +840,7 @@ const POST_DWELL_MIN_MS = 500;
 
 function PostCard({ post, index, benchmarks, onPress, drag, isActive, compact, activeStyleFilter, activeTopicFilter, onStylePress, onTopicPress, sortKey, isAdmin }: CardProps) {
   const colour = colourFor(post.groupKey);
+  const groupingMode = useTenant().grouping.mode;
 
   // Dwell tracking: mount → unmount measures how long this card was on screen
   // during the user's session. Fires on unmount (scroll-past, filter change,
@@ -885,7 +892,7 @@ function PostCard({ post, index, benchmarks, onPress, drag, isActive, compact, a
       >
         <PostDetail
           post={post}
-          groupLabel={groupLabel(post.groupKey)}
+          groupLabel={groupLabel(post.groupKey, groupingMode)}
           benchmarks={benchmarks}
           compact={compact}
           height={CARD_H}

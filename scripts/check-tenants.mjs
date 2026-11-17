@@ -64,7 +64,8 @@ expect(isKnownTenant(''),            false, 'isKnownTenant("")');
 // ── 2. Access rules ───────────────────────────────────────────────────────────
 console.log('\nAccess rules');
 const world = TENANTS.find(t => t.id === 'world');
-expect(world.access.mode,                                     'authenticated', 'world requires sign-in');
+expect(world.access.mode,                                     'waitlist', 'world is a waitlist (guest view open, full view approved)');
+expect(world.access.requireApproval,                           true,  'world full access needs approval');
 expect(isAllowedDomain('steve@knoxdigi.com', world),                    true,  '@knoxdigi.com admitted');
 expect(isAllowedDomain('someone@knox.digital', world),                  true,  '@knox.digital admitted');
 expect(isAllowedDomain('SOMEONE@KNOX.DIGITAL', world),                  true,  'domain check is case-insensitive');
