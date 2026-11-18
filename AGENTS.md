@@ -116,7 +116,7 @@ One deployment serves several dashboards, one per path on `index.knox.digital`:
   for data scope
 - Access modes (`lib/tenants.ts`): `public` (UK), `waitlist` (World Leaders)
   and `authenticated`. On a waitlist index anyone gets the guest view (top 5,
-  Yesterday and Past 7 days, no post feed, no growth or topics), exactly like
+  Yesterday and Last 7 days, no post feed, no growth or topics), exactly like
   a signed-out UK visitor. The full view needs an allowed domain or an
   `approved` tenant_access row; signing up only joins the waitlist (a
   `pending` row from the waitlist form), approved in the admin panel. Guest

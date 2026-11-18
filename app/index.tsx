@@ -85,8 +85,8 @@ const SORTS: { key: LeaderboardSortKey; label: string }[] = [
 
 const RANGE_LABELS: Record<TimeRange, string> = {
   yesterday: 'Yesterday',
-  week:      'Past 7 days',
-  month:     'Past 30 days',
+  week:      'Last 7 days',
+  month:     'Last 30 days',
   year:      'This year',
   lifetime:  'All data',
 };
@@ -128,7 +128,7 @@ function DashboardScreenInner() {
   const postsSectionRef = useRef<View>(null);
 
   // Locked time-range interstitial — set to the attempted range when an
-  // unregistered user taps Past 30 days / This year / All data.
+  // unregistered user taps Last 30 days / This year / All data.
   const [lockedRangeAttempt, setLockedRangeAttempt] = useState<TimeRange | null>(null);
 
   // Sticky 'Register' bar should only appear AFTER the user has scrolled past
@@ -820,7 +820,7 @@ function DashboardScreenInner() {
       )}
 
       {/* Locked time-range interstitial — unregistered users see this when
-          they tap Past 30 days / This year / All data. */}
+          they tap Last 30 days / This year / All data. */}
       <Interstitial
         visible={lockedRangeAttempt != null}
         onClose={() => setLockedRangeAttempt(null)}

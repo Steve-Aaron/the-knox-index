@@ -73,12 +73,12 @@ function roleLabel(p: Politician): string {
 /**
  * Heading for the in-range totals block. The values are range-scoped
  * (viewsInRange etc.), so the label must follow the selected range rather
- * than always claiming 'Past 7 days'.
+ * than always claiming 'Last 7 days'.
  */
 const RANGE_TOTALS_LABEL: Record<TimeRange, string> = {
   yesterday: 'Yesterday',
-  week:      'Past 7 days',
-  month:     'Past 30 days',
+  week:      'Last 7 days',
+  month:     'Last 30 days',
   year:      'This year',
   lifetime:  'All time',
 };
