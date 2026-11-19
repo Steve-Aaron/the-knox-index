@@ -11,6 +11,7 @@ import { useRegisteredFlag } from '@/hooks/useRegisteredFlag';
 import { neutral, glass } from '@/theme/colors';
 import { spacing } from '@/theme/spacing';
 import { font } from '@/theme/typography';
+import { homeHref } from '@/lib/indexPaths';
 
 /**
  * LoginScreen  (/login)
@@ -64,9 +65,10 @@ export default function LoginScreen() {
   const { status, error, submitEmail } = useMagicLinkCompletion();
   const isRegistered = useRegisteredFlag();
 
-  // Session cookie is set — land on the dashboard fully signed in.
+  // Session cookie is set: land on the index they signed in from, fully signed
+  // in. The magic link carries it as ?tenant= (a new tab remembers nothing).
   useEffect(() => {
-    if (status === 'done') router.replace('/');
+    if (status === 'done') router.replace(homeHref() as any);
   }, [status]);
 
   const copy = {
@@ -99,7 +101,7 @@ export default function LoginScreen() {
       {/* Already signed in (e.g. bookmarked /login) — offer the way home.
           The form stays available below for switching accounts. */}
       {isRegistered && (
-        <Pressable onPress={() => router.replace('/')} style={styles.signedInBanner}>
+        <Pressable onPress={() => router.replace(homeHref() as any)} style={styles.signedInBanner}>
           <Text style={styles.signedInText}>You're already signed in — go to the dashboard →</Text>
         </Pressable>
       )}

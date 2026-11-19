@@ -16,7 +16,7 @@
 
 import { sendEmail, emailShell, escHtml } from '@/lib/transactionalEmail';
 import { BRAND } from '@/brand/constants';
-import { tenantOrigin, tenantFullName, type TenantConfig } from '@/lib/tenants';
+import { SITE_ORIGIN, tenantHomeUrl, tenantFullName, type TenantConfig } from '@/lib/tenants';
 import { REGION_LABELS, type RegionKey } from '@/lib/regions';
 import type { AccessRecord } from '@/lib/tenantAccess';
 
@@ -81,9 +81,9 @@ export async function notifyKnoxOfRequest(record: AccessRecord, tenant: TenantCo
       kicker: KICKER,
       title:  'New access request',
       body,
-      cta:    { label: 'Review in admin', url: `${tenantOrigin(tenant)}/admin` },
+      cta:    { label: 'Review in admin', url: `${SITE_ORIGIN}/admin` },
     }),
-    textContent: `New access request for ${tenantFullName(tenant)}\n\n${detailText(record)}\n\nReview: ${tenantOrigin(tenant)}/admin`,
+    textContent: `New access request for ${tenantFullName(tenant)}\n\n${detailText(record)}\n\nReview: ${SITE_ORIGIN}/admin`,
   });
 }
 
@@ -131,10 +131,10 @@ export async function notifyDecision(
       kicker: KICKER,
       title:  approved ? 'You are in' : 'Access not granted',
       body,
-      cta:    approved ? { label: `Open ${tenant.brand.nameShort}`, url: tenantOrigin(tenant) } : undefined,
+      cta:    approved ? { label: `Open ${tenant.brand.nameShort}`, url: tenantHomeUrl(tenant) } : undefined,
     }),
     textContent: approved
-      ? `You now have access to ${tenantFullName(tenant)}. Sign in with ${record.email}: ${tenantOrigin(tenant)}`
+      ? `You now have access to ${tenantFullName(tenant)}. Sign in with ${record.email}: ${tenantHomeUrl(tenant)}`
       : `We are not able to grant access to ${tenantFullName(tenant)} for ${record.email} at the moment. Reply to this email if you think that is a mistake.`,
   });
 }

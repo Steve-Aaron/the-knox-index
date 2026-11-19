@@ -286,6 +286,18 @@ export function tenantOrigin(tenant: TenantConfig): string {
   return `https://${tenant.hosts[0]}`;
 }
 
+/**
+ * Links in emails. Every index lives at a path on the main site
+ * (index.knox.digital/uk, /worldleaders), so emails link there rather than
+ * to tenantOrigin, whose worldleaders subdomain is not set up.
+ */
+export const SITE_ORIGIN = `https://${ROOT_HOST}`;
+
+/** An index's home page on the main site, e.g. https://index.knox.digital/worldleaders */
+export function tenantHomeUrl(tenant: TenantConfig): string {
+  return `${SITE_ORIGIN}/${tenant.path}`;
+}
+
 /** True when the email's domain is on this tenant's automatic allowlist. */
 export function isAllowedDomain(email: string | null | undefined, tenant: TenantConfig): boolean {
   if (!email) return false;
