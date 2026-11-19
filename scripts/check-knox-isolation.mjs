@@ -36,6 +36,7 @@ const ALLOWLIST = new Set([
   'app/api/ariadne+api.ts',      // server route
   'app/api/account+api.ts',      // server route
   'app/api/account-page+api.ts', // server route
+  'lib/sharedScores.ts',         // server-only: imported by the two routes above, never by client code
   'app/api/search+api.ts',       // server route
 ]);
 

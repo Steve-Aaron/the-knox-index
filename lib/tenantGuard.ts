@@ -17,7 +17,7 @@ import { verifySession } from '@/lib/firebaseAdmin';
 import { tenantFromRequest } from '@/lib/tenantRequest';
 import { decideAccess, type AccessDecision } from '@/lib/tenantAccess';
 import type { TenantConfig } from '@/lib/tenants';
-import { devSessionEmail } from '@/lib/devIdentity';
+import { devSessionEmail, previewFullAccess } from '@/lib/devIdentity';
 
 export interface TenantGuard {
   tenant:   TenantConfig;
@@ -30,13 +30,22 @@ export interface TenantGuard {
 export async function guardTenant(request: Request): Promise<TenantGuard> {
   const tenant = tenantFromRequest(request);
 
-  if (tenant.access.mode === 'public') {
+  // A waitlist index serves its data the way The Knox Index does: the guest
+  // limits (top 5, short ranges, no post feed) are applied in the client, so
+  // the read itself is open. Who has the FULL view is answered separately by
+  // /api/tenant/access.
+  if (tenant.access.mode === 'public' || tenant.access.mode === 'waitlist') {
     return {
       tenant,
       email:    null,
       decision: { allowed: true, reason: 'public' },
       denied:   null,
     };
+  }
+
+  // Vercel preview only: the reviewer turned on full access in the preview bar
+  if (previewFullAccess(request.headers.get('Cookie'))) {
+    return { tenant, email: null, decision: { allowed: true, reason: 'dev-bypass' }, denied: null };
   }
 
   let email: string | null = null;

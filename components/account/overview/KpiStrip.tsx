@@ -2,30 +2,33 @@ import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { DevLabel } from '@/components/primitives/DevLabel';
 import { useLayoutWidth } from '@/hooks/useLayoutWidth';
-import { useAccountLayout } from '@/components/account/layout/accountLayout';
 import { fmtCount } from '@/lib/format';
 import { accent, knox, party } from '@/theme/colors';
 import { spacing } from '@/theme/spacing';
-import type { AccountKpis } from '@/data/account/types';
+import type { AccountKpis, FollowerGrowth } from '@/data/account/types';
 import { KpiStat } from './KpiStat';
 
 /**
  * KpiStrip
  * ---------
- * The five headline numbers for the selected range + platform. Five equal
- * columns in one row; the figures scale with the column width (56px down to
- * 28px), so they only ever shrink as the row narrows and never wrap. A
- * single centred column on mobile.
+ * The headline numbers for the selected range + platform, including
+ * followers gained over the period. One row of equal columns: the figures
+ * shrink to fit the cell before anything wraps, and only below
+ * MIN_COLUMN do the rest wrap onto a second row. A single centred column on
+ * mobile.
  *
  * One job: lay out the KPI set.
  */
 interface Props {
-  kpis:     AccountKpis;
-  compact?: boolean;
+  kpis:            AccountKpis;
+  followerGrowth?: FollowerGrowth | null;
+  compact?:        boolean;
 }
 
+type KpiKey = keyof AccountKpis | 'newFollowers';
+
 interface KpiDef {
-  key:       keyof AccountKpis;
+  key:       KpiKey;
   label:     string;
   color:     string;
   format:    (n: number) => string;
@@ -45,6 +48,10 @@ const KPI_DEFS: KpiDef[] = [
     infoText: 'Current follower count across the selected platforms.',
   },
   {
+    key: 'newFollowers', label: 'New followers', color: '#3DDC97', format: n => `${n >= 0 ? '+' : ''}${fmtCount(n)}`,
+    infoText: 'Followers gained over the period on the selected platforms: the latest follower count against the one at the start of the period. TikTok counts are daily; X counts are daily from 1 November 2026.',
+  },
+  {
     key: 'avgViewsPerPost', label: 'Avg views / post', color: knox.secondaryOrange, format: fmtCount,
     infoText: 'Total views in the period divided by the number of posts.',
   },
@@ -58,48 +65,55 @@ const KPI_DEFS: KpiDef[] = [
   },
 ];
 
-const GAP = spacing.xl;
+/** Figure size bounds; it scales with the cell in between. */
 const MAX_FIGURE = 56;
-const MIN_FIGURE = 28;
-/** A six-character figure like '496.6K' is about 3.5× its font size wide. */
-const FIGURE_WIDTH_RATIO = 3.6;
-/**
- * Below 1024px the side column stacks above, so the row gets wider again.
- * Capping the figure at what fits at 1024px keeps it from growing back as
- * the window narrows past that breakpoint.
- */
-const TABLET_MAX_FIGURE = 30;
+const MIN_FIGURE = 22;
+/** A cell at least this wide keeps every KPI on one row. */
+const MIN_COLUMN = 88;
+const GAP = spacing.md;
 
-export function KpiStrip({ kpis, compact = false }: Props) {
+function fmtSince(iso: string): string {
+  return new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+}
+
+export function KpiStrip({ kpis, followerGrowth = null, compact = false }: Props) {
   const [width, onLayout] = useLayoutWidth();
-  const { isTablet } = useAccountLayout();
-  const maxFigure = isTablet ? TABLET_MAX_FIGURE : MAX_FIGURE;
-  const columns = KPI_DEFS.length;
-  // Whole pixels, 1px short: the measured width is rounded and may be up to
-  // half a pixel wider than the row, and fractional cells that overshoot it
-  // wrap the last stat at every other width.
-  const cellWidth = Math.floor((width - 1 - GAP * (columns - 1)) / columns);
-  // Until measured, share the row equally.
-  const cell = width > 0 ? { width: cellWidth } : styles.cellUnmeasured;
-  const figureSize = width > 0
-    ? Math.max(MIN_FIGURE, Math.min(maxFigure, Math.floor(cellWidth / FIGURE_WIDTH_RATIO)))
-    : maxFigure;
+  const n = KPI_DEFS.length;
+  const columns = Math.max(1, Math.min(n, Math.floor((width + GAP) / (MIN_COLUMN + GAP))));
+  const cellWidth = (width - GAP * (columns - 1)) / columns;
+  // A 6-character figure like '135.6K' is about 3.7em wide in the mono face
+  const figure = Math.round(Math.max(MIN_FIGURE, Math.min(MAX_FIGURE, cellWidth / 4)));
+  // All on one row: the cells share it equally and cannot spill over (fixed
+  // pixel widths from a rounded measurement could overshoot by a fraction
+  // and wrap the last one). Narrower: fixed-width cells wrap in columns.
+  const oneRow = width === 0 || columns === n;
+  const cell = oneRow ? styles.cellShare : { width: Math.floor(cellWidth) };
+
+  const valueOf = (key: KpiKey): number | null =>
+    key === 'newFollowers' ? followerGrowth?.gained ?? null : kpis[key];
+
+  const sublabelOf = (def: KpiDef): string | undefined => {
+    if (def.key !== 'newFollowers') return def.sublabel;
+    if (!followerGrowth) return 'no count at the start of the period';
+    const pct = followerGrowth.pct * 100;
+    return `${pct >= 0 ? '+' : ''}${pct.toFixed(1)}% since ${fmtSince(followerGrowth.since)}`;
+  };
 
   return (
-    <View style={[styles.row, compact && styles.column]} onLayout={onLayout}>
+    <View style={[styles.row, !compact && oneRow && styles.rowOne, compact && styles.column]} onLayout={onLayout}>
       <DevLabel name="KpiStrip" />
       {KPI_DEFS.map(def => (
         <KpiStat
           key={def.key}
-          value={kpis[def.key]}
+          value={valueOf(def.key)}
           format={def.format}
           decimals={def.decimals}
           label={def.label}
           color={def.color}
           infoText={def.infoText}
-          sublabel={def.sublabel}
+          sublabel={sublabelOf(def)}
           compact={compact}
-          figureSize={figureSize}
+          figureSize={compact ? undefined : figure}
           style={compact ? undefined : cell}
         />
       ))}
@@ -114,8 +128,13 @@ const styles = StyleSheet.create({
     rowGap:        GAP,
     columnGap:     GAP,
   },
-  cellUnmeasured: {
-    flex: 1,
+  rowOne: {
+    flexWrap: 'nowrap',
+  },
+  cellShare: {
+    flex:     1,
+    flexBasis: 0,
+    minWidth: 0,
   },
   column: {
     flexDirection: 'column',

@@ -89,8 +89,10 @@ export async function POST(request: Request): Promise<Response> {
       return Response.json({ error: 'Sign-in link generation failed' }, { status: 500 });
     }
 
-    // 1. Upsert into Brevo (non-fatal — never blocks email delivery)
-    brevo('/contacts', {
+    // 1. Upsert into Brevo (non-fatal — never blocks email delivery). Runs
+    //    alongside the send and is awaited before responding, so Vercel does
+    //    not cut it off once the response is sent.
+    const upsert = brevo('/contacts', {
       email,
       updateEnabled: true,
       attributes: { SOURCE: 'TKI magic link' },
@@ -106,6 +108,8 @@ export async function POST(request: Request): Promise<Response> {
       htmlContent: magicLinkHtml(link),
       textContent: magicLinkText(link),
     });
+
+    await upsert;
 
     if (!emailRes.ok) {
       // Log the upstream detail every time so Vercel logs contain the actual

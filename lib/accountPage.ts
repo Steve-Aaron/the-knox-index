@@ -4,13 +4,14 @@
  * Builds the account page view-model (data/account/types.ts) from rows the
  * /api/account-page route has already fetched. Server-side, no I/O.
  *
- * TikTok is the only platform with data today: X appears in the contract but
- * is never filled, so the page hides it.
+ * Platform-agnostic: the route passes rows from whichever platforms the
+ * filter selects (TikTok, X or both, see app/api/account-page+api.ts).
  *
  * One job: turn politicians + one account's posts into AccountPageApiResponse.
  */
 
-import type { Politician } from '@/data/types';
+import type { AccountType, Politician } from '@/data/types';
+import type { GroupingMode } from '@/lib/tenants';
 import type {
   AccountKpis,
   AccountPeriodData,
@@ -19,9 +20,12 @@ import type {
   ContentBreakdown,
   ContentDimension,
   ContentSlice,
-  ComparisonRow,
+  KeyStatRank,
+  StandingRow,
 } from '@/data/account/types';
 import { postEngagementRate } from '@/lib/postMetrics';
+import { fmtTopic } from '@/lib/topicLabel';
+import { toTweetData, type RawTweet } from '@/lib/xPosts';
 
 /** One row of buildAccountPagePostsSQL. */
 export interface BQAccountPagePostRow {
@@ -38,108 +42,237 @@ export interface BQAccountPagePostRow {
   postUrl:      string | null;
   coverJpeg:    string | null;
   videoMp4:     string | null;
-  /** 'Video', 'Carousel' or 'Image with Audio'; null on a few posts. */
-  postType:     string | null;
+  /** TikTok format: 'Video', 'Carousel' or 'Image with Audio'; null on a
+   *  few posts. Not set on X rows, which use contentType. */
+  postType?:    string | null;
   styles:       string[] | null;
   topics:       string[] | null;
+  /** The topics on the final list: parent plus subtopic (null when the tag is
+   *  the parent itself). A null parent is an old TikTok topic with no map. */
+  subjects?:    { parent: string | null; sub: string | null }[] | null;
+  /** Set on X rows (lib/xQueries.ts buildXAccountPagePostsSQL). */
+  platform?:    'tiktok' | 'x';
+  tweetJson?:   string | null;
+  /** video, photo, poll, quote, link or text. TikTok rows are all video. */
+  contentType?: string | null;
 }
 
 // ── Profile ───────────────────────────────────────────────────────────────────
 
 /**
- * `weekAgo` is the same account scored on the inputs from 7 days earlier
- * (buildAccountsSQL with daysAgo = 7); undefined when it had no metrics then,
- * which hides the trend.
+ * `knoxDeltaVsPrev` is the Knox Factor change since a week earlier, worked out
+ * by the route (see /api/account-page); null hides the trend.
  */
 export function buildProfile(
   politician: Politician,
   all: Politician[],
   lastPostDate: string | null,
-  weekAgo: Politician | undefined,
+  knoxDeltaVsPrev: number | null,
 ): AccountProfile {
   const handle = politician.handle.replace(/^@/, '');
   const score  = politician.scores.knoxFactor;
   return {
     politician,
-    knoxFactor:  { score, deltaVsPrev: weekAgo ? score - weekAgo.scores.knoxFactor : null },
+    knoxFactor:  { score, deltaVsPrev: knoxDeltaVsPrev },
     affiliation: {
       label:       politician.groupLabel,
       memberCount: all.filter(p => p.groupKey === politician.groupKey).length,
     },
-    socials:    [{ platform: 'tiktok', handle: `@${handle}`, url: `https://www.tiktok.com/@${handle}` }],
+    // One link per platform account behind the person.
+    socials:    politician.platforms?.length
+      ? politician.platforms.map(pr => ({ platform: pr.platform, handle: `@${pr.handle.replace(/^@/, '')}`, url: pr.url }))
+      : [{ platform: 'tiktok', handle: `@${handle}`, url: `https://www.tiktok.com/@${handle}` }],
     lastPostAt: lastPostDate ?? '',
   };
 }
 
-// ── Comparison ────────────────────────────────────────────────────────────────
+// ── Key stats ─────────────────────────────────────────────────────────────────
 
-/** Rows on the Comparison card: the account and two either side. */
-const COMPARISON_ROWS = 5;
+/** Most specific role first; an account with several types ranks by its top one. */
+const TYPE_PRIORITY: AccountType[] = [
+  'prime_minister',
+  'party_leader',
+  'cabinet_minister',
+  'shadow_cabinet_minister',
+  'member_of_parliament',
+  'council',
+  'political_party',
+  'other',
+];
+
+function primaryType(p: Politician): AccountType | undefined {
+  const types = p.accountTypes ?? [];
+  return TYPE_PRIORITY.find(t => types.includes(t)) ?? types[0];
+}
 
 /**
- * The account's slice of the main-page Knox Factor leaderboard (RankBoard
- * with no filters): accounts that posted in the range, by Knox Factor. The
- * window shifts at either end so it always holds COMPARISON_ROWS rows when
- * there are enough accounts. Empty when the account has no posts in range.
+ * Account types that share one Standings group. The Prime Minister is ranked
+ * with the party leaders: a group of one says nothing.
  */
-export function buildComparison(target: Politician, all: Politician[]): ComparisonRow[] {
-  const ranked = all
-    .filter(p => p.totals.postsInRange > 0)
-    .sort((a, b) => b.scores.knoxFactor - a.scores.knoxFactor);
-  const at = ranked.findIndex(p => p.id === target.id);
-  if (at < 0) return [];
+const PEER_GROUP: Partial<Record<AccountType, string>> = {
+  prime_minister: 'leaders',
+  party_leader:   'leaders',
+};
 
-  const start = Math.max(0, Math.min(at - 2, ranked.length - COMPARISON_ROWS));
-  return ranked.slice(start, start + COMPARISON_ROWS).map((p, i) => ({
-    rank:           start + i + 1,
-    handle:         p.handle.replace(/^@+/, ''),
-    name:           p.name,
-    partyLabel:     p.partyLabel,
-    groupKey:       p.groupKey,
-    avatarInitials: p.avatarInitials,
-    avatarUrl:      p.avatarUrl,
-    knoxFactor:     Math.round(p.scores.knoxFactor),
-    isSelf:         p.id === target.id,
-  }));
+/** The Standings group for an account's type. */
+function peerGroup(p: Politician): string | undefined {
+  const type = primaryType(p);
+  return type ? PEER_GROUP[type] ?? type : undefined;
+}
+
+/** Standings tab name for each account type. */
+const TYPE_TAB: Partial<Record<AccountType, string>> = {
+  prime_minister:          'Leaders',
+  party_leader:            'Leaders',
+  cabinet_minister:        'Cabinet',
+  shadow_cabinet_minister: 'Shadow cabinet',
+  member_of_parliament:    'MPs',
+  council:                 'Councils',
+  political_party:         'Party pages',
+};
+
+/** Rows shown either side of the account in a standings window. */
+const WINDOW_EACH_SIDE = 2;
+
+/** The score a Standings ranking uses: the period's Knox Factor, or the fixed one. */
+type ScoreOf = (p: Politician) => number;
+
+const fixedKnox: ScoreOf = p => p.scores.knoxFactor;
+const periodKnox: ScoreOf = p => p.periodKnoxFactor ?? p.scores.knoxFactor;
+
+function standingRow(p: Politician, rank: number, target: Politician, score: ScoreOf): StandingRow {
+  return {
+    rank,
+    name:       p.name,
+    slug:       p.slug ?? p.handle.replace(/^@/, ''),
+    avatarUrl:  p.avatarUrl,
+    initials:   p.avatarInitials,
+    groupKey:   p.groupKey,
+    groupLabel: p.groupLabel,
+    knoxFactor: score(p),
+    isTarget:   p.id === target.id,
+  };
+}
+
+/**
+ * Rank by Knox Factor inside one peer group (the target is always a member),
+ * with the accounts just above and below. The window keeps five rows at the
+ * top and bottom of the table by shifting rather than shrinking.
+ */
+function rankWithin(id: KeyStatRank['id'], label: string, short: string, target: Politician, peers: Politician[], score: ScoreOf): KeyStatRank {
+  // Ties broken by the fixed Knox Factor, then followers, so the order is stable
+  const sorted = [...peers].sort((a, b) =>
+    score(b) - score(a) || b.scores.knoxFactor - a.scores.knoxFactor || b.totals.followers - a.totals.followers);
+  const at = sorted.findIndex(p => p.id === target.id);
+  const size = WINDOW_EACH_SIDE * 2 + 1;
+  const start = Math.max(0, Math.min(at - WINDOW_EACH_SIDE, sorted.length - size));
+  const neighbours = sorted.slice(start, start + size).map((p, i) => standingRow(p, start + i + 1, target, score));
+  return { id, label, short, rank: at + 1, total: sorted.length, neighbours };
+}
+
+/**
+ * Peer-group ranks. Similar followers = between half and double the target's
+ * count (follower counts are spread over four orders of magnitude, so fixed
+ * bands would lump most accounts together). The third group is the tenant's
+ * own grouping: party on The Knox Index, region on World Leaders.
+ */
+export function buildKeyStats(target: Politician, all: Politician[], grouping: GroupingMode, byPeriod = true): KeyStatRank[] {
+  const stats: KeyStatRank[] = [];
+  // Follows the period tabs; 'All data' has no shorter period, so it uses the fixed score
+  const score = byPeriod ? periodKnox : fixedKnox;
+
+  stats.push(rankWithin(
+    grouping === 'region' ? 'same_region' : 'same_party',
+    grouping === 'region' ? 'Among accounts from the same region' : 'Among accounts from the same party',
+    grouping === 'region' ? 'Region' : 'Party',
+    target,
+    all.filter(p => p.groupKey === target.groupKey),
+    score,
+  ));
+
+  stats.push(rankWithin('all', 'Among all tracked accounts', 'All', target, all, score));
+
+  // 'other' is the fallback type, so on a dashboard without a taxonomy
+  // (World Leaders) the type group is everyone: leave it out there.
+  const type = primaryType(target);
+  if (type && type !== 'other') {
+    const group = peerGroup(target);
+    const typeTab = rankWithin('same_type', 'Among accounts of the same type', TYPE_TAB[type] ?? 'Type', target, all.filter(p => peerGroup(p) === group), score);
+    // A party's own page compares first with other party pages
+    if (type === 'political_party') stats.unshift(typeTab); else stats.push(typeTab);
+  }
+
+  const f = target.totals.followers;
+  stats.push(rankWithin(
+    'same_followers',
+    'Among accounts with a similar number of followers',
+    'Size',
+    target,
+    all.filter(p => p.id === target.id || (p.totals.followers >= f / 2 && p.totals.followers <= f * 2)),
+    score,
+  ));
+
+  return stats;
 }
 
 // ── Period data ───────────────────────────────────────────────────────────────
 
-/** Bucket for posts with no tag in the dimension. */
-const UNTAGGED_KEY = 'untagged';
+/** Bucket for old TikTok topics not yet mapped onto the final topic list. */
+const UNMAPPED_KEY = 'unmapped';
 
-/** 'COST_OF_LIVING' → 'Cost of living'. Drops stray HTML entities and symbols. */
+/**
+ * A subtopic gets its own slice (e.g. Sudan, not Foreign affairs) once it is
+ * used on at least this many posts and this share of the account's subject
+ * tags in the period. Agreed 29 Oct: parent topics, with standouts.
+ */
+const STANDOUT_MIN_POSTS = 3;
+const STANDOUT_MIN_SHARE = 0.15;
+/** Below this many tagged posts no subtopic stands out: the sample is too small. */
+const STANDOUT_MIN_SAMPLE = 10;
+
+/** Stored topic or style name → display label; 'Other' when nothing is left. */
 function tagLabel(name: string): string {
-  const words = name.replace(/&[a-z]+;/gi, '').replace(/[^A-Za-z0-9_ ]/g, '').replace(/_/g, ' ').trim().toLowerCase();
-  return words ? words.charAt(0).toUpperCase() + words.slice(1) : 'Other';
+  return fmtTopic(name) || 'Other';
+}
+
+/** A standout subtopic's key keeps its parent: 'ELECTIONS/CAMPAIGNS'. */
+const SUB_SEP = '/';
+
+function sliceLabel(key: string): string {
+  if (key === UNMAPPED_KEY) return 'Other topics';
+  const [parent, sub] = key.split(SUB_SEP);
+  return sub ? `${tagLabel(parent)} · ${tagLabel(sub)}` : tagLabel(parent);
 }
 
 type TagFn = (row: BQAccountPagePostRow) => string[];
 
 /**
- * Views per tag, with each post's views split evenly across its tags so the
- * shares add up to 100%. Untagged posts get their own bucket. Post counts
- * stay whole: a post with three topics counts once in each.
+ * Tag uses per tag, and the full views of the posts that carry it. A post
+ * counts once per distinct tag; views are not split across tags, so they
+ * feed an average, never a share. Untagged posts are counted apart.
  */
 function tally(rows: BQAccountPagePostRow[], tags: TagFn) {
   const byTag = new Map<string, { posts: number; views: number }>();
+  let uses = 0;
+  let untagged = 0;
   for (const row of rows) {
-    const list = tags(row);
-    const keys = list.length ? list : [UNTAGGED_KEY];
+    const keys = [...new Set(tags(row))];
+    if (keys.length === 0) { untagged += 1; continue; }
     for (const key of keys) {
       const t = byTag.get(key) ?? { posts: 0, views: 0 };
       t.posts += 1;
-      t.views += row.views / keys.length;
+      t.views += row.views;
       byTag.set(key, t);
+      uses += 1;
     }
   }
-  return byTag;
+  return { byTag, uses, untagged };
 }
 
 /**
- * Every tag as a slice, largest first. Grouping the tail into "Other" for the
- * donut is a display rule, so it happens client-side (contentGroups.ts) and
- * the table can still list every tag.
+ * Every tag as a slice, by share of tag uses (what the account mostly posts
+ * about), largest first. Grouping the tail into "Other" for the donut is a
+ * display rule, so it happens client-side (contentGroups.ts).
  */
 function buildBreakdown(
   current: BQAccountPagePostRow[],
@@ -151,22 +284,25 @@ function buildBreakdown(
   const cur  = tally(current, tags);
   const prev = tally(previous, tags);
 
-  const share     = (v: number, total: number) => (total > 0 ? v / total : 0);
-  const prevShare = (key: string) => share(prev.get(key)?.views ?? 0, prevViews);
+  const share     = (n: number, total: number) => (total > 0 ? n / total : 0);
+  const prevShare = (key: string) => share(prev.byTag.get(key)?.posts ?? 0, prev.uses);
 
-  const slices: ContentSlice[] = [...cur.entries()]
-    .sort((a, b) => b[1].views - a[1].views)
+  const slices: ContentSlice[] = [...cur.byTag.entries()]
+    .sort((a, b) => b[1].posts - a[1].posts || b[1].views - a[1].views)
     .map(([key, t]) => ({
       key,
-      label:   key === UNTAGGED_KEY ? 'Untagged' : tagLabel(key),
-      posts:   t.posts,
-      views:   Math.round(t.views),
-      share:   share(t.views, totalViews),
-      deltaPp: prevViews > 0 ? (share(t.views, totalViews) - prevShare(key)) * 100 : 0,
+      label:    sliceLabel(key),
+      posts:    t.posts,
+      views:    t.views,
+      avgViews: Math.round(t.views / t.posts),
+      share:    share(t.posts, cur.uses),
+      deltaPp:  prev.uses > 0 ? (share(t.posts, cur.uses) - prevShare(key)) * 100 : null,
     }));
 
   return {
     totalPosts:         current.length,
+    taggedPosts:        current.length - cur.untagged,
+    untaggedPosts:      cur.untagged,
     avgViewsPerPost:    current.length ? Math.round(totalViews / current.length) : 0,
     totalViews,
     totalViewsDeltaPct: prevViews > 0 ? ((totalViews - prevViews) / prevViews) * 100 : 0,
@@ -174,10 +310,48 @@ function buildBreakdown(
   };
 }
 
-const CONTENT_TAGS: Record<ContentDimension, TagFn> = {
-  // A post has one format; posts without one go to Untagged.
-  type:     r => (r.postType ? [r.postType] : []),
-  subjects: r => r.topics ?? [],
+/**
+ * Subject keys per post: the parent topic, or the subtopic itself when it
+ * stands out in `rows` (see STANDOUT_MIN_*). The same choice is applied to
+ * the previous period so the deltas compare like with like.
+ */
+function subjectTags(rows: BQAccountPagePostRow[]): TagFn {
+  const subPosts = new Map<string, number>();
+  let uses = 0;
+  let tagged = 0;
+  for (const row of rows) {
+    const list = row.subjects ?? [];
+    if (list.length) tagged += 1;
+    uses += new Set(list.map(t => t.parent ?? UNMAPPED_KEY)).size;
+    for (const sub of new Set(list.map(t => t.sub).filter((x): x is string => !!x))) {
+      subPosts.set(sub, (subPosts.get(sub) ?? 0) + 1);
+    }
+  }
+  const standout = new Set(
+    tagged < STANDOUT_MIN_SAMPLE ? [] : [...subPosts.entries()]
+      .filter(([, n]) => n >= STANDOUT_MIN_POSTS && uses > 0 && n / uses >= STANDOUT_MIN_SHARE)
+      .map(([sub]) => sub),
+  );
+  return r => {
+    const list = r.subjects ?? [];
+    // On a post with a standout, the standout replaces its parent
+    const replaced = new Set(list.filter(t => t.sub && t.parent && standout.has(t.sub)).map(t => t.parent));
+    return list.flatMap(t => {
+      if (t.sub && t.parent && standout.has(t.sub)) return [`${t.parent}${SUB_SEP}${t.sub}`];
+      if (t.parent && replaced.has(t.parent)) return [];
+      return [t.parent ?? UNMAPPED_KEY];
+    });
+  };
+}
+
+const CONTENT_TAGS: Record<Exclude<ContentDimension, 'subjects'>, TagFn> = {
+  // TikTok posts carry postType ('Video'), X posts contentType ('video'):
+  // one key per format, so a video is one slice on both. A post with neither
+  // is left out as untagged, like an untagged subject.
+  type:     r => {
+    const t = r.platform === 'x' ? r.contentType : r.postType;
+    return t ? [t.trim().toLowerCase().replace(/\s+/g, '_')] : [];
+  },
   styles:   r => r.styles ?? [],
 };
 
@@ -198,7 +372,8 @@ function buildKpis(current: BQAccountPagePostRow[], followers: number): AccountK
 function toAccountPost(row: BQAccountPagePostRow, followers: number): AccountPost {
   return {
     id:             row.postId,
-    platform:       'tiktok',
+    platform:       row.platform ?? 'tiktok',
+    tweet:          row.tweetJson ? toTweetData(JSON.parse(row.tweetJson) as RawTweet) : undefined,
     caption:        row.caption ?? '',
     postDate:       row.postDate ?? '',
     views:          row.views,
@@ -220,20 +395,31 @@ function toAccountPost(row: BQAccountPagePostRow, followers: number): AccountPos
 /** Best posts return at most this many (by views), to keep lifetime responses small. */
 const MAX_POSTS = 500;
 
-export function buildPeriod(politician: Politician, rows: BQAccountPagePostRow[]): AccountPeriodData {
+export function buildPeriod(
+  politician: Politician,
+  rows: BQAccountPagePostRow[],
+  /** One row per platform in the filter; each becomes a radar series. */
+  platformRows: Politician[] = [politician],
+): AccountPeriodData {
   const current  = rows.filter(r => r.period === 'current');
   const previous = rows.filter(r => r.period === 'previous');
   const followers = politician.totals.followers;
-  const s = politician.scores;
+
+  const radar: AccountPeriodData['radar'] = {};
+  for (const row of platformRows) {
+    const s = row.scores;
+    radar[row.platform === 'x' ? 'x' : 'tiktok'] =
+      { virality: s.virality, activity: s.frequency, engagement: s.engagement, followers: s.followers, knoxFactor: s.knoxFactor };
+  }
 
   return {
     kpis:  buildKpis(current, followers),
-    radar: {
-      tiktok: { virality: s.virality, activity: s.frequency, engagement: s.engagement, followers: s.followers, knoxFactor: s.knoxFactor },
-    },
+    // Filled in by the route, which reads the follower snapshots
+    followerGrowth: null,
+    radar,
     content: {
       type:     buildBreakdown(current, previous, CONTENT_TAGS.type),
-      subjects: buildBreakdown(current, previous, CONTENT_TAGS.subjects),
+      subjects: buildBreakdown(current, previous, subjectTags(current)),
       styles:   buildBreakdown(current, previous, CONTENT_TAGS.styles),
     },
     posts: [...current]

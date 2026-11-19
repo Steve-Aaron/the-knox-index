@@ -11,7 +11,8 @@
  * One job: produce correct, safe SQL strings for each query pattern.
  */
 
-import { tableRef, accountWeb, postWeb } from '@/lib/bigquery';
+import { tableRef, metadataRef, accountWeb, postWeb } from '@/lib/bigquery';
+import { tiktokStyleTopicsSql, tiktokTopicAliasSql } from '@/lib/topicAliases';
 
 // ── Range helpers ─────────────────────────────────────────────────────────────
 
@@ -23,8 +24,9 @@ export function parseRange(raw: string | null, defaultRange: Range = 'week'): Ra
 }
 
 /**
- * UTC, as CURRENT_DATE(): yesterday only, the last 7 and 30 days (rolling),
- * this year from 1 January.
+ * Periods in UTC (CURRENT_DATE()): yesterday only, rolling 7 and 30 days
+ * (agreed 29 Oct, so early in a month an account is not left with one day of
+ * data), this year from 1 January.
  */
 export function rangeDateFilter(range: Range): string {
   switch (range) {
@@ -104,6 +106,7 @@ export function buildAccountsSQL(dashboardId: number, range: Range, daysAgo = 0)
     a.displayJobTitle,
     a.avatar,
     -- from metadata.person, via accountWeb()
+    a.person_id,
     a.person_slug,
     a.person_name,
     a.person_job_title,
@@ -410,7 +413,19 @@ export function buildAccountPagePostsSQL(dashboardId: number, handle: string, ra
       SELECT DISTINCT t.name FROM ${tableRef('post_x_topic')} pxt
       JOIN ${tableRef('topic')} t ON pxt.topicId = t.id
       WHERE pxt.postId = p.postId AND t.name IS NOT NULL
-    ) AS topics
+    ) AS topics,
+    -- The same topics on the final list (metadata.topic), matched by name or
+    -- by lib/topicAliases.ts: parent plus subtopic (NULL when the tag is a
+    -- parent). An old topic that matches nothing has a NULL parent: Other.
+    ARRAY(
+      SELECT DISTINCT AS STRUCT COALESCE(par.name, nt.name) AS parent, IF(par.id IS NULL, NULL, nt.name) AS sub
+      FROM ${tableRef('post_x_topic')} pxt
+      JOIN ${tableRef('topic')} ot ON ot.id = pxt.topicId
+      LEFT JOIN ${tiktokTopicAliasSql()} al ON al.old_name = UPPER(ot.name)
+      LEFT JOIN ${metadataRef('topic')} nt ON nt.name = COALESCE(al.new_name, UPPER(ot.name))
+      LEFT JOIN ${metadataRef('topic')} par ON par.id = nt.parent_topic
+      WHERE pxt.postId = p.postId AND UPPER(ot.name) NOT IN (${tiktokStyleTopicsSql()})
+    ) AS subjects
   FROM p
   ORDER BY p.postDate DESC
   LIMIT ${limit}

@@ -1,6 +1,5 @@
 import React from 'react';
-import { Platform } from 'react-native';
-import { Circle, Defs, G, Polygon, RadialGradient, Rect, Stop } from 'react-native-svg';
+import { Circle, Defs, G, Polygon, RadialGradient, Stop } from 'react-native-svg';
 import Animated, { Easing, useAnimatedProps, type SharedValue } from 'react-native-reanimated';
 import type { Point } from '../geometry';
 import { useEntryProgress } from '../useEntryProgress';
@@ -13,9 +12,9 @@ const AnimatedCircle  = Animated.createAnimatedComponent(Circle);
  * -----------
  * One series on the radar: a filled polygon that grows out from the centre,
  * plus a dot on each vertex riding along with it. Lives in its own component
- * so every series gets its own animation hooks. Dots are optional press
- * targets: hover enlarges one to signal it's clickable, press hands its index
- * to the parent.
+ * so every series gets its own animation hooks. Draws only: hover and press
+ * are handled once for all series by RadarChart, so a shape drawn on top
+ * never blocks the dots of the one below.
  */
 interface Props {
   id:     string;
@@ -32,18 +31,13 @@ interface Props {
   /** Highlight colour for an enlarged dot. Defaults to `color`. */
   glow?:  string;
   /** Vertex index drawn enlarged (hovered or open), if any. */
-  activeIdx?:   number | null;
-  onDotPress?:  (idx: number) => void;
-  onDotHover?:  (idx: number | null) => void;
+  activeIdx?: number | null;
 }
-
-/** Side of the invisible square press target centred on each dot. */
-const HIT_SIZE = 24;
 
 const GROW = { duration: 900, easing: Easing.out(Easing.back(1.08)) };
 
 export function RadarShape({
-  id, color, cx, cy, points, replayKey, delay = 0, play = true, glow = color, activeIdx = null, onDotPress, onDotHover,
+  id, color, cx, cy, points, replayKey, delay = 0, play = true, glow = color, activeIdx = null,
 }: Props) {
   const progress = useEntryProgress(play, replayKey, { ...GROW, delay });
 
@@ -56,7 +50,7 @@ export function RadarShape({
   const gradientId = `radar-fill-${id}`;
 
   return (
-    <G>
+    <G pointerEvents="none">
       <Defs>
         <RadialGradient id={gradientId} cx="50%" cy="50%" r="50%">
           <Stop offset="0%" stopColor={color} stopOpacity={0.45} />
@@ -73,34 +67,17 @@ export function RadarShape({
       {points.map((p, i) => {
         const isActive = activeIdx === i;
         return (
-          <G key={`dot-${i}`}>
-            <RadarDot
-              point={p}
-              cx={cx}
-              cy={cy}
-              progress={progress}
-              r={isActive ? 6 : 3}
-              fill={isActive ? glow : color}
-              stroke={isActive ? '#fff' : 'none'}
-              strokeWidth={isActive ? 1.5 : 0}
-            />
-            {/* The press target stays put: it only matters once in view. */}
-            {onDotPress ? (
-              <Rect
-                x={p.x - HIT_SIZE / 2}
-                y={p.y - HIT_SIZE / 2}
-                width={HIT_SIZE}
-                height={HIT_SIZE}
-                fill="transparent"
-                onPress={() => onDotPress(i)}
-                {...(Platform.OS === 'web' ? {
-                  onMouseEnter: () => onDotHover?.(i),
-                  onMouseLeave: () => onDotHover?.(null),
-                  style: { cursor: 'pointer' },
-                } as any : {})}
-              />
-            ) : null}
-          </G>
+          <RadarDot
+            key={`dot-${i}`}
+            point={p}
+            cx={cx}
+            cy={cy}
+            progress={progress}
+            r={isActive ? 6 : 3}
+            fill={isActive ? glow : color}
+            stroke={isActive ? '#fff' : 'none'}
+            strokeWidth={isActive ? 1.5 : 0}
+          />
         );
       })}
     </G>

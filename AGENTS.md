@@ -45,14 +45,14 @@ The proxy handler lives at `app/api/mp/[...path]+api.ts` and forwards all method
 |---|---|
 | 1. Session lifecycle | `session_started`, `session_ended`, `session_resumed` |
 | 2. Data load performance | `data_loaded` (time_to_load_ms), `data_load_failed` |
-| 3. Politician engagement | `politician_selected`, `politician_dwell` (dwell_ms) |
-| 4. Filter interactions | `filter_changed` (filter_type, old_value, new_value, result_count) |
+| 3. Politician engagement | `politician_selected`, `politician_dwell` (dwell_ms), `standings_group_changed` (group, old_group, rank, total) |
+| 4. Filter interactions | `filter_changed` (filter_type, old_value, new_value, result_count), `rising_topics_mode_changed` (mode, old_mode), `fastest_growing_mode_changed` (mode, old_mode) |
 | 5. Sort interactions | `sort_changed` (sort_key, old_sort_key) |
 | 6. Post card & video | `post_card_opened`, `video_opened`, `tiktok_link_tapped` |
-| 7. Registration funnel | `cta_bar_shown`, `cta_bar_tapped`, `unlock_modal_opened`, `registration_submit_attempted`, `registration_succeeded`, `registration_failed` |
+| 7. Registration funnel | `cta_bar_shown`, `cta_bar_tapped`, `unlock_modal_opened`, `registration_submit_attempted`, `registration_succeeded`, `registration_failed`, `locked_insights_cta`, `waitlist_modal_opened`, `waitlist_joined` |
 | 8. Error recovery | `error_recovered` (recovery_ms), `posts_error_shown`, `posts_error_recovered` |
 | 9. Scroll depth | `section_reached` (section, method) |
-| 10. Navigation | `date_range_changed`, `wing_changed` |
+| 10. Navigation | `date_range_changed`, `wing_changed`, `index_switched` (from_tenant, to_tenant) |
 | 11. Header search | `search_result_selected` (result_type, politician_id, group_key, locked, position, query_length), `search_register_tapped` (query_length) |
 
 ### Super Properties
@@ -85,15 +85,26 @@ Set on every event via `setSuperProperties`:
 
 ## Multi-tenant dashboards
 
-One deployment serves several dashboards, one per subdomain:
+One deployment serves several dashboards, one per path on `index.knox.digital`:
 
 | Host | Tenant | `dashboard.id` | Grouping | Access |
 |---|---|---|---|---|
-| `index.knox.digital` | The Knox Index | 1 | Party | Public |
-| `worldleaders.index.knox.digital` | World Leaders | 2 | Region | Sign-in, `@knoxdigi.com` / `@knox.digital` auto, others approved |
+| `index.knox.digital/uk` | The Knox Index | 1 | Party | Public |
+| `index.knox.digital/worldleaders` | World Leaders | 2 | Region | Waitlist: guest view open; full view `@knoxdigi.com` / `@knox.digital` auto, others approved by hand |
 
 - The registry is `lib/tenants.ts`. Adding a subdomain = one entry there + a
   Vercel domain. Full guide: `docs/tenants.md`
+- The path names the index on every site: `/uk` and `/worldleaders` are the
+  dashboards; account pages are `/account/<slug>` on the index the tab came
+  from (and move to the other index if the person is only there); `/` goes to
+  the tab's last index. Build links with `homeHref()` / `accountHref()` from
+  `lib/indexPaths.ts`. The page sends its index as `?tenant=` and
+  `x-knox-tenant`; `guardTenant` still applies that index's access rules
+- One Knox Factor per person: someone on several indexes keeps the scores of
+  their home index (lowest dashboard id) everywhere (`lib/sharedScores.ts`)
+- The PREVIEW bar and its Full access only work on Vercel preview builds:
+  `app.config.js` writes `VERCEL_ENV` into the build, and the server checks
+  `VERCEL_ENV` too
 - The DASHBOARD ID identifies a tenant (`?tenant=2`, `x-knox-tenant: 2`,
   `tenant_access.tenantId`). `tenantById()` also accepts the slug
 - Server routes MUST call `guardTenant(request)` before querying, and pass
@@ -103,8 +114,46 @@ One deployment serves several dashboards, one per subdomain:
   (party key or region key); `partyLabel` is always the real party
 - Client copy, grouping and map come from `useTenant()`; never trust the client
   for data scope
+- Access modes (`lib/tenants.ts`): `public` (UK), `waitlist` (World Leaders)
+  and `authenticated`. On a waitlist index anyone gets the guest view (top 5,
+  Yesterday and Last 7 days, no post feed, no growth or topics), exactly like
+  a signed-out UK visitor. The full view needs an allowed domain or an
+  `approved` tenant_access row; signing up only joins the waitlist (a
+  `pending` row from the waitlist form), approved in the admin panel. Guest
+  limits are client-side, as on the UK index
 - `npm run check:tenants` guards host routing, access rules, gate leaks and
   region coverage. Run it with the other checks
+
+### Adding and removing people
+
+- Membership is one row per person per dashboard in
+  `metadata.person_x_dashboard`. TikTok also needs the account in
+  `ariadne_tiktok_demo.account_x_dashboard`; X needs a confirmed
+  `metadata.account_link` row
+- When someone leaves (a leader leaves office, an MP loses their seat), do not
+  delete their rows. Set `ended_at` (the date they left) and `end_reason` on
+  their `person_x_dashboard` row for that dashboard. If the date is not
+  confirmed, use the day you marked it and say so in `end_reason`
+- A row with `ended_at` set drops that person from that dashboard on every
+  platform: the site gates (`accountWeb()`, `postWeb()`, `xBaseCtes()`) and the
+  n8n 'Brief writer (all dashboards)' all skip it. Their other dashboards are
+  unaffected
+- When a new leader takes over, add their `person_x_dashboard` row (and the
+  TikTok `account_x_dashboard` row) and update `metadata.person.display_job_title`
+
+### Subjects (topics)
+
+- The final topic list is `metadata.topic`: parent topics (`parent_topic` NULL)
+  and subtopics. X tags use it directly
+- TikTok still tags with the old `ariadne_tiktok_demo.topic` list. Until
+  KitSoft move it onto the final list, the site matches old names to final
+  ones itself: same name, or the hand-made list in `lib/topicAliases.ts`. An
+  old topic that matches nothing shows as 'Other topics'
+- Backend topic fixes (the misfiled FOREIGN_AFFAIRS subtopics, retagging) are
+  KitSoft's: the site does not write to the topic tables
+- Subject charts count parent topics. On the account page a subtopic gets its
+  own slice once the period has 10+ tagged posts and the subtopic is on 3+
+  posts and 15%+ of the tags (`lib/accountPage.ts` STANDOUT_*)
 
 ## Key Conventions
 

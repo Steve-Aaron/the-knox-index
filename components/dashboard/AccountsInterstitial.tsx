@@ -19,6 +19,7 @@ import { spacing, radius } from '@/theme/spacing';
 import { formatters } from '@/components/primitives/CountUp';
 import { DevLabel } from '@/components/primitives/DevLabel';
 import type { Politician } from '@/data/types';
+import { useTenant } from '@/hooks/useTenant';
 
 /**
  * AccountsInterstitial
@@ -66,6 +67,7 @@ function engagementRate(p: Politician): number {
 }
 
 export function AccountsInterstitial({ politicians, onClose, onRefresh }: Props) {
+  const subjectPlural = useTenant().brand.subjectPlural.toLowerCase();
   const sorted = useMemo(
     () => [...politicians].sort((a, b) => b.totals.followers - a.totals.followers),
     [politicians]
@@ -79,8 +81,10 @@ export function AccountsInterstitial({ politicians, onClose, onRefresh }: Props)
     onClose();
   }, [onRefresh, onClose]);
 
+  // Rows built from X (or merged per person) carry their own profile URLs;
+  // the first is the row's primary account.
   const openTikTok = useCallback((p: Politician) => {
-    Linking.openURL(tiktokUrl(p.handle));
+    Linking.openURL(p.platforms?.[0]?.url ?? tiktokUrl(p.handle));
   }, []);
 
   return (
@@ -101,7 +105,7 @@ export function AccountsInterstitial({ politicians, onClose, onRefresh }: Props)
           <View style={styles.headerLeft}>
             <Kicker style={{ letterSpacing: 1.2 }}>TRACKED ACCOUNTS</Kicker>
             <Title style={{ fontSize: 16, letterSpacing: -0.3 }}>
-              {sorted.length} politicians
+              {sorted.length} {subjectPlural}
             </Title>
           </View>
           <Pressable

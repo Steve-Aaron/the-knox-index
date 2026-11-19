@@ -84,8 +84,8 @@ export type PartyKey = keyof typeof party;
  */
 export const region = {
   europe:       { base: '#5B8DEF', glow: '#9CBCF7' },
-  northamerica: { base: '#FF9363', glow: '#FFBFA4' },
-  southamerica: { base: '#12B6CF', glow: '#5DE3F4' },
+  northamerica: { base: '#12B6CF', glow: '#5DE3F4' },
+  southamerica: { base: '#FF9363', glow: '#FFBFA4' },
   africa:       { base: '#FFD700', glow: '#FFE98A' },
   asia:         { base: '#E83C91', glow: '#F58FBF' },
   middleeast:   { base: '#9D02D7', glow: '#C86BEC' },

@@ -1,6 +1,5 @@
 import type { Politician, PostBenchmarks } from '@/data/types';
 import type { TimeRange } from '@/components/dashboard/TimeRangePicker';
-import type { GroupKey } from '@/theme/colors';
 
 /**
  * data/account/types.ts
@@ -56,23 +55,41 @@ export interface AccountProfile {
   lastPostAt:  string;
 }
 
-// ── Comparison ───────────────────────────────────────────────────────────────
+// ── Key stats ────────────────────────────────────────────────────────────────
 
-/** One row of the Comparison card: a slice of the main-page leaderboard. */
-export interface ComparisonRow {
-  /** 1-based leaderboard position. */
-  rank:           number;
-  /** Without the leading @. */
-  handle:         string;
-  name:           string;
-  partyLabel:     string;
-  groupKey:       GroupKey;
-  avatarInitials: string;
-  avatarUrl?:     string;
-  /** Knox Factor for the selected range, 0–100. */
-  knoxFactor:     number;
-  /** The account the page is about. */
-  isSelf:         boolean;
+export interface KeyStatRank {
+  id:    string;
+  /** Peer group the rank is computed in, e.g. 'Among accounts of the same type'. */
+  label: string;
+  /** Short tab name for the standings card, e.g. 'Party'. */
+  short: string;
+  rank:  number;
+  total: number;
+  /** The account and the accounts ranked just above and below it. */
+  neighbours: StandingRow[];
+}
+
+/** One row of a standings window. */
+export interface StandingRow {
+  rank:       number;
+  name:       string;
+  /** Account page slug. */
+  slug:       string;
+  avatarUrl?: string;
+  initials:   string;
+  groupKey:   string;
+  groupLabel: string;
+  knoxFactor: number;
+  isTarget:   boolean;
+}
+
+/** Followers gained over the period, TikTok and X added together. */
+export interface FollowerGrowth {
+  gained: number;
+  /** gained / start, 0..n. */
+  pct:    number;
+  /** First snapshot used, YYYY-MM-DD. */
+  since:  string;
 }
 
 // ── Period-scoped data ───────────────────────────────────────────────────────
@@ -94,29 +111,40 @@ export type RadarScores = Record<RadarAxisKey, number>;
 export type ContentDimension = 'type' | 'subjects' | 'styles';
 
 export interface ContentSlice {
-  key:     string;
-  label:   string;
-  posts:   number;
-  views:   number;
-  /** Share of total views, 0..1. */
-  share:   number;
-  /** Change in share vs the previous period, in percentage points. */
-  deltaPp: number;
+  key:      string;
+  label:    string;
+  /** Posts carrying this tag. */
+  posts:    number;
+  /** Total views of those posts (not split across their other tags). */
+  views:    number;
+  /** views / posts: how posts on this tag perform. */
+  avgViews: number;
+  /** Share of all tag uses in the period, 0..1: what the account posts about. */
+  share:    number;
+  /** Change in share vs the previous period, in percentage points. Null
+   *  when the previous period has nothing to compare with. */
+  deltaPp:  number | null;
 }
 
 export interface ContentBreakdown {
   totalPosts:         number;
+  /** Posts with at least one tag in this dimension. */
+  taggedPosts:        number;
+  /** Posts not tagged yet (left out of the shares). */
+  untaggedPosts:      number;
   avgViewsPerPost:    number;
   totalViews:         number;
   /** % change of total views vs the previous period. */
   totalViewsDeltaPct: number;
-  /** Sorted by views, descending. */
+  /** Sorted by share, descending. */
   slices:             ContentSlice[];
 }
 
 export interface AccountPost {
   id:             string;
   platform:       SocialPlatform;
+  /** Set on X posts: the tweet as the card draws it. */
+  tweet?:         import('@/data/types').TweetData;
   caption:        string;
   /** ISO date. */
   postDate:       string;
@@ -142,6 +170,8 @@ export interface AccountPost {
 
 export interface AccountPeriodData {
   kpis:    AccountKpis;
+  /** Null when there is no snapshot near the start of the period. */
+  followerGrowth: FollowerGrowth | null;
   /** One entry per platform shown on the radar. */
   radar:   Partial<Record<SocialPlatform, RadarScores>>;
   content: Record<ContentDimension, ContentBreakdown>;
@@ -153,14 +183,14 @@ export interface AccountPageData {
   /** Platforms with data, in display order. The platform filter shows only
    *  when there is more than one. */
   platforms: SocialPlatform[];
-  /** The account and its leaderboard neighbours for the range; empty when
-   *  the account did not post in the range (it is not on the leaderboard). */
-  comparison: ComparisonRow[];
+  keyStats: KeyStatRank[];
   period:   AccountPeriodData;
   /** Distribution of every tracked post — places one post in the dataset.
    *  null while loading or when /api/benchmarks fails. */
   postBenchmarks: PostBenchmarks | null;
+  /** Per platform, so an X post is compared with X posts. */
+  postBenchmarksByPlatform: Record<SocialPlatform, PostBenchmarks | null>;
 }
 
 /** GET /api/account-page response. */
-export type AccountPageApiResponse = Omit<AccountPageData, 'postBenchmarks'>;
+export type AccountPageApiResponse = Omit<AccountPageData, 'postBenchmarks' | 'postBenchmarksByPlatform'>;

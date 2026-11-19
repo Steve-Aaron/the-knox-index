@@ -15,8 +15,8 @@
  */
 
 import { Platform } from 'react-native';
-import { resolveTenant, tenantById, DEFAULT_TENANT, type TenantConfig } from '@/lib/tenants';
-import { readDevTenantOverride } from '@/lib/devTenant';
+import { tenantById, DEFAULT_TENANT, type TenantConfig } from '@/lib/tenants';
+import { currentIndex } from '@/lib/indexPaths';
 
 /**
  * Synchronous resolution. Safe at module scope and during render: on web the
@@ -25,12 +25,9 @@ import { readDevTenantOverride } from '@/lib/devTenant';
  */
 export function getTenant(): TenantConfig {
   if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location) {
-    // Dev convenience: ?tenant=world works alongside worldleaders.localhost,
-    // and sticks for the tab so client-side navigation keeps it (see
-    // lib/devTenant.ts, which also makes the API calls follow it).
-    const override = readDevTenantOverride();
-    if (override) return tenantById(override);
-    return resolveTenant(window.location.hostname);
+    // The path picks the index (/uk, /worldleaders); account pages use the
+    // tab's last index. lib/indexPaths.ts also makes the API calls follow it.
+    return currentIndex();
   }
 
   const envTenant = process.env.EXPO_PUBLIC_TENANT;

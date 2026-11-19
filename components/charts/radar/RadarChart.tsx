@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
-import Svg, { Text as SvgText } from 'react-native-svg';
+import Svg, { Rect, Text as SvgText } from 'react-native-svg';
 import { DevLabel } from '@/components/primitives/DevLabel';
 import { useInViewport } from '@/hooks/useInViewport';
 import { track } from '@/lib/analytics';
@@ -20,6 +20,10 @@ import { RadarShape } from './RadarShape';
  * several series for comparison, e.g. TikTok vs X. Dots work the same way:
  * hover enlarges one, press opens an overlay with that series' score on
  * that axis, ✕ closes it. Shapes grow out once the chart scrolls into view.
+ *
+ * Hover and press go through one transparent layer over the whole chart that
+ * picks the dot nearest the pointer, so a shape drawn on top never hides the
+ * dots of the one below. Dots that sit on top of each other open together.
  *
  * One job: draw N series on a shared set of axes.
  */
@@ -59,6 +63,10 @@ const LABEL_FONT_SIZE = 10;
 const LABEL_OFFSET = 18;
 /** Rough width of one uppercase glyph, as a share of the font size. Errs wide. */
 const GLYPH_WIDTH = 0.7;
+/** How close the pointer must be to a dot to hover or press it. */
+const HIT_RADIUS = 14;
+/** Dots closer than this are treated as one spot and open together. */
+const SAME_SPOT = 6;
 
 /**
  * Largest plot radius that keeps every axis label inside the square. Each
@@ -125,8 +133,55 @@ export function RadarChart<K extends string>({
     return null;
   };
 
-  const activeSeries = activeDot ? series.find(s => s.id === activeDot.seriesId) : undefined;
-  const activeAxis   = activeDot ? axes[activeDot.idx] : undefined;
+  /** The dot nearest (x, y) within HIT_RADIUS, across every series. */
+  const nearestDot = (x: number, y: number): DotRef | null => {
+    let best: DotRef | null = null;
+    let bestDist = HIT_RADIUS;
+    for (const s of shapes) {
+      s.points.forEach((p, idx) => {
+        const d = Math.hypot(p.x - x, p.y - y);
+        if (d <= bestDist) { best = { seriesId: s.id, idx }; bestDist = d; }
+      });
+    }
+    return best;
+  };
+
+  /** Pointer position inside the chart, from a web mouse event. */
+  const webPoint = (e: any): { x: number; y: number } | null => {
+    const svg = e?.currentTarget?.ownerSVGElement ?? e?.currentTarget;
+    if (!svg?.getBoundingClientRect) return null;
+    const r = svg.getBoundingClientRect();
+    return { x: e.clientX - r.left, y: e.clientY - r.top };
+  };
+
+  const hitProps = Platform.OS === 'web' ? {
+    onMouseMove: (e: any) => {
+      const pt = webPoint(e);
+      setHoverDot(pt ? nearestDot(pt.x, pt.y) : null);
+    },
+    onMouseLeave: () => setHoverDot(null),
+    // react-native-svg on web only passes presses through onPress: open the
+    // dot the pointer is already over
+    onPress: () => { if (hoverDot) openDot(hoverDot.seriesId, hoverDot.idx); },
+    style: { cursor: hoverDot ? 'pointer' : 'default' },
+  } : {
+    onPress: (e: any) => {
+      const dot = nearestDot(e.nativeEvent.locationX, e.nativeEvent.locationY);
+      if (dot) openDot(dot.seriesId, dot.idx);
+    },
+  };
+
+  const activeAxis = activeDot ? axes[activeDot.idx] : undefined;
+  // The pressed dot first, then any other series' dot sitting on the same spot
+  const activeGroup = useMemo(() => {
+    if (!activeDot) return [];
+    const at = shapes.find(s => s.id === activeDot.seriesId)?.points[activeDot.idx];
+    if (!at) return [];
+    return shapes
+      .filter(s => s.id === activeDot.seriesId
+        || Math.hypot(s.points[activeDot.idx].x - at.x, s.points[activeDot.idx].y - at.y) <= SAME_SPOT)
+      .sort((a, b) => Number(b.id === activeDot.seriesId) - Number(a.id === activeDot.seriesId));
+  }, [activeDot, shapes]);
 
   return (
     <View ref={viewRef} style={{ width: size, height: size }}>
@@ -165,17 +220,18 @@ export function RadarChart<K extends string>({
             delay={i * 120}
             play={seen}
             activeIdx={dotIdxFor(s.id)}
-            onDotPress={idx => openDot(s.id, idx)}
-            onDotHover={idx => setHoverDot(idx == null ? null : { seriesId: s.id, idx })}
           />
         ))}
+
+        {/* One hit layer for every series' dots, on top of all the shapes */}
+        <Rect x={0} y={0} width={size} height={size} fill="transparent" {...(hitProps as any)} />
       </Svg>
 
-      {activeSeries && activeAxis ? (
+      {activeGroup.length > 0 && activeAxis ? (
         <View style={styles.overlay}>
           <View style={styles.overlayHeader}>
             <Text style={styles.overlayKicker}>
-              {activeAxis.label}{activeSeries.label ? ` · ${activeSeries.label}` : ''}
+              {activeAxis.label}{activeGroup.length === 1 && activeGroup[0].label ? ` · ${activeGroup[0].label}` : ''}
             </Text>
             <Pressable
               onPress={() => setActiveDot(null)}
@@ -187,9 +243,11 @@ export function RadarChart<K extends string>({
             </Pressable>
           </View>
           <View style={styles.overlayBody}>
-            <Text style={[styles.value, { color: activeSeries.color }]}>
-              {Math.round(activeSeries.values[activeAxis.key] ?? 0)} / {maxValue}
-            </Text>
+            {activeGroup.map(s => (
+              <Text key={s.id} style={[styles.value, { color: s.color }]}>
+                {activeGroup.length > 1 && s.label ? `${s.label} ` : ''}{Math.round(s.values[activeAxis.key] ?? 0)} / {maxValue}
+              </Text>
+            ))}
             {activeAxis.desc ? <Text style={styles.desc}>{activeAxis.desc}</Text> : null}
           </View>
         </View>
