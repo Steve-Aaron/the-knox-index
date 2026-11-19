@@ -16,7 +16,8 @@
 
 import { sendEmail, emailShell, escHtml } from '@/lib/transactionalEmail';
 import { BRAND } from '@/brand/constants';
-import { SITE_ORIGIN, tenantHomeUrl, tenantFullName, type TenantConfig } from '@/lib/tenants';
+import { SITE_ORIGIN, tenantFullName, type TenantConfig } from '@/lib/tenants';
+import { createAccessToken } from '@/lib/accessLink';
 import { REGION_LABELS, type RegionKey } from '@/lib/regions';
 import type { AccessRecord } from '@/lib/tenantAccess';
 
@@ -113,10 +114,15 @@ export async function notifyDecision(
 
   const salutation = record.requesterName ? `Hi ${escHtml(record.requesterName)},` : 'Hi,';
   const approved   = status === 'approved';
+  // The button signs them straight in: waitlist sign-ups never confirmed
+  // their email, and this email is the proof the address is theirs.
+  const signInUrl = approved
+    ? `${SITE_ORIGIN}/login?tenant=${encodeURIComponent(tenant.id)}&access=${encodeURIComponent(createAccessToken(record.email, String(tenant.dashboardId)))}`
+    : '';
 
   const body = approved
     ? `<p style="margin:0 0 16px;">${salutation}</p>
-       <p style="margin:0 0 16px;">You now have access to <strong style="color:#F4F5FF;">${escHtml(tenantFullName(tenant))}</strong>. Sign in with <strong style="color:#F4F5FF;">${escHtml(record.email)}</strong> and the dashboard will open.</p>`
+       <p style="margin:0 0 16px;">You now have access to <strong style="color:#F4F5FF;">${escHtml(tenantFullName(tenant))}</strong>. The button below signs you in as <strong style="color:#F4F5FF;">${escHtml(record.email)}</strong> and opens the dashboard. It works for 30 days; after that, sign in from the site with this address.</p>`
     : `<p style="margin:0 0 16px;">${salutation}</p>
        <p style="margin:0 0 16px;">We are not able to grant access to <strong style="color:#F4F5FF;">${escHtml(tenantFullName(tenant))}</strong> for ${escHtml(record.email)} at the moment.</p>
        <p style="margin:0;">If you think that is a mistake, reply to this email and we will take another look.</p>`;
@@ -131,10 +137,10 @@ export async function notifyDecision(
       kicker: KICKER,
       title:  approved ? 'You are in' : 'Access not granted',
       body,
-      cta:    approved ? { label: `Open ${tenant.brand.nameShort}`, url: tenantHomeUrl(tenant) } : undefined,
+      cta:    approved ? { label: `Open ${tenant.brand.nameShort}`, url: signInUrl } : undefined,
     }),
     textContent: approved
-      ? `You now have access to ${tenantFullName(tenant)}. Sign in with ${record.email}: ${tenantHomeUrl(tenant)}`
+      ? `You now have access to ${tenantFullName(tenant)}. Open this link to sign in as ${record.email}: ${signInUrl}`
       : `We are not able to grant access to ${tenantFullName(tenant)} for ${record.email} at the moment. Reply to this email if you think that is a mistake.`,
   });
 }

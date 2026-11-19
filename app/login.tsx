@@ -7,6 +7,7 @@ import { GoogleSignInButton } from '@/components/primitives/GoogleSignInButton';
 import { LabeledInput } from '@/components/primitives/LabeledInput';
 import { PrimaryButton } from '@/components/primitives/PrimaryButton';
 import { useMagicLinkCompletion } from '@/hooks/useMagicLinkCompletion';
+import { useAccessLinkSignIn } from '@/hooks/useAccessLinkSignIn';
 import { useRegisteredFlag } from '@/hooks/useRegisteredFlag';
 import { neutral, glass } from '@/theme/colors';
 import { spacing } from '@/theme/spacing';
@@ -62,7 +63,12 @@ function CrossDeviceEmailPrompt({ onSubmit }: { onSubmit: (email: string) => voi
 }
 
 export default function LoginScreen() {
-  const { status, error, submitEmail } = useMagicLinkCompletion();
+  const magic  = useMagicLinkCompletion();
+  // Waitlist approval emails land here with ?access=… (one click, no code).
+  const access = useAccessLinkSignIn();
+  const { submitEmail } = magic;
+  const status = access.status !== 'idle' ? access.status : magic.status;
+  const error  = access.status === 'error' ? access.error : magic.error;
   const isRegistered = useRegisteredFlag();
 
   // Session cookie is set: land on the index they signed in from, fully signed

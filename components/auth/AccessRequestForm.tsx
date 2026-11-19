@@ -16,8 +16,9 @@ import { track } from '@/lib/analytics';
  * to a gated dashboard. The answers land on their `tenant_access` row, so the
  * admin panel shows who is asking and why rather than a bare address.
  *
- * Name and reason are required — they are what makes a request decidable.
- * Everything else is optional and improves the decision.
+ * On a gated index, name and reason are required: they make a request
+ * decidable. On a waitlist index (requireDetails false) only an email is
+ * needed, and a visitor who is not signed in types it here.
  *
  * One job: collect and submit the access request.
  */
@@ -39,15 +40,22 @@ const REFERRAL_OPTIONS = [
 ] as const;
 
 interface Props {
-  /** The signed-in address the request will be recorded against. */
+  /** The signed-in address; null shows an email field instead. */
   email:        string | null;
   /** Name of the dashboard being requested, for the copy. */
   tenantName:   string;
-  /** Called after a successful submission so the gate can re-check access. */
-  onSubmitted:  () => void | Promise<void>;
+  /** Name and reason required (default). False on a waitlist: email only. */
+  requireDetails?: boolean;
+  submitLabel?: string;
+  /** Called after a successful submission with the address recorded and the
+   *  server's status ('received', 'pending', 'signin' for a Knox address…). */
+  onSubmitted:  (email: string, status: string) => void | Promise<void>;
 }
 
-export function AccessRequestForm({ email, tenantName, onSubmitted }: Props) {
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+export function AccessRequestForm({ email, tenantName, requireDetails = true, submitLabel = 'Request access', onSubmitted }: Props) {
+  const [typedEmail, setTypedEmail] = useState('');
   const [name,     setName]     = useState('');
   const [org,      setOrg]      = useState('');
   const [role,     setRole]     = useState('');
@@ -58,9 +66,12 @@ export function AccessRequestForm({ email, tenantName, onSubmitted }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [error,      setError]      = useState<string | null>(null);
 
+  const address   = (email ?? typedEmail).trim().toLowerCase();
   const canSubmit = useMemo(
-    () => name.trim().length > 1 && reason.trim().length > 4 && !submitting,
-    [name, reason, submitting],
+    () => !submitting
+      && EMAIL_RE.test(address)
+      && (!requireDetails || (name.trim().length > 1 && reason.trim().length > 4)),
+    [address, name, reason, requireDetails, submitting],
   );
 
   const toggleArea = useCallback((key: RegionKey) => {
@@ -78,6 +89,7 @@ export function AccessRequestForm({ email, tenantName, onSubmitted }: Props) {
         credentials: 'same-origin',
         headers:     { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          email:          address,
           name:           name.trim(),
           organisation:   org.trim(),
           role:           role.trim(),
@@ -97,14 +109,15 @@ export function AccessRequestForm({ email, tenantName, onSubmitted }: Props) {
         organisation: org.trim() || null,
         area_count:   areas.length,
         referral:     referral ?? null,
+        signed_in:    !!email,
       });
-      await onSubmitted();
+      await onSubmitted(data?.email ?? address, String(data?.status ?? 'received'));
     } catch {
       setError('We could not reach the server. Please retry.');
     } finally {
       setSubmitting(false);
     }
-  }, [canSubmit, name, org, role, reason, areas, referral, onSubmitted]);
+  }, [canSubmit, address, email, name, org, role, reason, areas, referral, onSubmitted]);
 
   return (
     <View style={styles.wrap}>
@@ -112,12 +125,20 @@ export function AccessRequestForm({ email, tenantName, onSubmitted }: Props) {
 
       {email ? (
         <Text style={styles.note}>
-          Recorded against <Text style={styles.noteStrong}>{email}</Text>. Sign in with this address once approved.
+          Recorded against <Text style={styles.noteStrong}>{email}</Text>.
         </Text>
-      ) : null}
+      ) : (
+        <LabeledInput
+          label="Email"
+          value={typedEmail}
+          onChange={setTypedEmail}
+          placeholder="you@example.com"
+          inputProps={{ autoCapitalize: 'none', keyboardType: 'email-address', autoComplete: 'email' } as any}
+        />
+      )}
 
       <LabeledInput
-        label="Your name"
+        label={requireDetails ? 'Your name' : 'Your name (optional)'}
         value={name}
         onChange={setName}
         placeholder="Jane Okafor"
@@ -141,7 +162,7 @@ export function AccessRequestForm({ email, tenantName, onSubmitted }: Props) {
       {/* Reason — multiline, so it gets its own field rather than LabeledInput's
           single-line input. */}
       <View style={styles.field}>
-        <Text style={styles.label}>Why do you need access?</Text>
+        <Text style={styles.label}>{requireDetails ? 'Why do you need access?' : 'Why do you need access? (optional)'}</Text>
         <TextInput
           value={reason}
           onChangeText={setReason}
@@ -208,7 +229,7 @@ export function AccessRequestForm({ email, tenantName, onSubmitted }: Props) {
       </View>
 
       <PrimaryButton
-        label={submitting ? 'Sending…' : 'Request access'}
+        label={submitting ? 'Sending…' : submitLabel}
         onPress={() => { void submit(); }}
         disabled={!canSubmit}
         style={styles.submit}

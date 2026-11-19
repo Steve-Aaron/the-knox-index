@@ -31,6 +31,7 @@ import { StickyUnlock } from '@/components/auth/StickyUnlock';
 import { TenantGate } from '@/components/auth/TenantGate';
 import { LockedInsights } from '@/components/dashboard/LockedInsights';
 import { useTenantAccess } from '@/hooks/useTenantAccess';
+import { useWaitlistJoined } from '@/hooks/useWaitlistJoined';
 import { HeaderNav } from '@/components/primitives/HeaderNav';
 import { PageContainer } from '@/components/primitives/PageContainer';
 import { SquareButton } from '@/components/primitives/SquareButton';
@@ -270,10 +271,20 @@ function DashboardScreenInner() {
   const access        = useTenantAccess();
   const isWaitlist    = tenant.access.mode === 'waitlist';
   const hasFullAccess = isWaitlist ? access.allowed : isRegistered;
+  // Waitlist sign-ups give an email on the site and never sign in until the
+  // approval email does it for them, so this browser remembers that they asked.
+  const { joinedEmail, markJoined } = useWaitlistJoined(tenant.id);
   const waitlist      = isWaitlist
-    ? { reason: access.reason, tenantName: tenant.brand.nameShort, onJoined: access.refresh }
+    ? {
+        reason:      access.reason,
+        tenantName:  tenant.brand.nameShort,
+        joinedEmail: isRegistered ? null : joinedEmail,
+        onJoined:    (email: string | null) => { if (email && !isRegistered) markJoined(email); return access.refresh(); },
+      }
     : null;
-  const onWaitlist    = isWaitlist && isRegistered && (access.reason === 'pending' || access.reason === 'denied');
+  const onWaitlist    = isWaitlist && !hasFullAccess && (
+    isRegistered ? (access.reason === 'pending' || access.reason === 'denied') : !!joinedEmail
+  );
   // Bumped to open the sign-up / waitlist modal from locked panels
   const [unlockSignal, setUnlockSignal] = useState(0);
   const openUnlock = () => setUnlockSignal(n => n + 1);

@@ -4,10 +4,9 @@
  * The client's view of its own access to the current tenant.
  *
  * GET  /api/tenant/access  → { tenant, mode, email, allowed, reason }
- * POST /api/tenant/access  → records a pending access request for the
- *                            signed-in user from the request form, emails
- *                            Knox and the requester, then returns the same
- *                            shape as GET
+ * POST /api/tenant/access  → records a pending access request and alerts
+ *                            Knox. On a waitlist index a visitor needs no
+ *                            sign-in, only an email (see POST below)
  *
  * Never 401s: the gate UI needs to know WHY it is locked in order to show the
  * right screen (sign in / awaiting approval / refused), so the state is always
@@ -17,8 +16,8 @@
 import { verifySession } from '@/lib/firebaseAdmin';
 import { devSessionEmail, previewFullAccess } from '@/lib/devIdentity';
 import { tenantFromRequest } from '@/lib/tenantRequest';
-import { tenantFullName } from '@/lib/tenants';
-import { decideAccess, requestAccess, getAccessRecord, type AccessRequestDetails } from '@/lib/tenantAccess';
+import { isAllowedDomain, tenantFullName } from '@/lib/tenants';
+import { decideAccess, requestAccess, getAccessRecord, getAccessStatus, type AccessRequestDetails } from '@/lib/tenantAccess';
 import { notifyKnoxOfRequest, confirmRequestToRequester } from '@/lib/accessEmails';
 import { REGION_KEYS } from '@/lib/regions';
 import { safeErrorDetail } from '@/lib/errors';
@@ -88,40 +87,61 @@ function readDetails(body: any): AccessRequestDetails {
   };
 }
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/**
+ * POST — join the waitlist / ask for access.
+ *
+ * Waitlist index (World Leaders): no sign-in needed. The visitor gives an
+ * email (plus optional details); we store a pending row and alert Knox. They
+ * hear nothing more until Knox decides; the approval email signs them in
+ * (lib/accessLink.ts). The reply never says whether an address was already
+ * approved or refused, so the form cannot be used to look people up.
+ *
+ * Authenticated index: the signed-in address only, with name and reason
+ * required, as before.
+ */
 export async function POST(request: Request): Promise<Response> {
   const tenant = tenantFromRequest(request);
+  const base   = { dashboardId: tenant.dashboardId, tenant: tenant.id };
 
   if (tenant.access.mode === 'public') {
-    return Response.json({ dashboardId: tenant.dashboardId, tenant: tenant.id, allowed: true, reason: 'public' }, { headers: NO_STORE });
-  }
-
-  const email = await currentEmail(request);
-  if (!email) {
-    return Response.json(
-      { dashboardId: tenant.dashboardId, tenant: tenant.id, allowed: false, reason: 'unauthenticated' },
-      { status: 401, headers: NO_STORE },
-    );
+    return Response.json({ ...base, allowed: true, reason: 'public' }, { headers: NO_STORE });
   }
 
   let body: any = {};
   try { body = await request.json(); } catch { /* an empty body is still a valid request */ }
 
-  // Someone who is already in has nothing to request. Domain-allowed staff can
-  // reach this endpoint (a stale tab, a direct POST), and writing them a
-  // pending row would put a request in the admin queue that nobody can action
-  // and that says nothing about their access.
-  const existing = await decideAccess(email, tenant);
-  if (existing.allowed) {
-    return Response.json(
-      { dashboardId: tenant.dashboardId, tenant: tenant.id, email, status: 'approved', allowed: true, reason: existing.reason },
-      { headers: NO_STORE },
-    );
+  const isWaitlist   = tenant.access.mode === 'waitlist';
+  const sessionEmail = await currentEmail(request);
+  const typedEmail   = String(body?.email ?? '').trim().toLowerCase();
+  const email        = sessionEmail ?? (isWaitlist && EMAIL_RE.test(typedEmail) ? typedEmail : null);
+
+  if (!email) {
+    return isWaitlist
+      ? Response.json({ error: 'Enter a valid email address', field: 'email' }, { status: 400, headers: NO_STORE })
+      : Response.json({ ...base, allowed: false, reason: 'unauthenticated' }, { status: 401, headers: NO_STORE });
+  }
+
+  // Knox addresses are let in by domain: they only need to sign in.
+  if (isAllowedDomain(email, tenant)) {
+    return Response.json({ ...base, status: 'signin' }, { headers: NO_STORE });
+  }
+
+  // A signed-in person who is already in has nothing to request (a stale tab,
+  // a direct POST). Only said to the signed-in owner of the address.
+  if (sessionEmail) {
+    const existing = await decideAccess(email, tenant);
+    if (existing.allowed) {
+      return Response.json({ ...base, email, status: 'approved', allowed: true, reason: existing.reason }, { headers: NO_STORE });
+    }
   }
 
   const details = readDetails(body);
 
-  // Name and reason are what make a request reviewable; the rest is optional.
-  if (!details.requesterName || !details.reason) {
+  // On a gated index, name and reason are what make a request reviewable.
+  // The waitlist asks for an email only; the rest is optional.
+  if (!isWaitlist && (!details.requesterName || !details.reason)) {
     return Response.json(
       { error: 'Your name and a reason for access are required', field: !details.requesterName ? 'name' : 'reason' },
       { status: 400, headers: NO_STORE },
@@ -129,23 +149,36 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   try {
-    const status   = await requestAccess(email, tenant, details);
-    const decision = await decideAccess(email, tenant);
+    const before = await getAccessStatus(email, tenant);
+    // A guest can only add a new request. Typing someone else's address must
+    // not overwrite the details on their waiting request.
+    const status = sessionEmail || before === 'none'
+      ? await requestAccess(email, tenant, details)
+      : before;
 
-    // Emails are best-effort and must not fail the submission — the row is
-    // already stored, and it is what the admin panel reads.
-    if (status === 'pending') {
+    // Alert Knox once per new request, not on every resubmission.
+    // Best-effort: the row is stored, and it is what the admin panel reads.
+    if (status === 'pending' && before === 'none') {
       const record = await getAccessRecord(email, tenant);
       if (record) {
-        await Promise.allSettled([
-          notifyKnoxOfRequest(record, tenant),
-          confirmRequestToRequester(record, tenant),
-        ]);
+        const sends = [notifyKnoxOfRequest(record, tenant)];
+        // The gated index also acknowledges; the waitlist stays quiet until
+        // the decision, which is the email that matters.
+        if (!isWaitlist) sends.push(confirmRequestToRequester(record, tenant));
+        const results = await Promise.allSettled(sends);
+        results.forEach(r => {
+          if (r.status === 'rejected') console.error('[/api/tenant/access] email failed:', r.reason?.message ?? r.reason);
+        });
       }
     }
 
+    if (!sessionEmail) {
+      // Guests learn only that the request was received.
+      return Response.json({ ...base, email, status: 'received' }, { headers: NO_STORE });
+    }
+    const decision = await decideAccess(email, tenant);
     return Response.json(
-      { dashboardId: tenant.dashboardId, tenant: tenant.id, email, status, allowed: decision.allowed, reason: decision.reason },
+      { ...base, email, status, allowed: decision.allowed, reason: decision.reason },
       { headers: NO_STORE },
     );
   } catch (err: unknown) {

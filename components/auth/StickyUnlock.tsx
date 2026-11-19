@@ -78,8 +78,10 @@ export interface WaitlistState {
   reason:     AccessReason;
   /** Short index name for the copy, e.g. 'World Leaders'. */
   tenantName: string;
-  /** Re-reads access after the waitlist form is sent. */
-  onJoined:   () => void | Promise<void>;
+  /** The address this browser joined with, when the visitor is signed out. */
+  joinedEmail: string | null;
+  /** Remembers the join and re-reads access after the waitlist form is sent. */
+  onJoined:   (email: string | null) => void | Promise<void>;
 }
 
 interface Props {
@@ -154,11 +156,14 @@ export function StickyUnlock({ showBar, isRegistered, email, waitlist = null, op
     return () => clearTimeout(timer);
   }, [isRegistered, waitlistReason]);
 
-  // Signed out → the sign-in modal. Signed in on a waitlist index without a
-  // request yet → the waitlist form. Already waiting → nothing to open.
+  // The Knox Index: the sign-up modal. Waitlist index: the waitlist form,
+  // signed in or not. Already waiting → nothing to open.
+  // Waitlist index: signed out → the waitlist form (an email is enough, no
+  // sign-in), unless this browser has already joined.
   const openModal = useCallback(() => {
-    if (!waitlist || !isRegistered) { setModal('unlock'); return; }
-    if (waitlist.reason === 'none') setModal('waitlist');
+    if (!waitlist) { setModal('unlock'); return; }
+    if (isRegistered) { if (waitlist.reason === 'none') setModal('waitlist'); return; }
+    if (!waitlist.joinedEmail) setModal('waitlist');
   }, [waitlist, isRegistered]);
 
   // The parent bumps openSignal from locked panels and the range interstitial
@@ -459,6 +464,15 @@ function barCopy(waitlist: WaitlistState | null, signedIn: boolean): BarCopy {
     };
   }
   const login = 'Already approved? Log in';
+  if (!signedIn && waitlist.joinedEmail) {
+    return {
+      kicker:   'ON THE WAITLIST',
+      headline: "You're on the waitlist",
+      copy:     `We'll email ${waitlist.joinedEmail} as soon as your access is approved.`,
+      button:   null,
+      login,
+    };
+  }
   if (!signedIn) {
     return {
       kicker:   'JOIN THE WAITLIST',
@@ -498,23 +512,27 @@ function barCopy(waitlist: WaitlistState | null, signedIn: boolean): BarCopy {
 // ── Waitlist modal ────────────────────────────────────────────────────────────
 
 interface WaitlistModalProps {
+  /** The signed-in address; null for a visitor, who types one in the form. */
   email:      string | null;
   tenantName: string;
   onClose:    () => void;
-  onJoined:   () => void | Promise<void>;
+  onJoined:   (email: string | null) => void | Promise<void>;
 }
 
 function WaitlistModal({ email, tenantName, onClose, onJoined }: WaitlistModalProps) {
-  const [joined, setJoined] = useState(false);
+  // The address the request was recorded against, once sent. 'signin' when it
+  // is a Knox address, which needs no approval, only a sign-in.
+  const [joined, setJoined] = useState<{ email: string; status: string } | null>(null);
   const { height } = useWindowDimensions();
 
   useEffect(() => { track('waitlist_modal_opened'); }, []);
 
-  const handleSubmitted = useCallback(async () => {
-    track('waitlist_joined');
-    setJoined(true);
-    await onJoined();
-  }, [onJoined]);
+  const handleSubmitted = useCallback(async (joinedEmail: string, status: string) => {
+    setJoined({ email: joinedEmail, status });
+    if (status === 'signin') return;
+    track('waitlist_joined', { signed_in: !!email });
+    await onJoined(joinedEmail);
+  }, [onJoined, email]);
 
   return (
     <Modal transparent animationType="fade" onRequestClose={onClose}>
@@ -537,14 +555,27 @@ function WaitlistModal({ email, tenantName, onClose, onJoined }: WaitlistModalPr
             style={styles.accentLine}
           />
 
-          {joined ? (
+          {joined?.status === 'signin' ? (
+            <View style={styles.sentWrap}>
+              <Text style={styles.sentTitle}>Knox addresses get straight in</Text>
+              <Text style={styles.sentCopy}>
+                {joined.email} doesn't need approval. Sign in with it to open the full dashboard.
+              </Text>
+              <Pressable
+                onPress={() => { onClose(); router.push('/login'); }}
+                style={({ pressed }) => [styles.closeBtn, pressed && { opacity: 0.75 }]}
+              >
+                <Text style={styles.closeBtnText}>Sign in</Text>
+              </Pressable>
+            </View>
+          ) : joined ? (
             <View style={styles.sentWrap}>
               <View style={styles.sentIconWrap}>
                 <FontAwesome6 name="circle-check" size={36} color={accent.mint} solid />
               </View>
               <Text style={styles.sentTitle}>You're on the waitlist</Text>
               <Text style={styles.sentCopy}>
-                We've emailed you a confirmation and will be in touch once your request has been reviewed.
+                The Knox team reviews every request. We'll email {joined.email} as soon as you're approved, and the link in that email signs you straight in.
               </Text>
               <Pressable
                 onPress={onClose}
@@ -559,9 +590,15 @@ function WaitlistModal({ email, tenantName, onClose, onJoined }: WaitlistModalPr
               <Text style={styles.modalKicker}>Waitlist</Text>
               <Text style={styles.modalTitle}>Join the {tenantName} waitlist</Text>
               <Text style={styles.modalCopy}>
-                Full access is approved by the Knox team. Tell us a little about yourself and what you're looking for, and we'll email you when you're in.
+                Full access is approved by the Knox team. Leave your email and we'll let you know when you're in. Telling us a little about yourself helps us review it.
               </Text>
-              <AccessRequestForm email={email} tenantName={tenantName} onSubmitted={handleSubmitted} />
+              <AccessRequestForm
+                email={email}
+                tenantName={tenantName}
+                requireDetails={false}
+                submitLabel="Join the waitlist"
+                onSubmitted={handleSubmitted}
+              />
             </ScrollView>
           )}
         </MotiView>
