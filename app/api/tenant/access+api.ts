@@ -23,6 +23,7 @@ import { REGION_KEYS } from '@/lib/regions';
 import { safeErrorDetail } from '@/lib/errors';
 import { readProfileAnswers, saveProfileToBrevo, type ProfileAnswers } from '@/lib/brevoProfile';
 import { segmentLabel, interestLabels } from '@/data/profileOptions';
+import { addToIndexList } from '@/lib/brevoIndexList';
 
 const NO_STORE = { 'Cache-Control': 'no-store' };
 
@@ -179,13 +180,15 @@ export async function POST(request: Request): Promise<Response> {
 
     // Alert Knox once per new request, not on every resubmission.
     // Best-effort: the row is stored, and it is what the admin panel reads.
-    // Into Brevo like a UK sign-up, with the consents they ticked. Only for a
-    // new request (or the signed-in owner), so typing someone else's address
-    // cannot change their Brevo record. The waitlist form has no briefing
-    // option, so briefing lists are left alone.
+    // Into Brevo like a UK sign-up, with the consents they ticked, then into
+    // the 'Knox Index World Leaders' list, which is what marks them as World
+    // Leaders. No SOURCE, so an existing UK contact is not relabelled. Only
+    // for a new request (or the signed-in owner), so typing someone else's
+    // address cannot change their Brevo record. Briefing lists are left alone.
     if (profile && (sessionEmail || before === 'none')) {
-      const saved = await saveProfileToBrevo(email, profile, { includeBriefing: false, source: 'World Leaders waitlist' });
+      const saved = await saveProfileToBrevo(email, profile, { includeBriefing: false });
       if (!saved.ok) console.error('[/api/tenant/access] Brevo save failed', saved.status, saved.detail ?? '');
+      else await addToIndexList(email, tenant);
     }
 
     if (status === 'pending' && before === 'none') {
