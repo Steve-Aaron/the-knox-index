@@ -140,6 +140,18 @@ export const trend = {
 } as const;
 
 /**
+ * Verdict colours for good / borderline / bad readings (the reach flag).
+ * Distinct hues on purpose: accent.mint and accent.amber are both brand
+ * oranges, which cannot tell a healthy reading from a warning.
+ * Green and red match the trend arrows and negative deltas.
+ */
+export const status = {
+  good: trend.up,
+  warn: '#F2B437',
+  bad:  trend.downPp,
+} as const;
+
+/**
  * Knox 2.0 secondary palette.
  * Lower-saturation accent colours — used individually paired with primaries.
  * Never use these together; pick one per theme/topic.

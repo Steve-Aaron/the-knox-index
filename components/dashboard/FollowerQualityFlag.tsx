@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { InfoTip } from '@/components/primitives/InfoTip';
 import { DevLabel } from '@/components/primitives/DevLabel';
-import { neutral, accent } from '@/theme/colors';
+import { neutral, status } from '@/theme/colors';
 import { spacing, radius } from '@/theme/spacing';
 import { type, font } from '@/theme/typography';
 import type { Politician } from '@/data/types';
@@ -125,9 +125,9 @@ export function FollowerQualityFlag({ politician, posts }: Props) {
     <View style={styles.stack}>
       <DevLabel name="FollowerQualityFlag" />
       {rows.map(row => {
-        const tint = row.tone === 'red' ? '#ff7a7a'
-                   : row.tone === 'amber' ? accent.amber
-                   : row.tone === 'green' ? accent.mint
+        const tint = row.tone === 'red' ? status.bad
+                   : row.tone === 'amber' ? status.warn
+                   : row.tone === 'green' ? status.good
                    : neutral.textDim;
         return (
           <View key={row.platform} style={[styles.wrap, { borderColor: tint + '55', backgroundColor: tint + '12' }]}>
