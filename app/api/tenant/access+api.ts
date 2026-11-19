@@ -21,6 +21,8 @@ import { decideAccess, requestAccess, getAccessRecord, getAccessStatus, type Acc
 import { notifyKnoxOfRequest, confirmRequestToRequester, emailOrigin } from '@/lib/accessEmails';
 import { REGION_KEYS } from '@/lib/regions';
 import { safeErrorDetail } from '@/lib/errors';
+import { readProfileAnswers, saveProfileToBrevo, type ProfileAnswers } from '@/lib/brevoProfile';
+import { segmentLabel, interestLabels } from '@/data/profileOptions';
 
 const NO_STORE = { 'Cache-Control': 'no-store' };
 
@@ -73,6 +75,23 @@ function cleanAreasOfInterest(raw: unknown): string[] {
   if (!Array.isArray(raw)) return [];
   const allowed = new Set<string>(REGION_KEYS as readonly string[]);
   return raw.map(r => String(r)).filter(r => allowed.has(r)).slice(0, 8);
+}
+
+/**
+ * The World Leaders waitlist uses the UK profile form ('Help us tailor your
+ * experience'). Its answers go into the existing tenant_access columns so the
+ * admin panel can show them, with no schema change:
+ *   requesterName ← first + last name   organisation ← company
+ *   jobRole       ← 'Who are you?'      reason       ← 'What do you want to do?' + LinkedIn
+ */
+function detailsFromProfile(a: ProfileAnswers): AccessRequestDetails {
+  const wants = a.interests.length ? `Wants to: ${interestLabels(a.interests)}` : '';
+  return {
+    requesterName: [a.firstName, a.lastName].filter(Boolean).join(' ').slice(0, 128),
+    organisation:  a.company,
+    jobRole:       a.segment ? segmentLabel(a.segment).slice(0, 128) : '',
+    reason:        [wants, a.linkedin ? `LinkedIn: ${a.linkedin}` : ''].filter(Boolean).join('\n').slice(0, 1000),
+  };
 }
 
 function readDetails(body: any): AccessRequestDetails {
@@ -137,7 +156,9 @@ export async function POST(request: Request): Promise<Response> {
     }
   }
 
-  const details = readDetails(body);
+  // The waitlist sends the UK profile form; the gated index its own form.
+  const profile = isWaitlist ? readProfileAnswers(body) : null;
+  const details = profile ? detailsFromProfile(profile) : readDetails(body);
 
   // On a gated index, name and reason are what make a request reviewable.
   // The waitlist asks for an email only; the rest is optional.
@@ -158,6 +179,15 @@ export async function POST(request: Request): Promise<Response> {
 
     // Alert Knox once per new request, not on every resubmission.
     // Best-effort: the row is stored, and it is what the admin panel reads.
+    // Into Brevo like a UK sign-up, with the consents they ticked. Only for a
+    // new request (or the signed-in owner), so typing someone else's address
+    // cannot change their Brevo record. The waitlist form has no briefing
+    // option, so briefing lists are left alone.
+    if (profile && (sessionEmail || before === 'none')) {
+      const saved = await saveProfileToBrevo(email, profile, { includeBriefing: false, source: 'World Leaders waitlist' });
+      if (!saved.ok) console.error('[/api/tenant/access] Brevo save failed', saved.status, saved.detail ?? '');
+    }
+
     if (status === 'pending' && before === 'none') {
       const record = await getAccessRecord(email, tenant);
       if (record) {

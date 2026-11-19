@@ -32,7 +32,7 @@
  */
 
 import { verifySession, markProfiled } from '@/lib/firebaseAdmin';
-import { upsertWithConsent, type BrevoValue } from '@/lib/brevo';
+import { readProfileAnswers, saveProfileToBrevo } from '@/lib/brevoProfile';
 
 const BREVO_API_KEY = process.env.BREVO_API_KEY ?? '';
 
@@ -54,57 +54,8 @@ export async function POST(request: Request): Promise<Response> {
     return Response.json({ error: 'Invalid JSON' }, { status: 400 });
   }
 
-  const firstName: string = String(body?.firstName ?? '').trim().slice(0, 64);
-  const lastName:  string = String(body?.lastName  ?? '').trim().slice(0, 64);
-  const company:   string = String(body?.company   ?? '').trim().slice(0, 128);
-  const linkedin:  string = String(body?.linkedin  ?? '').trim().slice(0, 256);
-  const segment:   string = String(body?.segment   ?? '').slice(0, 64);
-
-  // WHY_USE_KNOX_INDEX: send as string[] to match Brevo multiple-choice options
-  const interests: string[] = Array.isArray(body?.interests)
-    ? body.interests.map((x: any) => String(x).slice(0, 64)).slice(0, 10)
-    : [];
-
-  const consentKnoxUpdates:    boolean = !!body?.consentKnoxUpdates;
-  const consentKnoxDigital:    boolean = !!body?.consentKnoxDigital;
-  // Briefing frequency is mutually exclusive — coerce defensively so a
-  // malformed client request can never put a user on both lists. If both
-  // booleans come in true, daily wins (matches FrequencyPicker's tiebreak).
-  let consentDailyBriefing:  boolean = !!body?.consentDailyBriefing;
-  let consentWeeklyBriefing: boolean = !!body?.consentWeeklyBriefing;
-  if (consentDailyBriefing && consentWeeklyBriefing) {
-    consentWeeklyBriefing = false;
-  }
-
-  const attributes: Record<string, BrevoValue> = {};
-  if (firstName)        attributes.FIRSTNAME              = firstName;
-  if (lastName)         attributes.LASTNAME               = lastName;
-  if (company)          attributes.COMPANY                = company;
-  if (linkedin)         attributes.LINKEDIN               = linkedin;
-  if (segment)          attributes.JOB_ROLE               = segment;
-  if (interests.length) attributes.WHY_USE_KNOX_INDEX     = interests;
-
-  // Always write consent flags — even false is meaningful. These mirror
-  // Brevo list membership (lists #4 / #7 / #8 / #9) which is the source
-  // of truth.
-  attributes.CONSENT_KNOX_INDEX_UPDATES = consentKnoxUpdates;
-  attributes.CONSENT_DAILY_BRIEFING     = consentDailyBriefing;
-  attributes.CONSENT_WEEKLY_BRIEFING    = consentWeeklyBriefing;
-  attributes.CONSENT_KNOX_DIGITAL       = consentKnoxDigital;
-
-  const result = await upsertWithConsent(
-    email,
-    attributes,
-    {
-      CONSENT_DAILY_BRIEFING:     consentDailyBriefing,
-      CONSENT_WEEKLY_BRIEFING:    consentWeeklyBriefing,
-      CONSENT_KNOX_INDEX_UPDATES: consentKnoxUpdates,
-      CONSENT_KNOX_DIGITAL:       consentKnoxDigital,
-    },
-  ).catch(e => {
-    console.error('[/api/preferences] Brevo error', e);
-    return { ok: false, status: 500 };
-  });
+  // Same parsing and Brevo write as the World Leaders waitlist (lib/brevoProfile.ts).
+  const result = await saveProfileToBrevo(email, readProfileAnswers(body), { includeBriefing: true });
 
   if (!result.ok) {
     console.error('[/api/preferences] Brevo responded', result.status);

@@ -89,7 +89,8 @@ export function AccessRequestCard({ record: r, actions, busy }: Props) {
         </View>
       </View>
 
-      {r.reason ? <Text style={styles.reason}>“{r.reason}”</Text> : null}
+      {/* 'Wants to: …' and LinkedIn from the waitlist form (older requests: a free-text reason) */}
+      {r.reason ? <Text style={styles.reason} selectable>{r.reason}</Text> : null}
 
       <View style={styles.meta}>
         {details.filter(([, v]) => v).map(([label, value]) => (

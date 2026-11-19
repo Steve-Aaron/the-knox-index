@@ -25,7 +25,7 @@ import { track } from '@/lib/analytics';
 import { requestMagicLink } from '@/lib/requestMagicLink';
 import { AuthToast } from '@/components/auth/AuthToast';
 import { onAuthChanged } from '@/lib/authEvents';
-import { SEGMENTS, INTERESTS } from '@/data/profileOptions';
+import { SEGMENTS, interestsFor } from '@/data/profileOptions';
 import { DevLabel } from '@/components/primitives/DevLabel';
 import { FrequencyPicker } from '@/components/primitives/FrequencyPicker';
 import { LinkedinInput } from '@/components/primitives/LinkedinInput';
@@ -35,7 +35,6 @@ import { SelectableCard } from '@/components/primitives/SelectableCard';
 import { LabeledInput } from '@/components/primitives/LabeledInput';
 import { PrimaryButton } from '@/components/primitives/PrimaryButton';
 import { GoogleSignInButton } from '@/components/primitives/GoogleSignInButton';
-import { AccessRequestForm } from '@/components/auth/AccessRequestForm';
 import type { AccessReason } from '@/hooks/useTenantAccess';
 
 /**
@@ -59,10 +58,11 @@ import type { AccessReason } from '@/hooks/useTenantAccess';
  *   and comms consent. Submits to /api/preferences → Brevo.
  *
  * Waitlist indexes (World Leaders) — `waitlist` is set
- *   Signing up does not unlock anything. The bar and modal invite people to
- *   join the waitlist; once signed in, the waitlist modal collects who they
- *   are (AccessRequestForm → a pending tenant_access row) and Knox approves
- *   it by hand in the admin panel. The profiling modal is skipped there.
+ *   Joining does not unlock anything. The bar opens the SAME profiling form
+ *   as The Knox Index, in one step with an email field and without the
+ *   UK-only parts (briefing, UK-only interests). It posts to
+ *   /api/tenant/access: a pending request for the admin panel plus a Brevo
+ *   contact. No email to confirm; Knox approves by hand in /admin.
  *
  * Auth state (isRegistered, email) is owned by the parent via useAuth().
  * This component never writes tki_registered to localStorage directly.
@@ -255,13 +255,13 @@ export function StickyUnlock({ showBar, isRegistered, email, waitlist = null, op
         />
       )}
 
-      {/* ── Waitlist modal (signed in, not yet on the list) ──────────── */}
+      {/* ── Waitlist: the UK profile form, minus UK-only parts ────────── */}
       {modal === 'waitlist' && waitlist && (
-        <WaitlistModal
+        <ProfilingModal
           email={email}
-          tenantName={waitlist.tenantName}
           onClose={() => setModal('hidden')}
-          onJoined={waitlist.onJoined}
+          onDone={() => setModal('hidden')}
+          waitlist={{ tenantName: waitlist.tenantName, onJoined: waitlist.onJoined }}
         />
       )}
 
@@ -509,110 +509,19 @@ function barCopy(waitlist: WaitlistState | null, signedIn: boolean): BarCopy {
   };
 }
 
-// ── Waitlist modal ────────────────────────────────────────────────────────────
-
-interface WaitlistModalProps {
-  /** The signed-in address; null for a visitor, who types one in the form. */
-  email:      string | null;
-  tenantName: string;
-  onClose:    () => void;
-  onJoined:   (email: string | null) => void | Promise<void>;
-}
-
-function WaitlistModal({ email, tenantName, onClose, onJoined }: WaitlistModalProps) {
-  // The address the request was recorded against, once sent. 'signin' when it
-  // is a Knox address, which needs no approval, only a sign-in.
-  const [joined, setJoined] = useState<{ email: string; status: string } | null>(null);
-  const { height } = useWindowDimensions();
-
-  useEffect(() => { track('waitlist_modal_opened'); }, []);
-
-  const handleSubmitted = useCallback(async (joinedEmail: string, status: string) => {
-    setJoined({ email: joinedEmail, status });
-    if (status === 'signin') return;
-    track('waitlist_joined', { signed_in: !!email });
-    await onJoined(joinedEmail);
-  }, [onJoined, email]);
-
-  return (
-    <Modal transparent animationType="fade" onRequestClose={onClose}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.modalBackdrop}
-      >
-        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
-
-        <MotiView
-          from={{ opacity: 0, scale: 0.94 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ type: 'spring', damping: 20, stiffness: 260 }}
-          style={[styles.modalCard, { maxHeight: Math.round(height * 0.88) }]}
-        >
-          <LinearGradient
-            colors={brand.gradient as unknown as [string, string, ...string[]]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.accentLine}
-          />
-
-          {joined?.status === 'signin' ? (
-            <View style={styles.sentWrap}>
-              <Text style={styles.sentTitle}>Knox addresses get straight in</Text>
-              <Text style={styles.sentCopy}>
-                {joined.email} doesn't need approval. Sign in with it to open the full dashboard.
-              </Text>
-              <Pressable
-                onPress={() => { onClose(); router.push('/login'); }}
-                style={({ pressed }) => [styles.closeBtn, pressed && { opacity: 0.75 }]}
-              >
-                <Text style={styles.closeBtnText}>Sign in</Text>
-              </Pressable>
-            </View>
-          ) : joined ? (
-            <View style={styles.sentWrap}>
-              <View style={styles.sentIconWrap}>
-                <FontAwesome6 name="circle-check" size={36} color={accent.mint} solid />
-              </View>
-              <Text style={styles.sentTitle}>You're on the waitlist</Text>
-              <Text style={styles.sentCopy}>
-                The Knox team reviews every request. We'll email {joined.email} as soon as you're approved, and the link in that email signs you straight in.
-              </Text>
-              <Pressable
-                onPress={onClose}
-                style={({ pressed }) => [styles.closeBtn, pressed && { opacity: 0.75 }]}
-              >
-                <Text style={styles.closeBtnText}>Got it</Text>
-              </Pressable>
-            </View>
-          ) : (
-            <ScrollView contentContainerStyle={styles.modalInner} keyboardShouldPersistTaps="handled">
-              <DevLabel name="WaitlistModal" />
-              <Text style={styles.modalKicker}>Waitlist</Text>
-              <Text style={styles.modalTitle}>Join the {tenantName} waitlist</Text>
-              <Text style={styles.modalCopy}>
-                Full access is approved by the Knox team. Leave your email and we'll let you know when you're in. Telling us a little about yourself helps us review it.
-              </Text>
-              <AccessRequestForm
-                email={email}
-                tenantName={tenantName}
-                requireDetails={false}
-                submitLabel="Join the waitlist"
-                onSubmitted={handleSubmitted}
-              />
-            </ScrollView>
-          )}
-        </MotiView>
-      </KeyboardAvoidingView>
-    </Modal>
-  );
-}
-
 // ── Profiling modal ───────────────────────────────────────────────────────────
 
 interface ProfilingModalProps {
+  /** Signed-in address; null on the waitlist shows an email field instead. */
   email:   string | null;
   onClose: () => void;
   onDone:  () => void;
+  /**
+   * Set on a waitlist index (World Leaders): the same form, minus the UK-only
+   * parts (briefing, UK-only interests), with an email field, sent as a
+   * waitlist request. Null for The Knox Index's post-sign-in profile.
+   */
+  waitlist?: { tenantName: string; onJoined: (email: string) => void | Promise<void> } | null;
 }
 
 function toSmartCase(s: string): string {
@@ -635,7 +544,12 @@ function ProgressBar({ progress }: { progress: number }) {
 
 // ── ProfilingModal ────────────────────────────────────────────────────────────
 
-function ProfilingModal({ email, onClose, onDone }: ProfilingModalProps) {
+function ProfilingModal({ email, onClose, onDone, waitlist = null }: ProfilingModalProps) {
+  const isWaitlist = !!waitlist;
+  const interestOptions = interestsFor(!isWaitlist);
+  const [typedEmail, setTypedEmail] = useState('');
+  const [joined,     setJoined]     = useState<{ email: string; knox: boolean } | null>(null);
+  const [error,      setError]      = useState<string | null>(null);
   const [firstName, setFirstName] = useState('');
   const [lastName,  setLastName]  = useState('');
   const [company,   setCompany]   = useState('');
@@ -671,6 +585,49 @@ function ProfilingModal({ email, onClose, onDone }: ProfilingModalProps) {
 
     // Reconstruct full LinkedIn URL from the captured handle for storage/Brevo.
     const linkedinUrl = buildLinkedinUrl(linkedinHandle);
+
+    if (waitlist) {
+      // One step: the answers become a waitlist request and a Brevo contact.
+      // No email to confirm; the approval email signs them in.
+      const address = (email ?? typedEmail).trim().toLowerCase();
+      setError(null);
+      try {
+        const res = await fetch('/api/tenant/access', {
+          method:      'POST',
+          credentials: 'same-origin',
+          headers:     { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email:              address,
+            firstName:          firstName.trim(),
+            lastName:           lastName.trim(),
+            company:            company.trim(),
+            linkedin:           linkedinUrl,
+            segment:            resolvedSegment,
+            interests,
+            consentKnoxUpdates: consentUpdates,
+            consentKnoxDigital: consentKnox,
+          }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data?.error ?? 'We could not send that. Please try again.');
+        const knox = data?.status === 'signin';
+        setJoined({ email: data?.email ?? address, knox });
+        if (!knox) {
+          track('waitlist_joined', {
+            signed_in:       !!email,
+            segment:         resolvedSegment || null,
+            interests_count: interests.length,
+            consent_updates: consentUpdates,
+          });
+          await waitlist.onJoined(data?.email ?? address);
+        }
+      } catch (err: any) {
+        setError(err?.message ?? 'We could not send that. Please try again.');
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
 
     const storedEmail = email ?? (Platform.OS === 'web' ? (localStorage.getItem('tki_email') ?? '') : '');
 
@@ -731,11 +688,13 @@ function ProfilingModal({ email, onClose, onDone }: ProfilingModalProps) {
     onDone();
   }
 
-  const canSubmit = !!segment || interests.length > 0;
+  const emailOk   = !isWaitlist || !!email || EMAIL_RE.test(typedEmail.trim());
+  const canSubmit = (!!segment || interests.length > 0) && emailOk;
 
   return (
-    <Modal transparent animationType="fade" onRequestClose={() => {}}>
+    <Modal transparent animationType="fade" onRequestClose={isWaitlist ? onClose : () => {}}>
       <View style={proStyles.backdrop}>
+        {isWaitlist && <Pressable style={StyleSheet.absoluteFill} onPress={loading ? undefined : onClose} />}
         <MotiView
           from={{ opacity: 0, translateY: 24 }}
           animate={{ opacity: 1, translateY: 0 }}
@@ -748,26 +707,69 @@ function ProfilingModal({ email, onClose, onDone }: ProfilingModalProps) {
               <View style={proStyles.brandDot} />
               <Text style={proStyles.brandLabel}>THE KNOX INDEX</Text>
             </View>
-            <Text style={proStyles.progressLabel}>{progress}% complete</Text>
+            {isWaitlist ? (
+              <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Close" hitSlop={10}>
+                <FontAwesome6 name="xmark" size={16} color={neutral.textMid} />
+              </Pressable>
+            ) : (
+              <Text style={proStyles.progressLabel}>{progress}% complete</Text>
+            )}
           </View>
 
-          <ProgressBar progress={progress} />
+          <ProgressBar progress={joined ? 100 : progress} />
 
+          {joined ? (
+            <View style={proStyles.joinedWrap}>
+              <FontAwesome6 name="circle-check" size={36} color={accent.mint} solid />
+              <Text style={proStyles.title}>{joined.knox ? 'Knox addresses get straight in' : "You're on the waitlist"}</Text>
+              <Text style={proStyles.subtitle}>
+                {joined.knox
+                  ? `${joined.email} doesn't need approval. Sign in with it to open the full dashboard.`
+                  : `The Knox team reviews every request. We'll email ${joined.email} as soon as you're approved.`}
+              </Text>
+              <Pressable
+                onPress={() => { onClose(); if (joined.knox) router.push('/login'); }}
+                style={({ pressed }) => [proStyles.submitBtn, pressed && { opacity: 0.88 }]}
+              >
+                <Text style={proStyles.submitBtnText}>{joined.knox ? 'Sign in' : 'Got it'}</Text>
+              </Pressable>
+            </View>
+          ) : (<>
           {/* Scrollable body */}
           <ScrollView
             style={proStyles.body}
             contentContainerStyle={proStyles.bodyInner}
             showsVerticalScrollIndicator={false}
           >
-            <Text style={proStyles.title}>Help us tailor your experience</Text>
+            <Text style={proStyles.title}>{isWaitlist ? `Join the ${waitlist!.tenantName} waitlist` : 'Help us tailor your experience'}</Text>
             <Text style={proStyles.subtitle}>
-              Takes 30 seconds. Helps us surface the most relevant intelligence for the way you work.
+              {isWaitlist
+                ? "Takes 30 seconds. Full access is approved by the Knox team, and we'll email you when you're in."
+                : 'Takes 30 seconds. Helps us surface the most relevant intelligence for the way you work.'}
             </Text>
 
             {/* ── Your details ──────────────────────────────────────── */}
             <View style={proStyles.section}>
               <Text style={proStyles.sectionTitle}>Your details</Text>
               <View style={proStyles.detailsGrid}>
+                {isWaitlist && !email && (
+                  <View style={[proStyles.detailsField, proStyles.detailsFieldWide]}>
+                    <Text style={proStyles.fieldLabel}>EMAIL</Text>
+                    <TextInput
+                      value={typedEmail}
+                      onChangeText={setTypedEmail}
+                      placeholder="you@example.com"
+                      placeholderTextColor={neutral.textDim}
+                      style={proStyles.textInput}
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      autoFocus
+                      returnKeyType="next"
+                      {...Platform.select({ web: { outlineStyle: 'none' } as any, default: {} })}
+                    />
+                  </View>
+                )}
                 <View style={proStyles.detailsField}>
                   <Text style={proStyles.fieldLabel}>FIRST NAME</Text>
                   <TextInput
@@ -877,7 +879,7 @@ function ProfilingModal({ email, onClose, onDone }: ProfilingModalProps) {
                 <Text style={proStyles.sectionHint}>Pick all that apply</Text>
               </View>
               <View style={proStyles.cardGrid}>
-                {INTERESTS.map(v => {
+                {interestOptions.map(v => {
                   const active = interests.includes(v.id);
                   return (
                     <Pressable
@@ -905,7 +907,9 @@ function ProfilingModal({ email, onClose, onDone }: ProfilingModalProps) {
                 <Text style={proStyles.sectionTitle}>Stay in the loop</Text>
                 <Text style={proStyles.sectionHint}>Optional</Text>
               </View>
-              {/* Briefing frequency — Daily / Weekly / None */}
+              {/* Briefing frequency — Daily / Weekly / None. UK only: the
+                  briefing covers The Knox Index, so the waitlist leaves it out. */}
+              {!isWaitlist && (
               <View style={proStyles.briefingBlock}>
                 <Text style={proStyles.briefingLabel}>The Knox Index Briefing</Text>
                 <FrequencyPicker
@@ -917,6 +921,7 @@ function ProfilingModal({ email, onClose, onDone }: ProfilingModalProps) {
                   }}
                 />
               </View>
+              )}
 
               <View style={proStyles.consentCard}>
                 <ConsentToggleRow
@@ -948,6 +953,7 @@ function ProfilingModal({ email, onClose, onDone }: ProfilingModalProps) {
 
           {/* Footer */}
           <View style={proStyles.footerDivider} />
+          {error ? <Text style={proStyles.errorText}>{error}</Text> : null}
           <View style={proStyles.footer}>
             <Pressable
               onPress={handleSubmit}
@@ -961,12 +967,13 @@ function ProfilingModal({ email, onClose, onDone }: ProfilingModalProps) {
               {loading
                 ? <ActivityIndicator color="#fff" size="small" />
                 : <View style={proStyles.submitBtnInner}>
-                    <Text style={proStyles.submitBtnText}>Save &amp; continue</Text>
+                    <Text style={proStyles.submitBtnText}>{isWaitlist ? 'Join the waitlist' : 'Save & continue'}</Text>
                     <FontAwesome6 name="arrow-right" size={13} color="#fff" solid />
                   </View>
               }
             </Pressable>
           </View>
+          </>)}
         </MotiView>
       </View>
     </Modal>
@@ -1211,6 +1218,24 @@ const proStyles = StyleSheet.create({
     flex:     1,
     minWidth: 200,
     gap:      4,
+  },
+  // Waitlist email: a full row above the name fields.
+  detailsFieldWide: {
+    flexBasis: '100%',
+  },
+  // Waitlist: the confirmation that replaces the form once sent.
+  joinedWrap: {
+    alignItems:        'flex-start',
+    gap:               spacing.md,
+    paddingHorizontal: spacing.xl,
+    paddingVertical:   spacing.xl,
+  },
+  errorText: {
+    fontFamily:        font.ui,
+    fontSize:          13,
+    color:             '#FF4F6E',
+    paddingHorizontal: spacing.xl,
+    paddingTop:        spacing.sm,
   },
   fieldLabel: {
     fontFamily:    font.bold,
