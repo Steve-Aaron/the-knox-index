@@ -154,6 +154,21 @@ One deployment serves several dashboards, one per path on `index.knox.digital`:
   own slice once the period has 10+ tagged posts and the subtopic is on 3+
   posts and 15%+ of the tags (`lib/accountPage.ts` STANDOUT_*)
 
+## Branches and staging
+
+| Branch | Who | Preview |
+|---|---|---|
+| `staging-rowen` | Rowen's staging. Every change lands here first | `theknoxindex-git-staging-rowen-steveaarons-projects.vercel.app` |
+| `dev` | Shared integration branch (KitSoft merge here too) | `theknoxindex-git-dev-steveaarons-projects.vercel.app` |
+| `main` | Production, `index.knox.digital`. Steve merges `dev` into it | Live |
+
+- Work on `staging-rowen`, check it on its preview, then merge it into `dev`
+- Never push straight to `main`
+- Email links (sign-in, waitlist, approvals) follow the site the request came
+  from (`emailOrigin` in `lib/accessEmails.ts`), so each preview links to itself
+- A new preview address must be added to Firebase's authorised domains before
+  Google sign-in and email links work on it
+
 ## Key Conventions
 
 - One job per component/hook; compose upward for complexity
