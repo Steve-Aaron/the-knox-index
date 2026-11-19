@@ -121,7 +121,7 @@ export async function notifyDecision(
 
   const body = approved
     ? `<p style="margin:0 0 16px;">${salutation}</p>
-       <p style="margin:0 0 16px;">You now have access to <strong style="color:#F4F5FF;">${escHtml(tenantFullName(tenant))}</strong>. The button below signs you in as <strong style="color:#F4F5FF;">${escHtml(record.email)}</strong> and opens the dashboard. It works for 30 days; after that, sign in from the site with this address.</p>`
+       <p style="margin:0 0 16px;">You now have access to <strong style="color:#F4F5FF;">${escHtml(tenant.brand.nameShort)}</strong>. Click below to open it.</p>`
     : `<p style="margin:0 0 16px;">${salutation}</p>
        <p style="margin:0 0 16px;">We are not able to grant access to <strong style="color:#F4F5FF;">${escHtml(tenantFullName(tenant))}</strong> for ${escHtml(record.email)} at the moment.</p>
        <p style="margin:0;">If you think that is a mistake, reply to this email and we will take another look.</p>`;
@@ -130,7 +130,7 @@ export async function notifyDecision(
     to:      [{ email: record.email, name: record.requesterName || record.email }],
     replyTo: { email: BRAND.contact.email, name: 'The Knox Index' },
     subject: approved
-      ? `Access approved — ${tenant.brand.nameShort}`
+      ? `You now have access to ${tenant.brand.nameShort}`
       : `Access request update — ${tenant.brand.nameShort}`,
     htmlContent: emailShell({
       kicker: KICKER,
@@ -139,7 +139,7 @@ export async function notifyDecision(
       cta:    approved ? { label: `Open ${tenant.brand.nameShort}`, url: signInUrl } : undefined,
     }),
     textContent: approved
-      ? `You now have access to ${tenantFullName(tenant)}. Open this link to sign in as ${record.email}: ${signInUrl}`
+      ? `You now have access to ${tenant.brand.nameShort}. Click below to open it:\n\n${signInUrl}`
       : `We are not able to grant access to ${tenantFullName(tenant)} for ${record.email} at the moment. Reply to this email if you think that is a mistake.`,
   });
 }
