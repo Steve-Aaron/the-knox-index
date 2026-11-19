@@ -156,14 +156,17 @@ export function StickyUnlock({ showBar, isRegistered, email, waitlist = null, op
     return () => clearTimeout(timer);
   }, [isRegistered, waitlistReason]);
 
-  // The Knox Index: the sign-up modal. Waitlist index: the waitlist form,
-  // signed in or not. Already waiting → nothing to open.
-  // Waitlist index: signed out → the waitlist form (an email is enough, no
-  // sign-in), unless this browser has already joined.
+  // The Knox Index: the sign-up modal. Waitlist index: joining needs a
+  // verified sign-in first — the server files the request against the Firebase
+  // uid, never a typed email — so a signed-out visitor goes through sign-in
+  // (the unlock modal's magic-link / Google flow). The profiling form, which
+  // collects their details and posts, opens automatically once they return
+  // signed in (the reason==='none' effect above). Already approved or waiting
+  // → nothing to open.
   const openModal = useCallback(() => {
     if (!waitlist) { setModal('unlock'); return; }
-    if (isRegistered) { if (waitlist.reason === 'none') setModal('waitlist'); return; }
-    if (!waitlist.joinedEmail) setModal('waitlist');
+    if (!isRegistered) { setModal('unlock'); return; }
+    if (waitlist.reason === 'none') setModal('waitlist');
   }, [waitlist, isRegistered]);
 
   // The parent bumps openSignal from locked panels and the range interstitial
