@@ -7,6 +7,7 @@ import { GlassSurface } from '@/components/primitives/GlassSurface';
 import { DevLabel } from '@/components/primitives/DevLabel';
 import { AuthScreen } from '@/components/auth/AuthScreen';
 import { WorldLeadersAccess } from '@/components/admin/WorldLeadersAccess';
+import { AccountLinkPanel } from '@/components/admin/AccountLinkPanel';
 import { useAuth } from '@/hooks/useAuth';
 import { neutral, brand, glass } from '@/theme/colors';
 import { spacing, radius } from '@/theme/spacing';
@@ -15,9 +16,12 @@ import { font } from '@/theme/typography';
 /**
  * AdminScreen  (/admin)
  * ----------------------
- * Who may see the full World Leaders dashboard: approve waitlist requests,
- * revoke access, give someone access directly. Nothing else; the old panel
- * (tracked profiles, account types, CSV import, account tie-ins) is gone.
+ * Two cards, nothing else:
+ *   1. World Leaders access: approve waitlist requests, revoke access, give
+ *      someone access directly
+ *   2. Account tie-ins: confirm which TikTok and X account belongs to which
+ *      person (metadata.account_link). The site only uses confirmed links
+ * The old panel's tracked profiles, account types and CSV import are gone.
  *
  * Signed out → sign in with Google here. Signed in but not on ADMIN_EMAILS →
  * told so. The server checks the allowlist on every request regardless.
@@ -85,6 +89,17 @@ export default function AdminScreen() {
               <WorldLeadersAccess onForbidden={onForbidden} />
             </View>
           </GlassSurface>
+
+          <GlassSurface radius={radius.lg} flatTop topAccent={brand.gradient as any}>
+            <View style={styles.panel}>
+              <Text style={styles.kicker}>ADMIN</Text>
+              <Text style={styles.title}>Account tie-ins</Text>
+              <Text style={styles.subtitle}>
+                Confirm which TikTok and X account belongs to which person. The site only uses confirmed links, so a new account shows up once it's confirmed here.
+              </Text>
+              <AccountLinkPanel />
+            </View>
+          </GlassSurface>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -134,6 +149,7 @@ const styles = StyleSheet.create({
   panel:   { padding: spacing.lg, gap: spacing.md },
   kicker:  { fontFamily: font.bold, fontSize: 10, letterSpacing: 1.6, color: neutral.textMid },
   title:   { fontFamily: font.bold, fontSize: 24, color: neutral.text },
+  subtitle: { fontFamily: font.ui, fontSize: 13, lineHeight: 19, color: neutral.textMid },
   backLink: { marginTop: spacing.md },
   backText: { fontFamily: font.ui, fontSize: 13, color: neutral.textMid },
   googleBtn: {
