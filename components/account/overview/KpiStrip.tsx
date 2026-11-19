@@ -81,16 +81,26 @@ export function KpiStrip({ kpis, followerGrowth = null, compact = false }: Props
   const n = KPI_DEFS.length;
   const columns = Math.max(1, Math.min(n, Math.floor((width + GAP) / (MIN_COLUMN + GAP))));
   const cellWidth = (width - GAP * (columns - 1)) / columns;
-  // A 6-character figure like '135.6K' is about 3.7em wide in the mono face
-  const figure = Math.round(Math.max(MIN_FIGURE, Math.min(MAX_FIGURE, cellWidth / 4)));
+
+  const valueOf = (key: KpiKey): number | null =>
+    key === 'newFollowers' ? followerGrowth?.gained ?? null : kpis[key];
+
+  // Size every figure to fit the LONGEST one actually shown ('+130.6K' is 7
+  // characters), so a long value shrinks the row a little instead of wrapping.
+  // A mono character is about 0.62em wide; the 0.4em is slack for rounding.
+  const longest = Math.max(
+    3,
+    ...KPI_DEFS.map(def => {
+      const v = valueOf(def.key);
+      return v == null ? 3 : def.format(v).length;
+    }),
+  );
+  const figure = Math.floor(Math.max(MIN_FIGURE, Math.min(MAX_FIGURE, cellWidth / (longest * 0.62 + 0.4))));
   // All on one row: the cells share it equally and cannot spill over (fixed
   // pixel widths from a rounded measurement could overshoot by a fraction
   // and wrap the last one). Narrower: fixed-width cells wrap in columns.
   const oneRow = width === 0 || columns === n;
   const cell = oneRow ? styles.cellShare : { width: Math.floor(cellWidth) };
-
-  const valueOf = (key: KpiKey): number | null =>
-    key === 'newFollowers' ? followerGrowth?.gained ?? null : kpis[key];
 
   const sublabelOf = (def: KpiDef): string | undefined => {
     if (def.key !== 'newFollowers') return def.sublabel;
