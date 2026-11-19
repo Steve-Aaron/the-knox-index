@@ -25,66 +25,41 @@ const KICKER = 'THE KNOX INDEX';
 
 /** The stored region keys as readable labels. Editorial interest, not access. */
 function areaLabels(areas: string | null): string {
-  if (!areas) return '—';
+  if (!areas) return 'Not given';
   return areas
     .split(',')
     .map(r => r.trim())
     .filter(Boolean)
     .map(r => REGION_LABELS[r as RegionKey] ?? r)
-    .join(', ') || '—';
-}
-
-function detailRows(record: AccessRecord): string {
-  const rows: [string, string][] = [
-    ['Email',        record.email],
-    ['Name',         record.requesterName  || '—'],
-    ['Organisation', record.organisation   || '—'],
-    ['Role',         record.jobRole        || '—'],
-    ['Areas of interest', areaLabels(record.areasOfInterest)],
-    ['Heard via',    record.referralSource || '—'],
-  ];
-
-  return `<table cellpadding="0" cellspacing="0" style="width:100%;margin:8px 0 16px;">
-    ${rows.map(([label, value]) => `
-      <tr>
-        <td style="padding:6px 12px 6px 0;font-size:12px;color:#55556A;white-space:nowrap;vertical-align:top;">${escHtml(label)}</td>
-        <td style="padding:6px 0;font-size:13px;color:#F4F5FF;">${escHtml(value)}</td>
-      </tr>`).join('')}
-  </table>`;
+    .join(', ') || 'Not given';
 }
 
 function detailText(record: AccessRecord): string {
   return [
     `Email: ${record.email}`,
-    `Name: ${record.requesterName || '—'}`,
-    `Organisation: ${record.organisation || '—'}`,
-    `Role: ${record.jobRole || '—'}`,
+    `Name: ${record.requesterName || 'Not given'}`,
+    `Organisation: ${record.organisation || 'Not given'}`,
+    `Role: ${record.jobRole || 'Not given'}`,
     `Areas of interest: ${areaLabels(record.areasOfInterest)}`,
-    `Heard via: ${record.referralSource || '—'}`,
+    `Heard via: ${record.referralSource || 'Not given'}`,
     '',
-    `Reason: ${record.reason || '—'}`,
+    `Reason: ${record.reason || 'Not given'}`,
   ].join('\n');
 }
 
-/** 1. Knox gets told someone is waiting. */
+/** 1. Knox gets told someone is waiting. Plain text: an internal alert. */
 export async function notifyKnoxOfRequest(record: AccessRecord, tenant: TenantConfig): Promise<void> {
-  const body = `
-    <p style="margin:0 0 8px;">Someone has asked for access to <strong style="color:#F4F5FF;">${escHtml(tenantFullName(tenant))}</strong>.</p>
-    ${detailRows(record)}
-    <p style="margin:0 0 6px;font-size:12px;color:#55556A;">Reason given</p>
-    <p style="margin:0;white-space:pre-wrap;color:#F4F5FF;">${escHtml(record.reason || '—')}</p>`;
-
   await sendEmail({
     to:       [{ email: BRAND.contact.email, name: 'Knox Index Access' }],
     replyTo:  { email: record.email, name: record.requesterName || record.email },
-    subject:  `Access request — ${tenant.brand.nameShort} — ${record.requesterName || record.email}`,
-    htmlContent: emailShell({
-      kicker: KICKER,
-      title:  'New access request',
-      body,
-      cta:    { label: 'Review in admin', url: `${SITE_ORIGIN}/admin` },
-    }),
-    textContent: `New access request for ${tenantFullName(tenant)}\n\n${detailText(record)}\n\nReview: ${SITE_ORIGIN}/admin`,
+    subject:  `Waitlist request: ${tenant.brand.nameShort}: ${record.requesterName || record.email}`,
+    textContent: [
+      `New access request for ${tenantFullName(tenant)}`,
+      '',
+      detailText(record),
+      '',
+      `Approve or refuse it here: ${SITE_ORIGIN}/admin`,
+    ].join('\n'),
   });
 }
 
