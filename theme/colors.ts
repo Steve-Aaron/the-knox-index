@@ -84,8 +84,8 @@ export type PartyKey = keyof typeof party;
  */
 export const region = {
   europe:       { base: '#5B8DEF', glow: '#9CBCF7' },
-  northamerica: { base: '#FF9363', glow: '#FFBFA4' },
-  southamerica: { base: '#12B6CF', glow: '#5DE3F4' },
+  northamerica: { base: '#12B6CF', glow: '#5DE3F4' },
+  southamerica: { base: '#FF9363', glow: '#FFBFA4' },
   africa:       { base: '#FFD700', glow: '#FFE98A' },
   asia:         { base: '#E83C91', glow: '#F58FBF' },
   middleeast:   { base: '#9D02D7', glow: '#C86BEC' },
@@ -130,6 +130,26 @@ export const accent = {
   mint:   knox.primaryOrange,
   amber:  knox.secondaryOrange,
 };
+
+/** Direction colours for week-on-week trend arrows. */
+export const trend = {
+  up:   '#5FA095',
+  down: knox.secondaryOrange,
+  /** Negative pp deltas in the content table. */
+  downPp: '#FF4F6E',
+} as const;
+
+/**
+ * Verdict colours for good / borderline / bad readings (the reach flag).
+ * Distinct hues on purpose: accent.mint and accent.amber are both brand
+ * oranges, which cannot tell a healthy reading from a warning.
+ * Green and red match the trend arrows and negative deltas.
+ */
+export const status = {
+  good: trend.up,
+  warn: '#F2B437',
+  bad:  trend.downPp,
+} as const;
 
 /**
  * Knox 2.0 secondary palette.

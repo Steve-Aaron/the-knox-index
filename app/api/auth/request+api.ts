@@ -17,6 +17,7 @@
 
 import { generateMagicLink } from '@/lib/firebaseAdmin';
 import { BRAND } from '@/brand/constants';
+import { tenantFromRequest } from '@/lib/tenantRequest';
 
 const BREVO_API_KEY = process.env.BREVO_API_KEY ?? '';
 const BREVO_BASE    = 'https://api.brevo.com/v3';
@@ -83,14 +84,21 @@ export async function POST(request: Request): Promise<Response> {
     // surfaces as a clean 500 rather than a generic Vercel error.
     let link: string;
     try {
-      link = await generateMagicLink(email, `${baseUrl}/login`);
+      // The link opens in a new tab, which has no memory of the index the
+      // person signed up on, so the index rides along in the link. /login
+      // reads ?tenant= (lib/indexPaths.ts) and returns them there: a World
+      // Leaders sign-up lands back on World Leaders and its waitlist form.
+      const tenant = tenantFromRequest(request);
+      link = await generateMagicLink(email, `${baseUrl}/login?tenant=${encodeURIComponent(tenant.id)}`);
     } catch (err: any) {
       console.error('[/api/auth/request] Firebase link generation failed', err?.message ?? err);
       return Response.json({ error: 'Sign-in link generation failed' }, { status: 500 });
     }
 
-    // 1. Upsert into Brevo (non-fatal — never blocks email delivery)
-    brevo('/contacts', {
+    // 1. Upsert into Brevo (non-fatal — never blocks email delivery). Runs
+    //    alongside the send and is awaited before responding, so Vercel does
+    //    not cut it off once the response is sent.
+    const upsert = brevo('/contacts', {
       email,
       updateEnabled: true,
       attributes: { SOURCE: 'TKI magic link' },
@@ -106,6 +114,8 @@ export async function POST(request: Request): Promise<Response> {
       htmlContent: magicLinkHtml(link),
       textContent: magicLinkText(link),
     });
+
+    await upsert;
 
     if (!emailRes.ok) {
       // Log the upstream detail every time so Vercel logs contain the actual

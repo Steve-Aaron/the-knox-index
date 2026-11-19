@@ -10,6 +10,7 @@
  *   header  — flex row, space-between, centred items, base padding
  *   section — vertical stack with base gap + padding
  *   footer  — flex row, space-between, padded bottom strip
+ *   PAGE_MAX_WIDTH — widest a page's content gets; wider viewports centre it
  *
  * Usage:
  *   const styles = StyleSheet.create({
@@ -23,6 +24,10 @@
 import type { ViewStyle } from 'react-native';
 
 import { spacing } from './spacing';
+
+/** Widest a page's content gets. Shared by the dashboard, its hero and the
+ *  account page so they line up and stop stretching on wide screens. */
+export const PAGE_MAX_WIDTH = 1600;
 
 const row: ViewStyle = {
   flexDirection: 'row',

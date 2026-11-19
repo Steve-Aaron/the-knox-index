@@ -81,6 +81,24 @@ export async function generateMagicLink(email: string, continueUrl: string): Pro
   });
 }
 
+/**
+ * A Firebase custom token for `email`, creating the user if they have never
+ * signed in. Used by the waitlist approval link (lib/accessLink.ts): the
+ * client signs in with it and exchanges the ID token for the session cookie
+ * as usual. Only call this once the address is known to be the person's.
+ */
+export async function customTokenForEmail(email: string): Promise<string> {
+  const auth = adminAuth();
+  let uid: string;
+  try {
+    uid = (await auth.getUserByEmail(email)).uid;
+  } catch (err: any) {
+    if (err?.code !== 'auth/user-not-found') throw err;
+    uid = (await auth.createUser({ email, emailVerified: true })).uid;
+  }
+  return auth.createCustomToken(uid);
+}
+
 // ── Session cookie ─────────────────────────────────────────────────────────────
 
 export interface SessionUser {

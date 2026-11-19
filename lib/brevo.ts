@@ -71,23 +71,40 @@ export function consentsToFrequency(c: {
 }
 
 export type BrevoValue = string | string[] | boolean | number;
-export type BrevoResult = { ok: boolean; status: number };
+export type BrevoResult = { ok: boolean; status: number; detail?: string };
 
-/** Low-level POST to Brevo. Used by helpers below; rarely called directly. */
+/**
+ * Low-level POST to Brevo. Used by helpers below; rarely called directly.
+ *
+ * Never throws. A rejection (non-2xx) or network failure is logged here with
+ * Brevo's own reason, so a bad list id or invalid contact shows up in the
+ * Vercel logs instead of disappearing.
+ */
 async function post(path: string, body: unknown): Promise<BrevoResult> {
   if (!BREVO_API_KEY) {
-    return { ok: false, status: 0 };
+    console.error(`[brevo] POST ${path} skipped: BREVO_API_KEY not set`);
+    return { ok: false, status: 0, detail: 'BREVO_API_KEY not set' };
   }
-  const res = await fetch(`${BREVO_BASE}${path}`, {
-    method:  'POST',
-    headers: {
-      'api-key':      BREVO_API_KEY,
-      'Content-Type': 'application/json',
-      'Accept':       'application/json',
-    },
-    body: JSON.stringify(body),
-  });
-  return { ok: res.ok || res.status === 204, status: res.status };
+  try {
+    const res = await fetch(`${BREVO_BASE}${path}`, {
+      method:  'POST',
+      headers: {
+        'api-key':      BREVO_API_KEY,
+        'Content-Type': 'application/json',
+        'Accept':       'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+    const ok = res.ok || res.status === 204;
+    if (ok) return { ok, status: res.status };
+    const detail = (await res.text().catch(() => '')).slice(0, 300);
+    console.error(`[brevo] POST ${path} rejected`, res.status, detail);
+    return { ok, status: res.status, detail };
+  } catch (err: unknown) {
+    const detail = (err as Error)?.message ?? String(err);
+    console.error(`[brevo] POST ${path} failed`, detail);
+    return { ok: false, status: 0, detail };
+  }
 }
 
 /**

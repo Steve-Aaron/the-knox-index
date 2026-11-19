@@ -108,7 +108,7 @@ export function PostBangerCard({ post, politicianName, groupKey, delay = 0 }: Pr
                 onPress={e => { e.stopPropagation?.(); Linking.openURL(post.postUrl!); }}
                 style={styles.linkRow}
               >
-                <Text style={styles.linkText}>View on TikTok →</Text>
+                <Text style={styles.linkText}>{post.postUrl.includes('x.com/') ? 'View on X →' : 'View on TikTok →'}</Text>
               </Pressable>
             ) : null}
           </View>

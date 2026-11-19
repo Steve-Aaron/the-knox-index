@@ -11,7 +11,8 @@
  * One job: produce correct, safe SQL strings for each query pattern.
  */
 
-import { tableRef, accountWeb, postWeb } from '@/lib/bigquery';
+import { tableRef, metadataRef, accountWeb, postWeb } from '@/lib/bigquery';
+import { tiktokStyleTopicsSql, tiktokTopicAliasSql } from '@/lib/topicAliases';
 
 // ── Range helpers ─────────────────────────────────────────────────────────────
 
@@ -22,9 +23,14 @@ export function parseRange(raw: string | null, defaultRange: Range = 'week'): Ra
   return VALID_RANGES.includes(raw as Range) ? (raw as Range) : defaultRange;
 }
 
+/**
+ * Periods in UTC (CURRENT_DATE()): yesterday only, rolling 7 and 30 days
+ * (agreed 29 Oct, so early in a month an account is not left with one day of
+ * data), this year from 1 January.
+ */
 export function rangeDateFilter(range: Range): string {
   switch (range) {
-    case 'yesterday': return `postDate >= DATE_SUB(CURRENT_DATE(), INTERVAL 1 DAY)`;
+    case 'yesterday': return `postDate = DATE_SUB(CURRENT_DATE(), INTERVAL 1 DAY)`;
     case 'week':      return `postDate >= DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY)`;
     case 'month':     return `postDate >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)`;
     case 'year':      return `EXTRACT(YEAR FROM postDate) = EXTRACT(YEAR FROM CURRENT_DATE())`;
@@ -34,10 +40,10 @@ export function rangeDateFilter(range: Range): string {
 
 export const RANGE_LABELS: Record<Range, string> = {
   yesterday: 'Yesterday',
-  week:      'Last 7 days',
-  month:     'Last 30 days',
+  week:      'Past 7 days',
+  month:     'Past 30 days',
   year:      'This year',
-  lifetime:  'Lifetime',
+  lifetime:  'All data',
 };
 
 /**
@@ -83,6 +89,7 @@ export function buildAccountsSQL(dashboardId: number, range: Range): string {
     a.displayJobTitle,
     a.avatar,
     -- from metadata.person, via accountWeb()
+    a.person_id,
     a.person_slug,
     a.person_name,
     a.person_job_title,
@@ -329,5 +336,94 @@ export function buildAllAccountPostsSQL(dashboardId: number, handle: string, lim
     p.postDate, p.postUrl, p.coverJpeg, p.videoMp4
   ORDER BY MAX(p.postDate) DESC
   LIMIT ${limit}
+`;
+}
+
+// ── Account page SQL ──────────────────────────────────────────────────────────
+
+/**
+ * The same stretch of the previous period, for "vs prev. period" deltas: the
+ * day before yesterday; last week from Monday to the same weekday; last month
+ * from the 1st to the same day; last year from 1 January to the same date.
+ * Lifetime has no previous period, so it matches nothing.
+ */
+export function prevRangeDateFilter(range: Range): string {
+  switch (range) {
+    case 'yesterday': return `postDate = DATE_SUB(CURRENT_DATE(), INTERVAL 2 DAY)`;
+    case 'week':      return `postDate >= DATE_SUB(CURRENT_DATE(), INTERVAL 14 DAY) AND postDate < DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY)`;
+    case 'month':     return `postDate >= DATE_SUB(CURRENT_DATE(), INTERVAL 60 DAY) AND postDate < DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)`;
+    case 'year':      return `postDate >= DATE_TRUNC(DATE_SUB(CURRENT_DATE(), INTERVAL 1 YEAR), YEAR) AND postDate <= DATE_SUB(CURRENT_DATE(), INTERVAL 1 YEAR)`;
+    case 'lifetime':  return `FALSE`;
+  }
+}
+
+/**
+ * One profile's posts in `range` and in the period before it, with their style
+ * and topic names. `period` is 'current' or 'previous'. Unprocessed posts (no
+ * videoSummary) are included so the counts match the account's real output.
+ * Used by /api/account-page. Handle must be pre-sanitised with sanitiseHandle().
+ */
+export function buildAccountPagePostsSQL(dashboardId: number, handle: string, range: Range, limit = 3000): string {
+  const safe     = sanitiseHandle(handle);
+  const POST_WEB = postWeb(dashboardId);
+  const current  = rangeDateFilter(range);
+  return `
+  WITH p AS (
+    SELECT *
+    FROM ${POST_WEB}
+    WHERE LTRIM(profile, '@') = '${safe}'
+      AND ${excludeHidden('profile')}
+      AND ((${current}) OR (${prevRangeDateFilter(range)}))
+  )
+  SELECT
+    CAST(p.postId AS STRING) AS postId,
+    IF(${current}, 'current', 'previous') AS period,
+    p.caption,
+    p.videoSummary,
+    COALESCE(p.views,    0) AS views,
+    COALESCE(p.likes,    0) AS likes,
+    COALESCE(p.comments, 0) AS comments,
+    COALESCE(p.shares,   0) AS shares,
+    COALESCE(p.saves,    0) AS saves,
+    CAST(p.postDate AS STRING) AS postDate,
+    p.postUrl,
+    p.coverJpeg,
+    p.videoMp4,
+    ARRAY(
+      SELECT DISTINCT s.name FROM ${tableRef('post_x_style')} pxs
+      JOIN ${tableRef('style')} s ON pxs.styleId = s.id
+      WHERE pxs.postId = p.postId AND s.name IS NOT NULL
+    ) AS styles,
+    ARRAY(
+      SELECT DISTINCT t.name FROM ${tableRef('post_x_topic')} pxt
+      JOIN ${tableRef('topic')} t ON pxt.topicId = t.id
+      WHERE pxt.postId = p.postId AND t.name IS NOT NULL
+    ) AS topics,
+    -- The same topics on the final list (metadata.topic), matched by name or
+    -- by lib/topicAliases.ts: parent plus subtopic (NULL when the tag is a
+    -- parent). An old topic that matches nothing has a NULL parent: Other.
+    ARRAY(
+      SELECT DISTINCT AS STRUCT COALESCE(par.name, nt.name) AS parent, IF(par.id IS NULL, NULL, nt.name) AS sub
+      FROM ${tableRef('post_x_topic')} pxt
+      JOIN ${tableRef('topic')} ot ON ot.id = pxt.topicId
+      LEFT JOIN ${tiktokTopicAliasSql()} al ON al.old_name = UPPER(ot.name)
+      LEFT JOIN ${metadataRef('topic')} nt ON nt.name = COALESCE(al.new_name, UPPER(ot.name))
+      LEFT JOIN ${metadataRef('topic')} par ON par.id = nt.parent_topic
+      WHERE pxt.postId = p.postId AND UPPER(ot.name) NOT IN (${tiktokStyleTopicsSql()})
+    ) AS subjects
+  FROM p
+  ORDER BY p.postDate DESC
+  LIMIT ${limit}
+`;
+}
+
+/** Date of one profile's most recent post, any range. */
+export function buildLastPostDateSQL(dashboardId: number, handle: string): string {
+  const safe = sanitiseHandle(handle);
+  return `
+  SELECT CAST(MAX(postDate) AS STRING) AS lastPostDate
+  FROM ${postWeb(dashboardId)}
+  WHERE LTRIM(profile, '@') = '${safe}'
+    AND ${excludeHidden('profile')}
 `;
 }

@@ -16,74 +16,72 @@
 
 import { sendEmail, emailShell, escHtml } from '@/lib/transactionalEmail';
 import { BRAND } from '@/brand/constants';
-import { tenantOrigin, tenantFullName, type TenantConfig } from '@/lib/tenants';
+import { ROOT_HOST, SITE_ORIGIN, tenantFullName, type TenantConfig } from '@/lib/tenants';
+import { createAccessToken } from '@/lib/accessLink';
 import { REGION_LABELS, type RegionKey } from '@/lib/regions';
 import type { AccessRecord } from '@/lib/tenantAccess';
 
 const KICKER = 'THE KNOX INDEX';
 
+/**
+ * The site an email's links should open: the one the request was made on, so
+ * staging (the Vercel dev preview) links to staging and the live site to the
+ * live site. Only Knox's own hosts are trusted; anything else (a forged Host
+ * header) falls back to the live site, so an email can never link elsewhere.
+ */
+export function emailOrigin(request: Request): string {
+  try {
+    const { protocol, host, hostname } = new URL(request.url);
+    const ours =
+      hostname === ROOT_HOST ||
+      hostname.endsWith(`.${ROOT_HOST}`) ||
+      hostname === 'theknoxindex.knox.digital' ||
+      (hostname.startsWith('theknoxindex') && hostname.endsWith('.vercel.app')) ||
+      hostname === 'localhost' ||
+      hostname === '127.0.0.1';
+    return ours ? `${protocol}//${host}` : SITE_ORIGIN;
+  } catch {
+    return SITE_ORIGIN;
+  }
+}
+
 /** The stored region keys as readable labels. Editorial interest, not access. */
 function areaLabels(areas: string | null): string {
-  if (!areas) return '—';
+  if (!areas) return 'Not given';
   return areas
     .split(',')
     .map(r => r.trim())
     .filter(Boolean)
     .map(r => REGION_LABELS[r as RegionKey] ?? r)
-    .join(', ') || '—';
-}
-
-function detailRows(record: AccessRecord): string {
-  const rows: [string, string][] = [
-    ['Email',        record.email],
-    ['Name',         record.requesterName  || '—'],
-    ['Organisation', record.organisation   || '—'],
-    ['Role',         record.jobRole        || '—'],
-    ['Areas of interest', areaLabels(record.areasOfInterest)],
-    ['Heard via',    record.referralSource || '—'],
-  ];
-
-  return `<table cellpadding="0" cellspacing="0" style="width:100%;margin:8px 0 16px;">
-    ${rows.map(([label, value]) => `
-      <tr>
-        <td style="padding:6px 12px 6px 0;font-size:12px;color:#55556A;white-space:nowrap;vertical-align:top;">${escHtml(label)}</td>
-        <td style="padding:6px 0;font-size:13px;color:#F4F5FF;">${escHtml(value)}</td>
-      </tr>`).join('')}
-  </table>`;
+    .join(', ') || 'Not given';
 }
 
 function detailText(record: AccessRecord): string {
   return [
     `Email: ${record.email}`,
-    `Name: ${record.requesterName || '—'}`,
-    `Organisation: ${record.organisation || '—'}`,
-    `Role: ${record.jobRole || '—'}`,
+    `Name: ${record.requesterName || 'Not given'}`,
+    `Organisation: ${record.organisation || 'Not given'}`,
+    `Role: ${record.jobRole || 'Not given'}`,
     `Areas of interest: ${areaLabels(record.areasOfInterest)}`,
-    `Heard via: ${record.referralSource || '—'}`,
+    `Heard via: ${record.referralSource || 'Not given'}`,
     '',
-    `Reason: ${record.reason || '—'}`,
+    `Reason: ${record.reason || 'Not given'}`,
   ].join('\n');
 }
 
-/** 1. Knox gets told someone is waiting. */
-export async function notifyKnoxOfRequest(record: AccessRecord, tenant: TenantConfig): Promise<void> {
-  const body = `
-    <p style="margin:0 0 8px;">Someone has asked for access to <strong style="color:#F4F5FF;">${escHtml(tenantFullName(tenant))}</strong>.</p>
-    ${detailRows(record)}
-    <p style="margin:0 0 6px;font-size:12px;color:#55556A;">Reason given</p>
-    <p style="margin:0;white-space:pre-wrap;color:#F4F5FF;">${escHtml(record.reason || '—')}</p>`;
-
+/** 1. Knox gets told someone is waiting. Plain text: an internal alert. */
+export async function notifyKnoxOfRequest(record: AccessRecord, tenant: TenantConfig, origin: string = SITE_ORIGIN): Promise<void> {
   await sendEmail({
     to:       [{ email: BRAND.contact.email, name: 'Knox Index Access' }],
     replyTo:  { email: record.email, name: record.requesterName || record.email },
-    subject:  `Access request — ${tenant.brand.nameShort} — ${record.requesterName || record.email}`,
-    htmlContent: emailShell({
-      kicker: KICKER,
-      title:  'New access request',
-      body,
-      cta:    { label: 'Review in admin', url: `${tenantOrigin(tenant)}/admin` },
-    }),
-    textContent: `New access request for ${tenantFullName(tenant)}\n\n${detailText(record)}\n\nReview: ${tenantOrigin(tenant)}/admin`,
+    subject:  `Waitlist request: ${tenant.brand.nameShort}: ${record.requesterName || record.email}`,
+    textContent: [
+      `New access request for ${tenantFullName(tenant)}`,
+      '',
+      detailText(record),
+      '',
+      `Approve or refuse it here: ${origin}/admin`,
+    ].join('\n'),
   });
 }
 
@@ -108,15 +106,22 @@ export async function notifyDecision(
   record: AccessRecord,
   tenant: TenantConfig,
   status: 'approved' | 'denied' | 'pending',
+  /** The site the button opens; see emailOrigin(). */
+  origin: string = SITE_ORIGIN,
 ): Promise<void> {
   if (status === 'pending') return;
 
   const salutation = record.requesterName ? `Hi ${escHtml(record.requesterName)},` : 'Hi,';
   const approved   = status === 'approved';
+  // The button signs them straight in: waitlist sign-ups never confirmed
+  // their email, and this email is the proof the address is theirs.
+  const signInUrl = approved
+    ? `${origin}/login?tenant=${encodeURIComponent(tenant.id)}&access=${encodeURIComponent(createAccessToken(record.email, String(tenant.dashboardId)))}`
+    : '';
 
   const body = approved
     ? `<p style="margin:0 0 16px;">${salutation}</p>
-       <p style="margin:0 0 16px;">You now have access to <strong style="color:#F4F5FF;">${escHtml(tenantFullName(tenant))}</strong>. Sign in with <strong style="color:#F4F5FF;">${escHtml(record.email)}</strong> and the dashboard will open.</p>`
+       <p style="margin:0 0 16px;">You now have access to <strong style="color:#F4F5FF;">${escHtml(tenant.brand.nameShort)}</strong>. Click below to open it.</p>`
     : `<p style="margin:0 0 16px;">${salutation}</p>
        <p style="margin:0 0 16px;">We are not able to grant access to <strong style="color:#F4F5FF;">${escHtml(tenantFullName(tenant))}</strong> for ${escHtml(record.email)} at the moment.</p>
        <p style="margin:0;">If you think that is a mistake, reply to this email and we will take another look.</p>`;
@@ -125,16 +130,16 @@ export async function notifyDecision(
     to:      [{ email: record.email, name: record.requesterName || record.email }],
     replyTo: { email: BRAND.contact.email, name: 'The Knox Index' },
     subject: approved
-      ? `Access approved — ${tenant.brand.nameShort}`
+      ? `You now have access to ${tenant.brand.nameShort}`
       : `Access request update — ${tenant.brand.nameShort}`,
     htmlContent: emailShell({
       kicker: KICKER,
       title:  approved ? 'You are in' : 'Access not granted',
       body,
-      cta:    approved ? { label: `Open ${tenant.brand.nameShort}`, url: tenantOrigin(tenant) } : undefined,
+      cta:    approved ? { label: `Open ${tenant.brand.nameShort}`, url: signInUrl } : undefined,
     }),
     textContent: approved
-      ? `You now have access to ${tenantFullName(tenant)}. Sign in with ${record.email}: ${tenantOrigin(tenant)}`
+      ? `You now have access to ${tenant.brand.nameShort}. Click below to open it:\n\n${signInUrl}`
       : `We are not able to grant access to ${tenantFullName(tenant)} for ${record.email} at the moment. Reply to this email if you think that is a mistake.`,
   });
 }

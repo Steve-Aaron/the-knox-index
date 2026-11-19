@@ -89,6 +89,28 @@ export async function completeMagicLinkSignIn(email: string, href: string): Prom
   return result.user.getIdToken();
 }
 
+/**
+ * Signs in from the button in a waitlist approval email (/login?access=…).
+ * The server checks the token and that access still stands, and returns a
+ * Firebase custom token. Resolves with a fresh ID token for establishSession.
+ * Throws with the server's message when the link is invalid or expired.
+ */
+export async function signInWithAccessLink(accessToken: string): Promise<string> {
+  const res = await fetch('/api/auth/access-link', {
+    method:      'POST',
+    headers:     { 'Content-Type': 'application/json' },
+    credentials: 'same-origin',
+    body:        JSON.stringify({ token: accessToken }),
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok || !body?.customToken) throw new Error(body?.error ?? 'Sign-in failed');
+
+  const auth = await getClientAuth();
+  const { signInWithCustomToken } = await import('firebase/auth');
+  const result = await signInWithCustomToken(auth, body.customToken);
+  return result.user.getIdToken();
+}
+
 // ── Session bridge (client SDK → httpOnly cookie) ─────────────────────────────
 
 /**

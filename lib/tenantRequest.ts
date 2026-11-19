@@ -11,22 +11,21 @@
  *   1. x-forwarded-host  (Vercel sets this; it is the domain the user typed)
  *   2. host              (direct / local dev)
  *
- * Development only: `?tenant=world` or an `x-knox-tenant: world` header force a
- * tenant, so both sites can be exercised from a single localhost origin. The
- * override is ignored in production — otherwise anyone could read a gated
- * dashboard by adding a query string.
+ * The page names its index (/uk, /worldleaders; lib/indexPaths.ts) and sends
+ * it as `?tenant=` and an `x-knox-tenant` header; that wins over the host on
+ * every site. Naming an index never grants access to it: every data route
+ * calls guardTenant (lib/tenantGuard.ts), which applies that index's own
+ * access rules, so World Leaders still needs sign-in.
  */
 
-import { resolveTenant, tenantById, type TenantConfig } from '@/lib/tenants';
+import { resolveTenant, tenantById, isKnownTenant, type TenantConfig } from '@/lib/tenants';
 
 export function tenantFromRequest(request: Request): TenantConfig {
-  if (process.env.NODE_ENV !== 'production') {
-    const headerOverride = request.headers.get('x-knox-tenant');
-    let queryOverride: string | null = null;
-    try { queryOverride = new URL(request.url).searchParams.get('tenant'); } catch { /* non-absolute URL */ }
-    const override = queryOverride ?? headerOverride;
-    if (override) return tenantById(override);
-  }
+  const headerOverride = request.headers.get('x-knox-tenant');
+  let queryOverride: string | null = null;
+  try { queryOverride = new URL(request.url).searchParams.get('tenant'); } catch { /* non-absolute URL */ }
+  const override = queryOverride ?? headerOverride;
+  if (override && isKnownTenant(override)) return tenantById(override);
 
   const host = request.headers.get('x-forwarded-host') ?? request.headers.get('host');
   return resolveTenant(host);
