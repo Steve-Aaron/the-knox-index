@@ -18,7 +18,7 @@ import { devSessionEmail, previewFullAccess } from '@/lib/devIdentity';
 import { tenantFromRequest } from '@/lib/tenantRequest';
 import { isAllowedDomain, tenantFullName } from '@/lib/tenants';
 import { decideAccess, requestAccess, getAccessRecord, getAccessStatus, type AccessRequestDetails } from '@/lib/tenantAccess';
-import { notifyKnoxOfRequest, confirmRequestToRequester } from '@/lib/accessEmails';
+import { notifyKnoxOfRequest, confirmRequestToRequester, emailOrigin } from '@/lib/accessEmails';
 import { REGION_KEYS } from '@/lib/regions';
 import { safeErrorDetail } from '@/lib/errors';
 
@@ -161,7 +161,7 @@ export async function POST(request: Request): Promise<Response> {
     if (status === 'pending' && before === 'none') {
       const record = await getAccessRecord(email, tenant);
       if (record) {
-        const sends = [notifyKnoxOfRequest(record, tenant)];
+        const sends = [notifyKnoxOfRequest(record, tenant, emailOrigin(request))];
         // The gated index also acknowledges; the waitlist stays quiet until
         // the decision, which is the email that matters.
         if (!isWaitlist) sends.push(confirmRequestToRequester(record, tenant));

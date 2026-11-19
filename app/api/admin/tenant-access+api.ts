@@ -18,7 +18,7 @@ import { isAdminRequest } from '@/lib/adminAuth';
 import { verifySession } from '@/lib/firebaseAdmin';
 import { devSessionEmail } from '@/lib/devIdentity';
 import { listAccess, setAccessStatus, getAccessRecord, type AccessStatus } from '@/lib/tenantAccess';
-import { notifyDecision } from '@/lib/accessEmails';
+import { notifyDecision, emailOrigin } from '@/lib/accessEmails';
 import { TENANTS, tenantById, isKnownTenant, tenantFullName } from '@/lib/tenants';
 import { safeErrorDetail } from '@/lib/errors';
 
@@ -98,7 +98,7 @@ export async function POST(request: Request): Promise<Response> {
       const record = await getAccessRecord(email, tenant);
       if (record) {
         const [result] = await Promise.allSettled([
-          notifyDecision(record, tenant, status as 'approved' | 'denied'),
+          notifyDecision(record, tenant, status as 'approved' | 'denied', emailOrigin(request)),
         ]);
         emailed = result.status === 'fulfilled';
       }

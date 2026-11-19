@@ -16,12 +16,34 @@
 
 import { sendEmail, emailShell, escHtml } from '@/lib/transactionalEmail';
 import { BRAND } from '@/brand/constants';
-import { SITE_ORIGIN, tenantFullName, type TenantConfig } from '@/lib/tenants';
+import { ROOT_HOST, SITE_ORIGIN, tenantFullName, type TenantConfig } from '@/lib/tenants';
 import { createAccessToken } from '@/lib/accessLink';
 import { REGION_LABELS, type RegionKey } from '@/lib/regions';
 import type { AccessRecord } from '@/lib/tenantAccess';
 
 const KICKER = 'THE KNOX INDEX';
+
+/**
+ * The site an email's links should open: the one the request was made on, so
+ * staging (the Vercel dev preview) links to staging and the live site to the
+ * live site. Only Knox's own hosts are trusted; anything else (a forged Host
+ * header) falls back to the live site, so an email can never link elsewhere.
+ */
+export function emailOrigin(request: Request): string {
+  try {
+    const { protocol, host, hostname } = new URL(request.url);
+    const ours =
+      hostname === ROOT_HOST ||
+      hostname.endsWith(`.${ROOT_HOST}`) ||
+      hostname === 'theknoxindex.knox.digital' ||
+      (hostname.startsWith('theknoxindex') && hostname.endsWith('.vercel.app')) ||
+      hostname === 'localhost' ||
+      hostname === '127.0.0.1';
+    return ours ? `${protocol}//${host}` : SITE_ORIGIN;
+  } catch {
+    return SITE_ORIGIN;
+  }
+}
 
 /** The stored region keys as readable labels. Editorial interest, not access. */
 function areaLabels(areas: string | null): string {
@@ -48,7 +70,7 @@ function detailText(record: AccessRecord): string {
 }
 
 /** 1. Knox gets told someone is waiting. Plain text: an internal alert. */
-export async function notifyKnoxOfRequest(record: AccessRecord, tenant: TenantConfig): Promise<void> {
+export async function notifyKnoxOfRequest(record: AccessRecord, tenant: TenantConfig, origin: string = SITE_ORIGIN): Promise<void> {
   await sendEmail({
     to:       [{ email: BRAND.contact.email, name: 'Knox Index Access' }],
     replyTo:  { email: record.email, name: record.requesterName || record.email },
@@ -58,7 +80,7 @@ export async function notifyKnoxOfRequest(record: AccessRecord, tenant: TenantCo
       '',
       detailText(record),
       '',
-      `Approve or refuse it here: ${SITE_ORIGIN}/admin`,
+      `Approve or refuse it here: ${origin}/admin`,
     ].join('\n'),
   });
 }
@@ -84,6 +106,8 @@ export async function notifyDecision(
   record: AccessRecord,
   tenant: TenantConfig,
   status: 'approved' | 'denied' | 'pending',
+  /** The site the button opens; see emailOrigin(). */
+  origin: string = SITE_ORIGIN,
 ): Promise<void> {
   if (status === 'pending') return;
 
@@ -92,7 +116,7 @@ export async function notifyDecision(
   // The button signs them straight in: waitlist sign-ups never confirmed
   // their email, and this email is the proof the address is theirs.
   const signInUrl = approved
-    ? `${SITE_ORIGIN}/login?tenant=${encodeURIComponent(tenant.id)}&access=${encodeURIComponent(createAccessToken(record.email, String(tenant.dashboardId)))}`
+    ? `${origin}/login?tenant=${encodeURIComponent(tenant.id)}&access=${encodeURIComponent(createAccessToken(record.email, String(tenant.dashboardId)))}`
     : '';
 
   const body = approved
