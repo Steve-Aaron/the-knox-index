@@ -3,13 +3,17 @@ import { View, Text, Pressable, StyleSheet, Platform } from 'react-native';
 import { neutral, glass, status as statusColour } from '@/theme/colors';
 import { spacing, radius } from '@/theme/spacing';
 import { font } from '@/theme/typography';
-import { REGION_LABELS, type RegionKey } from '@/lib/regions';
 
 /**
  * AccessRequestCard
  * ------------------
- * One person in the World Leaders access panel: who they are, what they told
- * us, when they asked and who decided, plus the actions that fit their status.
+ * One person in the World Leaders access panel: their email (read live from
+ * Firebase Auth — the access store holds no identifying fields), when they
+ * asked, who decided, and the actions that fit their status.
+ *
+ * Name, company and the rest live in Brevo, tied to this person by their
+ * Firebase uid. This card shows who and when; the detail is a click away in
+ * Brevo.
  *
  * One job: show one access record and its actions.
  */
@@ -17,17 +21,16 @@ import { REGION_LABELS, type RegionKey } from '@/lib/regions';
 export type AccessStatus = 'approved' | 'pending' | 'denied';
 
 export interface AccessRecord {
-  email:           string;
-  status:          AccessStatus;
-  requestedAt:     string | null;
-  decidedAt:       string | null;
-  decidedBy:       string | null;
-  requesterName:   string | null;
-  organisation:    string | null;
-  jobRole:         string | null;
-  reason:          string | null;
-  areasOfInterest: string | null;
-  referralSource:  string | null;
+  firebaseUid: string;
+  /** Read live from Firebase Auth; null if the account has since gone. */
+  email:         string | null;
+  status:        AccessStatus;
+  requestedAt:   string | null;
+  decidedAt:     string | null;
+  /** The deciding admin's uid. */
+  decidedBy:     string | null;
+  /** That admin's email, resolved for display. */
+  decidedByEmail?: string | null;
 }
 
 export interface CardAction {
@@ -47,27 +50,17 @@ function day(raw: string | null): string | null {
   return raw ? raw.slice(0, 10).split('-').reverse().join('-') : null;
 }
 
-function areas(raw: string | null): string | null {
-  if (!raw) return null;
-  return raw.split(',').map(r => r.trim()).filter(Boolean)
-    .map(r => REGION_LABELS[r as RegionKey] ?? r).join(', ') || null;
-}
-
 export function AccessRequestCard({ record: r, actions, busy }: Props) {
-  const who = [r.requesterName, r.jobRole, r.organisation].filter(Boolean).join(' · ');
-  const details: [string, string | null][] = [
-    ['Interested in', areas(r.areasOfInterest)],
-    ['Heard via',     r.referralSource],
-  ];
   const asked   = day(r.requestedAt);
   const decided = day(r.decidedAt);
+  const decider = r.decidedByEmail || r.decidedBy;
 
   return (
     <View style={styles.card}>
       <View style={styles.top}>
         <View style={styles.identity}>
-          <Text style={styles.email} selectable>{r.email}</Text>
-          {who ? <Text style={styles.who}>{who}</Text> : null}
+          <Text style={styles.email} selectable>{r.email ?? '(no email on file)'}</Text>
+          <Text style={styles.hint}>Full details in Brevo</Text>
         </View>
         <View style={styles.actions}>
           {actions.map(a => (
@@ -89,20 +82,12 @@ export function AccessRequestCard({ record: r, actions, busy }: Props) {
         </View>
       </View>
 
-      {/* 'Wants to: …' and LinkedIn from the waitlist form (older requests: a free-text reason) */}
-      {r.reason ? <Text style={styles.reason} selectable>{r.reason}</Text> : null}
-
       <View style={styles.meta}>
-        {details.filter(([, v]) => v).map(([label, value]) => (
-          <Text key={label} style={styles.metaText}>
-            <Text style={styles.metaLabel}>{label}: </Text>{value}
-          </Text>
-        ))}
         {asked ? <Text style={styles.metaText}><Text style={styles.metaLabel}>Asked: </Text>{asked}</Text> : null}
         {decided && r.status !== 'pending' ? (
           <Text style={styles.metaText}>
             <Text style={styles.metaLabel}>{r.status === 'approved' ? 'Approved' : 'Refused'}: </Text>
-            {decided}{r.decidedBy ? ` by ${r.decidedBy}` : ''}
+            {decided}{decider ? ` by ${decider}` : ''}
           </Text>
         ) : null}
       </View>
@@ -128,8 +113,7 @@ const styles = StyleSheet.create({
   },
   identity: { flexShrink: 1, minWidth: 200, gap: 2 },
   email:    { fontFamily: font.bold, fontSize: 14, color: neutral.text },
-  who:      { fontFamily: font.ui, fontSize: 12, color: neutral.textMid },
-  reason:   { fontFamily: font.ui, fontSize: 13, lineHeight: 19, color: neutral.text },
+  hint:     { fontFamily: font.ui, fontSize: 11, color: neutral.textMid },
   meta:     { flexDirection: 'row', flexWrap: 'wrap', columnGap: spacing.md, rowGap: 2 },
   metaText: { fontFamily: font.ui, fontSize: 11, color: neutral.textMid },
   metaLabel: { fontFamily: font.bold, color: neutral.textMid },

@@ -7,21 +7,32 @@
  *   2. confirmRequestToRequester → the requester, acknowledging it
  *   3. notifyDecision            → the requester, when an admin decides
  *
- * All three are best-effort: a send failure is logged and swallowed, because
- * the record in BigQuery is the source of truth and a form must never fail on
- * a mail-provider hiccup.
+ * The access store (Firestore) holds no identifying fields, so these take the
+ * person's email and details from the caller: at request time from the signed-
+ * in session and the form body, at decision time from Firebase Auth by uid.
  *
- * One job: turn an access record into the right message.
+ * All three are best-effort: a send failure is logged and swallowed, because
+ * the stored decision is the source of truth and a form must never fail on a
+ * mail-provider hiccup.
+ *
+ * One job: turn an access event into the right message.
  */
 
 import { sendEmail, emailShell, escHtml } from '@/lib/transactionalEmail';
 import { BRAND } from '@/brand/constants';
 import { ROOT_HOST, SITE_ORIGIN, tenantFullName, type TenantConfig } from '@/lib/tenants';
 import { createAccessToken } from '@/lib/accessLink';
-import { REGION_LABELS, type RegionKey } from '@/lib/regions';
-import type { AccessRecord } from '@/lib/tenantAccess';
 
 const KICKER = 'THE KNOX INDEX';
+
+/** Who asked, assembled by the caller from the session and the form body. */
+export interface Requester {
+  email: string;
+  /** Display name, or '' when not given. */
+  name:  string;
+  /** Pre-labelled plain-text lines for the internal alert (no PII rules here). */
+  details: string[];
+}
 
 /**
  * The site an email's links should open: the one the request was made on, so
@@ -45,40 +56,17 @@ export function emailOrigin(request: Request): string {
   }
 }
 
-/** The stored region keys as readable labels. Editorial interest, not access. */
-function areaLabels(areas: string | null): string {
-  if (!areas) return 'Not given';
-  return areas
-    .split(',')
-    .map(r => r.trim())
-    .filter(Boolean)
-    .map(r => REGION_LABELS[r as RegionKey] ?? r)
-    .join(', ') || 'Not given';
-}
-
-function detailText(record: AccessRecord): string {
-  return [
-    `Email: ${record.email}`,
-    `Name: ${record.requesterName || 'Not given'}`,
-    `Organisation: ${record.organisation || 'Not given'}`,
-    `Role: ${record.jobRole || 'Not given'}`,
-    `Areas of interest: ${areaLabels(record.areasOfInterest)}`,
-    `Heard via: ${record.referralSource || 'Not given'}`,
-    '',
-    `Reason: ${record.reason || 'Not given'}`,
-  ].join('\n');
-}
-
 /** 1. Knox gets told someone is waiting. Plain text: an internal alert. */
-export async function notifyKnoxOfRequest(record: AccessRecord, tenant: TenantConfig, origin: string = SITE_ORIGIN): Promise<void> {
+export async function notifyKnoxOfRequest(who: Requester, tenant: TenantConfig, origin: string = SITE_ORIGIN): Promise<void> {
   await sendEmail({
     to:       [{ email: BRAND.contact.email, name: 'Knox Index Access' }],
-    replyTo:  { email: record.email, name: record.requesterName || record.email },
-    subject:  `Waitlist request: ${tenant.brand.nameShort}: ${record.requesterName || record.email}`,
+    replyTo:  { email: who.email, name: who.name || who.email },
+    subject:  `Waitlist request: ${tenant.brand.nameShort}: ${who.name || who.email}`,
     textContent: [
       `New access request for ${tenantFullName(tenant)}`,
       '',
-      detailText(record),
+      `Email: ${who.email}`,
+      ...who.details,
       '',
       `Approve or refuse it here: ${origin}/admin`,
     ].join('\n'),
@@ -86,24 +74,32 @@ export async function notifyKnoxOfRequest(record: AccessRecord, tenant: TenantCo
 }
 
 /** 2. The requester gets an acknowledgement. */
-export async function confirmRequestToRequester(record: AccessRecord, tenant: TenantConfig): Promise<void> {
-  const salutation = record.requesterName ? `Hi ${escHtml(record.requesterName)},` : 'Hi,';
+export async function confirmRequestToRequester(who: Requester, tenant: TenantConfig): Promise<void> {
+  const salutation = who.name ? `Hi ${escHtml(who.name)},` : 'Hi,';
   const body = `
     <p style="margin:0 0 16px;">${salutation}</p>
     <p style="margin:0 0 16px;">Thanks for asking for access to <strong style="color:#F4F5FF;">${escHtml(tenantFullName(tenant))}</strong>. Your request is with the Knox team and we will email you as soon as it has been reviewed.</p>
-    <p style="margin:0;">We have recorded it against <strong style="color:#F4F5FF;">${escHtml(record.email)}</strong>, so sign in with that address once you hear from us.</p>`;
+    <p style="margin:0;">We have recorded it against <strong style="color:#F4F5FF;">${escHtml(who.email)}</strong>, so sign in with that address once you hear from us.</p>`;
 
   await sendEmail({
-    to:      [{ email: record.email, name: record.requesterName || record.email }],
+    to:      [{ email: who.email, name: who.name || who.email }],
     subject: `Access requested — ${tenant.brand.nameShort}`,
     htmlContent: emailShell({ kicker: KICKER, title: 'Request received', body }),
-    textContent: `Thanks for asking for access to ${tenantFullName(tenant)}. Your request is with the Knox team and we will email you once it has been reviewed. It is recorded against ${record.email}.`,
+    textContent: `Thanks for asking for access to ${tenantFullName(tenant)}. Your request is with the Knox team and we will email you once it has been reviewed. It is recorded against ${who.email}.`,
   });
+}
+
+/** Who to tell about a decision — resolved from the uid by the admin route. */
+export interface DecisionRecipient {
+  /** The uid the approval link signs in. */
+  uid:   string;
+  email: string;
+  name:  string;
 }
 
 /** 3. The requester is told the outcome. Only 'approved' and 'denied' send. */
 export async function notifyDecision(
-  record: AccessRecord,
+  who: DecisionRecipient,
   tenant: TenantConfig,
   status: 'approved' | 'denied' | 'pending',
   /** The site the button opens; see emailOrigin(). */
@@ -111,23 +107,23 @@ export async function notifyDecision(
 ): Promise<void> {
   if (status === 'pending') return;
 
-  const salutation = record.requesterName ? `Hi ${escHtml(record.requesterName)},` : 'Hi,';
+  const salutation = who.name ? `Hi ${escHtml(who.name)},` : 'Hi,';
   const approved   = status === 'approved';
-  // The button signs them straight in: waitlist sign-ups never confirmed
-  // their email, and this email is the proof the address is theirs.
+  // The button signs them straight in. The token carries their uid, the key
+  // the access store uses; access-link re-checks approval before minting.
   const signInUrl = approved
-    ? `${origin}/login?tenant=${encodeURIComponent(tenant.id)}&access=${encodeURIComponent(createAccessToken(record.email, String(tenant.dashboardId)))}`
+    ? `${origin}/login?tenant=${encodeURIComponent(tenant.id)}&access=${encodeURIComponent(createAccessToken(who.uid, String(tenant.dashboardId)))}`
     : '';
 
   const body = approved
     ? `<p style="margin:0 0 16px;">${salutation}</p>
        <p style="margin:0 0 16px;">You now have access to <strong style="color:#F4F5FF;">${escHtml(tenant.brand.nameShort)}</strong>. Click below to open it.</p>`
     : `<p style="margin:0 0 16px;">${salutation}</p>
-       <p style="margin:0 0 16px;">We are not able to grant access to <strong style="color:#F4F5FF;">${escHtml(tenantFullName(tenant))}</strong> for ${escHtml(record.email)} at the moment.</p>
+       <p style="margin:0 0 16px;">We are not able to grant access to <strong style="color:#F4F5FF;">${escHtml(tenantFullName(tenant))}</strong> for ${escHtml(who.email)} at the moment.</p>
        <p style="margin:0;">If you think that is a mistake, reply to this email and we will take another look.</p>`;
 
   await sendEmail({
-    to:      [{ email: record.email, name: record.requesterName || record.email }],
+    to:      [{ email: who.email, name: who.name || who.email }],
     replyTo: { email: BRAND.contact.email, name: 'The Knox Index' },
     subject: approved
       ? `You now have access to ${tenant.brand.nameShort}`
@@ -140,6 +136,6 @@ export async function notifyDecision(
     }),
     textContent: approved
       ? `You now have access to ${tenant.brand.nameShort}. Click below to open it:\n\n${signInUrl}`
-      : `We are not able to grant access to ${tenantFullName(tenant)} for ${record.email} at the moment. Reply to this email if you think that is a mistake.`,
+      : `We are not able to grant access to ${tenantFullName(tenant)} for ${who.email} at the moment. Reply to this email if you think that is a mistake.`,
   });
 }

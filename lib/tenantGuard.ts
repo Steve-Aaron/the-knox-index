@@ -7,17 +7,17 @@
  *   1. Resolves the tenant from the request host (lib/tenantRequest.ts)
  *   2. Decides whether this caller may read it (lib/tenantAccess.ts)
  *
- * On a public tenant it short-circuits before touching Firebase or BigQuery,
+ * On a public tenant it short-circuits before touching Firebase or Firestore,
  * so The Knox Index pays nothing for the gate that protects World Leaders.
  *
  * One job: return the tenant, or the Response that refuses the request.
  */
 
-import { verifySession } from '@/lib/firebaseAdmin';
 import { tenantFromRequest } from '@/lib/tenantRequest';
 import { decideAccess, type AccessDecision } from '@/lib/tenantAccess';
+import { identityFromRequest } from '@/lib/sessionIdentity';
 import type { TenantConfig } from '@/lib/tenants';
-import { devSessionEmail, previewFullAccess } from '@/lib/devIdentity';
+import { previewFullAccess } from '@/lib/devIdentity';
 
 export interface TenantGuard {
   tenant:   TenantConfig;
@@ -48,20 +48,11 @@ export async function guardTenant(request: Request): Promise<TenantGuard> {
     return { tenant, email: null, decision: { allowed: true, reason: 'dev-bypass' }, denied: null };
   }
 
-  let email: string | null = null;
-  try {
-    const user = await verifySession(request.headers.get('Cookie'));
-    email = user?.email ?? null;
-  } catch {
-    email = null;
-  }
+  // The signed-in caller (uid + email), or null. Dev stand-in handled inside.
+  const identity = await identityFromRequest(request);
+  const email    = identity?.email ?? null;
 
-  // Development only: stand in for a session cookie so a gated dashboard can be
-  // opened on localhost, where magic-link sign-in is impractical. The access
-  // rules below still run in full against this address.
-  if (!email) email = devSessionEmail();
-
-  const decision = await decideAccess(email, tenant);
+  const decision = await decideAccess(identity, tenant);
   if (decision.allowed) return { tenant, email, decision, denied: null };
 
   const status = decision.reason === 'unauthenticated' ? 401 : 403;

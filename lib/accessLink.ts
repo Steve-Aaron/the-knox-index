@@ -3,16 +3,16 @@
  * ------------------
  * The sign-in link in a waitlist approval email. Server-side only.
  *
- * Waitlist sign-ups never confirm their email, so the approval email is the
- * first time we know the address is theirs. Its button carries a signed token
- * (email, dashboard, expiry) that /api/auth/access-link swaps for a Firebase
- * session, so one click signs them in and opens the dashboard.
+ * A waitlist sign-up has already signed in, so it has a Firebase uid. The
+ * approval email's button carries a signed token (uid, dashboard, expiry)
+ * that /api/auth/access-link swaps for a Firebase session, so one click signs
+ * them in and opens the dashboard. Nothing identifying rides in the URL.
  *
  * Unlike a Firebase magic link it is not single-use and does not have to be
  * opened in the browser that asked for it, so it still works days later or
  * after an email scanner has visited it. It stops working after
  * TOKEN_TTL_DAYS, and access is re-checked when it is used, so a later
- * refusal wins over an old email.
+ * refusal wins over an old approval.
  *
  * Signing key: ACCESS_LINK_SECRET when set, otherwise derived from the
  * Firebase service account (already secret, already on every deployment).
@@ -49,15 +49,17 @@ function sign(payload: string): string {
 }
 
 export interface AccessLinkClaims {
-  email:    string;
-  /** Dashboard id as a string, as stored in tenant_access.tenantId. */
+  /** The Firebase uid the approval signs in. The access store keys on uid, so
+   *  the token carries no email — nothing identifying rides in the URL. */
+  uid:      string;
+  /** Dashboard id as a string, as stored on the access doc. */
   tenantId: string;
 }
 
-/** A token for `email` on `tenantId`, valid for TOKEN_TTL_DAYS. */
-export function createAccessToken(email: string, tenantId: string): string {
+/** A token for `uid` on `tenantId`, valid for TOKEN_TTL_DAYS. */
+export function createAccessToken(uid: string, tenantId: string): string {
   const payload = b64url(JSON.stringify({
-    e: email.trim().toLowerCase(),
+    u: uid,
     t: tenantId,
     x: Date.now() + TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000,
   }));
@@ -74,10 +76,10 @@ export function verifyAccessToken(token: string): AccessLinkClaims | null {
   if (expected.length !== given.length || !timingSafeEqual(expected, given)) return null;
 
   try {
-    const { e, t, x } = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
-    if (typeof e !== 'string' || typeof t !== 'string' || typeof x !== 'number') return null;
+    const { u, t, x } = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
+    if (typeof u !== 'string' || typeof t !== 'string' || typeof x !== 'number') return null;
     if (Date.now() > x) return null;
-    return { email: e, tenantId: t };
+    return { uid: u, tenantId: t };
   } catch {
     return null;
   }
