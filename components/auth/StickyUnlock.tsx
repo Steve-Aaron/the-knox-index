@@ -95,11 +95,14 @@ interface Props {
   waitlist?:    WaitlistState | null;
   /** Bump to open the sign-up (or waitlist) modal from elsewhere on the page. */
   openSignal?:  number;
+  /** Optional line explaining WHY the modal opened (e.g. a signed-out profile
+   *  tap), shown in place of the default sign-in copy. */
+  openContext?: string | null;
 }
 
 type ModalState = 'hidden' | 'unlock' | 'profiling' | 'waitlist';
 
-export function StickyUnlock({ showBar, isRegistered, email, waitlist = null, openSignal = 0 }: Props) {
+export function StickyUnlock({ showBar, isRegistered, email, waitlist = null, openSignal = 0, openContext = null }: Props) {
   const [profiled, setProfiled] = useState(false);
   const [modal,    setModal]    = useState<ModalState>('hidden');
   // Waitlist answers saved before a signed-out visitor went to confirm their
@@ -266,6 +269,7 @@ export function StickyUnlock({ showBar, isRegistered, email, waitlist = null, op
           onClose={() => setModal('hidden')}
           onOpen={() => track('unlock_modal_opened', { waitlist: !!waitlist })}
           waitlistName={waitlist?.tenantName ?? null}
+          context={openContext}
         />
       )}
 
@@ -299,11 +303,14 @@ interface UnlockModalProps {
   onOpen?: () => void;
   /** Set on a waitlist index: the modal invites people onto the waitlist. */
   waitlistName?: string | null;
+  /** Why the modal opened (e.g. a signed-out profile tap); shown in place of
+   *  the default sign-in copy when present. */
+  context?: string | null;
 }
 
 type UnlockStep = 'form' | 'sending' | 'sent';
 
-function UnlockModal({ onClose, onOpen, waitlistName = null }: UnlockModalProps) {
+function UnlockModal({ onClose, onOpen, waitlistName = null, context = null }: UnlockModalProps) {
   const [email, setEmail] = useState('');
   const [step,  setStep]  = useState<UnlockStep>('form');
   const [error, setError] = useState<string | null>(null);
@@ -387,6 +394,8 @@ function UnlockModal({ onClose, onOpen, waitlistName = null }: UnlockModalProps)
               <Text style={styles.modalCopy}>
                 {waitlistName
                   ? "Full access is by approval. Enter your email and we'll send you a sign-in link, then tell us a little about yourself and we'll review your request."
+                  : context
+                  ? context
                   : "Enter your email and we'll send you a one-click access link."}
               </Text>
 
@@ -825,7 +834,7 @@ function ProfilingModal({ email, onClose, onDone, waitlist = null, resume = null
             <Text style={proStyles.title}>{isWaitlist ? `Join the ${waitlist!.tenantName} waitlist` : 'Help us tailor your experience'}</Text>
             <Text style={proStyles.subtitle}>
               {isWaitlist
-                ? "Takes 30 seconds. Full access is approved by the Knox team, and we'll email you when you're in."
+                ? "Access to World Leader data is currently in closed beta. Complete the form below if you'd like to apply."
                 : 'Takes 30 seconds. Helps us surface the most relevant intelligence for the way you work.'}
             </Text>
 
@@ -1053,25 +1062,8 @@ function ProfilingModal({ email, onClose, onDone, waitlist = null, resume = null
                   </View>
               }
             </Pressable>
-            {/* Signed-out waitlist: Google as an alternative to the email link.
-                The draft is saved first so the reload after sign-in keeps the
-                answers. */}
-            {isWaitlist && !email && Platform.OS === 'web' ? (
-              <>
-                <View style={proStyles.orRow}>
-                  <View style={proStyles.orLine} />
-                  <Text style={proStyles.orText}>or</Text>
-                  <View style={proStyles.orLine} />
-                </View>
-                <GoogleSignInButton
-                  disabled={loading || !canSubmit}
-                  onBeforeSignIn={() => saveProfileDraft({ answers: collectAnswers(), email: null })}
-                />
-                {!canSubmit ? (
-                  <Text style={proStyles.consentNote}>Add your details above first.</Text>
-                ) : null}
-              </>
-            ) : null}
+            {/* Joining the waitlist is form-only: no Google shortcut. The
+                visitor completes the form and verifies via the emailed link. */}
           </View>
           </>)}
         </MotiView>
