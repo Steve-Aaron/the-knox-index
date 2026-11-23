@@ -1474,9 +1474,7 @@ const proStyles = StyleSheet.create({
   consentLink: { color: neutral.textMid, textDecorationLine: 'underline' },
 
   // 'or' divider above the Google button on the signed-out waitlist form
-  orRow:  { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginVertical: spacing.sm },
-  orLine: { flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.1)' },
-  orText: { fontFamily: font.ui, fontSize: 12, color: neutral.textMid },
+
 
   // Footer
   footerDivider: { height: 1, backgroundColor: 'rgba(255,255,255,0.07)' },

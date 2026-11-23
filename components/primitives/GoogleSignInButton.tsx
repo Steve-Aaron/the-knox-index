@@ -28,9 +28,6 @@ interface Props {
   disabled?: boolean;
   /** Override the default navigation (e.g. for tests / analytics wrappers). */
   onPress?:  () => void;
-  /** Runs just before the Google popup opens, e.g. to save a form draft that
-   *  the sign-in reload would otherwise lose. */
-  onBeforeSignIn?: () => void;
   /** Label text. */
   label?:    string;
   style?:    ViewStyle | ViewStyle[];
@@ -51,7 +48,6 @@ function GoogleMark({ size = 18 }: { size?: number }) {
 export function GoogleSignInButton({
   disabled = false,
   onPress,
-  onBeforeSignIn,
   label = 'Continue with Google',
   style,
 }: Props) {
@@ -64,7 +60,6 @@ export function GoogleSignInButton({
     if (disabled || busy) return;
     if (onPress) { onPress(); return; }
 
-    onBeforeSignIn?.();
     setBusy(true);
     try {
       const { track } = await import('@/lib/analytics');

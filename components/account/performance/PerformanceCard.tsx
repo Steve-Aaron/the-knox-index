@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { StyleSheet, View, type ViewStyle } from 'react-native';
+import { ScrollView, StyleSheet, View, type ViewStyle } from 'react-native';
 import { AccountWidget } from '@/components/account/layout/AccountWidget';
 import { WidgetHeader } from '@/components/account/layout/WidgetHeader';
 import { RadarChart, type RadarAxis, type RadarSeries } from '@/components/charts/radar/RadarChart';
@@ -58,14 +58,8 @@ export function PerformanceCard({ radar, politician, posts, height, style }: Pro
     };
   }, [radar]);
 
-  return (
-    <AccountWidget
-      height={height}
-      style={style}
-      infoText="Each axis is scored 0–100 relative to every tracked account. Compare platforms to see where this account is strongest."
-    >
-      <WidgetHeader title="Performance" />
-
+  const body = (
+    <>
       <View style={styles.subheader}>
         <View style={styles.kickerRow}>
           <Kicker tone="dim">Performance radar</Kicker>
@@ -79,11 +73,38 @@ export function PerformanceCard({ radar, politician, posts, height, style }: Pro
       </View>
 
       <FollowerQualityFlag politician={politician} posts={posts} />
+    </>
+  );
+
+  return (
+    <AccountWidget
+      height={height}
+      style={style}
+      infoText="Each axis is scored 0–100 relative to every tracked account. Compare platforms to see where this account is strongest."
+    >
+      <WidgetHeader title="Performance" />
+      {/* Fixed height (desktop): everything under the header scrolls, so a tall
+          radar plus the reach flags never clip. Omit height to grow with content. */}
+      {height != null ? (
+        <ScrollView style={styles.scroll} contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
+          {body}
+        </ScrollView>
+      ) : (
+        <View style={styles.body}>{body}</View>
+      )}
     </AccountWidget>
   );
 }
 
 const styles = StyleSheet.create({
+  scroll: {
+    flex:      1,
+    minHeight: 0,
+  },
+  body: {
+    gap:      spacing.base,
+    flexGrow: 1,
+  },
   subheader: {
     flexDirection:  'row',
     alignItems:     'center',

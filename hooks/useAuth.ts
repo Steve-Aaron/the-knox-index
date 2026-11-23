@@ -26,6 +26,7 @@ import { identify, setSuperProperties, track } from '@/lib/analytics';
 import { getDevPreview } from '@/lib/devPreview';
 import { mintSessionSilently } from '@/lib/firebaseClient';
 import { emitAuthChanged } from '@/lib/authEvents';
+import { clearSignedOutCache } from '@/lib/deviceAuthCache';
 
 export interface AuthState {
   isRegistered: boolean;
@@ -109,8 +110,10 @@ export function useAuth(): AuthState {
             track('user_returned');
           } else {
             setEmail(null);
-            localStorage.removeItem(LS_REGISTERED);
-            localStorage.removeItem(LS_EMAIL);
+            // Session is definitively gone: wipe every per-identity convenience
+            // flag so the next visitor on this browser doesn't inherit the last
+            // one's registered / profiled / waitlist status or form pre-fill.
+            clearSignedOutCache();
             setSuperProperties({ is_registered: false });
           }
           emitAuthChanged();
