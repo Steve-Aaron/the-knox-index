@@ -27,14 +27,29 @@ export interface TenantGuard {
   denied:   Response | null;
 }
 
-export async function guardTenant(request: Request): Promise<TenantGuard> {
+export async function guardTenant(
+  request: Request,
+  opts: { requireFullAccess?: boolean } = {},
+): Promise<TenantGuard> {
   const tenant = tenantFromRequest(request);
 
-  // A waitlist index serves its data the way The Knox Index does: the guest
-  // limits (top 5, short ranges, no post feed) are applied in the client, so
-  // the read itself is open. Who has the FULL view is answered separately by
-  // /api/tenant/access.
-  if (tenant.access.mode === 'public' || tenant.access.mode === 'waitlist') {
+  // Public tenants are always an open read.
+  if (tenant.access.mode === 'public') {
+    return {
+      tenant,
+      email:    null,
+      decision: { allowed: true, reason: 'public' },
+      denied:   null,
+    };
+  }
+
+  // A waitlist index serves its SHARED routes the way The Knox Index does: the
+  // guest limits (top 5, short ranges, no post feed) are applied in the client,
+  // so the read itself is open. Detail routes that are NOT part of the guest
+  // view (the per-account page) pass requireFullAccess, which drops through to
+  // the real decision below — so that data is refused without approval, even on
+  // a direct API call.
+  if (tenant.access.mode === 'waitlist' && !opts.requireFullAccess) {
     return {
       tenant,
       email:    null,

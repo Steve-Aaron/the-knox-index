@@ -39,7 +39,9 @@ import { followerSnapshots, mergeByPerson as mergeGrowth } from '@/lib/followerG
 import type { Politician } from '@/data/types';
 
 export async function GET(request: Request): Promise<Response> {
-  const { tenant, denied } = await guardTenant(request);
+  // The account page is NOT part of the open guest view: its per-account data
+  // is refused on a waitlist tenant unless the caller is approved.
+  const { tenant, denied } = await guardTenant(request, { requireFullAccess: true });
   if (denied) return denied;
   const dashboardId = tenant.dashboardId;
 
