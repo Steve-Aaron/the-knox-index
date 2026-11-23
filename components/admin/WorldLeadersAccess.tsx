@@ -57,9 +57,18 @@ export function WorldLeadersAccess({ onForbidden }: Props) {
 
   useEffect(() => { void load(); }, [load]);
 
-  /** Approve emails the person; refuse and revoke are silent. */
-  const decide = useCallback(async (email: string, next: AccessStatus, done: string) => {
-    setBusy(email);
+  /**
+   * Decide on a person. `target` is a record's uid, or an email for a direct
+   * grant (the server resolves it to a uid). `key` drives the busy state.
+   * Approve emails the person; refuse and revoke are silent.
+   */
+  const decide = useCallback(async (
+    target: { uid: string } | { email: string },
+    next: AccessStatus,
+    done: string,
+  ) => {
+    const key = 'uid' in target ? target.uid : target.email;
+    setBusy(key);
     setError(null);
     setNotice(null);
     try {
@@ -67,7 +76,7 @@ export function WorldLeadersAccess({ onForbidden }: Props) {
         method:      'POST',
         credentials: 'same-origin',
         headers:     { 'Content-Type': 'application/json' },
-        body:        JSON.stringify({ email, tenant: WORLD.dashboardId, status: next, notify: next === 'approved' }),
+        body:        JSON.stringify({ ...target, tenant: WORLD.dashboardId, status: next, notify: next === 'approved' }),
       });
       if (res.status === 403) { onForbidden(); return; }
       const data = await res.json().catch(() => ({}));
@@ -88,9 +97,10 @@ export function WorldLeadersAccess({ onForbidden }: Props) {
     run();
   }, []);
 
-  const approve = (email: string) => decide(email, 'approved', `${email} now has access and has been emailed a sign-in link.`);
-  const refuse  = (email: string) => confirmThen(`Refuse ${email}? They won't be emailed.`, () => { void decide(email, 'denied', `${email} was refused.`); });
-  const revoke  = (email: string) => confirmThen(`Revoke access for ${email}? They lose the full view within a minute and won't be emailed.`, () => { void decide(email, 'denied', `${email} no longer has access.`); });
+  const who = (r: AccessRecord) => r.email ?? 'this person';
+  const approve = (r: AccessRecord) => decide({ uid: r.firebaseUid }, 'approved', `${who(r)} now has access and has been emailed a sign-in link.`);
+  const refuse  = (r: AccessRecord) => confirmThen(`Refuse ${who(r)}? They won't be emailed.`, () => { void decide({ uid: r.firebaseUid }, 'denied', `${who(r)} was refused.`); });
+  const revoke  = (r: AccessRecord) => confirmThen(`Revoke access for ${who(r)}? They lose the full view within a minute and won't be emailed.`, () => { void decide({ uid: r.firebaseUid }, 'denied', `${who(r)} no longer has access.`); });
 
   const grant = useCallback(() => {
     const email = grantEmail.trim().toLowerCase();
@@ -99,7 +109,7 @@ export function WorldLeadersAccess({ onForbidden }: Props) {
       setNotice(`${email} is a Knox address, so it already gets in by signing in.`);
       return;
     }
-    void decide(email, 'approved', `${email} now has access and has been emailed a sign-in link.`).then(() => setGrantEmail(''));
+    void decide({ email }, 'approved', `${email} now has access and has been emailed a sign-in link.`).then(() => setGrantEmail(''));
   }, [grantEmail, decide]);
 
   const groups = useMemo(() => ({
@@ -110,11 +120,11 @@ export function WorldLeadersAccess({ onForbidden }: Props) {
 
   const actionsFor = (r: AccessRecord): CardAction[] => {
     if (r.status === 'pending')  return [
-      { label: 'Approve', tone: 'good', onPress: () => { void approve(r.email); } },
-      { label: 'Refuse',  tone: 'bad',  onPress: () => refuse(r.email) },
+      { label: 'Approve', tone: 'good', onPress: () => { void approve(r); } },
+      { label: 'Refuse',  tone: 'bad',  onPress: () => refuse(r) },
     ];
-    if (r.status === 'approved') return [{ label: 'Revoke', tone: 'bad', onPress: () => revoke(r.email) }];
-    return [{ label: 'Approve', tone: 'good', onPress: () => { void approve(r.email); } }];
+    if (r.status === 'approved') return [{ label: 'Revoke', tone: 'bad', onPress: () => revoke(r) }];
+    return [{ label: 'Approve', tone: 'good', onPress: () => { void approve(r); } }];
   };
 
   if (loading) {
@@ -134,7 +144,7 @@ export function WorldLeadersAccess({ onForbidden }: Props) {
 
       <Section title="Waiting for approval" count={groups.pending.length} empty="No one is waiting.">
         {groups.pending.map(r => (
-          <AccessRequestCard key={r.email} record={r} actions={actionsFor(r)} busy={busy === r.email} />
+          <AccessRequestCard key={r.firebaseUid} record={r} actions={actionsFor(r)} busy={busy === r.firebaseUid} />
         ))}
       </Section>
 
@@ -155,14 +165,14 @@ export function WorldLeadersAccess({ onForbidden }: Props) {
           </Pressable>
         </View>
         {groups.approved.map(r => (
-          <AccessRequestCard key={r.email} record={r} actions={actionsFor(r)} busy={busy === r.email} />
+          <AccessRequestCard key={r.firebaseUid} record={r} actions={actionsFor(r)} busy={busy === r.firebaseUid} />
         ))}
       </Section>
 
       {groups.denied.length > 0 ? (
         <Section title="Refused or revoked" count={groups.denied.length} empty="">
           {groups.denied.map(r => (
-            <AccessRequestCard key={r.email} record={r} actions={actionsFor(r)} busy={busy === r.email} />
+            <AccessRequestCard key={r.firebaseUid} record={r} actions={actionsFor(r)} busy={busy === r.firebaseUid} />
           ))}
         </Section>
       ) : null}

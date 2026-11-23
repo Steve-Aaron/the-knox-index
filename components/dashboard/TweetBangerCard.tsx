@@ -5,6 +5,7 @@ import { DevLabel } from '@/components/primitives/DevLabel';
 import { TweetCard } from '@/components/post/tweet/TweetCard';
 import { glass } from '@/theme/colors';
 import { radius } from '@/theme/spacing';
+import { BANGER_CARD_WIDTH, BANGER_CARD_HEIGHT } from './bangerCardSize';
 import type { RecentPost, TweetData } from '@/data/types';
 import type { GroupKey } from '@/theme/colors';
 
@@ -22,10 +23,6 @@ interface Props {
   groupKey: GroupKey;
   delay?:   number;
 }
-
-const WIDTH = 360;
-/** Height when there is no TikTok card beside it to match. */
-const MIN_HEIGHT = 340;
 
 export function TweetBangerCard({ post, groupKey, delay = 0 }: Props) {
   return (
@@ -54,12 +51,11 @@ export function TweetBangerCard({ post, groupKey, delay = 0 }: Props) {
 
 const styles = StyleSheet.create({
   slot: {
-    alignSelf: 'stretch',
-    minHeight: MIN_HEIGHT,
+    width:  BANGER_CARD_WIDTH,
+    height: BANGER_CARD_HEIGHT,
   },
   frame: {
     flex: 1,
-    width: WIDTH,
     borderWidth: 1,
     borderColor: glass.border,
     borderRadius: radius.md,

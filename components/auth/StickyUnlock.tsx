@@ -23,6 +23,7 @@ import { type, font } from '@/theme/typography';
 import { breakpoints } from '@/theme/breakpoints';
 import { track } from '@/lib/analytics';
 import { requestMagicLink } from '@/lib/requestMagicLink';
+import { readProfileDraft, saveProfileDraft, clearProfileDraft, type WaitlistProfileDraft } from '@/lib/waitlistProfileDraft';
 import { AuthToast } from '@/components/auth/AuthToast';
 import { onAuthChanged } from '@/lib/authEvents';
 import { SEGMENTS, interestsFor } from '@/data/profileOptions';
@@ -94,13 +95,19 @@ interface Props {
   waitlist?:    WaitlistState | null;
   /** Bump to open the sign-up (or waitlist) modal from elsewhere on the page. */
   openSignal?:  number;
+  /** Optional line explaining WHY the modal opened (e.g. a signed-out profile
+   *  tap), shown in place of the default sign-in copy. */
+  openContext?: string | null;
 }
 
 type ModalState = 'hidden' | 'unlock' | 'profiling' | 'waitlist';
 
-export function StickyUnlock({ showBar, isRegistered, email, waitlist = null, openSignal = 0 }: Props) {
+export function StickyUnlock({ showBar, isRegistered, email, waitlist = null, openSignal = 0, openContext = null }: Props) {
   const [profiled, setProfiled] = useState(false);
   const [modal,    setModal]    = useState<ModalState>('hidden');
+  // Waitlist answers saved before a signed-out visitor went to confirm their
+  // email; set when they return signed in, so the form auto-files on open.
+  const [resumeDraft, setResumeDraft] = useState<WaitlistProfileDraft | null>(null);
 
   // Mobile re-stacks the CTA — text on top, full-width button below — because
   // at <768px there isn't room for headline + sub-copy + a pill button on one row.
@@ -141,11 +148,20 @@ export function StickyUnlock({ showBar, isRegistered, email, waitlist = null, op
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isRegistered, !!waitlist]);
 
-  // Waitlist: a newly signed-in visitor who has not yet asked is shown the
-  // waitlist form once per browser session.
+  // Waitlist: a signed-in visitor who has not yet asked. If they are coming
+  // back from confirming their email, a saved draft is waiting — open the form
+  // at once with it, so it files the request. Otherwise prompt once a session.
   const waitlistReason = waitlist?.reason ?? null;
   useEffect(() => {
     if (Platform.OS !== 'web' || !isRegistered || waitlistReason !== 'none') return;
+
+    const draft = readProfileDraft();
+    if (draft) {
+      setResumeDraft(draft);
+      setModal(m => (m === 'hidden' ? 'waitlist' : m));
+      return;
+    }
+
     let prompted = false;
     try { prompted = sessionStorage.getItem(WAITLIST_PROMPTED_KEY) === '1'; } catch { /* storage blocked */ }
     if (prompted) return;
@@ -156,14 +172,15 @@ export function StickyUnlock({ showBar, isRegistered, email, waitlist = null, op
     return () => clearTimeout(timer);
   }, [isRegistered, waitlistReason]);
 
-  // The Knox Index: the sign-up modal. Waitlist index: the waitlist form,
-  // signed in or not. Already waiting → nothing to open.
-  // Waitlist index: signed out → the waitlist form (an email is enough, no
-  // sign-in), unless this browser has already joined.
+  // The Knox Index: the sign-up modal. Waitlist index: the full profiling form,
+  // signed in or out. Signed out, the form collects the details then sends a
+  // sign-in link (the server files nothing until there is a verified uid); the
+  // request is filed on return via the resume draft. Already approved or
+  // waiting → nothing to open.
   const openModal = useCallback(() => {
     if (!waitlist) { setModal('unlock'); return; }
-    if (isRegistered) { if (waitlist.reason === 'none') setModal('waitlist'); return; }
-    if (!waitlist.joinedEmail) setModal('waitlist');
+    if (isRegistered && waitlist.reason !== 'none') return;
+    setModal('waitlist');
   }, [waitlist, isRegistered]);
 
   // The parent bumps openSignal from locked panels and the range interstitial
@@ -252,6 +269,7 @@ export function StickyUnlock({ showBar, isRegistered, email, waitlist = null, op
           onClose={() => setModal('hidden')}
           onOpen={() => track('unlock_modal_opened', { waitlist: !!waitlist })}
           waitlistName={waitlist?.tenantName ?? null}
+          context={openContext}
         />
       )}
 
@@ -259,9 +277,10 @@ export function StickyUnlock({ showBar, isRegistered, email, waitlist = null, op
       {modal === 'waitlist' && waitlist && (
         <ProfilingModal
           email={email}
-          onClose={() => setModal('hidden')}
-          onDone={() => setModal('hidden')}
+          onClose={() => { setModal('hidden'); setResumeDraft(null); }}
+          onDone={() => { setModal('hidden'); setResumeDraft(null); }}
           waitlist={{ tenantName: waitlist.tenantName, onJoined: waitlist.onJoined }}
+          resume={resumeDraft}
         />
       )}
 
@@ -284,11 +303,14 @@ interface UnlockModalProps {
   onOpen?: () => void;
   /** Set on a waitlist index: the modal invites people onto the waitlist. */
   waitlistName?: string | null;
+  /** Why the modal opened (e.g. a signed-out profile tap); shown in place of
+   *  the default sign-in copy when present. */
+  context?: string | null;
 }
 
 type UnlockStep = 'form' | 'sending' | 'sent';
 
-function UnlockModal({ onClose, onOpen, waitlistName = null }: UnlockModalProps) {
+function UnlockModal({ onClose, onOpen, waitlistName = null, context = null }: UnlockModalProps) {
   const [email, setEmail] = useState('');
   const [step,  setStep]  = useState<UnlockStep>('form');
   const [error, setError] = useState<string | null>(null);
@@ -372,6 +394,8 @@ function UnlockModal({ onClose, onOpen, waitlistName = null }: UnlockModalProps)
               <Text style={styles.modalCopy}>
                 {waitlistName
                   ? "Full access is by approval. Enter your email and we'll send you a sign-in link, then tell us a little about yourself and we'll review your request."
+                  : context
+                  ? context
                   : "Enter your email and we'll send you a one-click access link."}
               </Text>
 
@@ -522,6 +546,12 @@ interface ProfilingModalProps {
    * waitlist request. Null for The Knox Index's post-sign-in profile.
    */
   waitlist?: { tenantName: string; onJoined: (email: string) => void | Promise<void> } | null;
+  /**
+   * Waitlist only: answers saved before a signed-out visitor went to confirm
+   * their email. When set and the visitor is now signed in, the modal files
+   * the request automatically (components/auth/waitlistProfileDraft).
+   */
+  resume?: WaitlistProfileDraft | null;
 }
 
 function toSmartCase(s: string): string {
@@ -544,30 +574,52 @@ function ProgressBar({ progress }: { progress: number }) {
 
 // ── ProfilingModal ────────────────────────────────────────────────────────────
 
-function ProfilingModal({ email, onClose, onDone, waitlist = null }: ProfilingModalProps) {
+function ProfilingModal({ email, onClose, onDone, waitlist = null, resume = null }: ProfilingModalProps) {
   const isWaitlist = !!waitlist;
   const interestOptions = interestsFor(!isWaitlist);
-  const [typedEmail, setTypedEmail] = useState('');
+  // On the waitlist, the form is prefilled from a saved draft when the visitor
+  // is coming back from confirming their email.
+  const d = resume?.answers;
+  const [typedEmail, setTypedEmail] = useState(resume?.email ?? '');
   const [joined,     setJoined]     = useState<{ email: string; knox: boolean } | null>(null);
+  // Set once a signed-out visitor's link has been sent: the inbox screen.
+  const [sent,       setSent]       = useState<string | null>(null);
   const [error,      setError]      = useState<string | null>(null);
-  const [firstName, setFirstName] = useState('');
-  const [lastName,  setLastName]  = useState('');
-  const [company,   setCompany]   = useState('');
+  const [firstName, setFirstName] = useState(d?.firstName ?? '');
+  const [lastName,  setLastName]  = useState(d?.lastName ?? '');
+  const [company,   setCompany]   = useState(d?.company ?? '');
   // Stores JUST the handle. Full URL is reconstructed via buildLinkedinUrl
   // at submit time so the rest of the system (Brevo, downstream emails)
   // continues to receive a complete URL.
-  const [linkedinHandle, setLinkedinHandle] = useState('');
-  const [segment,   setSegment]   = useState<string | null>(null);
-  const [otherText, setOtherText] = useState('');
-  const [interests, setInterests] = useState<string[]>([]);
-  const [consentUpdates,  setConsentUpdates]  = useState(true);
+  const [linkedinHandle, setLinkedinHandle] = useState(d?.linkedinHandle ?? '');
+  const [segment,   setSegment]   = useState<string | null>(d?.segment ?? null);
+  const [otherText, setOtherText] = useState(d?.otherText ?? '');
+  const [interests, setInterests] = useState<string[]>(d?.interests ?? []);
+  const [consentUpdates,  setConsentUpdates]  = useState(d?.consentUpdates ?? true);
   // Briefing frequency — mutually-exclusive pair. Weekly is the default
   // cadence for now (Daily is hidden in FrequencyPicker), so a user who
   // skims through lands on a weekly subscription. Flip these to restore daily.
   const [consentDaily,    setConsentDaily]    = useState(false);
   const [consentWeekly,   setConsentWeekly]   = useState(true);
-  const [consentKnox,     setConsentKnox]     = useState(false);
+  const [consentKnox,     setConsentKnox]     = useState(d?.consentKnox ?? false);
   const [loading, setLoading] = useState(false);
+
+  /** The current answers, for saving as a draft before sign-in. */
+  const collectAnswers = useCallback(() => ({
+    firstName, lastName, company, linkedinHandle,
+    segment, otherText, interests, consentUpdates, consentKnox,
+  }), [firstName, lastName, company, linkedinHandle, segment, otherText, interests, consentUpdates, consentKnox]);
+
+  // Back from confirming the email, with answers prefilled from the draft:
+  // file the request straight away, once.
+  const resumedRef = useRef(false);
+  useEffect(() => {
+    if (waitlist && resume && email && !resumedRef.current) {
+      resumedRef.current = true;
+      void handleSubmit();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const progress =
     segment && interests.length > 0 ? 100 :
@@ -587,10 +639,33 @@ function ProfilingModal({ email, onClose, onDone, waitlist = null }: ProfilingMo
     const linkedinUrl = buildLinkedinUrl(linkedinHandle);
 
     if (waitlist) {
-      // One step: the answers become a waitlist request and a Brevo contact.
-      // No email to confirm; the approval email signs them in.
       const address = (email ?? typedEmail).trim().toLowerCase();
       setError(null);
+
+      // Signed out: joining needs a verified sign-in, so hold the answers in
+      // this browser and send a sign-in link. The request is filed when the
+      // visitor returns signed in (the resume effect re-opens this modal).
+      if (!email) {
+        if (!EMAIL_RE.test(address)) {
+          setError('Please enter a valid email address.');
+          setLoading(false);
+          return;
+        }
+        try {
+          saveProfileDraft({ answers: collectAnswers(), email: address });
+          await requestMagicLink(address);
+          track('registration_submit_attempted', { email: address, waitlist: true });
+          setSent(address);
+        } catch {
+          setError('We could not send the sign-in link. Please try again.');
+        } finally {
+          setLoading(false);
+        }
+        return;
+      }
+
+      // Signed in: file the request against the session (the server ignores any
+      // email in the body and uses the session's uid).
       try {
         const res = await fetch('/api/tenant/access', {
           method:      'POST',
@@ -611,10 +686,11 @@ function ProfilingModal({ email, onClose, onDone, waitlist = null }: ProfilingMo
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(data?.error ?? 'We could not send that. Please try again.');
         const knox = data?.status === 'signin';
+        clearProfileDraft();
         setJoined({ email: data?.email ?? address, knox });
         if (!knox) {
           track('waitlist_joined', {
-            signed_in:       !!email,
+            signed_in:       true,
             segment:         resolvedSegment || null,
             interests_count: interests.length,
             consent_updates: consentUpdates,
@@ -725,13 +801,27 @@ function ProfilingModal({ email, onClose, onDone, waitlist = null }: ProfilingMo
               <Text style={proStyles.subtitle}>
                 {joined.knox
                   ? `${joined.email} doesn't need approval. Sign in with it to open the full dashboard.`
-                  : `The Knox team reviews every request. We'll email ${joined.email} as soon as you're approved.`}
+                  : `We'll email ${joined.email} as soon as you're approved.`}
               </Text>
               <Pressable
                 onPress={() => { onClose(); if (joined.knox) router.push('/login'); }}
                 style={({ pressed }) => [proStyles.submitBtn, pressed && { opacity: 0.88 }]}
               >
                 <Text style={proStyles.submitBtnText}>{joined.knox ? 'Sign in' : 'Got it'}</Text>
+              </Pressable>
+            </View>
+          ) : sent ? (
+            <View style={proStyles.joinedWrap}>
+              <FontAwesome6 name="envelope-circle-check" size={36} color={accent.mint} solid />
+              <Text style={proStyles.title}>Check your inbox</Text>
+              <Text style={proStyles.subtitle}>
+                We've sent a sign-in link to {sent}. Open it in this browser to finish joining the waitlist — your details are saved, so there's nothing to re-enter. The link expires in an hour.
+              </Text>
+              <Pressable
+                onPress={onClose}
+                style={({ pressed }) => [proStyles.submitBtn, pressed && { opacity: 0.88 }]}
+              >
+                <Text style={proStyles.submitBtnText}>Got it</Text>
               </Pressable>
             </View>
           ) : (<>
@@ -744,7 +834,7 @@ function ProfilingModal({ email, onClose, onDone, waitlist = null }: ProfilingMo
             <Text style={proStyles.title}>{isWaitlist ? `Join the ${waitlist!.tenantName} waitlist` : 'Help us tailor your experience'}</Text>
             <Text style={proStyles.subtitle}>
               {isWaitlist
-                ? "Takes 30 seconds. Full access is approved by the Knox team, and we'll email you when you're in."
+                ? "Access to World Leader data is currently in closed beta. Complete the form below if you'd like to apply."
                 : 'Takes 30 seconds. Helps us surface the most relevant intelligence for the way you work.'}
             </Text>
 
@@ -972,6 +1062,8 @@ function ProfilingModal({ email, onClose, onDone, waitlist = null }: ProfilingMo
                   </View>
               }
             </Pressable>
+            {/* Joining the waitlist is form-only: no Google shortcut. The
+                visitor completes the form and verifies via the emailed link. */}
           </View>
           </>)}
         </MotiView>
@@ -1380,6 +1472,11 @@ const proStyles = StyleSheet.create({
     marginTop:  spacing.xs,
   },
   consentLink: { color: neutral.textMid, textDecorationLine: 'underline' },
+
+  // 'or' divider above the Google button on the signed-out waitlist form
+  orRow:  { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginVertical: spacing.sm },
+  orLine: { flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.1)' },
+  orText: { fontFamily: font.ui, fontSize: 12, color: neutral.textMid },
 
   // Footer
   footerDivider: { height: 1, backgroundColor: 'rgba(255,255,255,0.07)' },

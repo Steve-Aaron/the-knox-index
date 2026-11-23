@@ -150,6 +150,14 @@ export function HTMLHead() {
           set fontFamily themselves — weights still come through fontWeight. */}
       <style dangerouslySetInnerHTML={{ __html: `
         html, body, * { font-family: 'Figtree', sans-serif; }
+        /* Each Key Findings score card sized to its content. !important beats
+           react-native-web's atomic classes; flex-none lets min-content apply
+           where the card would otherwise stretch (flex: 1). */
+        [data-component="dataScoreCard"] {
+          padding: 0 0.5rem 0 0.25rem !important;
+          width: min-content !important;
+          flex: 0 0 auto !important;
+        }
       ` }} />
 
       {/* ── Favicons (theme-aware) ───────────────────────────────

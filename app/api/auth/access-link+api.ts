@@ -14,8 +14,8 @@
  */
 
 import { verifyAccessToken } from '@/lib/accessLink';
-import { customTokenForEmail } from '@/lib/firebaseAdmin';
-import { decideAccess } from '@/lib/tenantAccess';
+import { customTokenForUid } from '@/lib/firebaseAdmin';
+import { getAccessStatus } from '@/lib/tenantAccess';
 import { tenantById } from '@/lib/tenants';
 
 const NO_STORE = { 'Cache-Control': 'no-store' };
@@ -31,12 +31,13 @@ export async function POST(request: Request): Promise<Response> {
 
   const tenant = tenantById(claims.tenantId);
   try {
-    // The email may be old: a refusal since then must win.
-    const decision = await decideAccess(claims.email, tenant);
-    if (!decision.allowed) {
+    // The approval may be old: a refusal since then must win. Checked by uid,
+    // the key the token carries, with no email lookup.
+    const status = await getAccessStatus(claims.uid, tenant);
+    if (status !== 'approved') {
       return Response.json({ error: 'Access is no longer approved', tenant: tenant.id }, { status: 403, headers: NO_STORE });
     }
-    const customToken = await customTokenForEmail(claims.email);
+    const customToken = await customTokenForUid(claims.uid);
     return Response.json({ customToken, tenant: tenant.id }, { headers: NO_STORE });
   } catch (err: any) {
     console.error('[/api/auth/access-link] failed:', err?.message ?? err);

@@ -57,7 +57,7 @@ export function readProfileAnswers(body: any): ProfileAnswers {
 export async function saveProfileToBrevo(
   email: string,
   a: ProfileAnswers,
-  options: { includeBriefing: boolean; source?: string },
+  options: { includeBriefing: boolean; source?: string; firebaseUid?: string },
 ): Promise<BrevoResult> {
   const attributes: Record<string, BrevoValue> = {};
   if (a.firstName)        attributes.FIRSTNAME          = a.firstName;
@@ -67,6 +67,9 @@ export async function saveProfileToBrevo(
   if (a.segment)          attributes.JOB_ROLE           = a.segment;
   if (a.interests.length) attributes.WHY_USE_KNOX_INDEX = a.interests;
   if (options.source)     attributes.SOURCE             = options.source;
+  // Ties the Brevo contact to its Firestore access doc without the access
+  // store holding any email. The admin panel reads back by this.
+  if (options.firebaseUid) attributes.FIREBASE_UID      = options.firebaseUid;
 
   // Consent flags are always written, even false: they mirror list membership.
   attributes.CONSENT_KNOX_INDEX_UPDATES = a.consentKnoxUpdates;

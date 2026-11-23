@@ -207,8 +207,18 @@ function DashboardScreenInner() {
   const politicianTimerKey = 'politician_dwell';
   const rankedRef          = useRef<typeof ranked>([] as any);
   const sortKeyRef         = useRef<LeaderboardSortKey>(sortKey);
+  const hasFullAccessRef   = useRef(false);
 
   const handleSetActiveId = useCallback((id: string) => {
+    // Signed-out / guest: a profile's full breakdown is gated, so a tap must
+    // say so rather than silently doing nothing. Raise the sign-in prompt with
+    // profile-specific copy and leave the locked detail closed.
+    if (id && !hasFullAccessRef.current) {
+      track('locked_profile_tapped', { politician_id: id });
+      setUnlockContext('Sign in to see this profile in full.');
+      setUnlockSignal(n => n + 1);
+      return;
+    }
     // Emit dwell for the politician that's leaving, enriched with name + party
     const previousId = activeIdRef.current;
     if (previousId) {
@@ -287,7 +297,11 @@ function DashboardScreenInner() {
   );
   // Bumped to open the sign-up / waitlist modal from locked panels
   const [unlockSignal, setUnlockSignal] = useState(0);
-  const openUnlock = () => setUnlockSignal(n => n + 1);
+  const [unlockContext, setUnlockContext] = useState<string | null>(null);
+  const openUnlock = (context: string | null = null) => {
+    setUnlockContext(context);
+    setUnlockSignal(n => n + 1);
+  };
   const isAdmin = useIsAdmin();
 
   // Post feed sort is lifted here so it can drive the API's ORDER BY (the
@@ -405,8 +419,9 @@ function DashboardScreenInner() {
   }, [ranked]);
 
   // Keep refs in sync so handleSetActiveId always reads current values.
-  rankedRef.current   = ranked;
-  sortKeyRef.current  = sortKey;
+  rankedRef.current        = ranked;
+  sortKeyRef.current       = sortKey;
+  hasFullAccessRef.current = hasFullAccess;
 
   // active: the explicitly selected politician, or the #1 ranked as default display.
   // activePoliticianName is ONLY non-null when the user has tapped a specific row.
@@ -790,6 +805,7 @@ function DashboardScreenInner() {
           email={authEmail}
           waitlist={waitlist}
           openSignal={unlockSignal}
+          openContext={unlockContext}
         />
       </SafeAreaView>
 

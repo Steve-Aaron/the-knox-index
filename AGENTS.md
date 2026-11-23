@@ -117,11 +117,35 @@ One deployment serves several dashboards, one per path on `index.knox.digital`:
   and `authenticated`. On a waitlist index anyone gets the guest view (top 5,
   Yesterday and Past 7 days, no post feed, no growth or topics), exactly like
   a signed-out UK visitor. The full view needs an allowed domain or an
-  `approved` tenant_access row; signing up only joins the waitlist (a
-  `pending` row from the waitlist form), approved in the admin panel. Guest
+  `approved` access doc; joining needs a verified sign-in first, then the
+  profiling form files a `pending` doc, approved in the admin panel. Guest
   limits are client-side, as on the UK index
+
+### Access storage (Firestore + Brevo, not BigQuery)
+
+- The gate (`lib/tenantAccess.ts`) is backed by **Firestore**, keyed by
+  Firebase uid. One doc `tenantAccess/<uid>__<tenantId>` holds
+  `{ firebaseUid, tenantId, status, requestedAt, decidedAt, decidedBy }` and
+  **no identifying fields** — no email or name. `decidedBy` is the admin's uid
+- The person's details (name, company, LinkedIn, …) live only in **Brevo**,
+  tied back by the `FIREBASE_UID` contact attribute (`lib/brevoProfile.ts`).
+  The admin panel and decision emails read the email live from Firebase Auth
+  by uid; they never store it
+- A request is filed only for a **signed-in** caller (`POST /api/tenant/access`
+  401s guests; any email in the body is ignored). The approval email's link
+  carries the uid, not the email (`lib/accessLink.ts`)
+- Identity is resolved in one place: `lib/sessionIdentity.ts`
+- **Setup / ops:** Firestore must be enabled on the Firebase project, and its
+  security rules must DENY client access to `tenantAccess` and `users` (the
+  Admin SDK bypasses rules; writes are server-side only). Brevo needs a
+  `FIREBASE_UID` contact attribute. Migrate the old BigQuery `tenant_access`
+  rows with `scripts/migrate-access-to-firestore.mjs` (dry run, then
+  `--commit`) BEFORE this reaches a shared deployment, or existing approved
+  users lose access until they are migrated. BigQuery still runs the
+  dashboards; only access records left it
 - `npm run check:tenants` guards host routing, access rules, gate leaks and
-  region coverage. Run it with the other checks
+  region coverage; `npm run check:access` guards the approval token. Run them
+  with the other checks
 
 ### Adding and removing people
 
