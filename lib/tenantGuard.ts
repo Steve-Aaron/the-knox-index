@@ -7,17 +7,17 @@
  *   1. Resolves the tenant from the request host (lib/tenantRequest.ts)
  *   2. Decides whether this caller may read it (lib/tenantAccess.ts)
  *
- * On a public tenant it short-circuits before touching Firebase or BigQuery,
+ * On a public tenant it short-circuits before touching Firebase or Firestore,
  * so The Knox Index pays nothing for the gate that protects World Leaders.
  *
  * One job: return the tenant, or the Response that refuses the request.
  */
 
-import { verifySession } from '@/lib/firebaseAdmin';
 import { tenantFromRequest } from '@/lib/tenantRequest';
 import { decideAccess, type AccessDecision } from '@/lib/tenantAccess';
+import { identityFromRequest } from '@/lib/sessionIdentity';
 import type { TenantConfig } from '@/lib/tenants';
-import { devSessionEmail } from '@/lib/devIdentity';
+import { previewFullAccess } from '@/lib/devIdentity';
 
 export interface TenantGuard {
   tenant:   TenantConfig;
@@ -27,9 +27,13 @@ export interface TenantGuard {
   denied:   Response | null;
 }
 
-export async function guardTenant(request: Request): Promise<TenantGuard> {
+export async function guardTenant(
+  request: Request,
+  opts: { requireFullAccess?: boolean } = {},
+): Promise<TenantGuard> {
   const tenant = tenantFromRequest(request);
 
+  // Public tenants are always an open read.
   if (tenant.access.mode === 'public') {
     return {
       tenant,
@@ -39,20 +43,31 @@ export async function guardTenant(request: Request): Promise<TenantGuard> {
     };
   }
 
-  let email: string | null = null;
-  try {
-    const user = await verifySession(request.headers.get('Cookie'));
-    email = user?.email ?? null;
-  } catch {
-    email = null;
+  // A waitlist index serves its SHARED routes the way The Knox Index does: the
+  // guest limits (top 5, short ranges, no post feed) are applied in the client,
+  // so the read itself is open. Detail routes that are NOT part of the guest
+  // view (the per-account page) pass requireFullAccess, which drops through to
+  // the real decision below — so that data is refused without approval, even on
+  // a direct API call.
+  if (tenant.access.mode === 'waitlist' && !opts.requireFullAccess) {
+    return {
+      tenant,
+      email:    null,
+      decision: { allowed: true, reason: 'public' },
+      denied:   null,
+    };
   }
 
-  // Development only: stand in for a session cookie so a gated dashboard can be
-  // opened on localhost, where magic-link sign-in is impractical. The access
-  // rules below still run in full against this address.
-  if (!email) email = devSessionEmail();
+  // Vercel preview only: the reviewer turned on full access in the preview bar
+  if (previewFullAccess(request.headers.get('Cookie'))) {
+    return { tenant, email: null, decision: { allowed: true, reason: 'dev-bypass' }, denied: null };
+  }
 
-  const decision = await decideAccess(email, tenant);
+  // The signed-in caller (uid + email), or null. Dev stand-in handled inside.
+  const identity = await identityFromRequest(request);
+  const email    = identity?.email ?? null;
+
+  const decision = await decideAccess(identity, tenant);
   if (decision.allowed) return { tenant, email, decision, denied: null };
 
   const status = decision.reason === 'unauthenticated' ? 401 : 403;

@@ -22,8 +22,8 @@ import { breakpoints } from '@/theme/breakpoints';
  * month / year / lifetime are locked behind registration.
  * One job: pick a time range.
  *
- * Note: 'yesterday' is the shortest selectable window (postDate >= today - 1
- * day) and maps to the matching server-side range in lib/bqQueries.ts.
+ * Note: 'yesterday' is the shortest selectable window (yesterday's posts only,
+ * not today's) and maps to the matching server-side range in lib/bqQueries.ts.
  */
 export type TimeRange = 'yesterday' | 'week' | 'month' | 'year' | 'lifetime';
 
@@ -38,11 +38,16 @@ interface Props {
 
 const OPTIONS: { key: TimeRange; label: string }[] = [
   { key: 'yesterday', label: 'Yesterday' },
-  { key: 'week',      label: 'Last 7 days' },
-  { key: 'month',     label: 'Last 30 days' },
+  { key: 'week',      label: 'Past 7 days' },
+  { key: 'month',     label: 'Past 30 days' },
   { key: 'year',      label: 'This year' },
-  { key: 'lifetime',  label: 'Lifetime' },
+  { key: 'lifetime',  label: 'All data' },
 ];
+
+/** The tab label for a range, e.g. 'Past 7 days', for cards that name the period. */
+export function rangeLabel(range: TimeRange): string {
+  return OPTIONS.find(o => o.key === range)?.label ?? '';
+}
 
 const LOCKED_RANGES = new Set<TimeRange>(['month', 'year', 'lifetime']);
 
@@ -57,7 +62,9 @@ export function TimeRangePicker({ value, onChange, isRegistered = false, onLocke
   }, [index, xPct]);
 
   const highlightStyle = useAnimatedStyle(() => ({
-    left: `${(xPct.value / OPTIONS.length) * 100}%`,
+    // The spring overshoots; clamp so the pill never slides past the first
+    // or last option (out of the container) and still bounces in between.
+    left: `${(Math.min(Math.max(xPct.value, 0), OPTIONS.length - 1) / OPTIONS.length) * 100}%`,
     width: `${100 / OPTIONS.length}%`,
   } as any));
 

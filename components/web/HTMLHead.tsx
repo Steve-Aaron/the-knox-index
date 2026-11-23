@@ -22,6 +22,7 @@
 
 import { ScrollViewStyleReset } from 'expo-router/html';
 import { BRAND } from '@/brand/constants';
+import { SITE_ORIGIN } from '@/lib/tenants';
 
 // ── IDs ───────────────────────────────────────────────────────────────────────
 
@@ -31,6 +32,18 @@ const GTM_ID = 'GTM-WBQQHKZP';
 /** Silktide Consent Manager — served from local public/ assets */
 const SILKTIDE_CSS = '/silktide-consent-manager.css';
 const SILKTIDE_JS  = '/silktide-consent-manager.js';
+
+/**
+ * Social share image — public/og-image.png, 1200×630.
+ * Scrapers need an absolute URL and do not run JS, so this is the same image
+ * on every domain the deployment serves.
+ */
+const OG_IMAGE = {
+  url:    `${SITE_ORIGIN}/og-image.png`,
+  width:  '1200',
+  height: '630',
+  alt:    'The Knox Index, UK politicians’ TikTok videos plotted on a map of the UK',
+} as const;
 
 // ── Inline scripts ────────────────────────────────────────────────────────────
 
@@ -137,6 +150,14 @@ export function HTMLHead() {
       <meta property="og:title"       content={BRAND.name} />
       <meta property="og:description" content={BRAND.description} />
       <meta property="og:type"        content="website" />
+      <meta property="og:site_name"   content={BRAND.name} />
+      <meta property="og:image"        content={OG_IMAGE.url} />
+      <meta property="og:image:width"  content={OG_IMAGE.width} />
+      <meta property="og:image:height" content={OG_IMAGE.height} />
+      <meta property="og:image:alt"    content={OG_IMAGE.alt} />
+      <meta name="twitter:card"      content="summary_large_image" />
+      <meta name="twitter:image"     content={OG_IMAGE.url} />
+      <meta name="twitter:image:alt" content={OG_IMAGE.alt} />
 
       {/* ── Figtree — single source of truth for the app's typeface ─────── */}
       <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -150,6 +171,14 @@ export function HTMLHead() {
           set fontFamily themselves — weights still come through fontWeight. */}
       <style dangerouslySetInnerHTML={{ __html: `
         html, body, * { font-family: 'Figtree', sans-serif; }
+        /* Each Key Findings score card sized to its content. !important beats
+           react-native-web's atomic classes; flex-none lets min-content apply
+           where the card would otherwise stretch (flex: 1). */
+        [data-component="dataScoreCard"] {
+          padding: 0 0.5rem 0 0.25rem !important;
+          width: min-content !important;
+          flex: 0 0 auto !important;
+        }
       ` }} />
 
       {/* ── Favicons (theme-aware) ───────────────────────────────

@@ -14,6 +14,7 @@ import { DevLabel } from '@/components/primitives/DevLabel';
 import { neutral, glass, accent, colourFor } from '@/theme/colors';
 import { type, font } from '@/theme/typography';
 import { spacing, radius } from '@/theme/spacing';
+import { BANGER_CARD_WIDTH, BANGER_CARD_HEIGHT } from './bangerCardSize';
 import { formatters } from '@/components/primitives/CountUp';
 import { StyleChip } from '@/components/primitives/StyleChip';
 import type { RecentPost } from '@/data/types';
@@ -108,7 +109,7 @@ export function PostBangerCard({ post, politicianName, groupKey, delay = 0 }: Pr
                 onPress={e => { e.stopPropagation?.(); Linking.openURL(post.postUrl!); }}
                 style={styles.linkRow}
               >
-                <Text style={styles.linkText}>View on TikTok →</Text>
+                <Text style={styles.linkText}>{post.postUrl.includes('x.com/') ? 'View on X →' : 'View on TikTok →'}</Text>
               </Pressable>
             ) : null}
           </View>
@@ -134,7 +135,8 @@ export function PostBangerCard({ post, politicianName, groupKey, delay = 0 }: Pr
 
 const styles = StyleSheet.create({
   postBangerCard: {
-    width: 180,
+    width:  BANGER_CARD_WIDTH,
+    height: BANGER_CARD_HEIGHT,
     backgroundColor: glass.card,
     borderWidth: 1,
     borderColor: glass.border,
@@ -150,7 +152,8 @@ const styles = StyleSheet.create({
     }),
   },
   imageWrap: {
-    height: 240,
+    flex: 1,            // fills the card above the info block, so every tile is the same height
+    minHeight: 180,
     backgroundColor: '#111',
     position: 'relative',
   },

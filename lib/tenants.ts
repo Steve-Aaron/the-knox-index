@@ -26,8 +26,15 @@ export type GroupingMode = 'party' | 'region';
 export type MapMode = 'uk' | 'world' | 'none';
 
 export interface TenantAccess {
-  /** 'public' — anyone may read. 'authenticated' — a signed-in, allowed user only. */
-  mode: 'public' | 'authenticated';
+  /**
+   * 'public'        — anyone may read everything a signed-in user can.
+   * 'waitlist'      — anyone may read the limited guest view (top 5, Yesterday
+   *                   and Past 7 days, no post feed). The full view needs an
+   *                   allowed domain or an approved tenant_access record, so
+   *                   signing up joins a waitlist that Knox approves by hand.
+   * 'authenticated' — nothing is readable until the visitor is allowed.
+   */
+  mode: 'public' | 'waitlist' | 'authenticated';
   /**
    * Email domains that are allowed automatically, no approval needed.
    * Compared case-insensitively against the part after '@'.
@@ -46,6 +53,13 @@ export interface TenantConfig {
   dashboardId: number;
   /** Subdomain label, e.g. 'worldleaders'. Null for the apex/root site. */
   subdomain: string | null;
+  /**
+   * The index's home path on every site: /uk, /worldleaders. Account pages
+   * are /account/<slug> whichever index they belong to.
+   */
+  path: string;
+  /** Older paths that still lead here (redirected to `path`). */
+  pathAliases?: readonly string[];
   /** Exact hostnames that resolve to this tenant (no port, lowercase). */
   hosts: readonly string[];
   brand: {
@@ -66,6 +80,12 @@ export interface TenantConfig {
     subjectPlural: string;
     /** Shorter form for running copy, e.g. 'MPs'. */
     subjectShort: string;
+    /** One line under the logo in the footer. */
+    footerLine:   string;
+    /** Name in the header's index switcher, e.g. 'UK'. */
+    switcherLabel:      string;
+    /** Shorter form for phone widths, e.g. 'World'. */
+    switcherLabelShort: string;
   };
   grouping: {
     mode: GroupingMode;
@@ -80,6 +100,18 @@ export interface TenantConfig {
   };
   map: MapMode;
   access: TenantAccess;
+  /**
+   * Social platforms this dashboard reads, in display order. More than one
+   * shows the All / TikTok / X filter. Omitted = TikTok only.
+   */
+  platforms?: readonly ('tiktok' | 'x')[];
+  /**
+   * Where the briefing panel's copy comes from. 'stored' reads /api/briefs
+   * (n8n 'Brief writer (all dashboards)'); 'placeholder' shows sample copy at
+   * full size for a dashboard the brief writer does not cover yet.
+   * Omitted = 'stored'.
+   */
+  briefing?: 'stored' | 'placeholder';
 }
 
 /** Root domain the subdomains hang off. */
@@ -90,6 +122,7 @@ export const TENANTS: readonly TenantConfig[] = [
     id:          'uk',
     dashboardId: 1,
     subdomain:   null,
+    path:        'uk',
     hosts: [
       ROOT_HOST,
       'theknoxindex.knox.digital',
@@ -101,10 +134,13 @@ export const TENANTS: readonly TenantConfig[] = [
       nameShort:     'Knox Index',
       kicker:        'THE KNOX INDEX',
       headlineWords: ['THE', 'KNOX', 'INDEX'],
-      tagline:       'Learn how UK politicians use TikTok, in real time. Get insights live on our dashboard below, and bespoke email insights every day.',
-      description:   'Daily intelligence on how UK politicians perform on TikTok — ranked, scored, and briefed.',
+      tagline:       'Learn how UK politicians use social media, in real time. Get insights live on our dashboard below, and bespoke email insights every day.',
+      description:   'Daily intelligence on how UK politicians perform on TikTok and X: ranked, scored and briefed.',
       subjectPlural: 'Politicians',
       subjectShort:  'MPs',
+      footerLine:    'UK political TikTok and X intelligence, daily.',
+      switcherLabel:      'UK',
+      switcherLabelShort: 'UK',
     },
     grouping: {
       mode:          'party',
@@ -114,12 +150,15 @@ export const TENANTS: readonly TenantConfig[] = [
       boardInfo:     "Politicians grouped by party and totalled. Use this to answer 'which party is dominating TikTok this week' and 'which party is most active'. Tap a party row to filter the post feed below.",
     },
     map: 'uk',
+    platforms: ['tiktok', 'x'],
     access: { mode: 'public', allowedDomains: [], requireApproval: false },
   },
   {
     id:          'world',
     dashboardId: 2,
     subdomain:   'worldleaders',
+    path:        'worldleaders',
+    pathAliases: ['world-leaders'],
     hosts: [
       `worldleaders.${ROOT_HOST}`,
       'worldleaders.localhost',
@@ -130,21 +169,25 @@ export const TENANTS: readonly TenantConfig[] = [
       kicker:        'THE KNOX INDEX',
       subtitle:      'World Leaders',
       headlineWords: ['THE', 'KNOX', 'INDEX'],
-      tagline:       'Learn how the world’s heads of state and government use TikTok, in real time. Live rankings, regional breakdowns and daily intelligence.',
-      description:   'Daily intelligence on how world leaders perform on TikTok — ranked, scored, and briefed.',
+      tagline:       'Learn how the world’s heads of state and government use social media, in real time. Live rankings, regional breakdowns and daily intelligence.',
+      description:   'Daily intelligence on how world leaders perform on TikTok and X: ranked, scored and briefed.',
       subjectPlural: 'World leaders',
       subjectShort:  'world leaders',
+      footerLine:    'World leaders’ TikTok and X intelligence, daily.',
+      switcherLabel:      'World Leaders',
+      switcherLabelShort: 'World',
     },
     grouping: {
       mode:          'region',
       label:         'Region',
       boardKicker:   'REGION LEAGUE',
-      boardQuestion: 'Which part of the world is winning on TikTok?',
-      boardInfo:     'Leaders grouped by region and totalled. Use this to answer which part of the world is dominating TikTok this week, and which is most active. Tap a region row to filter the post feed below.',
+      boardQuestion: 'Which part of the world is winning on social?',
+      boardInfo:     'Leaders grouped by region and totalled. Use this to answer which part of the world is dominating social media this week, and which is most active. Tap a region row to filter the post feed below.',
     },
     map: 'world',
+    platforms: ['tiktok', 'x'],
     access: {
-      mode:            'authenticated',
+      mode:            'waitlist',
       allowedDomains:  ['knoxdigi.com', 'knox.digital'],
       requireApproval: true,
     },
@@ -176,7 +219,13 @@ export function tenantById(id: string | number | null | undefined): TenantConfig
     return TENANTS.find(t => t.dashboardId === Number(raw)) ?? DEFAULT_TENANT;
   }
 
-  return TENANTS.find(t => t.id === raw) ?? DEFAULT_TENANT;
+  return TENANTS.find(t => t.id === raw || t.path === raw || (t.pathAliases ?? []).includes(raw)) ?? DEFAULT_TENANT;
+}
+
+/** The tenant whose path (or older alias) is this segment ('uk', 'worldleaders'), or null. */
+export function tenantByPath(segment: string | null | undefined): TenantConfig | null {
+  const raw = String(segment ?? '').trim().toLowerCase();
+  return TENANTS.find(t => t.path === raw || (t.pathAliases ?? []).includes(raw)) ?? null;
 }
 
 /** Lookup by dashboard id alone. Null when no tenant serves that dashboard. */
@@ -235,6 +284,18 @@ export function tenantFullName(tenant: TenantConfig): string {
 /** Canonical https origin for a tenant — used in metadata and email links. */
 export function tenantOrigin(tenant: TenantConfig): string {
   return `https://${tenant.hosts[0]}`;
+}
+
+/**
+ * Links in emails. Every index lives at a path on the main site
+ * (index.knox.digital/uk, /worldleaders), so emails link there rather than
+ * to tenantOrigin, whose worldleaders subdomain is not set up.
+ */
+export const SITE_ORIGIN = `https://${ROOT_HOST}`;
+
+/** An index's home page on the main site, e.g. https://index.knox.digital/worldleaders */
+export function tenantHomeUrl(tenant: TenantConfig): string {
+  return `${SITE_ORIGIN}/${tenant.path}`;
 }
 
 /** True when the email's domain is on this tenant's automatic allowlist. */

@@ -25,6 +25,8 @@
  * One job: the development stand-in for a session cookie.
  */
 
+import { PREVIEW_FULL_ACCESS_COOKIE } from '@/lib/devPreview';
+
 export function isDevEnvironment(): boolean {
   return process.env.NODE_ENV !== 'production';
 }
@@ -39,4 +41,16 @@ export function devSessionEmail(): string | null {
 /** True when the access decision itself should be skipped (dev only). */
 export function devAccessBypass(): boolean {
   return isDevEnvironment() && process.env.DEV_TENANT_BYPASS === '1';
+}
+
+/**
+ * Full access on a Vercel PREVIEW deployment, for reviewing the dev branch:
+ * the reviewer turns on 'Full' in the preview bar, which sets a cookie. Only
+ * honoured when Vercel reports the build as a preview (VERCEL_ENV), so the
+ * cookie does nothing on the live site. Preview addresses sit behind Vercel's
+ * own login, so only people on the Vercel team can reach them.
+ */
+export function previewFullAccess(cookieHeader: string | null): boolean {
+  if (process.env.VERCEL_ENV !== 'preview' || !cookieHeader) return false;
+  return cookieHeader.split(';').some(c => c.trim() === `${PREVIEW_FULL_ACCESS_COOKIE}=1`);
 }

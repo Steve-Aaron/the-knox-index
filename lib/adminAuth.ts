@@ -8,8 +8,9 @@
  *   2. That session's email is on the ADMIN_EMAILS allowlist
  *      (comma-separated env var, e.g. "steve@knoxdigi.com")
  *
- * Fails closed: no ADMIN_EMAILS set → nobody is admin. The old admin_panel=1
- * cookie is ignored — anyone could set that themselves in DevTools.
+ * The allowlist is BUILT_IN_ADMINS plus anything in ADMIN_EMAILS, so the core
+ * team is admin on every deployment whatever its env vars say. The old
+ * admin_panel=1 cookie is ignored: anyone could set that in DevTools.
  *
  * In development only, DEV_TENANT_EMAIL can stand in for the session cookie
  * (lib/devIdentity.ts). The allowlist check is unchanged, so it cannot admit
@@ -21,12 +22,14 @@
 import { verifySession } from '@/lib/firebaseAdmin';
 import { devSessionEmail } from '@/lib/devIdentity';
 
+/** Always admin, on every deployment. Add to ADMIN_EMAILS for anyone else. */
+const BUILT_IN_ADMINS = ['steve@knoxdigi.com', 'rowen@knoxdigi.com'];
+
 export async function isAdminRequest(request: Request): Promise<boolean> {
-  const allowlist = (process.env.ADMIN_EMAILS ?? '')
-    .split(',')
-    .map(e => e.trim().toLowerCase())
-    .filter(Boolean);
-  if (allowlist.length === 0) return false;
+  const allowlist = [
+    ...BUILT_IN_ADMINS,
+    ...(process.env.ADMIN_EMAILS ?? '').split(','),
+  ].map(e => e.trim().toLowerCase()).filter(Boolean);
 
   try {
     const user = await verifySession(request.headers.get('Cookie'));

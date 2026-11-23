@@ -18,6 +18,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Platform } from 'react-native';
 import { useTenant } from '@/hooks/useTenant';
 import { fetchWithRetry } from '@/data/fetchWithRetry';
+import { getDevPreview } from '@/lib/devPreview';
 import type { TenantConfig } from '@/lib/tenants';
 
 export type AccessReason =
@@ -61,6 +62,16 @@ export function useTenantAccess(): TenantAccessState {
 
   const refresh = useCallback(async () => {
     if (skip) return;
+    // Dev preview 'waitlist': show the awaiting-approval state without a real
+    // pending record. Runs in an effect (client only), so no SSR mismatch;
+    // getDevPreview is a no-op off a dev/preview build.
+    if (Platform.OS === 'web' && getDevPreview() === 'waitlist') {
+      setAllowed(false);
+      setReason('pending');
+      setEmail('dev@preview.local');
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError(null);
     try {

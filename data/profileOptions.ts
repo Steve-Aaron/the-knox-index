@@ -19,6 +19,10 @@ export interface InterestOption {
   label: string;
   desc: string;
   icon: string;
+  /** Only makes sense on The Knox Index (UK); left off the World Leaders form. */
+  ukOnly?: true;
+  /** Description on the World Leaders form, where `desc` is UK-specific. */
+  worldDesc?: string;
 }
 
 export const SEGMENTS: SegmentOption[] = [
@@ -34,9 +38,27 @@ export const SEGMENTS: SegmentOption[] = [
 
 export const INTERESTS: InterestOption[] = [
   { id: 'find_news_stories',          label: 'Find new stories',           desc: 'Unique angles on political TikTok strategy',     icon: 'magnifying-glass' },
-  { id: 'track_mps',                  label: 'Track other MPs',             desc: 'See what opponents post and why it cuts through', icon: 'chess'            },
-  { id: 'monitor_constituent_issues', label: 'Monitor constituent issues',  desc: 'Issues trending with your community on TikTok',  icon: 'comments'         },
+  { id: 'track_mps',                  label: 'Track other MPs',             desc: 'See what opponents post and why it cuts through', icon: 'chess',            ukOnly: true },
+  { id: 'monitor_constituent_issues', label: 'Monitor constituent issues',  desc: 'Issues trending with your community on TikTok',  icon: 'comments',         ukOnly: true },
   { id: 'build_daily_briefings',      label: 'Build daily briefings',       desc: 'Morning intelligence for you or your clients',   icon: 'clipboard-list'   },
   { id: 'analyse_performance_data',   label: 'Analyse performance data',    desc: 'Deep-dive engagement metrics and content trends', icon: 'chart-line'       },
-  { id: 'just_for_fun',               label: 'Just for fun',                desc: 'You find UK political TikTok oddly fascinating',  icon: 'face-smile'       },
+  { id: 'just_for_fun',               label: 'Just for fun',                desc: 'You find UK political TikTok oddly fascinating',  icon: 'face-smile',       worldDesc: 'You find political social media oddly fascinating' },
 ];
+
+/** The interests offered on an index: UK-only ones left out elsewhere. */
+export function interestsFor(isUk: boolean): InterestOption[] {
+  return isUk
+    ? INTERESTS
+    : INTERESTS.filter(i => !i.ukOnly).map(i => (i.worldDesc ? { ...i, desc: i.worldDesc } : i));
+}
+
+/** 'political_consultant' → 'Political Consultant'; 'other:Lobbyist' → 'Other: Lobbyist'. */
+export function segmentLabel(segment: string): string {
+  if (segment.startsWith('other:')) return `Other: ${segment.slice(6)}`;
+  return SEGMENTS.find(s => s.id === segment)?.label ?? segment;
+}
+
+/** Interest ids as their labels, comma-separated. */
+export function interestLabels(ids: readonly string[]): string {
+  return ids.map(id => INTERESTS.find(i => i.id === id)?.label ?? id).join(', ');
+}

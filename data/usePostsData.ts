@@ -17,6 +17,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import type { PostRecord } from './types';
 import type { TimeRange } from '@/components/dashboard/TimeRangePicker';
 import { fetchWithRetry } from './fetchWithRetry';
+import type { PlatformFilter } from '@/lib/platforms';
 
 /** Sort keys supported by /api/posts — must match the API's whitelist. */
 export type PostsSortKey = 'views' | 'likes' | 'comments' | 'shares' | 'engagement' | 'virality' | 'postDate';
@@ -38,20 +39,24 @@ export interface PostsState {
   total:       number | null;
 }
 
-/** Convert a TimeRange key to a `since` ISO date string, or null for lifetime. */
-function rangeToSince(range: TimeRange): string | null {
-  if (range === 'lifetime') return null;
-  // 'year' is the calendar year (from 1 Jan), matching the leaderboard's
-  // EXTRACT(YEAR) filter. The shorter ranges are rolling windows.
-  if (range === 'year') return `${new Date().getFullYear()}-01-01`;
-  const days: Record<'yesterday' | 'week' | 'month', number> = {
-    yesterday: 1,
-    week:      7,
-    month:     30,
-  };
-  const d = new Date();
-  d.setDate(d.getDate() - days[range]);
-  return d.toISOString().slice(0, 10);  // 'YYYY-MM-DD'
+/**
+ * Convert a TimeRange key to its `since` / `until` ISO dates (inclusive), or
+ * nulls for lifetime. In UTC, matching rangeDateFilter() in lib/bqQueries.ts:
+ * yesterday only, rolling 7 and 30 days, this year from 1 January.
+ */
+function rangeToWindow(range: TimeRange): { since: string | null; until: string | null } {
+  const now = new Date();
+  const y = now.getUTCFullYear();
+  const m = now.getUTCMonth();
+  const d = now.getUTCDate();
+  const iso = (day: number, month = m, year = y) => new Date(Date.UTC(year, month, day)).toISOString().slice(0, 10);
+  switch (range) {
+    case 'yesterday': return { since: iso(d - 1), until: iso(d - 1) };
+    case 'week':      return { since: iso(d - 7), until: null };
+    case 'month':     return { since: iso(d - 30), until: null };
+    case 'year':      return { since: iso(1, 0), until: null };
+    case 'lifetime':  return { since: null, until: null };
+  }
 }
 
 export interface FeedFilters {
@@ -63,6 +68,10 @@ export interface FeedFilters {
   minLikes?: number;
   style?:    string | null;
   topic?:    string | null;
+  /** 'all' | 'tiktok' | 'x'. Omitted = TikTok only. */
+  platform?: PlatformFilter;
+  /** person_id of a selected leader: matches them on every platform. */
+  person?:   string | null;
 }
 
 export function usePostsData(
@@ -80,7 +89,7 @@ export function usePostsData(
     total:       null,
   });
 
-  const since = rangeToSince(range);
+  const { since, until } = rangeToWindow(range);
 
   // Stable key for the filter set — used as the fetch dependency so a filter
   // change refetches (an object would churn identity every render).
@@ -91,6 +100,8 @@ export function usePostsData(
     minLikes:   filters.minLikes   ?? 0,
     style:      filters.style      ?? null,
     topic:      filters.topic      ?? null,
+    platform:   filters.platform   ?? 'tiktok',
+    person:     filters.person     ?? null,
   });
 
   // Mirror the loaded count so loadMore() always requests the right offset
@@ -112,6 +123,7 @@ export function usePostsData(
     try {
       const params = new URLSearchParams();
       if (since) params.set('since', since);
+      if (until) params.set('until', until);
       params.set('sortKey', sortKey);
       params.set('limit',  String(PAGE_SIZE));
       params.set('offset', String(offset));
@@ -121,6 +133,8 @@ export function usePostsData(
       if (filters.minLikes)   params.set('minLikes',   String(filters.minLikes));
       if (filters.style)      params.set('style',      filters.style);
       if (filters.topic)      params.set('topic',      filters.topic);
+      params.set('platform', filters.platform ?? 'tiktok');
+      if (filters.person)     params.set('person',     filters.person);
 
       const res  = await fetchWithRetry(`/api/posts?${params.toString()}`);
       const data = await res.json() as { posts: PostRecord[]; hasMore?: boolean; total?: number | null };
@@ -150,7 +164,7 @@ export function usePostsData(
     } finally {
       inFlightRef.current = false;
     }
-  }, [since, sortKey, filterKey]);
+  }, [since, until, sortKey, filterKey]);
 
   // Reset to page 0 whenever the range or sort changes.
   useEffect(() => { fetchPage(0, true); }, [fetchPage]);

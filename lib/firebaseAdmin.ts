@@ -24,6 +24,7 @@
 
 import { initializeApp, cert, getApps, type App } from 'firebase-admin/app';
 import { getAuth, type DecodedIdToken } from 'firebase-admin/auth';
+import { getFirestore, type Firestore } from 'firebase-admin/firestore';
 
 const SESSION_COOKIE_NAME = 'tki_auth';
 const SESSION_EXPIRY_MS   = 14 * 24 * 60 * 60 * 1000; // Firebase max: 14 days
@@ -67,6 +68,15 @@ function adminAuth() {
   return getAuth(getAdminApp());
 }
 
+/**
+ * Firestore on the same admin app. Firestore is the atomic counter behind the
+ * incremental user_id (lib/userId.ts) — BigQuery cannot allocate one safely
+ * under concurrency. Requires Firestore to be enabled on the Firebase project.
+ */
+export function getAdminFirestore(): Firestore {
+  return getFirestore(getAdminApp());
+}
+
 // ── Magic link generation (delivery stays with Brevo) ──────────────────────────
 
 /**
@@ -79,6 +89,60 @@ export async function generateMagicLink(email: string, continueUrl: string): Pro
     url:             continueUrl,
     handleCodeInApp: true,
   });
+}
+
+/**
+ * A Firebase custom token for `email`, creating the user if they have never
+ * signed in. Used by the waitlist approval link (lib/accessLink.ts): the
+ * client signs in with it and exchanges the ID token for the session cookie
+ * as usual. Only call this once the address is known to be the person's.
+ */
+/** A Firebase sign-in token for a known uid. The access store keys on uid, so
+ *  the approval link (lib/accessLink.ts) carries a uid, not an email. */
+export async function customTokenForUid(uid: string): Promise<string> {
+  return adminAuth().createCustomToken(uid);
+}
+
+/**
+ * The uid for an email, for an admin granting access directly. With
+ * `create`, a Firebase user is made when none exists (the access store needs
+ * a uid to key on), so the person is signed in by the approval link later.
+ */
+export async function uidForEmail(email: string, opts: { create: boolean } = { create: false }): Promise<string | null> {
+  const auth = adminAuth();
+  try {
+    return (await auth.getUserByEmail(email)).uid;
+  } catch (err: any) {
+    if (err?.code !== 'auth/user-not-found') throw err;
+    if (!opts.create) return null;
+    return (await auth.createUser({ email, emailVerified: true })).uid;
+  }
+}
+
+/** The email behind a uid, read live from Firebase Auth. Null when unknown.
+ *  Lets the admin panel and decision emails name a person without the access
+ *  store ever holding their email. */
+export async function emailForUid(uid: string): Promise<string | null> {
+  try {
+    return (await adminAuth().getUser(uid)).email ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** Emails for several uids in one pass (admin list). Map omits any not found. */
+export async function emailsForUids(uids: string[]): Promise<Map<string, string>> {
+  const unique = [...new Set(uids.filter(Boolean))];
+  const out = new Map<string, string>();
+  if (unique.length === 0) return out;
+  const auth = adminAuth();
+  // getUsers takes up to 100 identifiers per call.
+  for (let i = 0; i < unique.length; i += 100) {
+    const chunk  = unique.slice(i, i + 100).map(uid => ({ uid }));
+    const result = await auth.getUsers(chunk);
+    result.users.forEach(u => { if (u.email) out.set(u.uid, u.email); });
+  }
+  return out;
 }
 
 // ── Session cookie ─────────────────────────────────────────────────────────────

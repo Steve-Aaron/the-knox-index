@@ -275,7 +275,7 @@ const styles = StyleSheet.create({
   // Davos-style strip — no card chrome, just big numbers floating on the page.
   strip: {
     width:             '100%',
-    paddingHorizontal: 0,
+    paddingHorizontal: spacing.xl,   // 24px gutters so the cards line up with the title bar + content below
     paddingVertical:   spacing.xl,
   },
   row: {

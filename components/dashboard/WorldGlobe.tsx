@@ -194,8 +194,10 @@ export function WorldGlobe({ politicians }: Props) {
           dragTimeRef.current = now;
 
           const sensitivity = DRAG_SENSITIVITY / zoomRef.current;
-          const dLambda     = dx * sensitivity;
-          const dPhi        = -dy * sensitivity;
+          // Grab and turn: the surface follows the pointer on both axes
+          // (same change as faae10a on fix/globe-drag-direction).
+          const dLambda     = -dx * sensitivity;
+          const dPhi        = dy * sensitivity;
 
           rotationRef.current = {
             lambda: wrapLambda(rotationRef.current.lambda + dLambda),

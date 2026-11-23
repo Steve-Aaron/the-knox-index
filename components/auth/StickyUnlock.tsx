@@ -23,9 +23,10 @@ import { type, font } from '@/theme/typography';
 import { breakpoints } from '@/theme/breakpoints';
 import { track } from '@/lib/analytics';
 import { requestMagicLink } from '@/lib/requestMagicLink';
+import { readProfileDraft, saveProfileDraft, clearProfileDraft, type WaitlistProfileDraft } from '@/lib/waitlistProfileDraft';
 import { AuthToast } from '@/components/auth/AuthToast';
 import { onAuthChanged } from '@/lib/authEvents';
-import { SEGMENTS, INTERESTS } from '@/data/profileOptions';
+import { SEGMENTS, interestsFor } from '@/data/profileOptions';
 import { DevLabel } from '@/components/primitives/DevLabel';
 import { FrequencyPicker } from '@/components/primitives/FrequencyPicker';
 import { LinkedinInput } from '@/components/primitives/LinkedinInput';
@@ -35,6 +36,7 @@ import { SelectableCard } from '@/components/primitives/SelectableCard';
 import { LabeledInput } from '@/components/primitives/LabeledInput';
 import { PrimaryButton } from '@/components/primitives/PrimaryButton';
 import { GoogleSignInButton } from '@/components/primitives/GoogleSignInButton';
+import type { AccessReason } from '@/hooks/useTenantAccess';
 
 /**
  * StickyUnlock
@@ -56,6 +58,13 @@ import { GoogleSignInButton } from '@/components/primitives/GoogleSignInButton';
  *   a short delay to collect name, company, LinkedIn, segment, interests,
  *   and comms consent. Submits to /api/preferences → Brevo.
  *
+ * Waitlist indexes (World Leaders) — `waitlist` is set
+ *   Joining does not unlock anything. The bar opens the SAME profiling form
+ *   as The Knox Index, in one step with an email field and without the
+ *   UK-only parts (briefing, UK-only interests). It posts to
+ *   /api/tenant/access: a pending request for the admin panel plus a Brevo
+ *   contact. No email to confirm; Knox approves by hand in /admin.
+ *
  * Auth state (isRegistered, email) is owned by the parent via useAuth().
  * This component never writes tki_registered to localStorage directly.
  */
@@ -63,17 +72,42 @@ import { GoogleSignInButton } from '@/components/primitives/GoogleSignInButton';
 const PROFILE_DELAY_MS = 2500;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-interface Props {
-  showBar:      boolean;
-  isRegistered: boolean;
-  email:        string | null;
+const WAITLIST_PROMPTED_KEY = 'tki_waitlist_prompted';
+
+export interface WaitlistState {
+  /** The visitor's standing on the waitlist, from /api/tenant/access. */
+  reason:     AccessReason;
+  /** Short index name for the copy, e.g. 'World Leaders'. */
+  tenantName: string;
+  /** The address this browser joined with, when the visitor is signed out. */
+  joinedEmail: string | null;
+  /** Remembers the join and re-reads access after the waitlist form is sent. */
+  onJoined:   (email: string | null) => void | Promise<void>;
 }
 
-type ModalState = 'hidden' | 'unlock' | 'profiling';
+interface Props {
+  /** Whether the sticky bar shows. The parent decides (past the hero, no full access). */
+  showBar:      boolean;
+  /** Signed in (a session exists). On a waitlist index this is not full access. */
+  isRegistered: boolean;
+  email:        string | null;
+  /** Set on waitlist indexes; null or absent on The Knox Index. */
+  waitlist?:    WaitlistState | null;
+  /** Bump to open the sign-up (or waitlist) modal from elsewhere on the page. */
+  openSignal?:  number;
+  /** Optional line explaining WHY the modal opened (e.g. a signed-out profile
+   *  tap), shown in place of the default sign-in copy. */
+  openContext?: string | null;
+}
 
-export function StickyUnlock({ showBar, isRegistered, email }: Props) {
+type ModalState = 'hidden' | 'unlock' | 'profiling' | 'waitlist';
+
+export function StickyUnlock({ showBar, isRegistered, email, waitlist = null, openSignal = 0, openContext = null }: Props) {
   const [profiled, setProfiled] = useState(false);
   const [modal,    setModal]    = useState<ModalState>('hidden');
+  // Waitlist answers saved before a signed-out visitor went to confirm their
+  // email; set when they return signed in, so the form auto-files on open.
+  const [resumeDraft, setResumeDraft] = useState<WaitlistProfileDraft | null>(null);
 
   // Mobile re-stacks the CTA — text on top, full-width button below — because
   // at <768px there isn't room for headline + sub-copy + a pill button on one row.
@@ -90,9 +124,10 @@ export function StickyUnlock({ showBar, isRegistered, email }: Props) {
     const read = () => localStorage.getItem('tki_profiled') === '1';
     setProfiled(read());
 
-    // If registered but not yet profiled → show profiling modal after delay
+    // If registered but not yet profiled → show profiling modal after delay.
+    // Waitlist indexes collect their details in the waitlist form instead.
     let timer: ReturnType<typeof setTimeout> | null = null;
-    if (isRegistered && !read()) {
+    if (isRegistered && !read() && !waitlist) {
       timer = setTimeout(() => {
         // Re-check at fire time — profiled may have flipped during the delay
         if (!read()) setModal('profiling');
@@ -110,9 +145,52 @@ export function StickyUnlock({ showBar, isRegistered, email }: Props) {
       if (timer) clearTimeout(timer);
       unsubscribe();
     };
-  }, [isRegistered]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isRegistered, !!waitlist]);
 
-  const shouldShowBar = showBar && !isRegistered;
+  // Waitlist: a signed-in visitor who has not yet asked. If they are coming
+  // back from confirming their email, a saved draft is waiting — open the form
+  // at once with it, so it files the request. Otherwise prompt once a session.
+  const waitlistReason = waitlist?.reason ?? null;
+  useEffect(() => {
+    if (Platform.OS !== 'web' || !isRegistered || waitlistReason !== 'none') return;
+
+    const draft = readProfileDraft();
+    if (draft) {
+      setResumeDraft(draft);
+      setModal(m => (m === 'hidden' ? 'waitlist' : m));
+      return;
+    }
+
+    let prompted = false;
+    try { prompted = sessionStorage.getItem(WAITLIST_PROMPTED_KEY) === '1'; } catch { /* storage blocked */ }
+    if (prompted) return;
+    const timer = setTimeout(() => {
+      try { sessionStorage.setItem(WAITLIST_PROMPTED_KEY, '1'); } catch { /* storage blocked */ }
+      setModal(m => (m === 'hidden' ? 'waitlist' : m));
+    }, PROFILE_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [isRegistered, waitlistReason]);
+
+  // The Knox Index: the sign-up modal. Waitlist index: the full profiling form,
+  // signed in or out. Signed out, the form collects the details then sends a
+  // sign-in link (the server files nothing until there is a verified uid); the
+  // request is filed on return via the resume draft. Already approved or
+  // waiting → nothing to open.
+  const openModal = useCallback(() => {
+    if (!waitlist) { setModal('unlock'); return; }
+    if (isRegistered && waitlist.reason !== 'none') return;
+    setModal('waitlist');
+  }, [waitlist, isRegistered]);
+
+  // The parent bumps openSignal from locked panels and the range interstitial
+  useEffect(() => {
+    if (openSignal > 0) openModal();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openSignal]);
+
+  const shouldShowBar = showBar;
+  const bar = barCopy(waitlist, isRegistered);
 
   // Fire cta_bar_shown analytics event once per session
   const ctaShownRef = useRef(false);
@@ -143,33 +221,39 @@ export function StickyUnlock({ showBar, isRegistered, email }: Props) {
           pointerEvents="box-none"
         >
           <Pressable
-            onPress={() => { track('cta_bar_tapped'); setModal('unlock'); }}
-            style={({ pressed }) => [styles.ctaBar, pressed && { opacity: 0.95 }]}
+            onPress={() => {
+              if (!bar.button) return;
+              track('cta_bar_tapped', { waitlist: !!waitlist });
+              openModal();
+            }}
+            style={({ pressed }) => [styles.ctaBar, pressed && bar.button && { opacity: 0.95 }]}
           >
             <View style={[styles.ctaInner, isMobile && styles.ctaInnerMobile]}>
               <View style={styles.ctaTextGroup}>
-                <Text style={styles.ctaKicker}>GET ACCESS FOR FREE</Text>
-                <Text style={styles.ctaHeadline}>Want complete access?</Text>
+                <Text style={styles.ctaKicker}>{bar.kicker}</Text>
+                <Text style={styles.ctaHeadline}>{bar.headline}</Text>
                 {/* Sub-copy is desktop-only — mobile keeps the bar to two lines */}
                 {!isMobile && (
-                  <Text style={styles.ctaCopy}>
-                    Register via email - free for a limited time only.
-                  </Text>
+                  <Text style={styles.ctaCopy}>{bar.copy}</Text>
                 )}
               </View>
               <View style={[styles.ctaActions, isMobile && styles.ctaActionsMobile]}>
-                <View style={[styles.ctaBtn, isMobile && styles.ctaBtnMobile]}>
-                  <Text style={styles.ctaBtnText}>REGISTER →</Text>
-                </View>
+                {bar.button && (
+                  <View style={[styles.ctaBtn, isMobile && styles.ctaBtnMobile]}>
+                    <Text style={styles.ctaBtnText}>{bar.button}</Text>
+                  </View>
+                )}
                 {/* Secondary action: existing users go straight to /login.
                     Inner Pressable wins the press over the bar's modal opener. */}
-                <Pressable
-                  onPress={() => { track('cta_login_tapped'); router.push('/login'); }}
-                  accessibilityRole="link"
-                  style={({ pressed }) => [styles.ctaLogin, pressed && { opacity: 0.7 }]}
-                >
-                  <Text style={styles.ctaLoginText}>Already registered? Log in</Text>
-                </Pressable>
+                {!isRegistered && (
+                  <Pressable
+                    onPress={() => { track('cta_login_tapped'); router.push('/login'); }}
+                    accessibilityRole="link"
+                    style={({ pressed }) => [styles.ctaLogin, pressed && { opacity: 0.7 }]}
+                  >
+                    <Text style={styles.ctaLoginText}>{bar.login}</Text>
+                  </Pressable>
+                )}
               </View>
             </View>
           </Pressable>
@@ -183,7 +267,20 @@ export function StickyUnlock({ showBar, isRegistered, email }: Props) {
       {modal === 'unlock' && (
         <UnlockModal
           onClose={() => setModal('hidden')}
-          onOpen={() => track('unlock_modal_opened')}
+          onOpen={() => track('unlock_modal_opened', { waitlist: !!waitlist })}
+          waitlistName={waitlist?.tenantName ?? null}
+          context={openContext}
+        />
+      )}
+
+      {/* ── Waitlist: the UK profile form, minus UK-only parts ────────── */}
+      {modal === 'waitlist' && waitlist && (
+        <ProfilingModal
+          email={email}
+          onClose={() => { setModal('hidden'); setResumeDraft(null); }}
+          onDone={() => { setModal('hidden'); setResumeDraft(null); }}
+          waitlist={{ tenantName: waitlist.tenantName, onJoined: waitlist.onJoined }}
+          resume={resumeDraft}
         />
       )}
 
@@ -204,11 +301,16 @@ export function StickyUnlock({ showBar, isRegistered, email }: Props) {
 interface UnlockModalProps {
   onClose: () => void;
   onOpen?: () => void;
+  /** Set on a waitlist index: the modal invites people onto the waitlist. */
+  waitlistName?: string | null;
+  /** Why the modal opened (e.g. a signed-out profile tap); shown in place of
+   *  the default sign-in copy when present. */
+  context?: string | null;
 }
 
 type UnlockStep = 'form' | 'sending' | 'sent';
 
-function UnlockModal({ onClose, onOpen }: UnlockModalProps) {
+function UnlockModal({ onClose, onOpen, waitlistName = null, context = null }: UnlockModalProps) {
   const [email, setEmail] = useState('');
   const [step,  setStep]  = useState<UnlockStep>('form');
   const [error, setError] = useState<string | null>(null);
@@ -272,7 +374,9 @@ function UnlockModal({ onClose, onOpen }: UnlockModalProps) {
                 <Text style={styles.sentEmail}>{email.trim().toLowerCase()}</Text>
               </Text>
               <Text style={styles.sentHint}>
-                The link expires in one hour. Check your spam folder if it doesn't arrive.
+                {waitlistName
+                  ? "Open the link to finish joining the waitlist. It expires in one hour, so check your spam folder if it doesn't arrive."
+                  : "The link expires in one hour. Check your spam folder if it doesn't arrive."}
               </Text>
               <Pressable
                 onPress={onClose}
@@ -283,10 +387,16 @@ function UnlockModal({ onClose, onOpen }: UnlockModalProps) {
             </MotiView>
           ) : (
             <View style={styles.modalInner}>
-              <Text style={styles.modalKicker}>Free • Limited time only</Text>
-              <Text style={styles.modalTitle}>Unlock the Complete Knox Index</Text>
+              <Text style={styles.modalKicker}>{waitlistName ? 'Waitlist' : 'Free • Limited time only'}</Text>
+              <Text style={styles.modalTitle}>
+                {waitlistName ? `Join the ${waitlistName} waitlist` : 'Unlock the Complete Knox Index'}
+              </Text>
               <Text style={styles.modalCopy}>
-                Enter your email and we'll send you a one-click access link.
+                {waitlistName
+                  ? "Full access is by approval. Enter your email and we'll send you a sign-in link, then tell us a little about yourself and we'll review your request."
+                  : context
+                  ? context
+                  : "Enter your email and we'll send you a one-click access link."}
               </Text>
 
               <TextInput
@@ -356,12 +466,92 @@ function UnlockModal({ onClose, onOpen }: UnlockModalProps) {
   );
 }
 
+// ── Bar copy ──────────────────────────────────────────────────────────────────
+
+interface BarCopy {
+  kicker:   string;
+  headline: string;
+  copy:     string;
+  /** Button label; null when there is nothing to do (already waiting). */
+  button:   string | null;
+  login:    string;
+}
+
+function barCopy(waitlist: WaitlistState | null, signedIn: boolean): BarCopy {
+  if (!waitlist) {
+    return {
+      kicker:   'GET ACCESS FOR FREE',
+      headline: 'Want complete access?',
+      copy:     'Register via email - free for a limited time only.',
+      button:   'REGISTER →',
+      login:    'Already registered? Log in',
+    };
+  }
+  const login = 'Already approved? Log in';
+  if (!signedIn && waitlist.joinedEmail) {
+    return {
+      kicker:   'ON THE WAITLIST',
+      headline: "You're on the waitlist",
+      copy:     `We'll email ${waitlist.joinedEmail} as soon as your access is approved.`,
+      button:   null,
+      login,
+    };
+  }
+  if (!signedIn) {
+    return {
+      kicker:   'JOIN THE WAITLIST',
+      headline: 'Want complete access?',
+      copy:     `Full access to ${waitlist.tenantName} is by approval. Join the waitlist and we'll email you when you're in.`,
+      button:   'JOIN WAITLIST →',
+      login,
+    };
+  }
+  if (waitlist.reason === 'none') {
+    return {
+      kicker:   'ONE MORE STEP',
+      headline: 'Finish joining the waitlist',
+      copy:     'Tell us a little about yourself so we can review your request.',
+      button:   'CONTINUE →',
+      login,
+    };
+  }
+  if (waitlist.reason === 'denied') {
+    return {
+      kicker:   'WAITLIST',
+      headline: 'Access not approved',
+      copy:     'If you think this is a mistake, please get in touch.',
+      button:   null,
+      login,
+    };
+  }
+  return {
+    kicker:   'ON THE WAITLIST',
+    headline: "You're on the waitlist",
+    copy:     "We'll email you as soon as your access is approved.",
+    button:   null,
+    login,
+  };
+}
+
 // ── Profiling modal ───────────────────────────────────────────────────────────
 
 interface ProfilingModalProps {
+  /** Signed-in address; null on the waitlist shows an email field instead. */
   email:   string | null;
   onClose: () => void;
   onDone:  () => void;
+  /**
+   * Set on a waitlist index (World Leaders): the same form, minus the UK-only
+   * parts (briefing, UK-only interests), with an email field, sent as a
+   * waitlist request. Null for The Knox Index's post-sign-in profile.
+   */
+  waitlist?: { tenantName: string; onJoined: (email: string) => void | Promise<void> } | null;
+  /**
+   * Waitlist only: answers saved before a signed-out visitor went to confirm
+   * their email. When set and the visitor is now signed in, the modal files
+   * the request automatically (components/auth/waitlistProfileDraft).
+   */
+  resume?: WaitlistProfileDraft | null;
 }
 
 function toSmartCase(s: string): string {
@@ -384,25 +574,52 @@ function ProgressBar({ progress }: { progress: number }) {
 
 // ── ProfilingModal ────────────────────────────────────────────────────────────
 
-function ProfilingModal({ email, onClose, onDone }: ProfilingModalProps) {
-  const [firstName, setFirstName] = useState('');
-  const [lastName,  setLastName]  = useState('');
-  const [company,   setCompany]   = useState('');
+function ProfilingModal({ email, onClose, onDone, waitlist = null, resume = null }: ProfilingModalProps) {
+  const isWaitlist = !!waitlist;
+  const interestOptions = interestsFor(!isWaitlist);
+  // On the waitlist, the form is prefilled from a saved draft when the visitor
+  // is coming back from confirming their email.
+  const d = resume?.answers;
+  const [typedEmail, setTypedEmail] = useState(resume?.email ?? '');
+  const [joined,     setJoined]     = useState<{ email: string; knox: boolean } | null>(null);
+  // Set once a signed-out visitor's link has been sent: the inbox screen.
+  const [sent,       setSent]       = useState<string | null>(null);
+  const [error,      setError]      = useState<string | null>(null);
+  const [firstName, setFirstName] = useState(d?.firstName ?? '');
+  const [lastName,  setLastName]  = useState(d?.lastName ?? '');
+  const [company,   setCompany]   = useState(d?.company ?? '');
   // Stores JUST the handle. Full URL is reconstructed via buildLinkedinUrl
   // at submit time so the rest of the system (Brevo, downstream emails)
   // continues to receive a complete URL.
-  const [linkedinHandle, setLinkedinHandle] = useState('');
-  const [segment,   setSegment]   = useState<string | null>(null);
-  const [otherText, setOtherText] = useState('');
-  const [interests, setInterests] = useState<string[]>([]);
-  const [consentUpdates,  setConsentUpdates]  = useState(true);
+  const [linkedinHandle, setLinkedinHandle] = useState(d?.linkedinHandle ?? '');
+  const [segment,   setSegment]   = useState<string | null>(d?.segment ?? null);
+  const [otherText, setOtherText] = useState(d?.otherText ?? '');
+  const [interests, setInterests] = useState<string[]>(d?.interests ?? []);
+  const [consentUpdates,  setConsentUpdates]  = useState(d?.consentUpdates ?? true);
   // Briefing frequency — mutually-exclusive pair. Weekly is the default
   // cadence for now (Daily is hidden in FrequencyPicker), so a user who
   // skims through lands on a weekly subscription. Flip these to restore daily.
   const [consentDaily,    setConsentDaily]    = useState(false);
   const [consentWeekly,   setConsentWeekly]   = useState(true);
-  const [consentKnox,     setConsentKnox]     = useState(false);
+  const [consentKnox,     setConsentKnox]     = useState(d?.consentKnox ?? false);
   const [loading, setLoading] = useState(false);
+
+  /** The current answers, for saving as a draft before sign-in. */
+  const collectAnswers = useCallback(() => ({
+    firstName, lastName, company, linkedinHandle,
+    segment, otherText, interests, consentUpdates, consentKnox,
+  }), [firstName, lastName, company, linkedinHandle, segment, otherText, interests, consentUpdates, consentKnox]);
+
+  // Back from confirming the email, with answers prefilled from the draft:
+  // file the request straight away, once.
+  const resumedRef = useRef(false);
+  useEffect(() => {
+    if (waitlist && resume && email && !resumedRef.current) {
+      resumedRef.current = true;
+      void handleSubmit();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const progress =
     segment && interests.length > 0 ? 100 :
@@ -420,6 +637,73 @@ function ProfilingModal({ email, onClose, onDone }: ProfilingModalProps) {
 
     // Reconstruct full LinkedIn URL from the captured handle for storage/Brevo.
     const linkedinUrl = buildLinkedinUrl(linkedinHandle);
+
+    if (waitlist) {
+      const address = (email ?? typedEmail).trim().toLowerCase();
+      setError(null);
+
+      // Signed out: joining needs a verified sign-in, so hold the answers in
+      // this browser and send a sign-in link. The request is filed when the
+      // visitor returns signed in (the resume effect re-opens this modal).
+      if (!email) {
+        if (!EMAIL_RE.test(address)) {
+          setError('Please enter a valid email address.');
+          setLoading(false);
+          return;
+        }
+        try {
+          saveProfileDraft({ answers: collectAnswers(), email: address });
+          await requestMagicLink(address);
+          track('registration_submit_attempted', { email: address, waitlist: true });
+          setSent(address);
+        } catch {
+          setError('We could not send the sign-in link. Please try again.');
+        } finally {
+          setLoading(false);
+        }
+        return;
+      }
+
+      // Signed in: file the request against the session (the server ignores any
+      // email in the body and uses the session's uid).
+      try {
+        const res = await fetch('/api/tenant/access', {
+          method:      'POST',
+          credentials: 'same-origin',
+          headers:     { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email:              address,
+            firstName:          firstName.trim(),
+            lastName:           lastName.trim(),
+            company:            company.trim(),
+            linkedin:           linkedinUrl,
+            segment:            resolvedSegment,
+            interests,
+            consentKnoxUpdates: consentUpdates,
+            consentKnoxDigital: consentKnox,
+          }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data?.error ?? 'We could not send that. Please try again.');
+        const knox = data?.status === 'signin';
+        clearProfileDraft();
+        setJoined({ email: data?.email ?? address, knox });
+        if (!knox) {
+          track('waitlist_joined', {
+            signed_in:       true,
+            segment:         resolvedSegment || null,
+            interests_count: interests.length,
+            consent_updates: consentUpdates,
+          });
+          await waitlist.onJoined(data?.email ?? address);
+        }
+      } catch (err: any) {
+        setError(err?.message ?? 'We could not send that. Please try again.');
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
 
     const storedEmail = email ?? (Platform.OS === 'web' ? (localStorage.getItem('tki_email') ?? '') : '');
 
@@ -480,11 +764,13 @@ function ProfilingModal({ email, onClose, onDone }: ProfilingModalProps) {
     onDone();
   }
 
-  const canSubmit = !!segment || interests.length > 0;
+  const emailOk   = !isWaitlist || !!email || EMAIL_RE.test(typedEmail.trim());
+  const canSubmit = (!!segment || interests.length > 0) && emailOk;
 
   return (
-    <Modal transparent animationType="fade" onRequestClose={() => {}}>
+    <Modal transparent animationType="fade" onRequestClose={isWaitlist ? onClose : () => {}}>
       <View style={proStyles.backdrop}>
+        {isWaitlist && <Pressable style={StyleSheet.absoluteFill} onPress={loading ? undefined : onClose} />}
         <MotiView
           from={{ opacity: 0, translateY: 24 }}
           animate={{ opacity: 1, translateY: 0 }}
@@ -497,26 +783,83 @@ function ProfilingModal({ email, onClose, onDone }: ProfilingModalProps) {
               <View style={proStyles.brandDot} />
               <Text style={proStyles.brandLabel}>THE KNOX INDEX</Text>
             </View>
-            <Text style={proStyles.progressLabel}>{progress}% complete</Text>
+            {isWaitlist ? (
+              <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Close" hitSlop={10}>
+                <FontAwesome6 name="xmark" size={16} color={neutral.textMid} />
+              </Pressable>
+            ) : (
+              <Text style={proStyles.progressLabel}>{progress}% complete</Text>
+            )}
           </View>
 
-          <ProgressBar progress={progress} />
+          <ProgressBar progress={joined ? 100 : progress} />
 
+          {joined ? (
+            <View style={proStyles.joinedWrap}>
+              <FontAwesome6 name="circle-check" size={36} color={accent.mint} solid />
+              <Text style={proStyles.title}>{joined.knox ? 'Knox addresses get straight in' : "You're on the waitlist"}</Text>
+              <Text style={proStyles.subtitle}>
+                {joined.knox
+                  ? `${joined.email} doesn't need approval. Sign in with it to open the full dashboard.`
+                  : `We'll email ${joined.email} as soon as you're approved.`}
+              </Text>
+              <Pressable
+                onPress={() => { onClose(); if (joined.knox) router.push('/login'); }}
+                style={({ pressed }) => [proStyles.submitBtn, pressed && { opacity: 0.88 }]}
+              >
+                <Text style={proStyles.submitBtnText}>{joined.knox ? 'Sign in' : 'Got it'}</Text>
+              </Pressable>
+            </View>
+          ) : sent ? (
+            <View style={proStyles.joinedWrap}>
+              <FontAwesome6 name="envelope-circle-check" size={36} color={accent.mint} solid />
+              <Text style={proStyles.title}>Check your inbox</Text>
+              <Text style={proStyles.subtitle}>
+                We've sent a sign-in link to {sent}. Open it in this browser to finish joining the waitlist — your details are saved, so there's nothing to re-enter. The link expires in an hour.
+              </Text>
+              <Pressable
+                onPress={onClose}
+                style={({ pressed }) => [proStyles.submitBtn, pressed && { opacity: 0.88 }]}
+              >
+                <Text style={proStyles.submitBtnText}>Got it</Text>
+              </Pressable>
+            </View>
+          ) : (<>
           {/* Scrollable body */}
           <ScrollView
             style={proStyles.body}
             contentContainerStyle={proStyles.bodyInner}
             showsVerticalScrollIndicator={false}
           >
-            <Text style={proStyles.title}>Help us tailor your experience</Text>
+            <Text style={proStyles.title}>{isWaitlist ? `Join the ${waitlist!.tenantName} waitlist` : 'Help us tailor your experience'}</Text>
             <Text style={proStyles.subtitle}>
-              Takes 30 seconds. Helps us surface the most relevant intelligence for the way you work.
+              {isWaitlist
+                ? "Access to World Leader data is currently in closed beta. Complete the form below if you'd like to apply."
+                : 'Takes 30 seconds. Helps us surface the most relevant intelligence for the way you work.'}
             </Text>
 
             {/* ── Your details ──────────────────────────────────────── */}
             <View style={proStyles.section}>
               <Text style={proStyles.sectionTitle}>Your details</Text>
               <View style={proStyles.detailsGrid}>
+                {isWaitlist && !email && (
+                  <View style={[proStyles.detailsField, proStyles.detailsFieldWide]}>
+                    <Text style={proStyles.fieldLabel}>EMAIL</Text>
+                    <TextInput
+                      value={typedEmail}
+                      onChangeText={setTypedEmail}
+                      placeholder="you@example.com"
+                      placeholderTextColor={neutral.textDim}
+                      style={proStyles.textInput}
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      autoFocus
+                      returnKeyType="next"
+                      {...Platform.select({ web: { outlineStyle: 'none' } as any, default: {} })}
+                    />
+                  </View>
+                )}
                 <View style={proStyles.detailsField}>
                   <Text style={proStyles.fieldLabel}>FIRST NAME</Text>
                   <TextInput
@@ -626,7 +969,7 @@ function ProfilingModal({ email, onClose, onDone }: ProfilingModalProps) {
                 <Text style={proStyles.sectionHint}>Pick all that apply</Text>
               </View>
               <View style={proStyles.cardGrid}>
-                {INTERESTS.map(v => {
+                {interestOptions.map(v => {
                   const active = interests.includes(v.id);
                   return (
                     <Pressable
@@ -654,7 +997,9 @@ function ProfilingModal({ email, onClose, onDone }: ProfilingModalProps) {
                 <Text style={proStyles.sectionTitle}>Stay in the loop</Text>
                 <Text style={proStyles.sectionHint}>Optional</Text>
               </View>
-              {/* Briefing frequency — Daily / Weekly / None */}
+              {/* Briefing frequency — Daily / Weekly / None. UK only: the
+                  briefing covers The Knox Index, so the waitlist leaves it out. */}
+              {!isWaitlist && (
               <View style={proStyles.briefingBlock}>
                 <Text style={proStyles.briefingLabel}>The Knox Index Briefing</Text>
                 <FrequencyPicker
@@ -666,6 +1011,7 @@ function ProfilingModal({ email, onClose, onDone }: ProfilingModalProps) {
                   }}
                 />
               </View>
+              )}
 
               <View style={proStyles.consentCard}>
                 <ConsentToggleRow
@@ -697,6 +1043,7 @@ function ProfilingModal({ email, onClose, onDone }: ProfilingModalProps) {
 
           {/* Footer */}
           <View style={proStyles.footerDivider} />
+          {error ? <Text style={proStyles.errorText}>{error}</Text> : null}
           <View style={proStyles.footer}>
             <Pressable
               onPress={handleSubmit}
@@ -710,12 +1057,15 @@ function ProfilingModal({ email, onClose, onDone }: ProfilingModalProps) {
               {loading
                 ? <ActivityIndicator color="#fff" size="small" />
                 : <View style={proStyles.submitBtnInner}>
-                    <Text style={proStyles.submitBtnText}>Save &amp; continue</Text>
+                    <Text style={proStyles.submitBtnText}>{isWaitlist ? 'Join the waitlist' : 'Save & continue'}</Text>
                     <FontAwesome6 name="arrow-right" size={13} color="#fff" solid />
                   </View>
               }
             </Pressable>
+            {/* Joining the waitlist is form-only: no Google shortcut. The
+                visitor completes the form and verifies via the emailed link. */}
           </View>
+          </>)}
         </MotiView>
       </View>
     </Modal>
@@ -961,6 +1311,24 @@ const proStyles = StyleSheet.create({
     minWidth: 200,
     gap:      4,
   },
+  // Waitlist email: a full row above the name fields.
+  detailsFieldWide: {
+    flexBasis: '100%',
+  },
+  // Waitlist: the confirmation that replaces the form once sent.
+  joinedWrap: {
+    alignItems:        'flex-start',
+    gap:               spacing.md,
+    paddingHorizontal: spacing.xl,
+    paddingVertical:   spacing.xl,
+  },
+  errorText: {
+    fontFamily:        font.ui,
+    fontSize:          13,
+    color:             '#FF4F6E',
+    paddingHorizontal: spacing.xl,
+    paddingTop:        spacing.sm,
+  },
   fieldLabel: {
     fontFamily:    font.bold,
     fontSize:      12,
@@ -1104,6 +1472,9 @@ const proStyles = StyleSheet.create({
     marginTop:  spacing.xs,
   },
   consentLink: { color: neutral.textMid, textDecorationLine: 'underline' },
+
+  // 'or' divider above the Google button on the signed-out waitlist form
+
 
   // Footer
   footerDivider: { height: 1, backgroundColor: 'rgba(255,255,255,0.07)' },

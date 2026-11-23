@@ -6,6 +6,7 @@ import type { BriefsApiResponse } from '@/data/types';
 import { DashCard } from '@/components/primitives/DashCard';
 import { DevLabel } from '@/components/primitives/DevLabel';
 import { PostBangerCard } from './PostBangerCard';
+import { TweetBangerCard } from './TweetBangerCard';
 import { Kicker } from '@/components/ui/Kicker';
 import { Title } from '@/components/ui/Title';
 import { neutral, party, glass, accent, brand, dataVis, colourFor } from '@/theme/colors';
@@ -15,6 +16,9 @@ import { type } from '@/theme/typography';
 import { formatters } from '@/components/primitives/CountUp';
 import type { Politician } from '@/data/types';
 import type { TimeRange } from '@/components/dashboard/TimeRangePicker';
+import { useTenant } from '@/hooks/useTenant';
+import { PLACEHOLDER_BRIEF } from '@/data/placeholderBrief';
+import type { PlatformFilter } from '@/lib/platforms';
 
 /**
  * SummaryPanel
@@ -30,12 +34,14 @@ interface Props {
   /** Drives the daily-vs-weekly swap. Defaults to 'week' so untouched call
    *  sites show the weekly briefing while the daily cadence is paused. */
   range?:       TimeRange;
+  /** Which platform's brief to show. Defaults to TikTok, the UK site's only one. */
+  platform?:    PlatformFilter;
   panelHeight?: number;
 }
 
 const INSIGHT_COLOURS = [dataVis[0], dataVis[4], dataVis[2]];
 
-export function SummaryPanel({ politicians, range = 'week', panelHeight }: Props) {
+export function SummaryPanel({ politicians, range = 'week', platform = 'tiktok', panelHeight }: Props) {
   // Daily summary by default; the weekly digest shows only when the leaderboard
   // is on the 'This week' range.
   const isWeekly = range === 'week';
@@ -62,13 +68,24 @@ export function SummaryPanel({ politicians, range = 'week', panelHeight }: Props
   }, []);
   useEffect(() => () => { if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current); }, []);
 
+  const tenant = useTenant();
+  const isPlaceholder = tenant.briefing === 'placeholder';
+  const platformNoun  = platform === 'x' ? 'X' : platform === 'tiktok' ? 'TikTok' : 'social';
+
   useEffect(() => {
     let cancelled = false;
+
+    // No stored briefings for this dashboard yet: sample copy at full size.
+    if (isPlaceholder) {
+      setBrief(PLACEHOLDER_BRIEF);
+      setBriefLoading(false);
+      return;
+    }
 
     setBriefLoading(true);
     setBriefError(null);
 
-    fetch('/api/briefs')
+    fetch(`/api/briefs?platform=${platform}`)
       .then(async r => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return await r.json() as BriefsApiResponse;
@@ -88,7 +105,7 @@ export function SummaryPanel({ politicians, range = 'week', panelHeight }: Props
       });
 
     return () => { cancelled = true; };
-  }, []);
+  }, [isPlaceholder, platform]);
 
   const insights = useMemo(() => {
     const sorted = [...politicians].sort(
@@ -108,14 +125,14 @@ export function SummaryPanel({ politicians, range = 'week', panelHeight }: Props
       {
         id: 'i1',
         label: '#1 this week',
-        value: top?.name ?? '—',
+        value: top?.name ?? 'n/a',
         sub: `Knox Factor · ${top?.scores.knoxFactor ?? 0}`,
         accentColor: colourFor(top?.groupKey ?? 'unknown').glow,
       },
       {
         id: 'i2',
         label: 'Most viral post',
-        value: mostViral ? formatters.compact(mostViral.views) + ' views' : '—',
+        value: mostViral ? formatters.compact(mostViral.views) + ' views' : 'n/a',
         sub: mostViral?.politician.name ?? '',
         accentColor: dataVis[4],
       },
@@ -177,9 +194,14 @@ export function SummaryPanel({ politicians, range = 'week', panelHeight }: Props
                 {isWeekly ? 'WEEKLY BRIEFING' : 'DAILY BRIEFING'}
               </Kicker>
               <Title style={{ fontFamily: font.ui, fontSize: 24, fontWeight: '800', letterSpacing: 0.72, lineHeight: 26 }}>
-                {isWeekly ? 'This week on TikTok' : 'Yesterday on TikTok'}
+                {isWeekly ? `This week on ${platformNoun}` : `Yesterday on ${platformNoun}`}
               </Title>
             </View>
+            {isPlaceholder && (
+              <View style={styles.staleBadge}>
+                <Text style={styles.staleBadgeText}>SAMPLE</Text>
+              </View>
+            )}
             {brief && !brief.isToday && (
               <View style={styles.staleBadge}>
                 <Text style={styles.staleBadgeText}>
@@ -190,35 +212,39 @@ export function SummaryPanel({ politicians, range = 'week', panelHeight }: Props
           </View>
         </MotiView>
 
-        {/* ── AI narrative — daily or weekly, driven by selected time range ───── */}
-        <MotiView
-          from={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ type: 'timing', duration: 400, delay: 80 }}
-        >
-          <View style={styles.narrativeCard}>
-            <View style={[styles.narrativeBar, { backgroundColor: accent.indigo }]} />
-            {briefLoading ? (
-              <Text style={[styles.narrativeText, styles.narrativeLoading]}>
-                Loading briefing…
-              </Text>
-            ) : (() => {
-              const summaryText = isWeekly
-                ? brief?.brief.briefWeeklySummary
-                : brief?.brief.briefDailySummary;
-              if (summaryText) {
-                return <Text style={styles.narrativeText}>{summaryText}</Text>;
+        {/* ── AI-generated top narratives: the brief's bullets, on every range (the summary paragraph is not shown) ── */}
+        {brief?.brief.topNarrativesThisWeek?.length || briefLoading ? (
+          <>
+            <Text style={styles.sectionKicker}>TOP NARRATIVES THIS WEEK</Text>
+            <View style={styles.narratives}>
+              {briefLoading
+                ? [0, 1, 2].map(i => (
+                    <View key={i} style={[styles.narrativeItem, styles.narrativeSkeleton]} />
+                  ))
+                : brief!.brief.topNarrativesThisWeek.map((n, i) => (
+                    <MotiView
+                      key={i}
+                      from={{ opacity: 0, translateY: 8 }}
+                      animate={{ opacity: 1, translateY: 0 }}
+                      transition={{ type: 'timing', duration: 300, delay: 300 + i * 80 }}
+                    >
+                      <View style={styles.narrativeItem}>
+                        <View style={[styles.narrativeDot, { backgroundColor: INSIGHT_COLOURS[i % INSIGHT_COLOURS.length] }]} />
+                        <View style={styles.narrativeContent}>
+                          <Text style={styles.narrativeHeadline}>{n.headline}</Text>
+                          <Text style={styles.narrativeBody}>{n.body}</Text>
+                        </View>
+                      </View>
+                    </MotiView>
+                  ))
               }
-              return (
-                <Text style={[styles.narrativeText, styles.narrativeLoading]}>
-                  {briefError
-                    ? `Error: ${briefError}`
-                    : 'No briefing available yet — check back later.'}
-                </Text>
-              );
-            })()}
-          </View>
-        </MotiView>
+            </View>
+          </>
+        ) : (
+          <Text style={styles.narrativeEmpty}>
+            {briefError ? `Error: ${briefError}` : 'No briefing available yet. Check back later.'}
+          </Text>
+        )}
 
         {/* ── Computed insight chips ───────────────── */}
         <Text style={styles.sectionKicker}>KEY STATS THIS WEEK</Text>
@@ -260,7 +286,15 @@ export function SummaryPanel({ politicians, range = 'week', panelHeight }: Props
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.bangersRow}
             >
-              {topBangers.map(({ post, politician }, i) => (
+              {topBangers.map(({ post, politician }, i) => post.tweet ? (
+                // X: the tweet itself, as in the post feed
+                <TweetBangerCard
+                  key={post.postId}
+                  post={{ ...post, tweet: post.tweet }}
+                  groupKey={politician.groupKey}
+                  delay={i * 60}
+                />
+              ) : (
                 <PostBangerCard
                   key={post.postId}
                   post={post}
@@ -291,35 +325,7 @@ export function SummaryPanel({ politicians, range = 'week', panelHeight }: Props
           </>
         ) : null}
 
-        {/* ── AI-generated top narratives — only shown when 'This week' is selected ── */}
-        {isWeekly && (brief?.brief.topNarrativesThisWeek?.length || briefLoading) ? (
-          <>
-            <Text style={styles.sectionKicker}>TOP NARRATIVES THIS WEEK</Text>
-            <View style={styles.narratives}>
-              {briefLoading
-                ? [0, 1, 2].map(i => (
-                    <View key={i} style={[styles.narrativeItem, styles.narrativeSkeleton]} />
-                  ))
-                : brief!.brief.topNarrativesThisWeek.map((n, i) => (
-                    <MotiView
-                      key={i}
-                      from={{ opacity: 0, translateY: 8 }}
-                      animate={{ opacity: 1, translateY: 0 }}
-                      transition={{ type: 'timing', duration: 300, delay: 300 + i * 80 }}
-                    >
-                      <View style={styles.narrativeItem}>
-                        <View style={[styles.narrativeDot, { backgroundColor: INSIGHT_COLOURS[i % INSIGHT_COLOURS.length] }]} />
-                        <View style={styles.narrativeContent}>
-                          <Text style={styles.narrativeHeadline}>{n.headline}</Text>
-                          <Text style={styles.narrativeBody}>{n.body}</Text>
-                        </View>
-                      </View>
-                    </MotiView>
-                  ))
-              }
-            </View>
-          </>
-        ) : null}
+
       </ScrollView>
     </DashCard>
   );
@@ -365,6 +371,11 @@ const styles = StyleSheet.create({
   },
 
   // Narrative card
+  narrativeEmpty: {
+    ...type.body,
+    fontSize: 13,
+    color:    neutral.textDim,
+  },
   narrativeCard: {
     flexDirection: 'row',
     gap: spacing.md,

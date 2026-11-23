@@ -10,7 +10,9 @@
  *   company            string   — optional
  *   segment            string   — optional (from SEGMENTS data)
  *   interests          string[] — optional (from INTERESTS data)
- *   consentBriefing    boolean  — daily briefing emails (mirrors list #4)
+ *   consentDailyBriefing / consentWeeklyBriefing  boolean — briefing
+ *                      frequency, lists #4 / #9, never both (consentBriefing
+ *                      is the older daily-only name and is still accepted)
  *   consentUpdates     boolean  — product update emails (mirrors list #7)
  *   consentKnox        boolean  — wider Knox Digital contact (mirrors list #8)
  *
@@ -25,7 +27,7 @@
  */
 
 import { BRAND } from '@/brand/constants';
-import { upsertWithConsent } from '@/lib/brevo';
+import { upsertWithConsent, type BriefingFrequency } from '@/lib/brevo';
 
 const BREVO_API_KEY    = process.env.BREVO_API_KEY ?? '';
 const BREVO_BASE       = 'https://api.brevo.com/v3';
@@ -37,17 +39,23 @@ const EMAIL_RE         = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // ── Helper: POST transactional email to Brevo ─────────────────────────────────
 // (Contact upserts go through lib/brevo.ts — this is only used for emails.)
 
-async function sendEmail(body: unknown): Promise<{ ok: boolean; status: number }> {
-  const res = await fetch(`${BREVO_BASE}/smtp/email`, {
-    method:  'POST',
-    headers: {
-      'api-key':      BREVO_API_KEY,
-      'Content-Type': 'application/json',
-      'Accept':       'application/json',
-    },
-    body: JSON.stringify(body),
-  });
-  return { ok: res.ok || res.status === 204, status: res.status };
+async function sendEmail(body: unknown): Promise<{ ok: boolean; status: number; detail?: string }> {
+  try {
+    const res = await fetch(`${BREVO_BASE}/smtp/email`, {
+      method:  'POST',
+      headers: {
+        'api-key':      BREVO_API_KEY,
+        'Content-Type': 'application/json',
+        'Accept':       'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+    const ok = res.ok || res.status === 204;
+    const detail = ok ? undefined : (await res.text().catch(() => '')).slice(0, 300);
+    return { ok, status: res.status, detail };
+  } catch (err: unknown) {
+    return { ok: false, status: 0, detail: (err as Error)?.message ?? String(err) };
+  }
 }
 
 // ── Route handler ─────────────────────────────────────────────────────────────
@@ -73,62 +81,82 @@ export async function POST(request: Request): Promise<Response> {
   const interests:        string[] = Array.isArray(body?.interests)
     ? body.interests.map((x: any) => String(x).slice(0, 64)).slice(0, 10)
     : [];
-  const consentBriefing:  boolean  = Boolean(body?.consentBriefing);
+  // Briefing frequency: daily OR weekly, never both (daily wins a tie, as in
+  // /api/preferences). The form sends both flags; older clients send only
+  // consentBriefing, which means daily.
+  const consentDaily:     boolean  = Boolean(body?.consentDailyBriefing ?? body?.consentBriefing);
+  const consentWeekly:    boolean  = Boolean(body?.consentWeeklyBriefing) && !consentDaily;
+  const briefing: BriefingFrequency = consentDaily ? 'daily' : consentWeekly ? 'weekly' : 'none';
   const consentUpdates:   boolean  = Boolean(body?.consentUpdates);
   const consentKnox:      boolean  = Boolean(body?.consentKnox);
 
   // 1. Upsert Brevo contact — attributes + list membership in one call.
-  //    List membership (lists #4 / #7 / #8) is the canonical subscription state;
+  //    List membership (lists #4 / #7 / #8 / #9) is the canonical subscription state;
   //    the CONSENT_* attributes are mirrors so downstream readers don't need
   //    a second Brevo round-trip to see consent.
-  upsertWithConsent(
+  //    Every Brevo call is awaited: on Vercel, work still running after the
+  //    response is sent can be cut off, and this one IS the subscription.
+  const upsertRes = await upsertWithConsent(
     email,
     {
       SOURCE:                     'TKI signup page',
       COMPANY:                    company || undefined,
       JOB_ROLE:                   segment || undefined,
       WHY_USE_KNOX_INDEX:         interests.length ? interests : undefined,
-      CONSENT_DAILY_BRIEFING:     consentBriefing,
+      CONSENT_DAILY_BRIEFING:     consentDaily,
+      CONSENT_WEEKLY_BRIEFING:    consentWeekly,
       CONSENT_KNOX_INDEX_UPDATES: consentUpdates,
       CONSENT_KNOX_DIGITAL:       consentKnox,
     },
     {
-      CONSENT_DAILY_BRIEFING:     consentBriefing,
+      CONSENT_DAILY_BRIEFING:     consentDaily,
+      CONSENT_WEEKLY_BRIEFING:    consentWeekly,
       CONSENT_KNOX_INDEX_UPDATES: consentUpdates,
       CONSENT_KNOX_DIGITAL:       consentKnox,
     },
-  ).catch((e: any) => console.error('[/api/signup] Brevo upsert error', e));
+  );
+
+  // The list upsert IS the subscription: if Brevo refused it, say so before
+  // sending a welcome for a subscription that does not exist
+  if (!upsertRes.ok) {
+    return Response.json({ error: 'We could not complete your sign-up. Please try again.' }, { status: 502 });
+  }
 
   // 2. Welcome email to subscriber
   const welcomeRes = await sendEmail({
     sender:      { name: FROM_NAME, email: FROM_EMAIL },
     to:          [{ email }],
     subject:     'You\'re subscribed to The Knox Index',
-    htmlContent: welcomeHtml(email, consentBriefing),
-    textContent: welcomeText(email),
+    htmlContent: welcomeHtml(email, briefing),
+    textContent: welcomeText(email, briefing),
   });
 
   if (!welcomeRes.ok) {
-    console.error('[/api/signup] Brevo welcome email error', welcomeRes.status);
+    console.error('[/api/signup] Brevo welcome email error', welcomeRes.status, welcomeRes.detail ?? '');
   }
 
-  // 3. Internal notification (fire-and-forget)
-  sendEmail({
+  // 3. Internal notification (awaited, but its failure does not fail the sign-up)
+  const notifyRes = await sendEmail({
     sender:      { name: FROM_NAME, email: FROM_EMAIL },
     to:          [{ email: NOTIFY_EMAIL }],
     subject:     `New signup: ${email}`,
-    htmlContent: notifyHtml({ email, company, segment, interests, consentBriefing, consentUpdates, consentKnox }),
-    textContent: notifyText({ email, company, segment, interests, consentBriefing, consentUpdates, consentKnox }),
-  }).catch((e: any) => console.error('[/api/signup] Brevo notify error', e));
+    htmlContent: notifyHtml({ email, company, segment, interests, briefing, consentUpdates, consentKnox }),
+    textContent: notifyText({ email, company, segment, interests, briefing, consentUpdates, consentKnox }),
+  });
+  if (!notifyRes.ok) {
+    console.error('[/api/signup] Brevo notify error', notifyRes.status, notifyRes.detail ?? '');
+  }
 
   return Response.json({ ok: true }, { status: 200 });
 }
 
 // ── Email templates ───────────────────────────────────────────────────────────
 
-function welcomeHtml(email: string, consentBriefing: boolean): string {
-  const briefingLine = consentBriefing
+function welcomeHtml(email: string, briefing: BriefingFrequency): string {
+  const briefingLine = briefing === 'daily'
     ? '<p style="margin:0 0 24px;font-size:14px;line-height:22px;color:#A8A8BA;">Your first briefing will land at <strong style="color:#ECECF2;">8:00AM tomorrow</strong>.</p>'
+    : briefing === 'weekly'
+    ? '<p style="margin:0 0 24px;font-size:14px;line-height:22px;color:#A8A8BA;">Your first <strong style="color:#ECECF2;">weekly briefing</strong> will land with the next edition.</p>'
     : '<p style="margin:0 0 24px;font-size:14px;line-height:22px;color:#A8A8BA;">You can update your preferences at any time from your account settings.</p>';
 
   return `<!DOCTYPE html>
@@ -173,8 +201,13 @@ function welcomeHtml(email: string, consentBriefing: boolean): string {
 </html>`;
 }
 
-function welcomeText(email: string): string {
-  return `You're subscribed to The Knox Index.\n\nTikTok insights on UK politicians — in your inbox every morning at 8:00AM.\n\n${BRAND.contact.website}\n\nSigned up with: ${email}\nKnox Digital · London, UK`;
+function welcomeText(email: string, briefing: BriefingFrequency): string {
+  const when = briefing === 'daily'
+    ? 'Social media insights on UK politicians, in your inbox every morning at 8:00AM.'
+    : briefing === 'weekly'
+    ? 'Social media insights on UK politicians, in your inbox every week.'
+    : 'You can update your preferences at any time from your account settings.';
+  return `You're subscribed to The Knox Index.\n\n${when}\n\n${BRAND.contact.website}\n\nSigned up with: ${email}\nKnox Digital · London, UK`;
 }
 
 interface NotifyPayload {
@@ -182,7 +215,7 @@ interface NotifyPayload {
   company:          string;
   segment:          string;
   interests:        string[];
-  consentBriefing:  boolean;
+  briefing:         BriefingFrequency;
   consentUpdates:   boolean;
   consentKnox:      boolean;
 }
@@ -197,7 +230,7 @@ function notifyHtml(p: NotifyPayload): string {
     <tr><td style="padding:6px 0;color:#555;">Company</td><td style="padding:6px 0;">${p.company || '—'}</td></tr>
     <tr><td style="padding:6px 0;color:#555;">Segment</td><td style="padding:6px 0;">${p.segment || '—'}</td></tr>
     <tr><td style="padding:6px 0;color:#555;">Interests</td><td style="padding:6px 0;">${p.interests.join(', ') || '—'}</td></tr>
-    <tr><td style="padding:6px 0;color:#555;">Daily briefing</td><td style="padding:6px 0;">${flag(p.consentBriefing)}</td></tr>
+    <tr><td style="padding:6px 0;color:#555;">Briefing</td><td style="padding:6px 0;">${p.briefing}</td></tr>
     <tr><td style="padding:6px 0;color:#555;">Product updates</td><td style="padding:6px 0;">${flag(p.consentUpdates)}</td></tr>
     <tr><td style="padding:6px 0;color:#555;">Knox Digital</td><td style="padding:6px 0;">${flag(p.consentKnox)}</td></tr>
   </table>
@@ -211,7 +244,7 @@ function notifyText(p: NotifyPayload): string {
     `Company:  ${p.company || '—'}`,
     `Segment:  ${p.segment || '—'}`,
     `Interests: ${p.interests.join(', ') || '—'}`,
-    `Daily briefing:  ${flag(p.consentBriefing)}`,
+    `Briefing:        ${p.briefing}`,
     `Product updates: ${flag(p.consentUpdates)}`,
     `Knox Digital:    ${flag(p.consentKnox)}`,
   ].join('\n');

@@ -33,18 +33,22 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // ── Helper: POST to Brevo ─────────────────────────────────────────────────────
 
 async function brevo(path: string, body: unknown): Promise<{ ok: boolean; status: number; json: any }> {
-  const res = await fetch(`${BREVO_BASE}${path}`, {
-    method:  'POST',
-    headers: {
-      'api-key':      BREVO_API_KEY,
-      'Content-Type': 'application/json',
-      'Accept':       'application/json',
-    },
-    body: JSON.stringify(body),
-  });
-  let json: any = {};
-  try { json = await res.json(); } catch { /* noop */ }
-  return { ok: res.ok || res.status === 204, status: res.status, json };
+  try {
+    const res = await fetch(`${BREVO_BASE}${path}`, {
+      method:  'POST',
+      headers: {
+        'api-key':      BREVO_API_KEY,
+        'Content-Type': 'application/json',
+        'Accept':       'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+    let json: any = {};
+    try { json = await res.json(); } catch { /* noop */ }
+    return { ok: res.ok || res.status === 204, status: res.status, json };
+  } catch (err: any) {
+    return { ok: false, status: 0, json: { message: err?.message ?? String(err) } };
+  }
 }
 
 // ── Handler ───────────────────────────────────────────────────────────────────
@@ -71,14 +75,15 @@ export async function POST(request: Request): Promise<Response> {
       : [];
 
     if (email && EMAIL_RE.test(email)) {
-      await brevo('/contacts', {
+      const res = await brevo('/contacts', {
         email,
         updateEnabled: true,
         attributes: {
           SEGMENT:   segment   || undefined,
           INTERESTS: interests.join(', ') || undefined,
         },
-      }).catch((e: any) => console.error('register: profile update error', e));
+      });
+      if (!res.ok) console.error('register: profile update error', res.status, res.json);
     }
     return Response.json({ ok: true }, { status: 200 });
   }
@@ -125,14 +130,16 @@ export async function POST(request: Request): Promise<Response> {
     console.error('register: Brevo confirmation email error', confirmRes.status, confirmRes.json);
   }
 
-  // 3. Internal notification (fire-and-forget)
-  brevo('/smtp/email', {
+  // 3. Internal notification. Awaited so Vercel does not cut it off once the
+  //    response is sent; a failure is logged, not shown to the registrant.
+  const notifyRes = await brevo('/smtp/email', {
     sender:      { name: FROM_NAME, email: FROM_EMAIL },
     to:          [{ name: NOTIFY_NAME, email: NOTIFY_EMAIL }],
     subject:     `New TKI registration: ${email}`,
     htmlContent: notifyHtml(email, permReport, permDaily, permWider),
     textContent: notifyText(email, permReport, permDaily, permWider),
-  }).catch((e: any) => console.error('register: notify email error', e));
+  });
+  if (!notifyRes.ok) console.error('register: notify email error', notifyRes.status, notifyRes.json);
 
   return Response.json({ ok: true }, { status: 200 });
 }

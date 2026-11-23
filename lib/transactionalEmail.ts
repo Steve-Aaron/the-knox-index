@@ -25,7 +25,8 @@ export interface EmailRecipient {
 export interface TransactionalEmail {
   to:          EmailRecipient[];
   subject:     string;
-  htmlContent: string;
+  /** Omit for a plain-text email (internal alerts). */
+  htmlContent?: string;
   textContent: string;
   replyTo?:    EmailRecipient;
   fromName?:   string;
@@ -60,7 +61,7 @@ export async function sendEmail(email: TransactionalEmail): Promise<{ ok: boolea
         to:          email.to,
         replyTo:     email.replyTo,
         subject:     email.subject,
-        htmlContent: email.htmlContent,
+        ...(email.htmlContent ? { htmlContent: email.htmlContent } : {}),
         textContent: email.textContent,
       }),
     });

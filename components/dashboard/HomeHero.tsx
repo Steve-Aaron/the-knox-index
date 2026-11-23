@@ -11,6 +11,7 @@ import { neutral, glass, brand, knox } from '@/theme/colors';
 import { spacing } from '@/theme/spacing';
 import { font } from '@/theme/typography';
 import { breakpoints } from '@/theme/breakpoints';
+import { PAGE_MAX_WIDTH } from '@/theme/layoutTokens';
 import type { Politician, LifetimeTopPost } from '@/data/types';
 import type { TimeRange } from '@/components/dashboard/TimeRangePicker';
 
@@ -272,7 +273,7 @@ const styles = StyleSheet.create({
     gap:           spacing.xxl,
     width:         '100%',
     flex:          1,
-    maxWidth:      1600,
+    maxWidth:      PAGE_MAX_WIDTH,
     alignSelf:     'center',
   },
   topRowStacked: {
@@ -358,7 +359,7 @@ const styles = StyleSheet.create({
   // ── Bottom — dashboard numbers strip ──────────────────────────────────────
   statsStrip: {
     width:    '100%',
-    maxWidth: 1600,
+    maxWidth: PAGE_MAX_WIDTH,
     alignSelf: 'center',
     marginTop: spacing.lg,
   },

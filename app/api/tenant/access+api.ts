@@ -4,44 +4,38 @@
  * The client's view of its own access to the current tenant.
  *
  * GET  /api/tenant/access  → { tenant, mode, email, allowed, reason }
- * POST /api/tenant/access  → records a pending access request for the
- *                            signed-in user from the request form, emails
- *                            Knox and the requester, then returns the same
- *                            shape as GET
+ * POST /api/tenant/access  → records a pending request for the SIGNED-IN
+ *                            caller and alerts Knox. A guest (no session) is
+ *                            refused with 401: joining needs a verified
+ *                            sign-in, so the request is always tied to a real
+ *                            Firebase uid and the email in the body is ignored.
  *
- * Never 401s: the gate UI needs to know WHY it is locked in order to show the
- * right screen (sign in / awaiting approval / refused), so the state is always
- * returned with a 200.
+ * GET never 401s: the gate UI needs to know WHY it is locked to show the right
+ * screen, so the state is always returned with a 200.
  */
 
-import { verifySession } from '@/lib/firebaseAdmin';
-import { devSessionEmail } from '@/lib/devIdentity';
+import { previewFullAccess } from '@/lib/devIdentity';
 import { tenantFromRequest } from '@/lib/tenantRequest';
-import { tenantFullName } from '@/lib/tenants';
-import { decideAccess, requestAccess, getAccessRecord, type AccessRequestDetails } from '@/lib/tenantAccess';
-import { notifyKnoxOfRequest, confirmRequestToRequester } from '@/lib/accessEmails';
-import { REGION_KEYS } from '@/lib/regions';
+import { identityFromRequest } from '@/lib/sessionIdentity';
+import { isAllowedDomain, tenantFullName } from '@/lib/tenants';
+import { decideAccess, requestAccess, getAccessStatus } from '@/lib/tenantAccess';
+import { notifyKnoxOfRequest, confirmRequestToRequester, emailOrigin, type Requester } from '@/lib/accessEmails';
 import { safeErrorDetail } from '@/lib/errors';
+import { readProfileAnswers, saveProfileToBrevo, type ProfileAnswers } from '@/lib/brevoProfile';
+import { segmentLabel, interestLabels } from '@/data/profileOptions';
+import { addToIndexList } from '@/lib/brevoIndexList';
 
 const NO_STORE = { 'Cache-Control': 'no-store' };
 
-async function currentEmail(request: Request): Promise<string | null> {
-  try {
-    const user = await verifySession(request.headers.get('Cookie'));
-    if (user?.email) return user.email;
-  } catch { /* no or invalid cookie */ }
-
-  // Development only: DEV_TENANT_EMAIL stands in for the session cookie so the
-  // request form can be exercised on localhost. See lib/devIdentity.ts.
-  return devSessionEmail();
-}
-
 export async function GET(request: Request): Promise<Response> {
-  const tenant = tenantFromRequest(request);
-  const email  = tenant.access.mode === 'public' ? null : await currentEmail(request);
+  const tenant   = tenantFromRequest(request);
+  const identity = tenant.access.mode === 'public' ? null : await identityFromRequest(request);
 
   try {
-    const decision = await decideAccess(email, tenant);
+    // Vercel preview only: full access turned on in the preview bar (same rule as lib/tenantGuard.ts)
+    const decision = previewFullAccess(request.headers.get('Cookie'))
+      ? { allowed: true as const, reason: 'dev-bypass' as const }
+      : await decideAccess(identity, tenant);
     return Response.json(
       {
         // The dashboard id is the identifier; the slug is along for readability.
@@ -49,7 +43,7 @@ export async function GET(request: Request): Promise<Response> {
         tenant:      tenant.id,
         name:        tenantFullName(tenant),
         mode:        tenant.access.mode,
-        email,
+        email:       identity?.email ?? null,
         allowed:     decision.allowed,
         reason:      decision.reason,
       },
@@ -62,87 +56,137 @@ export async function GET(request: Request): Promise<Response> {
   }
 }
 
-/**
- * Whitelist the region keys so a hand-rolled POST cannot store arbitrary
- * strings. These are AREAS OF INTEREST — what the requester wants to read
- * about. They have nothing to do with what an approved user may see.
- */
-function cleanAreasOfInterest(raw: unknown): string[] {
-  if (!Array.isArray(raw)) return [];
-  const allowed = new Set<string>(REGION_KEYS as readonly string[]);
-  return raw.map(r => String(r)).filter(r => allowed.has(r)).slice(0, 8);
-}
+// ── Building the Knox alert from what the caller sent ───────────────────────
 
-function readDetails(body: any): AccessRequestDetails {
-  const text = (v: unknown, max: number) => String(v ?? '').trim().slice(0, max);
+/** The waitlist's 'Help us tailor your experience' answers → an alert. */
+function requesterFromProfile(email: string, a: ProfileAnswers): Requester {
+  const name = [a.firstName, a.lastName].filter(Boolean).join(' ').slice(0, 128);
   return {
-    requesterName:  text(body?.name,           128),
-    organisation:   text(body?.organisation,   160),
-    jobRole:        text(body?.role,           128),
-    reason:         text(body?.reason,        1000),
-    referralSource:  text(body?.referralSource, 120),
-    areasOfInterest: cleanAreasOfInterest(body?.areasOfInterest),
+    email,
+    name,
+    details: [
+      `Name: ${name || 'Not given'}`,
+      `Company: ${a.company || 'Not given'}`,
+      `Who they are: ${a.segment ? segmentLabel(a.segment) : 'Not given'}`,
+      `Wants to: ${a.interests.length ? interestLabels(a.interests) : 'Not given'}`,
+      `LinkedIn: ${a.linkedin || 'Not given'}`,
+    ],
   };
 }
 
+/** The gated index's own form (name + reason required). */
+function requesterFromBody(email: string, body: any): { who: Requester; name: string; reason: string } {
+  const text = (v: unknown, max: number) => String(v ?? '').trim().slice(0, max);
+  const name   = text(body?.name, 128);
+  const org    = text(body?.organisation, 160);
+  const role   = text(body?.role, 128);
+  const reason = text(body?.reason, 1000);
+  return {
+    who: {
+      email,
+      name,
+      details: [
+        `Name: ${name || 'Not given'}`,
+        `Organisation: ${org || 'Not given'}`,
+        `Role: ${role || 'Not given'}`,
+        '',
+        `Reason: ${reason || 'Not given'}`,
+      ],
+    },
+    name,
+    reason,
+  };
+}
+
+/**
+ * POST — join the waitlist / ask for access. Signed-in callers only.
+ *
+ * Waitlist (World Leaders): the person has already signed in (verified email),
+ * so the request is filed against their Firebase uid in Firestore and their
+ * details go to Brevo, tied back by that uid. Nothing identifying is stored in
+ * the access layer. Knox is alerted; the approval email signs them straight in.
+ *
+ * Authenticated index: the signed-in caller, with name and reason required.
+ */
 export async function POST(request: Request): Promise<Response> {
   const tenant = tenantFromRequest(request);
+  const base   = { dashboardId: tenant.dashboardId, tenant: tenant.id };
 
   if (tenant.access.mode === 'public') {
-    return Response.json({ dashboardId: tenant.dashboardId, tenant: tenant.id, allowed: true, reason: 'public' }, { headers: NO_STORE });
+    return Response.json({ ...base, allowed: true, reason: 'public' }, { headers: NO_STORE });
   }
 
-  const email = await currentEmail(request);
-  if (!email) {
+  const identity = await identityFromRequest(request);
+  if (!identity) {
     return Response.json(
-      { dashboardId: tenant.dashboardId, tenant: tenant.id, allowed: false, reason: 'unauthenticated' },
+      { ...base, error: 'Sign in to join', allowed: false, reason: 'unauthenticated' },
       { status: 401, headers: NO_STORE },
     );
   }
+  const { uid, email } = identity;
 
   let body: any = {};
   try { body = await request.json(); } catch { /* an empty body is still a valid request */ }
 
-  // Someone who is already in has nothing to request. Domain-allowed staff can
-  // reach this endpoint (a stale tab, a direct POST), and writing them a
-  // pending row would put a request in the admin queue that nobody can action
-  // and that says nothing about their access.
-  const existing = await decideAccess(email, tenant);
-  if (existing.allowed) {
-    return Response.json(
-      { dashboardId: tenant.dashboardId, tenant: tenant.id, email, status: 'approved', allowed: true, reason: existing.reason },
-      { headers: NO_STORE },
-    );
-  }
-
-  const details = readDetails(body);
-
-  // Name and reason are what make a request reviewable; the rest is optional.
-  if (!details.requesterName || !details.reason) {
-    return Response.json(
-      { error: 'Your name and a reason for access are required', field: !details.requesterName ? 'name' : 'reason' },
-      { status: 400, headers: NO_STORE },
-    );
-  }
+  const isWaitlist = tenant.access.mode === 'waitlist';
 
   try {
-    const status   = await requestAccess(email, tenant, details);
-    const decision = await decideAccess(email, tenant);
-
-    // Emails are best-effort and must not fail the submission — the row is
-    // already stored, and it is what the admin panel reads.
-    if (status === 'pending') {
-      const record = await getAccessRecord(email, tenant);
-      if (record) {
-        await Promise.allSettled([
-          notifyKnoxOfRequest(record, tenant),
-          confirmRequestToRequester(record, tenant),
-        ]);
-      }
+    // Knox addresses are in by domain: they only need to sign in.
+    if (isAllowedDomain(email, tenant)) {
+      return Response.json({ ...base, email, status: 'signin', allowed: true, reason: 'domain' }, { headers: NO_STORE });
     }
 
+    // Already approved (a stale tab, a direct POST): nothing to request.
+    const existing = await decideAccess(identity, tenant);
+    if (existing.allowed) {
+      return Response.json({ ...base, email, status: 'approved', allowed: true, reason: existing.reason }, { headers: NO_STORE });
+    }
+
+    // Collect the answers and check the required ones.
+    const profile = isWaitlist ? readProfileAnswers(body) : null;
+    let who: Requester;
+
+    if (isWaitlist) {
+      if (!profile!.segment && profile!.interests.length === 0) {
+        return Response.json({ error: 'Tell us a little about yourself', field: 'segment' }, { status: 400, headers: NO_STORE });
+      }
+      who = requesterFromProfile(email, profile!);
+    } else {
+      const parsed = requesterFromBody(email, body);
+      if (!parsed.name || !parsed.reason) {
+        return Response.json(
+          { error: 'Your name and a reason for access are required', field: !parsed.name ? 'name' : 'reason' },
+          { status: 400, headers: NO_STORE },
+        );
+      }
+      who = parsed.who;
+    }
+
+    const before = await getAccessStatus(uid, tenant);
+    const status = await requestAccess(identity, tenant);
+
+    // Waitlist: save the details to Brevo, tied to the uid, then add to the
+    // World Leaders list. Best-effort — the access decision is already stored.
+    if (isWaitlist && profile) {
+      const saved = await saveProfileToBrevo(email, profile, { includeBriefing: false, firebaseUid: uid });
+      if (!saved.ok) console.error('[/api/tenant/access] Brevo save failed', saved.status, saved.detail ?? '');
+      else await addToIndexList(email, tenant);
+    }
+
+    // Alert Knox once per new request. The gated index also acknowledges; the
+    // waitlist stays quiet until the decision.
+    if (status === 'pending' && before === 'none') {
+      const sends = [notifyKnoxOfRequest(who, tenant, emailOrigin(request))];
+      if (!isWaitlist) sends.push(confirmRequestToRequester(who, tenant));
+      const results = await Promise.allSettled(sends);
+      results.forEach(r => {
+        if (r.status === 'rejected') console.error('[/api/tenant/access] email failed:', r.reason?.message ?? r.reason);
+      });
+    }
+
+    const decision = await decideAccess(identity, tenant);
     return Response.json(
-      { dashboardId: tenant.dashboardId, tenant: tenant.id, email, status, allowed: decision.allowed, reason: decision.reason },
+      { ...base, email, status, allowed: decision.allowed, reason: decision.reason },
       { headers: NO_STORE },
     );
   } catch (err: unknown) {
