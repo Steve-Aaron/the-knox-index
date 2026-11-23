@@ -60,7 +60,7 @@ export const party = {
   dup:          { base: '#D46A4C', glow: '#F09879' },
   sinnfein:     { base: '#326760', glow: '#5FA095' },
   alliance:     { base: '#E84393', glow: '#F18FBE' },   // magenta (off the crowded warm/orange end; distinct from Lib Dem + DUP)
-  restore:      { base: '#0B2545', glow: '#35527D' },   // confirmed (Restore navy)
+  restore:      { base: '#134870', glow: '#3A6FA0' },   // Restore Britain (set by Steve); glow is a lighter tint of the base
   sdlp:         { base: '#2EA84F', glow: '#74D38E' },   // PLACEHOLDER — replace with brand hex
   uup:          { base: '#5BA3DC', glow: '#93C7EC' },   // PLACEHOLDER
   tuv:          { base: '#FFFFFF', glow: '#E4E4EC' },   // white
