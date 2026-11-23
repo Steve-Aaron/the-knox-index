@@ -16,9 +16,10 @@ import { font } from '@/theme/typography';
  * TenantGate
  * -----------
  * Wraps a screen on a gated tenant and renders it only when the server says
- * this visitor may read it. On a public or waitlist tenant it is a
- * pass-through with no network call: anyone sees the guest view there, and
- * the waitlist is handled on the dashboard itself (StickyUnlock).
+ * this visitor may read it. On a public tenant it is a pass-through. On a
+ * waitlist tenant it is a pass-through too (the dashboard shows the guest view
+ * and handles the waitlist via StickyUnlock) UNLESS requireFullAccess is set,
+ * which the account page passes so its per-account data stays behind approval.
  *
  * Four locked states, one screen each:
  *   unauthenticated → sign in
@@ -34,6 +35,9 @@ import { font } from '@/theme/typography';
 
 interface Props {
   children: React.ReactNode;
+  /** Require the FULL (approved) view even on a waitlist tenant. Used by the
+   *  account page, whose per-account data is not part of the open guest view. */
+  requireFullAccess?: boolean;
 }
 
 /**
@@ -45,9 +49,12 @@ function withPreviewBar(node: React.ReactNode): React.ReactElement {
   return <>{node}<DevPanel /></>;
 }
 
-export function TenantGate({ children }: Props) {
+export function TenantGate({ children, requireFullAccess = false }: Props) {
   const tenant = useTenant();
-  if (tenant.access.mode !== 'authenticated') return <>{children}</>;
+  const gated =
+    tenant.access.mode === 'authenticated' ||
+    (requireFullAccess && tenant.access.mode === 'waitlist');
+  if (!gated) return <>{children}</>;
   return <LockedTenantGate>{children}</LockedTenantGate>;
 }
 

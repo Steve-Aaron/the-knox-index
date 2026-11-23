@@ -38,7 +38,7 @@ function AccountPageInner() {
 /** Gated tenants show the sign-in / approval door instead of the account. */
 export default function AccountPage() {
   return (
-    <TenantGate>
+    <TenantGate requireFullAccess>
       <AccountPageInner />
     </TenantGate>
   );
