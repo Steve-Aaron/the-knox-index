@@ -801,7 +801,7 @@ function ProfilingModal({ email, onClose, onDone, waitlist = null, resume = null
               <Text style={proStyles.subtitle}>
                 {joined.knox
                   ? `${joined.email} doesn't need approval. Sign in with it to open the full dashboard.`
-                  : `The Knox team reviews every request. We'll email ${joined.email} as soon as you're approved.`}
+                  : `We'll email ${joined.email} as soon as you're approved.`}
               </Text>
               <Pressable
                 onPress={() => { onClose(); if (joined.knox) router.push('/login'); }}
