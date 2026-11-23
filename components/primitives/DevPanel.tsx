@@ -23,6 +23,7 @@ const STATES: { state: DevPreviewState; label: string; color: string }[] = [
   { state: 'gate',   label: 'Gate',   color: '#FFB547' },
   { state: 'signup', label: 'Signup', color: '#5F64BD' },
   { state: 'full',   label: 'Full',   color: '#3DFFC0' },
+  { state: 'waitlist', label: 'Waitlist', color: knox.primaryPink },
 ];
 
 export function DevPanel() {

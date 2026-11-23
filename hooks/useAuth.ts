@@ -59,7 +59,7 @@ export function useAuth(): AuthState {
     // Dev preview: skip server verification entirely — no real cookie exists
     // in local dev, so /api/auth/me would return 401 and undo the seeded state.
     const devPreview = getDevPreview();
-    if (devPreview === 'signup' || devPreview === 'full') {
+    if (devPreview === 'signup' || devPreview === 'full' || devPreview === 'waitlist') {
       setSuperProperties({ is_registered: true });
       setLoading(false);
       return;
